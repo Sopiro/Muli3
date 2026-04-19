@@ -1,0 +1,27 @@
+cmake_minimum_required(VERSION 3.16)
+
+project(muli3 LANGUAGES C CXX VERSION 0.1.0)
+
+option(MULI3_BUILD_DEMO "Build the demo project" ON)
+
+include(GNUInstallDirs)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)
+
+add_subdirectory(src)
+
+if(MULI3_BUILD_DEMO)
+    add_subdirectory(demo)
+
+    # default startup project for Visual Studio
+    if(MSVC)
+        set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT demo)
+        set_property(TARGET demo PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/demo)
+    endif()
+endif()
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/muli3
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)

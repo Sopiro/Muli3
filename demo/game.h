@@ -1,0 +1,100 @@
+#pragma once
+
+#include "camera.h"
+#include "demo.h"
+#include "renderer.h"
+
+namespace muli3
+{
+
+class Game : NonCopyable
+{
+public:
+    Game();
+    ~Game();
+
+    void Update(float dt);
+    void FixedUpdate();
+    void Render();
+
+    Renderer& GetRenderer();
+    float GetTime() const;
+    float GetFixedDeltaTime() const;
+    void SetFixedDeltaTime(float newFixedDeltaTime);
+    void RestartDemo();
+    void NextDemo();
+    void PrevDemo();
+
+private:
+    void UpdateUI();
+    void UpdateInput();
+    void InitDemo(size_t index);
+
+    Renderer renderer;
+    Demo* demo = nullptr;
+
+    bool paused = false;
+    bool step = false;
+    bool restart = false;
+    float fixedDeltaTime = 1.0f / 60.0f;
+    float time = 0.0f;
+    float dt = 0.0f;
+    size_t demoCount = 0;
+    size_t demoIndex = 0;
+    size_t newIndex = 0;
+};
+
+inline Renderer& Game::GetRenderer()
+{
+    return renderer;
+}
+
+inline float Game::GetTime() const
+{
+    return time;
+}
+
+inline float Game::GetFixedDeltaTime() const
+{
+    return fixedDeltaTime;
+}
+
+inline void Game::SetFixedDeltaTime(float newFixedDeltaTime)
+{
+    fixedDeltaTime = newFixedDeltaTime;
+
+    if (demo)
+    {
+        demo->dt = newFixedDeltaTime;
+    }
+}
+
+inline void Game::RestartDemo()
+{
+    restart = true;
+    newIndex = demoIndex;
+}
+
+inline void Game::NextDemo()
+{
+    if (demoCount == 0)
+    {
+        return;
+    }
+
+    restart = true;
+    newIndex = (demoIndex + 1) % demoCount;
+}
+
+inline void Game::PrevDemo()
+{
+    if (demoCount == 0)
+    {
+        return;
+    }
+
+    restart = true;
+    newIndex = (demoIndex + demoCount - 1) % demoCount;
+}
+
+} // namespace muli3
