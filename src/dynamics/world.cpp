@@ -82,7 +82,7 @@ void World::Step(float dt)
 
 void World::SolveContacts(float dt)
 {
-    for (int iteration = 0; iteration < settings.step.velocity_iterations; ++iteration)
+    for (int32 iteration = 0; iteration < settings.step.velocity_iterations; ++iteration)
     {
         for (size_t i = 0; i < bodies.size(); ++i)
         {

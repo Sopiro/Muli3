@@ -1,4 +1,4 @@
-#include <muli3/rigid_body.h>
+#include <muli3/rigidbody.h>
 
 namespace muli3
 {

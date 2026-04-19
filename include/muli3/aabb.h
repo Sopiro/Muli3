@@ -53,8 +53,8 @@ struct AABB
 
     bool Contains(const AABB& other) const
     {
-        return min.x <= other.min.x && min.y <= other.min.y && min.z <= other.min.z && max.x >= other.max.x && max.y >= other.max.y &&
-               max.z >= other.max.z;
+        return min.x <= other.min.x && min.y <= other.min.y && min.z <= other.min.z && max.x >= other.max.x &&
+               max.y >= other.max.y && max.z >= other.max.z;
     }
 
     bool TestPoint(const Vec3& point) const
@@ -88,8 +88,7 @@ struct AABB
         return AABB{ Max(a.min, b.min), Min(a.max, b.max) };
     }
 
-    Vec3 min;
-    Vec3 max;
+    Vec3 min, max;
 };
 
 } // namespace muli3

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "rigid_body.h"
+#include "rigidbody.h"
 #include "settings.h"
 
 namespace muli3

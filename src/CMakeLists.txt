@@ -7,7 +7,7 @@ set(HEADER_FILES
     ../include/muli3/settings.h
     ../include/muli3/shape.h
     ../include/muli3/sphere.h
-    ../include/muli3/rigid_body.h
+    ../include/muli3/rigidbody.h
     ../include/muli3/world.h
     ../include/muli3/muli3.h
 )
@@ -15,7 +15,7 @@ set(HEADER_FILES
 set(SOURCE_FILES
     util/math.cpp
     geometry/sphere.cpp
-    dynamics/rigid_body.cpp
+    dynamics/rigidbody.cpp
     dynamics/world.cpp
 )
 

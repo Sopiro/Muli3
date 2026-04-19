@@ -5,7 +5,7 @@
 #include "aabb.h"
 #include "format.h"
 #include "math.h"
-#include "rigid_body.h"
+#include "rigidbody.h"
 #include "settings.h"
 #include "shape.h"
 #include "sphere.h"
