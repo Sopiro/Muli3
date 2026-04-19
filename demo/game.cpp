@@ -61,7 +61,8 @@ void Game::FixedUpdate()
 
 void Game::Render()
 {
-    Vec2 windowSize = Window::Get()->GetWindowSize();
+    Window* window = Window::Get();
+    Vec2 windowSize = window->GetWindowSize();
     float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
     renderer.Render(demo->GetWorld(), demo->GetCamera(), aspectRatio);
     demo->Render();
@@ -73,20 +74,31 @@ void Game::UpdateInput()
     if (Input::IsKeyPressed(GLFW_KEY_PAGE_DOWN)) PrevDemo();
     if (Input::IsKeyPressed(GLFW_KEY_PAGE_UP)) NextDemo();
 
+    Window* window = Window::Get();
     if (Input::IsKeyPressed(GLFW_KEY_TAB))
     {
-        Window::Get()->SetCursorHidden(!Window::Get()->GetCursorHidden());
+        bool cursorHidden = window->GetCursorHidden();
+        if (cursorHidden)
+        {
+            window->SetCursorHidden(false);
+            ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+        }
+        else
+        {
+            window->SetCursorHidden(true);
+            ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+        }
     }
-    if (Input::IsKeyPressed(GLFW_KEY_ESCAPE) && Window::Get()->GetCursorHidden())
+    if (Input::IsKeyPressed(GLFW_KEY_ESCAPE))
     {
-        Window::Get()->SetCursorHidden(false);
+        window->SetCursorHidden(false);
     }
     if (Input::IsKeyPressed(GLFW_KEY_P))
     {
         paused = !paused;
     }
 
-    demo->Update(dt, Window::Get()->GetCursorHidden());
+    demo->Update(dt, window->GetCursorHidden());
 }
 
 void Game::UpdateUI()

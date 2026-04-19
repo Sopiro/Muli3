@@ -23,6 +23,16 @@ void Camera::Update(float dt, bool captureMouse)
     Vec3 moveDirection{ 0.0f, 0.0f, 0.0f };
     const Vec3 forward = GetForward();
     const Vec3 right = GetRight();
+    float speed = moveSpeed;
+
+    if (Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || Input::IsKeyDown(GLFW_KEY_RIGHT_SHIFT))
+    {
+        speed *= 3.0f;
+    }
+    if (Input::IsKeyDown(GLFW_KEY_LEFT_ALT) || Input::IsKeyDown(GLFW_KEY_RIGHT_ALT))
+    {
+        speed *= 0.25f;
+    }
 
     if (Input::IsKeyDown(GLFW_KEY_W))
     {
@@ -52,7 +62,7 @@ void Camera::Update(float dt, bool captureMouse)
     if (moveDirection.LengthSquared() > epsilon)
     {
         moveDirection.Normalize();
-        position += moveDirection * (moveSpeed * dt);
+        position += moveDirection * (speed * dt);
     }
 }
 

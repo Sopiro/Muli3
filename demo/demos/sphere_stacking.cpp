@@ -14,9 +14,9 @@ public:
         ground->friction = 0.9f;
         ground->visible = true;
 
-        constexpr int width = 1;
-        constexpr int height = 10;
-        constexpr int depth = 1;
+        constexpr int width = 4;
+        constexpr int height = 4;
+        constexpr int depth = 4;
 
         for (int y = 0; y < height; ++y)
         {

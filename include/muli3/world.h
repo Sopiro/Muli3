@@ -15,6 +15,7 @@ public:
     void Reset();
     void Step(float dt);
 
+    Shape* CreateSphereShape(float radius);
     RigidBody* CreateRigidBody(const RigidBody& body = RigidBody{});
     RigidBody* CreateSphere(float radius, const Transform& transform, bool isStatic, float mass = 1.0f);
 
@@ -27,6 +28,7 @@ private:
     void SolveSphereContact(RigidBody& a, RigidBody& b, float dt);
 
     const WorldSettings& settings;
+    std::vector<std::unique_ptr<Shape>> shapes;
     std::vector<std::unique_ptr<RigidBody>> bodies;
 };
 

@@ -242,7 +242,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             continue;
         }
 
-        const Sphere* sphere = (const Sphere*)body.shape.get();
+        const Sphere* sphere = (const Sphere*)body.shape;
         Transform renderTransform = body.transform;
         renderTransform.scale = renderTransform.scale * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
         const Mat4 model = MakeTransformMatrix(renderTransform);
@@ -273,7 +273,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             continue;
         }
 
-        const Sphere* sphere = (const Sphere*)body.shape.get();
+        const Sphere* sphere = (const Sphere*)body.shape;
         Transform renderTransform = body.transform;
         renderTransform.scale = renderTransform.scale * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
         const Mat4 model = MakeTransformMatrix(renderTransform);

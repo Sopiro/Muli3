@@ -15,7 +15,7 @@ public:
     float restitution = 0.35f;
     float friction = 0.6f;
     bool visible = true;
-    std::shared_ptr<Shape> shape{};
+    Shape* shape = nullptr;
 
     RigidBody() = default;
 
@@ -26,8 +26,10 @@ public:
     Mat3 GetInverseInertiaTensorWorld() const;
 
     void SetMass(float mass);
+    void ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse);
     void ApplyLinearImpulse(const Vec3& impulse);
     void ApplyAngularImpulse(const Vec3& impulse);
+    Vec3 GetVelocityAtWorldPoint(const Vec3& point) const;
     void Integrate(float dt);
 };
 
