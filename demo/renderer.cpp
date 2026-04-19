@@ -237,7 +237,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     {
         const RigidBody& body = *bodyPtr;
 
-        if (!body.visible || !body.shape || body.shape->GetType() != ShapeType::sphere)
+        if (!body.shape || body.shape->GetType() != ShapeType::sphere)
         {
             continue;
         }
@@ -268,7 +268,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     {
         const RigidBody& body = *bodyPtr;
 
-        if (!body.visible || !body.shape || body.shape->GetType() != ShapeType::sphere)
+        if (!body.shape || body.shape->GetType() != ShapeType::sphere)
         {
             continue;
         }

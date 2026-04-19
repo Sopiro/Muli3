@@ -12,7 +12,6 @@ public:
         RigidBody* ground = world->CreateSphere(100.0f, Transform{ Vec3{ 0.0f, -100.0f, 0.0f } }, true);
         ground->restitution = 0.15f;
         ground->friction = 0.9f;
-        ground->visible = true;
 
         constexpr int width = 4;
         constexpr int height = 4;

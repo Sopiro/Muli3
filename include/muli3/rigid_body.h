@@ -14,7 +14,6 @@ public:
     float inverseMass = 0.0f;
     float restitution = 0.35f;
     float friction = 0.6f;
-    bool visible = true;
     Shape* shape = nullptr;
 
     RigidBody() = default;
