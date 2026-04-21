@@ -2,8 +2,7 @@
 
 #include "common.h"
 
-#include "aabb.h"
-#include "format.h"
+#include "bounding_box.h"
 #include "math.h"
 #include "rigidbody.h"
 #include "settings.h"

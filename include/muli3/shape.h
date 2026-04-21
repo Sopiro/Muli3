@@ -1,6 +1,6 @@
 #pragma once
 
-#include "aabb.h"
+#include "bounding_box.h"
 
 namespace muli3
 {
@@ -8,60 +8,30 @@ namespace muli3
 struct MassData
 {
     float mass = 0.0f;
-    Mat3 inertia = Mat3::Diagonal(0.0f, 0.0f, 0.0f);
+    Mat3 inertia = Mat3{ 0.0f };
     Vec3 centerOfMass{ 0.0f, 0.0f, 0.0f };
+};
+
+enum ShapeType
+{
+    // Order matters!
+    sphere = 0,
+    shape_count,
 };
 
 class Shape
 {
 public:
-    enum Type
-    {
-        // Order matters!
-        sphere = 0,
-        shape_count,
-    };
-
-    Shape(Type type, float radius)
-        : type{ type }
-        , radius{ radius }
-    {
-    }
-
+    Shape(ShapeType type, float radius);
     virtual ~Shape() = default;
 
-    Type GetType() const
-    {
-        return type;
-    }
+    ShapeType GetType() const;
 
-    float GetRadius() const
-    {
-        return radius;
-    }
+    float GetRadius() const;
+    float GetVolume() const;
+    const Vec3& GetCenter() const;
 
-    float GetVolume() const
-    {
-        return volume;
-    }
-
-    const Vec3& GetCenter() const
-    {
-        return center;
-    }
-
-    const Vec3& GetCenterOfMass() const
-    {
-        return center;
-    }
-
-    AABB ComputeAABB(const Transform& transform) const
-    {
-        AABB aabb;
-        ComputeAABB(transform, &aabb);
-        return aabb;
-    }
-
+    const Vec3& GetCenterOfMass() const;
     virtual void ComputeMass(float density, MassData* outMassData) const = 0;
     virtual void ComputeAABB(const Transform& transform, AABB* outAABB) const = 0;
     virtual Mat3 ComputeLocalInertiaTensor(float mass) const = 0;
@@ -74,12 +44,43 @@ public:
     virtual Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const = 0;
 
 private:
-    Type type;
+    ShapeType type;
 
 protected:
     Vec3 center{ 0.0f, 0.0f, 0.0f };
     float radius = 0.0f;
     float volume = 0.0f;
 };
+
+inline Shape::Shape(ShapeType type, float radius)
+    : type{ type }
+    , radius{ radius }
+{
+}
+
+inline ShapeType Shape::GetType() const
+{
+    return type;
+}
+
+inline float Shape::GetRadius() const
+{
+    return radius;
+}
+
+inline float Shape::GetVolume() const
+{
+    return volume;
+}
+
+inline const Vec3& Shape::GetCenter() const
+{
+    return center;
+}
+
+inline const Vec3& Shape::GetCenterOfMass() const
+{
+    return center;
+}
 
 } // namespace muli3

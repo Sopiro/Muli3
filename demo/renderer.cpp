@@ -284,15 +284,15 @@ void Renderer::Shutdown()
 
 void Renderer::DrawBody(const RigidBody& body, const Shader& shader) const
 {
-    if (!body.shape || body.shape->GetType() != Shape::sphere)
+    if (!body.shape || body.shape->GetType() != ShapeType::sphere)
     {
         return;
     }
 
     const Sphere* sphere = (const Sphere*)body.shape;
     Transform renderTransform = body.transform;
-    renderTransform.scale = renderTransform.scale * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-    shader.SetMat4("uModel", MakeTransformMatrix(renderTransform));
+    renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
+    shader.SetMat4("uModel", Mat4(renderTransform));
     sphereMesh.Draw();
 }
 
@@ -351,7 +351,9 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
             const RigidBody& body = *bodyPtr;
             if (body.shape)
             {
-                DrawAABB(body.shape->ComputeAABB(body.transform), aabbLines);
+                AABB aabb;
+                body.shape->ComputeAABB(body.transform, &aabb);
+                DrawAABB(aabb, aabbLines);
             }
         }
     }

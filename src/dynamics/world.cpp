@@ -8,7 +8,7 @@ namespace
 
 const Sphere* AsSphere(const RigidBody& body)
 {
-    if (!body.shape || body.shape->GetType() != Shape::sphere)
+    if (!body.shape || body.shape->GetType() != ShapeType::sphere)
     {
         return nullptr;
     }
@@ -98,7 +98,7 @@ void World::SolveContacts(float dt)
 
 void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt, bool recordDebugContact)
 {
-    (void)dt;
+    MuliNotUsed(dt);
 
     const Sphere* sphereA = AsSphere(a);
     const Sphere* sphereB = AsSphere(b);
@@ -107,19 +107,19 @@ void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt, bool record
         return;
     }
 
-    const Vec3 delta = b.transform.position - a.transform.position;
-    const float distanceSquared = delta.LengthSquared();
-    const float radiusSum = sphereA->GetRadius() + sphereB->GetRadius();
-    if (distanceSquared >= radiusSum * radiusSum)
+    const Vec3 delta = b.transform.p - a.transform.p;
+    const float distance2 = Length2(delta);
+    const float radii = sphereA->GetRadius() + sphereB->GetRadius();
+    if (distance2 >= radii * radii)
     {
         return;
     }
 
-    float distance = SafeSqrt(distanceSquared);
+    float distance = SafeSqrt(distance2);
     Vec3 normal = distance > epsilon ? delta / distance : Vec3{ 1.0f, 0.0f, 0.0f };
     if (distance <= epsilon)
     {
-        distance = radiusSum;
+        distance = radii;
     }
 
     float inverseMassSum = a.inverseMass + b.inverseMass;
@@ -128,19 +128,19 @@ void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt, bool record
         return;
     }
 
-    float penetration = radiusSum - distance;
+    float penetration = radii - distance;
     Vec3 correction = normal * (penetration / inverseMassSum);
     if (!a.IsStatic())
     {
-        a.transform.position -= correction * a.inverseMass;
+        a.transform.p -= correction * a.inverseMass;
     }
     if (!b.IsStatic())
     {
-        b.transform.position += correction * b.inverseMass;
+        b.transform.p += correction * b.inverseMass;
     }
 
-    Vec3 pointA = a.transform.position + normal * sphereA->GetRadius();
-    Vec3 pointB = b.transform.position - normal * sphereB->GetRadius();
+    Vec3 pointA = a.transform.p + normal * sphereA->GetRadius();
+    Vec3 pointB = b.transform.p - normal * sphereB->GetRadius();
     Vec3 contactPoint = Lerp(pointA, pointB, 0.5f);
     if (recordDebugContact)
     {
@@ -181,7 +181,7 @@ void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt, bool record
     Vec3 postVelocityA = a.GetVelocityAtWorldPoint(contactPoint);
     Vec3 postVelocityB = b.GetVelocityAtWorldPoint(contactPoint);
     Vec3 tangent = postVelocityB - postVelocityA - normal * Dot(postVelocityB - postVelocityA, normal);
-    float tangentLength = tangent.Length();
+    float tangentLength = Length(tangent);
     if (tangentLength <= epsilon)
     {
         return;

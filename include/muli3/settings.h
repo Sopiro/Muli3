@@ -1,6 +1,6 @@
 #pragma once
 
-#include "aabb.h"
+#include "bounding_box.h"
 
 namespace muli3
 {

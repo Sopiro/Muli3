@@ -75,7 +75,7 @@ void Shader::SetFloat(const char* name, float value) const
 
 void Shader::SetMat4(const char* name, const Mat4& value) const
 {
-    glUniformMatrix4fv(glGetUniformLocation(program, name), 1, GL_FALSE, value.Data());
+    glUniformMatrix4fv(glGetUniformLocation(program, name), 1, GL_FALSE, &value.ex.x);
 }
 
 void Shader::SetVec3(const char* name, const Vec3& value) const

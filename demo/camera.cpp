@@ -59,7 +59,7 @@ void Camera::Update(float dt, bool captureMouse)
         moveDirection -= worldUp;
     }
 
-    if (moveDirection.LengthSquared() > epsilon)
+    if (Length2(moveDirection) > epsilon)
     {
         moveDirection.Normalize();
         position += moveDirection * (speed * dt);

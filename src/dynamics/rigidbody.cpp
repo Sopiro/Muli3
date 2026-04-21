@@ -7,32 +7,32 @@ Vec3 RigidBody::GetWorldCenterOfMass() const
 {
     if (!shape)
     {
-        return transform.position;
+        return transform.p;
     }
 
-    return transform.position + transform.rotation.Rotate(shape->GetCenterOfMass());
+    return transform.p + transform.q.Rotate(shape->GetCenterOfMass());
 }
 
 Mat3 RigidBody::GetInverseInertiaTensorLocal() const
 {
     if (!shape || IsStatic())
     {
-        return Mat3::Diagonal(0.0f, 0.0f, 0.0f);
+        return Mat3(0.0f);
     }
 
     const Mat3 localInertia = shape->ComputeLocalInertiaTensor(GetMass());
-    return localInertia.Inversed();
+    return localInertia.GetInverse();
 }
 
 Mat3 RigidBody::GetInverseInertiaTensorWorld() const
 {
     if (!shape || IsStatic())
     {
-        return Mat3::Diagonal(0.0f, 0.0f, 0.0f);
+        return Mat3(0.0f);
     }
 
-    const Mat3 rotation{ transform.rotation };
-    return rotation * GetInverseInertiaTensorLocal() * rotation.Transposed();
+    const Mat3 rotation{ transform.q };
+    return rotation * GetInverseInertiaTensorLocal() * rotation.GetTranspose();
 }
 
 void RigidBody::SetMass(float mass)
@@ -89,14 +89,15 @@ void RigidBody::Integrate(float dt)
         return;
     }
 
-    transform.position += linearVelocity * dt;
+    transform.p += linearVelocity * dt;
 
-    const float angularSpeed = angularVelocity.Length();
+    const float angularSpeed = Length(angularVelocity);
     if (angularSpeed > epsilon)
     {
         const Vec3 axis = angularVelocity / angularSpeed;
         const Quat delta{ angularSpeed * dt, axis };
-        transform.rotation = Normalize(delta * transform.rotation);
+        transform.q = delta * transform.q;
+        transform.q.Normalize();
     }
 }
 
