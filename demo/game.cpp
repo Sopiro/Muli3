@@ -21,7 +21,7 @@ Game::Game()
     demoIndex = demoCount;
 
     InitDemo(0);
-    Window::Get()->SetCursorHidden(true);
+    Window::Get()->SetCursorHidden(false);
 }
 
 Game::~Game()
@@ -46,11 +46,11 @@ void Game::Update(float deltaTime)
 
 void Game::FixedUpdate()
 {
-    if (paused)
+    if (options.pause)
     {
-        if (step)
+        if (options.step)
         {
-            step = false;
+            options.step = false;
             demo->Step();
         }
         return;
@@ -64,7 +64,7 @@ void Game::Render()
     Window* window = Window::Get();
     Vec2 windowSize = window->GetWindowSize();
     float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
-    renderer.Render(demo->GetWorld(), demo->GetCamera(), aspectRatio);
+    renderer.Render(demo->GetWorld(), demo->GetCamera(), aspectRatio, options);
     demo->Render();
 }
 
@@ -75,30 +75,46 @@ void Game::UpdateInput()
     if (Input::IsKeyPressed(GLFW_KEY_PAGE_UP)) NextDemo();
 
     Window* window = Window::Get();
-    if (Input::IsKeyPressed(GLFW_KEY_TAB))
+    if (!window->GetCursorHidden() && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
     {
-        bool cursorHidden = window->GetCursorHidden();
-        if (cursorHidden)
-        {
-            window->SetCursorHidden(false);
-            ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
-        }
-        else
-        {
-            window->SetCursorHidden(true);
-            ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
-        }
+        window->SetCursorHidden(true);
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+    }
+    if (window->GetCursorHidden() && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT))
+    {
+        window->SetCursorHidden(false);
+        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
     }
     if (Input::IsKeyPressed(GLFW_KEY_ESCAPE))
     {
         window->SetCursorHidden(false);
+        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
     }
-    if (Input::IsKeyPressed(GLFW_KEY_P))
-    {
-        paused = !paused;
-    }
+    EnableKeyboardShortcut();
 
     demo->Update(dt, window->GetCursorHidden());
+}
+
+void Game::EnableKeyboardShortcut()
+{
+    if (ImGui::GetIO().WantCaptureKeyboard)
+    {
+        return;
+    }
+
+    if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
+    if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_wireframe = !options.draw_wireframe;
+    if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
+    if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
+    if (Input::IsKeyPressed(GLFW_KEY_N)) options.show_contact_normal = !options.show_contact_normal;
+    if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
+    if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
+    if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
+
+    if (Input::IsKeyPressed(GLFW_KEY_G))
+    {
+        demo->GetWorldSettings().apply_gravity = !demo->GetWorldSettings().apply_gravity;
+    }
 }
 
 void Game::UpdateUI()
@@ -127,20 +143,20 @@ void Game::UpdateUI()
                 static int32 fps = GetFrameRate();
                 static int32 ups = GetUpdateRate();
 
-                ImGui::BeginDisabled(paused);
-                if (ImGui::Button("Pause")) paused = true;
+                ImGui::BeginDisabled(options.pause);
+                if (ImGui::Button("Pause")) options.pause = true;
                 ImGui::EndDisabled();
 
                 ImGui::SameLine();
-                ImGui::BeginDisabled(!paused);
+                ImGui::BeginDisabled(!options.pause);
                 ImGui::PushButtonRepeat(true);
-                if (ImGui::Button("Step")) step = true;
+                if (ImGui::Button("Step")) options.step = true;
                 ImGui::PopButtonRepeat();
                 ImGui::EndDisabled();
 
                 ImGui::SameLine();
-                ImGui::BeginDisabled(!paused);
-                if (ImGui::Button("Start")) paused = false;
+                ImGui::BeginDisabled(!options.pause);
+                if (ImGui::Button("Start")) options.pause = false;
                 ImGui::EndDisabled();
 
                 ImGui::SameLine();
@@ -162,6 +178,17 @@ void Game::UpdateUI()
                 ImGui::Text("%.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
                 ImGui::Separator();
 
+                ImGui::SetNextItemOpen(false, ImGuiCond_Once);
+                if (ImGui::CollapsingHeader("Debug options"))
+                {
+                    ImGui::Checkbox("Camera reset", &options.reset_camera);
+                    ImGui::Checkbox("Draw body", &options.draw_body);
+                    ImGui::Checkbox("Draw wireframe", &options.draw_wireframe);
+                    ImGui::Checkbox("Show AABB", &options.show_aabb);
+                    ImGui::Checkbox("Show contact point", &options.show_contact_point);
+                    ImGui::Checkbox("Show contact normal", &options.show_contact_normal);
+                }
+
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                 if (ImGui::CollapsingHeader("Simulation settings"))
                 {
@@ -175,9 +202,16 @@ void Game::UpdateUI()
                 ImGui::Separator();
                 ImGui::Text("%s", demoFrames[demoIndex].name);
                 ImGui::Text("Bodies: %d", world.GetRigidBodyCount());
-                ImGui::Text("Pause: P");
-                ImGui::Text("Cursor: Tab / Esc");
+                ImGui::Text("Pause: Q");
+                ImGui::Text("Step: E / Right");
+                ImGui::Text("Camera: Hold RMB");
+                ImGui::Text("Cursor: Esc");
                 ImGui::Text("Demos: PageUp / PageDown");
+                ImGui::Text("Draw body: Y");
+                ImGui::Text("Wireframe: O");
+                ImGui::Text("AABB: B");
+                ImGui::Text("Contact point: P");
+                ImGui::Text("Contact normal: N");
                 ImGui::EndTabItem();
             }
 
@@ -232,7 +266,7 @@ void Game::InitDemo(size_t index)
     }
 
     bool restoreSettings = demo && demoIndex == index;
-    bool restoreCameraPosition = restoreSettings;
+    bool restoreCameraPosition = demo && !options.reset_camera;
     Camera previousCamera;
     WorldSettings previousSettings;
 
@@ -260,8 +294,8 @@ void Game::InitDemo(size_t index)
     }
 
     demo->dt = fixedDeltaTime;
-    paused = false;
-    step = false;
+    options.pause = false;
+    options.step = false;
 }
 
 } // namespace muli3

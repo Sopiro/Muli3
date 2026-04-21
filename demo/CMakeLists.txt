@@ -47,6 +47,7 @@ set(DEMO_HEADER_FILES
     window.h
     camera.h
     demo.h
+    options.h
     shader.h
     mesh.h
     renderer.h

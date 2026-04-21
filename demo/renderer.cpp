@@ -121,6 +121,33 @@ void main()
 }
 )";
 
+constexpr const char* g_debugVertexShader = R"(
+#version 330 core
+layout (location = 0) in vec3 aPosition;
+
+uniform mat4 uView;
+uniform mat4 uProjection;
+uniform float uPointSize;
+
+void main()
+{
+    gl_Position = uProjection * uView * vec4(aPosition, 1.0);
+    gl_PointSize = uPointSize;
+}
+)";
+
+constexpr const char* g_debugFragmentShader = R"(
+#version 330 core
+uniform vec3 uColor;
+
+out vec4 FragColor;
+
+void main()
+{
+    FragColor = vec4(uColor, 1.0);
+}
+)";
+
 Mat4 ComputeLightViewProjection(const Vec3& lightDirection)
 {
     const Vec3 sceneCenter{ 0.0f, 2.0f, 0.0f };
@@ -143,7 +170,9 @@ bool Renderer::CreateShadowResources()
     glGenTextures(1, &shadowDepthTexture);
 
     glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, g_shadowMapSize, g_shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
+    glTexImage2D(
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, g_shadowMapSize, g_shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
+    );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -162,6 +191,26 @@ bool Renderer::CreateShadowResources()
     return status == GL_FRAMEBUFFER_COMPLETE;
 }
 
+bool Renderer::CreateDebugResources()
+{
+    if (!debugShader.Create(g_debugVertexShader, g_debugFragmentShader))
+    {
+        return false;
+    }
+
+    glGenVertexArrays(1, &debugVAO);
+    glGenBuffers(1, &debugVBO);
+
+    glBindVertexArray(debugVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3), nullptr);
+    glEnableVertexAttribArray(0);
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    return debugVAO != 0 && debugVBO != 0;
+}
+
 void Renderer::DestroyShadowResources()
 {
     if (shadowDepthTexture != 0)
@@ -176,6 +225,20 @@ void Renderer::DestroyShadowResources()
     }
 }
 
+void Renderer::DestroyDebugResources()
+{
+    if (debugVBO != 0)
+    {
+        glDeleteBuffers(1, &debugVBO);
+        debugVBO = 0;
+    }
+    if (debugVAO != 0)
+    {
+        glDeleteVertexArrays(1, &debugVAO);
+        debugVAO = 0;
+    }
+}
+
 bool Renderer::Initialize()
 {
     if (!surfaceShader.Create(g_surfaceVertexShader, g_surfaceFragmentShader))
@@ -187,6 +250,10 @@ bool Renderer::Initialize()
         return false;
     }
     if (!CreateShadowResources())
+    {
+        return false;
+    }
+    if (!CreateDebugResources())
     {
         return false;
     }
@@ -210,10 +277,133 @@ void Renderer::Shutdown()
     surfaceShader.Destroy();
     shadowShader.Destroy();
     DestroyShadowResources();
+    debugShader.Destroy();
+    DestroyDebugResources();
     initialized = false;
 }
 
-void Renderer::Render(const World& world, const Camera& camera, float aspectRatio) const
+void Renderer::DrawBody(const RigidBody& body, const Shader& shader) const
+{
+    if (!body.shape || body.shape->GetType() != Shape::sphere)
+    {
+        return;
+    }
+
+    const Sphere* sphere = (const Sphere*)body.shape;
+    Transform renderTransform = body.transform;
+    renderTransform.scale = renderTransform.scale * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
+    shader.SetMat4("uModel", MakeTransformMatrix(renderTransform));
+    sphereMesh.Draw();
+}
+
+void Renderer::DrawAABB(const AABB& aabb, std::vector<Vec3>& lines) const
+{
+    const Vec3 v000{ aabb.min.x, aabb.min.y, aabb.min.z };
+    const Vec3 v001{ aabb.min.x, aabb.min.y, aabb.max.z };
+    const Vec3 v010{ aabb.min.x, aabb.max.y, aabb.min.z };
+    const Vec3 v011{ aabb.min.x, aabb.max.y, aabb.max.z };
+    const Vec3 v100{ aabb.max.x, aabb.min.y, aabb.min.z };
+    const Vec3 v101{ aabb.max.x, aabb.min.y, aabb.max.z };
+    const Vec3 v110{ aabb.max.x, aabb.max.y, aabb.min.z };
+    const Vec3 v111{ aabb.max.x, aabb.max.y, aabb.max.z };
+
+    const Vec3 edges[] = {
+        v000, v001, v001, v011, v011, v010, v010, v000, v100, v101, v101, v111,
+        v111, v110, v110, v100, v000, v100, v001, v101, v010, v110, v011, v111,
+    };
+    lines.insert(lines.end(), std::begin(edges), std::end(edges));
+}
+
+void Renderer::DrawDebugPrimitives(
+    const Mat4& view,
+    const Mat4& projection,
+    GLenum primitive,
+    const std::vector<Vec3>& vertices,
+    const Vec3& color,
+    float pointSize
+)
+{
+    if (vertices.empty())
+    {
+        return;
+    }
+
+    debugShader.Use();
+    debugShader.SetMat4("uView", view);
+    debugShader.SetMat4("uProjection", projection);
+    debugShader.SetVec3("uColor", color);
+    debugShader.SetFloat("uPointSize", pointSize);
+
+    glBindVertexArray(debugVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(vertices.size() * sizeof(Vec3)), vertices.data(), GL_DYNAMIC_DRAW);
+    glDrawArrays(primitive, 0, (GLsizei)vertices.size());
+    glBindVertexArray(0);
+}
+
+void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& projection, const DebugOptions& options)
+{
+    std::vector<Vec3> aabbLines;
+    if (options.show_aabb)
+    {
+        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+        {
+            const RigidBody& body = *bodyPtr;
+            if (body.shape)
+            {
+                DrawAABB(body.shape->ComputeAABB(body.transform), aabbLines);
+            }
+        }
+    }
+
+    std::vector<Vec3> contactPoints;
+    std::vector<Vec3> contactNormalLines;
+    if (options.show_contact_point || options.show_contact_normal)
+    {
+        for (const World::DebugContact& contact : world.GetDebugContacts())
+        {
+            if (options.show_contact_point)
+            {
+                contactPoints.push_back(contact.point);
+            }
+
+            if (options.show_contact_normal)
+            {
+                const Vec3 p1 = contact.point;
+                const Vec3 p2 = p1 + contact.normal * 0.18f;
+                const Vec3 reference = Abs(contact.normal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
+                const Vec3 tangent = NormalizeSafe(Cross(contact.normal, reference));
+                const Vec3 arrowBase = p2 - contact.normal * 0.04f;
+                const Vec3 arrowA = arrowBase + tangent * 0.02f;
+                const Vec3 arrowB = arrowBase - tangent * 0.02f;
+
+                contactNormalLines.push_back(p1);
+                contactNormalLines.push_back(p2);
+                contactNormalLines.push_back(p2);
+                contactNormalLines.push_back(arrowA);
+                contactNormalLines.push_back(p2);
+                contactNormalLines.push_back(arrowB);
+            }
+        }
+    }
+
+    const GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+    glLineWidth(2.0f);
+
+    DrawDebugPrimitives(view, projection, GL_LINES, aabbLines, Vec3{ 0.08f, 0.09f, 0.10f });
+    DrawDebugPrimitives(view, projection, GL_POINTS, contactPoints, Vec3{ 1.0f, 0.18f, 0.08f }, 5.0f);
+    DrawDebugPrimitives(view, projection, GL_LINES, contactNormalLines, Vec3{ 0.05f, 0.25f, 1.0f });
+
+    glLineWidth(1.0f);
+    if (depthTestEnabled)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
+}
+
+void Renderer::Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options)
 {
     const Mat4 view = camera.GetViewMatrix();
     const Mat4 projection = camera.GetProjectionMatrix(aspectRatio);
@@ -233,21 +423,12 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     shadowShader.Use();
     shadowShader.SetMat4("uLightViewProjection", lightViewProjection);
 
-    for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+    if (options.draw_body || options.draw_wireframe)
     {
-        const RigidBody& body = *bodyPtr;
-
-        if (!body.shape || body.shape->GetType() != ShapeType::sphere)
+        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
         {
-            continue;
+            DrawBody(*bodyPtr, shadowShader);
         }
-
-        const Sphere* sphere = (const Sphere*)body.shape;
-        Transform renderTransform = body.transform;
-        renderTransform.scale = renderTransform.scale * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-        const Mat4 model = MakeTransformMatrix(renderTransform);
-        shadowShader.SetMat4("uModel", model);
-        sphereMesh.Draw();
     }
 
     glDisable(GL_POLYGON_OFFSET_FILL);
@@ -264,23 +445,34 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     surfaceShader.SetMat4("uLightViewProjection", lightViewProjection);
     surfaceShader.SetVec3("uLightDirection", lightDirection);
 
-    for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+    if (options.draw_body)
     {
-        const RigidBody& body = *bodyPtr;
-
-        if (!body.shape || body.shape->GetType() != ShapeType::sphere)
+        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
         {
-            continue;
+            const RigidBody& body = *bodyPtr;
+            surfaceShader.SetVec3("uBaseColor", body.IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f });
+            DrawBody(body, surfaceShader);
         }
-
-        const Sphere* sphere = (const Sphere*)body.shape;
-        Transform renderTransform = body.transform;
-        renderTransform.scale = renderTransform.scale * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-        const Mat4 model = MakeTransformMatrix(renderTransform);
-        surfaceShader.SetMat4("uModel", model);
-        surfaceShader.SetVec3("uBaseColor", body.IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f });
-        sphereMesh.Draw();
     }
+
+    if (options.draw_wireframe)
+    {
+        GLint previousDepthFunc = GL_LESS;
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+        surfaceShader.SetVec3("uBaseColor", Vec3{ 0.03f, 0.04f, 0.05f });
+        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+        {
+            DrawBody(*bodyPtr, surfaceShader);
+        }
+        glEnable(GL_CULL_FACE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    DrawDebug(world, view, projection, options);
 }
 
 } // namespace muli3

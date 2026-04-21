@@ -2,6 +2,7 @@
 
 #include "camera.h"
 #include "demo.h"
+#include "options.h"
 #include "renderer.h"
 
 namespace muli3
@@ -18,6 +19,7 @@ public:
     void Render();
 
     Renderer& GetRenderer();
+    DebugOptions& GetDebugOptions();
     float GetTime() const;
     float GetFixedDeltaTime() const;
     void SetFixedDeltaTime(float newFixedDeltaTime);
@@ -28,13 +30,12 @@ public:
 private:
     void UpdateUI();
     void UpdateInput();
+    void EnableKeyboardShortcut();
     void InitDemo(size_t index);
 
     Renderer renderer;
     Demo* demo = nullptr;
 
-    bool paused = false;
-    bool step = false;
     bool restart = false;
     float fixedDeltaTime = 1.0f / 60.0f;
     float time = 0.0f;
@@ -42,11 +43,17 @@ private:
     size_t demoCount = 0;
     size_t demoIndex = 0;
     size_t newIndex = 0;
+    DebugOptions options;
 };
 
 inline Renderer& Game::GetRenderer()
 {
     return renderer;
+}
+
+inline DebugOptions& Game::GetDebugOptions()
+{
+    return options;
 }
 
 inline float Game::GetTime() const

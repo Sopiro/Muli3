@@ -3,10 +3,20 @@
 namespace muli3
 {
 
-Sphere::Sphere(float radius)
-    : Shape{ ShapeType::sphere }
-    , radius{ radius }
+Sphere::Sphere(float radius, const Transform& transform)
+    : Shape{ Shape::sphere, radius }
 {
+    center = transform.position;
+    volume = 4.0f / 3.0f * pi * radius * radius * radius;
+}
+
+void Sphere::ComputeMass(float density, MassData* outMassData) const
+{
+    MuliAssert(outMassData != nullptr);
+
+    outMassData->mass = density * volume;
+    outMassData->centerOfMass = center;
+    outMassData->inertia = ComputeLocalInertiaTensor(outMassData->mass);
 }
 
 Mat3 Sphere::ComputeLocalInertiaTensor(float mass) const
@@ -15,14 +25,36 @@ Mat3 Sphere::ComputeLocalInertiaTensor(float mass) const
     return Mat3::Diagonal(value, value, value);
 }
 
-AABB Sphere::ComputeAABB(const Transform& transform) const
+void Sphere::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
+    MuliAssert(outAABB != nullptr);
+
+    const Vec3 transformedCenter = Mul(transform, center);
     const Vec3 r{
         radius * Abs(transform.scale.x),
         radius * Abs(transform.scale.y),
         radius * Abs(transform.scale.z),
     };
-    return AABB{ transform.position - r, transform.position + r };
+    *outAABB = AABB{ transformedCenter - r, transformedCenter + r };
+}
+
+bool Sphere::TestPoint(const Transform& transform, const Vec3& q) const
+{
+    const Vec3 localQ = MulT(transform, q);
+    return (localQ - center).LengthSquared() <= radius * radius;
+}
+
+Vec3 Sphere::GetClosestPoint(const Transform& transform, const Vec3& q) const
+{
+    const Vec3 localQ = MulT(transform, q);
+    Vec3 d = localQ - center;
+    const float distance = d.NormalizeSafe();
+    if (distance <= radius)
+    {
+        return q;
+    }
+
+    return Mul(transform, center + d * radius);
 }
 
 } // namespace muli3

@@ -8,7 +8,7 @@ namespace
 
 const Sphere* AsSphere(const RigidBody& body)
 {
-    if (!body.shape || body.shape->GetType() != ShapeType::sphere)
+    if (!body.shape || body.shape->GetType() != Shape::sphere)
     {
         return nullptr;
     }
@@ -27,6 +27,7 @@ void World::Reset()
 {
     bodies.clear();
     shapes.clear();
+    debugContacts.clear();
 }
 
 Shape* World::CreateSphereShape(float radius)
@@ -62,6 +63,7 @@ void World::Step(float dt)
 {
     settings.step.dt = dt;
     settings.step.inv_dt = dt > 0.0f ? 1.0f / dt : 0.0f;
+    debugContacts.clear();
 
     for (std::unique_ptr<RigidBody>& body : bodies)
     {
@@ -88,13 +90,13 @@ void World::SolveContacts(float dt)
         {
             for (size_t j = i + 1; j < bodies.size(); ++j)
             {
-                SolveSphereContact(*bodies[i], *bodies[j], dt);
+                SolveSphereContact(*bodies[i], *bodies[j], dt, iteration == 0);
             }
         }
     }
 }
 
-void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt)
+void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt, bool recordDebugContact)
 {
     (void)dt;
 
@@ -140,6 +142,10 @@ void World::SolveSphereContact(RigidBody& a, RigidBody& b, float dt)
     Vec3 pointA = a.transform.position + normal * sphereA->GetRadius();
     Vec3 pointB = b.transform.position - normal * sphereB->GetRadius();
     Vec3 contactPoint = Lerp(pointA, pointB, 0.5f);
+    if (recordDebugContact)
+    {
+        debugContacts.push_back(DebugContact{ contactPoint, normal, penetration });
+    }
 
     Vec3 centerOfMassA = a.GetWorldCenterOfMass();
     Vec3 centerOfMassB = b.GetWorldCenterOfMass();

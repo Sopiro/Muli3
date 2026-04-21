@@ -9,6 +9,13 @@ namespace muli3
 class World
 {
 public:
+    struct DebugContact
+    {
+        Vec3 point;
+        Vec3 normal;
+        float penetration;
+    };
+
     explicit World(const WorldSettings& settings);
     ~World() = default;
 
@@ -22,14 +29,16 @@ public:
     std::vector<std::unique_ptr<RigidBody>>& GetRigidBodies();
     const std::vector<std::unique_ptr<RigidBody>>& GetRigidBodies() const;
     int32 GetRigidBodyCount() const;
+    const std::vector<DebugContact>& GetDebugContacts() const;
 
 private:
     void SolveContacts(float dt);
-    void SolveSphereContact(RigidBody& a, RigidBody& b, float dt);
+    void SolveSphereContact(RigidBody& a, RigidBody& b, float dt, bool recordDebugContact);
 
     const WorldSettings& settings;
     std::vector<std::unique_ptr<Shape>> shapes;
     std::vector<std::unique_ptr<RigidBody>> bodies;
+    std::vector<DebugContact> debugContacts;
 };
 
 inline std::vector<std::unique_ptr<RigidBody>>& World::GetRigidBodies()
@@ -45,6 +54,11 @@ inline const std::vector<std::unique_ptr<RigidBody>>& World::GetRigidBodies() co
 inline int32 World::GetRigidBodyCount() const
 {
     return (int32)bodies.size();
+}
+
+inline const std::vector<World::DebugContact>& World::GetDebugContacts() const
+{
+    return debugContacts;
 }
 
 } // namespace muli3
