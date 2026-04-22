@@ -99,7 +99,7 @@ static void MainLoop()
         }
         window->EndFrame();
 
-        frameTime -= targetFrameTime;
+        frameTime = 0;
     }
 }
 

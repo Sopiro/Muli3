@@ -1,9 +1,11 @@
 #pragma once
 
-#include "sphere.h"
+#include "transform.h"
 
 namespace muli3
 {
+
+class Shape;
 
 class RigidBody
 {
@@ -11,9 +13,9 @@ public:
     Transform transform{};
     Vec3 linearVelocity{ 0.0f, 0.0f, 0.0f };
     Vec3 angularVelocity{ 0.0f, 0.0f, 0.0f };
-    float inverseMass = 0.0f;
-    float restitution = 0.35f;
-    float friction = 0.6f;
+    float invMass = 0.0f;
+    float restitution = 0.0f;
+    float friction = 0.5f;
     Shape* shape = nullptr;
 
     RigidBody() = default;
@@ -34,12 +36,12 @@ public:
 
 inline bool RigidBody::IsStatic() const
 {
-    return inverseMass <= epsilon;
+    return invMass <= epsilon;
 }
 
 inline float RigidBody::GetMass() const
 {
-    return IsStatic() ? 0.0f : 1.0f / inverseMass;
+    return IsStatic() ? 0.0f : 1.0f / invMass;
 }
 
 } // namespace muli3

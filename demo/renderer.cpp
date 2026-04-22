@@ -362,29 +362,36 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
     std::vector<Vec3> contactNormalLines;
     if (options.show_contact_point || options.show_contact_normal)
     {
-        for (const World::DebugContact& contact : world.GetDebugContacts())
+        for (const Contact& contact : world.GetContacts())
         {
-            if (options.show_contact_point)
-            {
-                contactPoints.push_back(contact.point);
-            }
+            const ContactManifold& manifold = contact.GetContactManifold();
 
-            if (options.show_contact_normal)
+            for (int32 i = 0; i < manifold.contactCount; ++i)
             {
-                const Vec3 p1 = contact.point;
-                const Vec3 p2 = p1 + contact.normal * 0.18f;
-                const Vec3 reference = Abs(contact.normal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
-                const Vec3 tangent = NormalizeSafe(Cross(contact.normal, reference));
-                const Vec3 arrowBase = p2 - contact.normal * 0.04f;
-                const Vec3 arrowA = arrowBase + tangent * 0.02f;
-                const Vec3 arrowB = arrowBase - tangent * 0.02f;
+                const Vec3 p1 = manifold.contactPoints[i].p;
 
-                contactNormalLines.push_back(p1);
-                contactNormalLines.push_back(p2);
-                contactNormalLines.push_back(p2);
-                contactNormalLines.push_back(arrowA);
-                contactNormalLines.push_back(p2);
-                contactNormalLines.push_back(arrowB);
+                if (options.show_contact_point)
+                {
+                    contactPoints.push_back(p1);
+                }
+
+                if (options.show_contact_normal)
+                {
+                    const Vec3 p2 = p1 + manifold.contactNormal * 0.18f;
+                    const Vec3 reference =
+                        Abs(manifold.contactNormal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
+                    const Vec3 tangent = NormalizeSafe(Cross(manifold.contactNormal, reference));
+                    const Vec3 arrowBase = p2 - manifold.contactNormal * 0.04f;
+                    const Vec3 arrowA = arrowBase + tangent * 0.02f;
+                    const Vec3 arrowB = arrowBase - tangent * 0.02f;
+
+                    contactNormalLines.push_back(p1);
+                    contactNormalLines.push_back(p2);
+                    contactNormalLines.push_back(p2);
+                    contactNormalLines.push_back(arrowA);
+                    contactNormalLines.push_back(p2);
+                    contactNormalLines.push_back(arrowB);
+                }
             }
         }
     }

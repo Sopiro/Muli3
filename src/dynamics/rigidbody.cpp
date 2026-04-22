@@ -1,4 +1,5 @@
-#include <muli3/rigidbody.h>
+#include "muli3/rigidbody.h"
+#include "muli3/shape.h"
 
 namespace muli3
 {
@@ -37,7 +38,7 @@ Mat3 RigidBody::GetInverseInertiaTensorWorld() const
 
 void RigidBody::SetMass(float mass)
 {
-    inverseMass = mass <= epsilon ? 0.0f : 1.0f / mass;
+    invMass = mass <= epsilon ? 0.0f : 1.0f / mass;
 }
 
 void RigidBody::ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse)
@@ -62,7 +63,7 @@ void RigidBody::ApplyLinearImpulse(const Vec3& impulse)
         return;
     }
 
-    linearVelocity += impulse * inverseMass;
+    linearVelocity += impulse * invMass;
 }
 
 void RigidBody::ApplyAngularImpulse(const Vec3& impulse)

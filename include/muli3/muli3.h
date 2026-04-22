@@ -1,12 +1,14 @@
 #pragma once
 
-#include "common.h"
+#include "common.h" // IWYU pragma: export
 
-#include "bounding_box.h"
-#include "math.h"
-#include "rigidbody.h"
-#include "settings.h"
-#include "shape.h"
-#include "sphere.h"
-#include "types.h"
-#include "world.h"
+#include "bounding_box.h" // IWYU pragma: export
+#include "collision.h"    // IWYU pragma: export
+#include "contact.h"      // IWYU pragma: export
+#include "math.h"         // IWYU pragma: export
+#include "rigidbody.h"    // IWYU pragma: export
+#include "settings.h"     // IWYU pragma: export
+#include "shape.h"        // IWYU pragma: export
+#include "sphere.h"       // IWYU pragma: export
+#include "types.h"        // IWYU pragma: export
+#include "world.h"        // IWYU pragma: export

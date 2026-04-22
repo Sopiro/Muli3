@@ -5,6 +5,10 @@
 namespace muli3
 {
 
+inline constexpr float linear_slop = 0.004f;
+inline constexpr float position_correction = 0.2f;
+inline constexpr float max_position_correction = 0.1f;
+
 struct Timestep
 {
     int32 velocity_iterations = 3;
