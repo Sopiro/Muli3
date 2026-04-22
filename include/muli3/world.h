@@ -16,7 +16,7 @@ public:
         float penetration;
     };
 
-    explicit World(const WorldSettings& settings);
+    World(const WorldSettings& settings);
     ~World() = default;
 
     void Reset();
