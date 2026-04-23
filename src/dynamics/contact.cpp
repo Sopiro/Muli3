@@ -4,17 +4,55 @@
 namespace muli3
 {
 
-bool Contact::Update()
+void Contact::Update()
 {
+    flag |= flag_enabled;
+
     if (!bodyA->shape || !bodyB->shape)
     {
-        return false;
+        flag &= ~flag_touching;
+        return;
     }
 
-    return Collide(bodyA->shape, bodyA->transform, bodyB->shape, bodyB->transform, &manifold);
+    bool touching = Collide(bodyA->shape, bodyA->transform, bodyB->shape, bodyB->transform, &manifold);
+    if (touching)
+    {
+        flag |= flag_touching;
+
+        if (manifold.featureFlipped)
+        {
+            b1 = bodyB;
+            b2 = bodyA;
+        }
+        else
+        {
+            b1 = bodyA;
+            b2 = bodyB;
+        }
+    }
+    else
+    {
+        flag &= ~flag_touching;
+    }
 }
 
-void Contact::Solve(float invDt)
+void Contact::Prepare(const Timestep& step)
+{
+    MuliNotUsed(step);
+
+    friction = SafeSqrt(bodyA->friction * bodyB->friction);
+    restitution = Min(bodyA->restitution, bodyB->restitution);
+    restitutionThreshold = 0.0f;
+    surfaceSpeed = 0.0f;
+
+    for (int32 i = 0; i < max_contact_point_count; ++i)
+    {
+        normalImpulses[i] = 0.0f;
+        tangentImpulses[i] = 0.0f;
+    }
+}
+
+void Contact::SolveVelocityConstraints(const Timestep& step)
 {
     float invMassSum = bodyA->invMass + bodyB->invMass;
     if (invMassSum <= epsilon)
@@ -38,11 +76,7 @@ void Contact::Solve(float invDt)
         Vec3 relativeVelocity = velocityB - velocityA;
         float velocityAlongNormal = Dot(relativeVelocity, manifold.contactNormal);
 
-        float restitution = Min(bodyA->restitution, bodyB->restitution);
-        float restitutionBias = velocityAlongNormal < 0.0f ? restitution * velocityAlongNormal : 0.0f;
-        float positionBias =
-            -position_correction * Clamp(manifold.penetrationDepth - linear_slop, 0.0f, max_position_correction) * invDt;
-        float bias = restitutionBias + positionBias;
+        float restitutionBias = velocityAlongNormal < -restitutionThreshold ? restitution * velocityAlongNormal : 0.0f;
 
         Vec3 angularA = Cross(inverseInertiaA * Cross(ra, manifold.contactNormal), ra);
         Vec3 angularB = Cross(inverseInertiaB * Cross(rb, manifold.contactNormal), rb);
@@ -52,11 +86,13 @@ void Contact::Solve(float invDt)
             continue;
         }
 
-        float impulseMagnitude = -(velocityAlongNormal + bias) / normalMass;
+        float impulseMagnitude = -(velocityAlongNormal + restitutionBias) / normalMass;
         if (impulseMagnitude <= 0.0f)
         {
             continue;
         }
+
+        normalImpulses[i] += impulseMagnitude;
 
         Vec3 impulse = manifold.contactNormal * impulseMagnitude;
         bodyA->ApplyImpulse(point, -impulse);
@@ -82,12 +118,49 @@ void Contact::Solve(float invDt)
         }
 
         float frictionMagnitude = -Dot(postVelocityB - postVelocityA, tangent) / tangentMass;
-        float frictionLimit = impulseMagnitude * SafeSqrt(bodyA->friction * bodyB->friction);
+        float frictionLimit = impulseMagnitude * friction;
         frictionMagnitude = Clamp(frictionMagnitude, -frictionLimit, frictionLimit);
+
+        tangentImpulses[i] += frictionMagnitude;
+
         Vec3 frictionImpulse = tangent * frictionMagnitude;
         bodyA->ApplyImpulse(point, -frictionImpulse);
         bodyB->ApplyImpulse(point, frictionImpulse);
     }
+
+    MuliNotUsed(step);
+}
+
+bool Contact::SolvePositionConstraints(const Timestep& step)
+{
+    MuliNotUsed(step);
+
+    Update();
+    if (IsTouching() == false)
+    {
+        return true;
+    }
+
+    float invMassSum = bodyA->invMass + bodyB->invMass;
+    if (invMassSum <= epsilon)
+    {
+        return true;
+    }
+
+    float correctionMagnitude = position_correction * Clamp(manifold.penetrationDepth - linear_slop, 0.0f, max_position_correction);
+    Vec3 correction = manifold.contactNormal * (correctionMagnitude / invMassSum);
+
+    if (bodyA->IsStatic() == false)
+    {
+        bodyA->transform.p -= correction * bodyA->invMass;
+    }
+
+    if (bodyB->IsStatic() == false)
+    {
+        bodyB->transform.p += correction * bodyB->invMass;
+    }
+
+    return manifold.penetrationDepth <= linear_slop;
 }
 
 } // namespace muli3

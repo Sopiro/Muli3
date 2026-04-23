@@ -346,7 +346,7 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
     std::vector<Vec3> aabbLines;
     if (options.show_aabb)
     {
-        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+        for (RigidBody* bodyPtr : world.GetRigidBodies())
         {
             const RigidBody& body = *bodyPtr;
             if (body.shape)
@@ -362,9 +362,14 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
     std::vector<Vec3> contactNormalLines;
     if (options.show_contact_point || options.show_contact_normal)
     {
-        for (const Contact& contact : world.GetContacts())
+        for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
         {
-            const ContactManifold& manifold = contact.GetContactManifold();
+            if (contact->IsEnabled() == false || contact->IsTouching() == false)
+            {
+                continue;
+            }
+
+            const ContactManifold& manifold = contact->GetContactManifold();
 
             for (int32 i = 0; i < manifold.contactCount; ++i)
             {
@@ -434,7 +439,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body || options.draw_wireframe)
     {
-        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+        for (RigidBody* bodyPtr : world.GetRigidBodies())
         {
             DrawBody(*bodyPtr, shadowShader);
         }
@@ -456,7 +461,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body)
     {
-        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+        for (RigidBody* bodyPtr : world.GetRigidBodies())
         {
             const RigidBody& body = *bodyPtr;
             surfaceShader.SetVec3("uBaseColor", body.IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f });
@@ -472,7 +477,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glDisable(GL_CULL_FACE);
         surfaceShader.SetVec3("uBaseColor", Vec3{ 0.03f, 0.04f, 0.05f });
-        for (const std::unique_ptr<RigidBody>& bodyPtr : world.GetRigidBodies())
+        for (RigidBody* bodyPtr : world.GetRigidBodies())
         {
             DrawBody(*bodyPtr, surfaceShader);
         }

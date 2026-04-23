@@ -1,8 +1,37 @@
 #include "muli3/rigidbody.h"
 #include "muli3/shape.h"
+#include "muli3/world.h"
 
 namespace muli3
 {
+
+void RigidBody::SetEnabled(bool enabled)
+{
+    if (enabled == IsEnabled())
+    {
+        return;
+    }
+
+    MuliAssert(world != nullptr);
+    if (world == nullptr)
+    {
+        return;
+    }
+
+    if (enabled)
+    {
+        flag |= flag_enabled;
+        contactList = nullptr;
+        world->contactGraph.AddBody(this);
+    }
+    else
+    {
+        flag &= ~flag_enabled;
+        world->contactGraph.RemoveBody(this);
+        islandID = 0;
+        islandIndex = 0;
+    }
+}
 
 Vec3 RigidBody::GetWorldCenterOfMass() const
 {

@@ -609,7 +609,7 @@ inline Mat4 Mat4::Orth(Float left, Float right, Float bottom, Float top, Float z
     // Scale
     t.ex.x = 2 / (right - left);
     t.ey.y = 2 / (top - bottom);
-    t.ez.z = 2 / (zFar - zNear);
+    t.ez.z = -2 / (zFar - zNear);
 
     // Translation
     t.ew.x = -(right + left) / (right - left);

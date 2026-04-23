@@ -10,9 +10,14 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <format>
+#include <functional>
 #include <limits>
 #include <memory>
+#include <new>
+#include <span>
 #include <string>
 #include <utility>
 #include <vector>

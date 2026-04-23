@@ -12,7 +12,12 @@ namespace muli3
 
 Game::Game()
 {
-    MuliAssert(renderer.Initialize());
+    bool rendererInitialized = renderer.Initialize();
+    MuliAssert(rendererInitialized);
+    if (!rendererInitialized)
+    {
+        std::exit(1);
+    }
 
     sort_demos();
     demoCount = GetDemoFrames().size();

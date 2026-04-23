@@ -1,3 +1,7 @@
+#if defined(_WIN32) && defined(_DEBUG)
+#include <crtdbg.h>
+#endif
+
 #include <chrono>
 
 #include "game.h"
@@ -105,6 +109,11 @@ static void MainLoop()
 
 int main()
 {
+#if defined(_WIN32) && defined(_DEBUG)
+    // Enable memory-leak reports
+    _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
     if (!Init())
     {
         return 1;
