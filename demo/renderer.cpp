@@ -284,12 +284,13 @@ void Renderer::Shutdown()
 
 void Renderer::DrawBody(const RigidBody& body, const Shader& shader) const
 {
-    if (!body.shape || body.shape->GetType() != ShapeType::sphere)
+    const Shape* shape = body.GetShape();
+    if (!shape || shape->GetType() != ShapeType::sphere)
     {
         return;
     }
 
-    const Sphere* sphere = (const Sphere*)body.shape;
+    const Sphere* sphere = (const Sphere*)shape;
     Transform renderTransform = body.transform;
     renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
     shader.SetMat4("uModel", Mat4(renderTransform));
@@ -346,13 +347,13 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
     std::vector<Vec3> aabbLines;
     if (options.show_aabb)
     {
-        for (RigidBody* bodyPtr : world.GetRigidBodies())
+        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            const RigidBody& body = *bodyPtr;
-            if (body.shape)
+            const Shape* shape = body->GetShape();
+            if (shape)
             {
                 AABB aabb;
-                body.shape->ComputeAABB(body.transform, &aabb);
+                shape->ComputeAABB(body->transform, &aabb);
                 DrawAABB(aabb, aabbLines);
             }
         }
@@ -439,9 +440,9 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body || options.draw_wireframe)
     {
-        for (RigidBody* bodyPtr : world.GetRigidBodies())
+        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*bodyPtr, shadowShader);
+            DrawBody(*body, shadowShader);
         }
     }
 
@@ -461,11 +462,10 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body)
     {
-        for (RigidBody* bodyPtr : world.GetRigidBodies())
+        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            const RigidBody& body = *bodyPtr;
-            surfaceShader.SetVec3("uBaseColor", body.IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f });
-            DrawBody(body, surfaceShader);
+            surfaceShader.SetVec3("uBaseColor", body->IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f });
+            DrawBody(*body, surfaceShader);
         }
     }
 
@@ -477,9 +477,9 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glDisable(GL_CULL_FACE);
         surfaceShader.SetVec3("uBaseColor", Vec3{ 0.03f, 0.04f, 0.05f });
-        for (RigidBody* bodyPtr : world.GetRigidBodies())
+        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*bodyPtr, surfaceShader);
+            DrawBody(*body, surfaceShader);
         }
         glEnable(GL_CULL_FACE);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

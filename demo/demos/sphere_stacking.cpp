@@ -9,7 +9,7 @@ public:
     SphereStacking(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateSphere(100.0f, Transform{ Vec3{ 0.0f, -100.0f, 0.0f } }, true);
+        RigidBody* ground = world->CreateSphere(100.0f, Transform{ Vec3{ 0.0f, -100.0f, 0.0f } }, RigidBody::static_body);
         ground->restitution = 0.15f;
         ground->friction = 0.9f;
 
@@ -32,7 +32,7 @@ public:
                                 ((float)z - 1.5f) * 1.25f,
                             },
                         },
-                        false, 1.0f
+                        RigidBody::dynamic_body
                     );
 
                     body->restitution = 0.3f;

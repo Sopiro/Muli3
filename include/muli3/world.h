@@ -23,21 +23,18 @@ public:
 
     void Destroy(RigidBody* body);
     void Destroy(std::span<RigidBody*> bodies);
-    void Destroy(Shape* shape);
-    void Destroy(std::span<Shape*> shapes);
 
     void BufferDestroy(RigidBody* body);
     void BufferDestroy(std::span<RigidBody*> bodies);
-    void BufferDestroy(Shape* shape);
-    void BufferDestroy(std::span<Shape*> shapes);
 
-    Shape* CreateSphereShape(float radius);
-    RigidBody* CreateRigidBody(const RigidBody& body = RigidBody{});
-    RigidBody* CreateSphere(float radius, const Transform& transform, bool isStatic, float mass = 1.0f);
+    RigidBody* CreateEmptyBody(const Transform& transform = identity, RigidBody::Type type = RigidBody::dynamic_body);
+    RigidBody* CreateSphere(
+        float radius,
+        const Transform& transform = identity,
+        RigidBody::Type type = RigidBody::dynamic_body,
+        float density = default_density
+    );
 
-    std::vector<RigidBody*>& GetRigidBodies();
-    const std::vector<RigidBody*>& GetRigidBodies() const;
-    int32 GetRigidBodyCount() const;
     RigidBody* GetBodyList() const;
     RigidBody* GetBodyListTail() const;
     int32 GetBodyCount() const;
@@ -63,18 +60,17 @@ private:
 
     void Solve();
     void FreeBody(RigidBody* body);
+    Shape* CloneShape(const Shape* shape, const Transform& transform = identity);
     void FreeShape(Shape* shape);
 
     const WorldSettings& settings;
     ContactGraph contactGraph;
 
-    std::vector<Shape*> shapes;
-    std::vector<RigidBody*> bodies;
     std::vector<RigidBody*> destroyBodyBuffer;
-    std::vector<Shape*> destroyShapeBuffer;
 
     RigidBody* bodyList = nullptr;
     RigidBody* bodyListTail = nullptr;
+    int32 bodyCount = 0;
 
     int32 islandCount = 0;
     int32 sleepingBodyCount = 0;
@@ -82,21 +78,6 @@ private:
     LinearAllocator linearAllocator;
     BlockAllocator blockAllocator;
 };
-
-inline std::vector<RigidBody*>& World::GetRigidBodies()
-{
-    return bodies;
-}
-
-inline const std::vector<RigidBody*>& World::GetRigidBodies() const
-{
-    return bodies;
-}
-
-inline int32 World::GetRigidBodyCount() const
-{
-    return (int32)bodies.size();
-}
 
 inline RigidBody* World::GetBodyList() const
 {
@@ -110,7 +91,7 @@ inline RigidBody* World::GetBodyListTail() const
 
 inline int32 World::GetBodyCount() const
 {
-    return (int32)bodies.size();
+    return bodyCount;
 }
 
 inline const Contact* World::GetContacts() const

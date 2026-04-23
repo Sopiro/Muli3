@@ -58,7 +58,7 @@ void Island::Solve()
             b->resting += step.dt;
         }
 
-        if (b->IsStatic() == false)
+        if (b->GetType() == RigidBody::dynamic_body)
         {
             if (settings.apply_gravity)
             {
@@ -96,6 +96,11 @@ void Island::Solve()
         b->torque = Vec3::zero;
 
         b->Integrate(step.dt);
+
+        if (settings.world_bounds.TestPoint(b->transform.p) == false)
+        {
+            world->BufferDestroy(b);
+        }
     }
 
     for (int32 i = 0; i < settings.step.position_iterations; ++i)

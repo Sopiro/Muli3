@@ -23,45 +23,30 @@ void World::Reset()
         Destroy(bodyList);
     }
 
-    while (shapes.empty() == false)
-    {
-        Destroy(shapes.back());
-    }
-
     MuliAssert(bodyList == nullptr);
     MuliAssert(bodyListTail == nullptr);
-    MuliAssert(bodies.empty());
-    MuliAssert(shapes.empty());
+    MuliAssert(bodyCount == 0);
     MuliAssert(contactGraph.contactList == nullptr);
     MuliAssert(contactGraph.contactCount == 0);
 
-    bodies.clear();
-    shapes.clear();
     destroyBodyBuffer.clear();
-    destroyShapeBuffer.clear();
 }
 
-Shape* World::CreateSphereShape(float radius)
-{
-    void* mem = blockAllocator.Allocate(sizeof(Sphere));
-    Shape* shape = new (mem) Sphere(radius);
-    shapes.push_back(shape);
-    return shape;
-}
-
-RigidBody* World::CreateRigidBody(const RigidBody& body)
+RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type type)
 {
     void* mem = blockAllocator.Allocate(sizeof(RigidBody));
-    RigidBody* b = new (mem) RigidBody(body);
-    bodies.push_back(b);
+    RigidBody* b = new (mem) RigidBody;
 
     b->world = this;
     b->prev = bodyListTail;
     b->next = nullptr;
     b->node = AABBTree::nullNode;
     b->contactList = nullptr;
-    b->transform0 = b->transform;
-    b->ownShape = false;
+    b->transform = transform;
+    b->transform0 = transform;
+    b->shape = nullptr;
+    b->type = type;
+    b->invMass = 0.0f;
     b->flag &= ~RigidBody::flag_island;
     b->flag |= RigidBody::flag_enabled;
 
@@ -74,28 +59,15 @@ RigidBody* World::CreateRigidBody(const RigidBody& body)
         bodyList = b;
     }
     bodyListTail = b;
+    ++bodyCount;
 
-    contactGraph.AddBody(b);
     return b;
 }
 
-RigidBody* World::CreateSphere(float radius, const Transform& transform, bool isStatic, float mass)
+RigidBody* World::CreateSphere(float radius, const Transform& transform, RigidBody::Type type, float density)
 {
-    RigidBody body;
-    body.shape = CreateSphereShape(radius);
-    body.transform = transform;
-    body.transform0 = transform;
-    if (isStatic)
-    {
-        body.invMass = 0.0f;
-    }
-    else
-    {
-        body.SetMass(mass);
-    }
-
-    RigidBody* b = CreateRigidBody(body);
-    b->ownShape = true;
+    RigidBody* b = CreateEmptyBody(transform, type);
+    b->CreateSphereShape(radius, identity, density);
     return b;
 }
 
@@ -118,22 +90,13 @@ float World::Step(float dt)
 
     for (RigidBody* body : destroyBodyBuffer)
     {
-        if (std::find(bodies.begin(), bodies.end(), body) != bodies.end())
+        if (body && body->world == this)
         {
             Destroy(body);
         }
     }
 
-    for (Shape* shape : destroyShapeBuffer)
-    {
-        if (std::find(shapes.begin(), shapes.end(), shape) != shapes.end())
-        {
-            Destroy(shape);
-        }
-    }
-
     destroyBodyBuffer.clear();
-    destroyShapeBuffer.clear();
 
     return 1.0f;
 }
@@ -151,23 +114,16 @@ void World::Destroy(RigidBody* body)
         return;
     }
 
+    destroyBodyBuffer.erase(std::remove(destroyBodyBuffer.begin(), destroyBodyBuffer.end(), body), destroyBodyBuffer.end());
+
+    body->DestroyShape();
     contactGraph.RemoveBody(body);
 
     if (body->next) body->next->prev = body->prev;
     if (body->prev) body->prev->next = body->next;
     if (body == bodyList) bodyList = body->next;
     if (body == bodyListTail) bodyListTail = body->prev;
-
-    auto it = std::find(bodies.begin(), bodies.end(), body);
-    MuliAssert(it != bodies.end());
-    if (it != bodies.end())
-    {
-        *it = bodies.back();
-        bodies.pop_back();
-    }
-
-    Shape* shape = body->shape;
-    bool destroyShape = body->ownShape;
+    --bodyCount;
 
     body->shape = nullptr;
     body->world = nullptr;
@@ -175,70 +131,17 @@ void World::Destroy(RigidBody* body)
     body->next = nullptr;
     body->contactList = nullptr;
     body->node = AABBTree::nullNode;
-    body->ownShape = false;
-
     FreeBody(body);
-
-    if (destroyShape)
-    {
-        auto sit = std::find(destroyShapeBuffer.begin(), destroyShapeBuffer.end(), shape);
-        if (sit != destroyShapeBuffer.end())
-        {
-            *sit = destroyShapeBuffer.back();
-            destroyShapeBuffer.pop_back();
-        }
-
-        Destroy(shape);
-    }
 }
 
 void World::Destroy(std::span<RigidBody*> inBodies)
 {
-    for (RigidBody* body : inBodies)
+    std::vector<RigidBody*> temp{ inBodies.begin(), inBodies.end() };
+    for (RigidBody* body : temp)
     {
-        if (std::find(bodies.begin(), bodies.end(), body) != bodies.end())
+        if (body && body->world == this)
         {
             Destroy(body);
-        }
-    }
-}
-
-void World::Destroy(Shape* shape)
-{
-    if (shape == nullptr)
-    {
-        return;
-    }
-
-    for (RigidBody* body : bodies)
-    {
-        MuliAssert(body->shape != shape);
-        if (body->shape == shape)
-        {
-            return;
-        }
-    }
-
-    auto it = std::find(shapes.begin(), shapes.end(), shape);
-    MuliAssert(it != shapes.end());
-    if (it == shapes.end())
-    {
-        return;
-    }
-
-    *it = shapes.back();
-    shapes.pop_back();
-
-    FreeShape(shape);
-}
-
-void World::Destroy(std::span<Shape*> inShapes)
-{
-    for (Shape* shape : inShapes)
-    {
-        if (std::find(shapes.begin(), shapes.end(), shape) != shapes.end())
-        {
-            Destroy(shape);
         }
     }
 }
@@ -264,30 +167,9 @@ void World::BufferDestroy(std::span<RigidBody*> inBodies)
     }
 }
 
-void World::BufferDestroy(Shape* shape)
-{
-    if (shape == nullptr)
-    {
-        return;
-    }
-
-    if (std::find(destroyShapeBuffer.begin(), destroyShapeBuffer.end(), shape) == destroyShapeBuffer.end())
-    {
-        destroyShapeBuffer.push_back(shape);
-    }
-}
-
-void World::BufferDestroy(std::span<Shape*> inShapes)
-{
-    for (Shape* shape : inShapes)
-    {
-        BufferDestroy(shape);
-    }
-}
-
 void World::Solve()
 {
-    int32 bodyCount = (int32)bodies.size();
+    int32 bodyCount = GetBodyCount();
     if (bodyCount == 0)
     {
         return;
@@ -302,7 +184,7 @@ void World::Solve()
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
     int32 stackPointer;
 
-    for (RigidBody* b : bodies)
+    for (RigidBody* b = bodyList; b; b = b->next)
     {
         if (b->flag & RigidBody::flag_island)
         {
@@ -392,7 +274,7 @@ void World::Solve()
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
     islandCount = islandID;
 
-    for (RigidBody* body : bodies)
+    for (RigidBody* body = bodyList; body; body = body->next)
     {
         if ((body->flag & RigidBody::flag_island) == 0)
         {
@@ -417,6 +299,28 @@ void World::FreeBody(RigidBody* body)
 {
     body->~RigidBody();
     blockAllocator.Free(body, sizeof(RigidBody));
+}
+
+Shape* World::CloneShape(const Shape* shape, const Transform& transform)
+{
+    if (shape == nullptr)
+    {
+        return nullptr;
+    }
+
+    switch (shape->GetType())
+    {
+    case ShapeType::sphere:
+    {
+        void* mem = blockAllocator.Allocate(sizeof(Sphere));
+        return new (mem) Sphere(*(const Sphere*)shape, transform);
+    }
+    default:
+        MuliAssert(false);
+        break;
+    }
+
+    return nullptr;
 }
 
 void World::FreeShape(Shape* shape)

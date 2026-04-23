@@ -54,7 +54,7 @@ void ContactGraph::OnNewContact(RigidBody* bodyA, RigidBody* bodyB)
     MuliAssert(bodyA->shape && bodyB->shape);
     MuliAssert(bodyA->shape->GetType() >= bodyB->shape->GetType());
 
-    if (bodyA->IsStatic() && bodyB->IsStatic())
+    if (bodyA->GetType() != RigidBody::dynamic_body && bodyB->GetType() != RigidBody::dynamic_body)
     {
         return;
     }
@@ -158,6 +158,9 @@ void ContactGraph::RemoveBody(RigidBody* body)
         Contact* contact = edge->contact;
         edge = edge->next;
 
+        contact->bodyA->Awake();
+        contact->bodyB->Awake();
+
         Destroy(contact);
     }
 }
@@ -195,4 +198,3 @@ void ContactGraph::UpdateBody(RigidBody* body, const Transform& transform0, cons
 }
 
 } // namespace muli3
-

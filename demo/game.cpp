@@ -206,7 +206,7 @@ void Game::UpdateUI()
 
                 ImGui::Separator();
                 ImGui::Text("%s", demoFrames[demoIndex].name);
-                ImGui::Text("Bodies: %d", world.GetRigidBodyCount());
+                ImGui::Text("Bodies: %d", world.GetBodyCount());
                 ImGui::Text("Pause: Q");
                 ImGui::Text("Step: E / Right");
                 ImGui::Text("Camera: Hold RMB");
