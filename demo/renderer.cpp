@@ -8,7 +8,7 @@ namespace
 
 constexpr int g_shadowMapSize = 2048;
 constexpr size_t g_maxSphereBatchCount = 4096;
-constexpr size_t g_maxDebugVertexCount = 8192;
+constexpr int32 g_maxVertexCount = 1024 * 3;
 
 constexpr const char* g_surfaceVertexShader = R"(
 #version 330 core
@@ -134,34 +134,34 @@ void main()
 }
 )";
 
-constexpr const char* g_debugVertexShader = R"(
+constexpr const char* g_batchVertexShader = R"(
 #version 330 core
-layout (location = 0) in vec3 aPosition;
-layout (location = 1) in vec3 aColor;
+layout (location = 0) in vec3 aPoint;
+layout (location = 1) in vec4 aColor;
 
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform float uPointSize;
 
-out vec3 vColor;
+out vec4 vColor;
 
 void main()
 {
-    gl_Position = uProjection * uView * vec4(aPosition, 1.0);
+    gl_Position = uProjection * uView * vec4(aPoint, 1.0);
     gl_PointSize = uPointSize;
     vColor = aColor;
 }
 )";
 
-constexpr const char* g_debugFragmentShader = R"(
+constexpr const char* g_batchFragmentShader = R"(
 #version 330 core
-in vec3 vColor;
+in vec4 vColor;
 
 out vec4 FragColor;
 
 void main()
 {
-    FragColor = vec4(vColor, 1.0);
+    FragColor = vColor;
 }
 )";
 
@@ -215,29 +215,29 @@ bool Renderer::CreateShadowResources()
     return status == GL_FRAMEBUFFER_COMPLETE;
 }
 
-bool Renderer::CreateDebugResources()
+bool Renderer::CreateBatchResources()
 {
-    if (!debugShader.Create(g_debugVertexShader, g_debugFragmentShader))
+    if (!batchShader.Create(g_batchVertexShader, g_batchFragmentShader))
     {
         return false;
     }
 
-    glGenVertexArrays(1, &debugVAO);
-    glGenBuffers(1, &debugVBO);
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
 
-    glBindVertexArray(debugVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
-    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(DebugVertex), reinterpret_cast<void*>(offsetof(DebugVertex, position)));
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * g_maxVertexCount, nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, point)));
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(DebugVertex), reinterpret_cast<void*>(offsetof(DebugVertex, color)));
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, color)));
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    return debugVAO != 0 && debugVBO != 0;
+    return VAO != 0 && VBO != 0;
 }
 
-bool Renderer::CreateBatchResources()
+bool Renderer::CreateShapeResources()
 {
     glGenBuffers(1, &sphereInstanceVBO);
 
@@ -270,21 +270,21 @@ void Renderer::DestroyShadowResources()
     }
 }
 
-void Renderer::DestroyDebugResources()
+void Renderer::DestroyBatchResources()
 {
-    if (debugVBO != 0)
+    if (VBO != 0)
     {
-        glDeleteBuffers(1, &debugVBO);
-        debugVBO = 0;
+        glDeleteBuffers(1, &VBO);
+        VBO = 0;
     }
-    if (debugVAO != 0)
+    if (VAO != 0)
     {
-        glDeleteVertexArrays(1, &debugVAO);
-        debugVAO = 0;
+        glDeleteVertexArrays(1, &VAO);
+        VAO = 0;
     }
 }
 
-void Renderer::DestroyBatchResources()
+void Renderer::DestroyShapeResources()
 {
     if (sphereInstanceVBO != 0)
     {
@@ -307,7 +307,7 @@ bool Renderer::Initialize()
     {
         return false;
     }
-    if (!CreateDebugResources())
+    if (!CreateBatchResources())
     {
         return false;
     }
@@ -316,14 +316,14 @@ bool Renderer::Initialize()
     surfaceShader.SetInt("uShadowMap", 0);
 
     sphereMesh.Upload(BuildSphereVertices(48, 24), BuildSphereIndices(48, 24), GL_TRIANGLES);
-    if (!CreateBatchResources())
+    if (!CreateShapeResources())
     {
         return false;
     }
 
     sphereInstances.reserve(g_maxSphereBatchCount);
-    points.reserve(g_maxDebugVertexCount);
-    lines.reserve(g_maxDebugVertexCount);
+    points.resize(g_maxVertexCount);
+    lines.resize(g_maxVertexCount);
     initialized = true;
     return true;
 }
@@ -335,13 +335,13 @@ void Renderer::Shutdown()
         return;
     }
 
-    DestroyBatchResources();
+    DestroyShapeResources();
     sphereMesh.Destroy();
     surfaceShader.Destroy();
     shadowShader.Destroy();
     DestroyShadowResources();
-    debugShader.Destroy();
-    DestroyDebugResources();
+    batchShader.Destroy();
+    DestroyBatchResources();
     initialized = false;
 }
 
@@ -365,18 +365,7 @@ void Renderer::DrawBody(const RigidBody& body, const Vec3& color, const Shader& 
     }
 }
 
-void Renderer::DrawPoint(const Vec3& point, const Vec3& color)
-{
-    points.push_back(DebugVertex{ point, color });
-}
-
-void Renderer::DrawLine(const Vec3& p1, const Vec3& p2, const Vec3& color)
-{
-    lines.push_back(DebugVertex{ p1, color });
-    lines.push_back(DebugVertex{ p2, color });
-}
-
-void Renderer::DrawAABB(const AABB& aabb, const Vec3& color)
+void Renderer::DrawAABB(const AABB& aabb, const Vec4& color)
 {
     const Vec3 v000{ aabb.min.x, aabb.min.y, aabb.min.z };
     const Vec3 v001{ aabb.min.x, aabb.min.y, aabb.max.z };
@@ -416,50 +405,56 @@ void Renderer::FlushSpheres(const Shader& shader)
     sphereInstances.clear();
 }
 
-void Renderer::FlushPoints(const Mat4& view, const Mat4& projection, float pointSize)
+void Renderer::FlushPoints()
 {
-    FlushDebugVertices(view, projection, GL_POINTS, points, pointSize);
-    points.clear();
+    FlushPrimitive(GL_POINTS, points, pointCount);
+    pointCount = 0;
 }
 
-void Renderer::FlushLines(const Mat4& view, const Mat4& projection)
+void Renderer::FlushLines()
 {
-    FlushDebugVertices(view, projection, GL_LINES, lines, 1.0f);
-    lines.clear();
+    FlushPrimitive(GL_LINES, lines, lineCount);
+    lineCount = 0;
 }
 
-void Renderer::FlushDebugVertices(
-    const Mat4& view, const Mat4& projection, GLenum primitive, const std::vector<DebugVertex>& vertices, float pointSize
-)
+void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount)
 {
-    if (vertices.empty())
+    if (vertexCount == 0)
     {
         return;
     }
 
-    debugShader.Use();
-    debugShader.SetMat4("uView", view);
-    debugShader.SetMat4("uProjection", projection);
-    debugShader.SetFloat("uPointSize", pointSize);
+    batchShader.Use();
+    batchShader.SetMat4("uView", viewMatrix);
+    batchShader.SetMat4("uProjection", projectionMatrix);
+    batchShader.SetFloat("uPointSize", pointSize);
 
-    glBindVertexArray(debugVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(vertices.size() * sizeof(DebugVertex)), vertices.data(), GL_DYNAMIC_DRAW);
-    glDrawArrays(primitive, 0, (GLsizei)vertices.size());
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(vertexCount * sizeof(Vertex)), vertices.data());
+    glDrawArrays(primitive, 0, vertexCount);
     glBindVertexArray(0);
 }
 
-void Renderer::FlushAllDebug(const Mat4& view, const Mat4& projection)
+void Renderer::EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount)
 {
-    FlushPoints(view, projection, 5.0f);
-    FlushLines(view, projection);
+    if (requiredCount <= (int32)vertices.size())
+    {
+        return;
+    }
+
+    int32 newCapacity = Max<int32>((int32)vertices.size() * 2, requiredCount);
+    vertices.resize(newCapacity);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * newCapacity, nullptr, GL_DYNAMIC_DRAW);
 }
 
-void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& projection, const DebugOptions& options)
+void Renderer::DrawOverlay(const World& world, const DebugOptions& options)
 {
     if (options.show_bvh || options.show_aabb)
     {
-        const Vec3 aabbColor{ 0.08f, 0.09f, 0.10f };
+        const Vec4 aabbColor{ 0.08f, 0.09f, 0.10f, 1.0f };
         const AABBTree& tree = world.GetDynamicTree();
         tree.Traverse([&](const AABBTree::Node* node) -> void {
             if (options.show_bvh == false && node->IsLeaf() == false)
@@ -473,8 +468,8 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
 
     if (options.show_contact_point || options.show_contact_normal)
     {
-        const Vec3 pointColor{ 1.0f, 0.18f, 0.08f };
-        const Vec3 normalColor{ 0.05f, 0.25f, 1.0f };
+        const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 1.0f };
+        const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 1.0f };
         for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
         {
             if (contact->IsEnabled() == false || contact->IsTouching() == false)
@@ -516,7 +511,7 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
     glEnable(GL_PROGRAM_POINT_SIZE);
     glLineWidth(1.0f);
 
-    FlushAllDebug(view, projection);
+    FlushAll();
 
     glLineWidth(1.0f);
     if (depthTestEnabled)
@@ -531,6 +526,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     const Mat4 projection = camera.GetProjectionMatrix(aspectRatio);
     const Vec3 lightDirection = Normalize(Vec3{ 0.45f, -1.0f, 0.35f });
     const Mat4 lightViewProjection = ComputeLightViewProjection(lightDirection);
+    SetViewMatrix(view);
+    SetProjectionMatrix(projection);
 
     GLint viewport[4];
     glGetIntegerv(GL_VIEWPORT, viewport);
@@ -595,7 +592,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         glDepthFunc(previousDepthFunc);
     }
 
-    DrawDebug(world, view, projection, options);
+    DrawOverlay(world, options);
 }
 
 } // namespace muli3

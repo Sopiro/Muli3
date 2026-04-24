@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-struct Vertex
+struct MeshVertex
 {
     Vec3 position;
     Vec3 normal;
@@ -18,7 +18,7 @@ public:
     Mesh() = default;
     ~Mesh();
 
-    void Upload(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices, GLenum primitiveType);
+    void Upload(const std::vector<MeshVertex>& vertices, const std::vector<uint32>& indices, GLenum primitiveType);
     void Destroy();
     void Draw() const;
     void DrawInstanced(GLsizei instanceCount) const;
@@ -32,11 +32,11 @@ private:
     GLenum primitive = GL_TRIANGLES;
 };
 
-std::vector<Vertex> BuildSphereVertices(int32 segments, int32 rings);
+std::vector<MeshVertex> BuildSphereVertices(int32 segments, int32 rings);
 std::vector<uint32> BuildSphereIndices(int32 segments, int32 rings);
-std::vector<Vertex> BuildGridVertices(int32 halfExtent, float spacing);
+std::vector<MeshVertex> BuildGridVertices(int32 halfExtent, float spacing);
 std::vector<uint32> BuildGridIndices(int32 halfExtent);
-std::vector<Vertex> BuildPlaneVertices();
+std::vector<MeshVertex> BuildPlaneVertices();
 std::vector<uint32> BuildPlaneIndices();
 
 } // namespace muli3

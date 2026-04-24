@@ -8,14 +8,37 @@
 namespace muli3
 {
 
+struct Vertex
+{
+    Vec3 point;
+    Vec4 color;
+};
+
 class Renderer : NonCopyable
 {
 public:
+    static constexpr inline Vec4 default_black{ 0.0f, 0.0f, 0.0f, 0.9f };
+
     ~Renderer();
 
     bool Initialize();
     void Shutdown();
     void Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options);
+
+    void SetPointSize(float size);
+    void SetLineWidth(float lineWidth) const;
+    void SetProjectionMatrix(const Mat4& projection);
+    void SetViewMatrix(const Mat4& view);
+
+    void DrawPoint(const Vertex& v);
+    void DrawPoint(const Vec3& point, const Vec4& color = default_black);
+    void DrawLine(const Vertex& v1, const Vertex& v2);
+    void DrawLine(const Vec3& p1, const Vec3& p2, const Vec4& color = default_black);
+    void DrawAABB(const AABB& aabb);
+
+    void FlushAll();
+    void FlushPoints();
+    void FlushLines();
 
 private:
     struct SphereInstance
@@ -27,42 +50,100 @@ private:
         Vec4 color;
     };
 
-    struct DebugVertex
-    {
-        Vec3 position;
-        Vec3 color;
-    };
-
     bool CreateShadowResources();
-    bool CreateDebugResources();
     bool CreateBatchResources();
+    bool CreateShapeResources();
     void DestroyShadowResources();
-    void DestroyDebugResources();
     void DestroyBatchResources();
+    void DestroyShapeResources();
     void DrawBody(const RigidBody& body, const Vec3& color, const Shader& shader);
-    void DrawPoint(const Vec3& point, const Vec3& color);
-    void DrawLine(const Vec3& p1, const Vec3& p2, const Vec3& color);
-    void DrawAABB(const AABB& aabb, const Vec3& color);
+    void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushSpheres(const Shader& shader);
-    void FlushPoints(const Mat4& view, const Mat4& projection, float pointSize = 6.0f);
-    void FlushLines(const Mat4& view, const Mat4& projection);
-    void FlushDebugVertices(const Mat4& view, const Mat4& projection, GLenum primitive, const std::vector<DebugVertex>& vertices, float pointSize);
-    void FlushAllDebug(const Mat4& view, const Mat4& projection);
-    void DrawDebug(const World& world, const Mat4& view, const Mat4& projection, const DebugOptions& options);
+    void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
+    void DrawOverlay(const World& world, const DebugOptions& options);
+    void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
     Shader surfaceShader;
     Shader shadowShader;
-    Shader debugShader;
+    Shader batchShader;
     Mesh sphereMesh;
     bool initialized = false;
     GLuint shadowFramebuffer = 0;
     GLuint shadowDepthTexture = 0;
-    GLuint debugVAO = 0;
-    GLuint debugVBO = 0;
+    GLuint VAO = 0;
+    GLuint VBO = 0;
     GLuint sphereInstanceVBO = 0;
     std::vector<SphereInstance> sphereInstances;
-    std::vector<DebugVertex> points;
-    std::vector<DebugVertex> lines;
+    std::vector<Vertex> points;
+    int32 pointCount = 0;
+    std::vector<Vertex> lines;
+    int32 lineCount = 0;
+    Mat4 viewMatrix{ identity };
+    Mat4 projectionMatrix{ identity };
+    float pointSize = 5.0f;
 };
+
+inline void Renderer::SetPointSize(float size)
+{
+    pointSize = size;
+}
+
+inline void Renderer::SetLineWidth(float lineWidth) const
+{
+    glLineWidth(lineWidth);
+}
+
+inline void Renderer::SetProjectionMatrix(const Mat4& projection)
+{
+    projectionMatrix = projection;
+}
+
+inline void Renderer::SetViewMatrix(const Mat4& view)
+{
+    viewMatrix = view;
+}
+
+inline void Renderer::DrawPoint(const Vertex& v)
+{
+    EnsurePrimitiveCapacity(points, pointCount + 1);
+    points[pointCount] = v;
+    ++pointCount;
+}
+
+inline void Renderer::DrawPoint(const Vec3& point, const Vec4& color)
+{
+    EnsurePrimitiveCapacity(points, pointCount + 1);
+    points[pointCount] = Vertex{ point, color };
+    ++pointCount;
+}
+
+inline void Renderer::DrawLine(const Vertex& v1, const Vertex& v2)
+{
+    EnsurePrimitiveCapacity(lines, lineCount + 2);
+    lines[lineCount] = v1;
+    ++lineCount;
+    lines[lineCount] = v2;
+    ++lineCount;
+}
+
+inline void Renderer::DrawLine(const Vec3& p1, const Vec3& p2, const Vec4& color)
+{
+    EnsurePrimitiveCapacity(lines, lineCount + 2);
+    lines[lineCount] = Vertex{ p1, color };
+    ++lineCount;
+    lines[lineCount] = Vertex{ p2, color };
+    ++lineCount;
+}
+
+inline void Renderer::DrawAABB(const AABB& aabb)
+{
+    DrawAABB(aabb, default_black);
+}
+
+inline void Renderer::FlushAll()
+{
+    if (lineCount > 0) FlushLines();
+    if (pointCount > 0) FlushPoints();
+}
 
 } // namespace muli3
