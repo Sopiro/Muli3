@@ -17,6 +17,7 @@ struct Vertex
 class Renderer : NonCopyable
 {
 public:
+    static constexpr inline Vec4 default_white{ 1.0f, 1.0f, 1.0f, 0.8f };
     static constexpr inline Vec4 default_black{ 0.0f, 0.0f, 0.0f, 0.9f };
 
     ~Renderer();
@@ -35,6 +36,7 @@ public:
     void DrawLine(const Vertex& v1, const Vertex& v2);
     void DrawLine(const Vec3& p1, const Vec3& p2, const Vec4& color = default_black);
     void DrawAABB(const AABB& aabb);
+    void DrawShape(const Shape* shape, const Transform& transform, const Vec4& color = default_white);
 
     void FlushAll();
     void FlushPoints();
@@ -57,6 +59,7 @@ private:
     void DestroyBatchResources();
     void DestroyShapeResources();
     void DrawBody(const RigidBody& body, const Vec3& color, const Shader& shader);
+    void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushSpheres(const Shader& shader);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
@@ -142,6 +145,7 @@ inline void Renderer::DrawAABB(const AABB& aabb)
 
 inline void Renderer::FlushAll()
 {
+    if (sphereInstances.empty() == false) FlushSpheres(surfaceShader);
     if (lineCount > 0) FlushLines();
     if (pointCount > 0) FlushPoints();
 }

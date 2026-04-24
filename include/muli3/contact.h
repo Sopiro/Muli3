@@ -59,7 +59,6 @@ private:
 
     void Prepare(const Timestep& step);
     void SolveVelocityConstraints(const Timestep& step);
-    bool SolvePositionConstraints(const Timestep& step);
 
     void Update();
 

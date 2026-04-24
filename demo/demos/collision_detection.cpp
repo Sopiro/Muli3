@@ -3,6 +3,8 @@
 #include "renderer.h"
 #include "window.h"
 
+#include <memory>
+
 namespace muli3
 {
 
@@ -20,11 +22,11 @@ public:
         : Demo(game)
     {
         settings.apply_gravity = false;
-
-        body1 = world->CreateEmptyBody(tf1, RigidBody::static_body);
-        body2 = world->CreateEmptyBody(tf2, RigidBody::static_body);
+        camera.SetPosition(Vec3{ 0.0f, 1.0f, 2.2f });
+        camera.SetRotation(-90.0f, 0.0f);
         UpdateShape1();
         UpdateShape2();
+        Step();
     }
 
     void UpdateUI() override
@@ -32,10 +34,13 @@ public:
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
         if (ImGui::Begin("Collision detection", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
         {
+            bool changed = false;
+
             ImGui::SetNextItemWidth(100.0f);
             if (ImGui::Combo("shape1", &item1, items, IM_ARRAYSIZE(items)))
             {
                 UpdateShape1();
+                changed = true;
             }
 
             ImGui::SameLine();
@@ -43,25 +48,27 @@ public:
             if (ImGui::Combo("shape2", &item2, items, IM_ARRAYSIZE(items)))
             {
                 UpdateShape2();
+                changed = true;
             }
 
             ImGui::SetNextItemWidth(120.0f);
             if (ImGui::DragFloat3("pos1", &tf1.p.x, 0.01f))
             {
-                body1->SetTransform(tf1);
+                changed = true;
             }
 
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.0f);
             if (ImGui::DragFloat3("pos2", &tf2.p.x, 0.01f))
             {
-                body2->SetTransform(tf2);
+                changed = true;
             }
 
             ImGui::SetNextItemWidth(120.0f);
             if (ImGui::DragFloat("radius1", &radius1, 0.01f, 0.05f, 5.0f))
             {
                 UpdateShape1();
+                changed = true;
             }
 
             ImGui::SameLine();
@@ -69,23 +76,40 @@ public:
             if (ImGui::DragFloat("radius2", &radius2, 0.01f, 0.05f, 5.0f))
             {
                 UpdateShape2();
+                changed = true;
+            }
+
+            if (ImGui::Button("Reset"))
+            {
+                Reset();
+                changed = true;
             }
 
             ImGui::Separator();
             ImGui::Text("Collide: %s", collide ? "true" : "false");
             ImGui::Text("Contacts: %d", manifold.contactCount);
             ImGui::Text("Penetration: %.4f", manifold.penetrationDepth);
+            ImGui::Text("Normal: %.3f, %.3f, %.3f", manifold.contactNormal.x, manifold.contactNormal.y, manifold.contactNormal.z);
+
+            if (changed)
+            {
+                Step();
+            }
         }
         ImGui::End();
     }
 
     void Step() override
     {
-        collide = Collide(body1->GetShape(), tf1, body2->GetShape(), tf2, &manifold);
+        collide = Collide(shape1.get(), tf1, shape2.get(), tf2, &manifold);
     }
 
     void Render() override
     {
+        renderer.SetPointSize(7.0f);
+        renderer.DrawShape(shape1.get(), tf1);
+        renderer.DrawShape(shape2.get(), tf2);
+
         if (collide)
         {
             const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 1.0f };
@@ -112,12 +136,22 @@ public:
     }
 
 private:
+    void Reset()
+    {
+        tf1 = Transform{ Vec3{ -0.55f, 1.0f, 0.0f } };
+        tf2 = Transform{ Vec3{ 0.55f, 1.0f, 0.0f } };
+        radius1 = 0.6f;
+        radius2 = 0.55f;
+        UpdateShape1();
+        UpdateShape2();
+    }
+
     void UpdateShape1()
     {
         switch (item1)
         {
         case 0:
-            body1->CreateSphereShape(radius1);
+            shape1.reset(new Sphere(radius1));
             break;
         default:
             break;
@@ -129,7 +163,7 @@ private:
         switch (item2)
         {
         case 0:
-            body2->CreateSphereShape(radius2);
+            shape2.reset(new Sphere(radius2));
             break;
         default:
             break;
@@ -138,8 +172,8 @@ private:
 
     Transform tf1{ Vec3{ -0.55f, 1.0f, 0.0f } };
     Transform tf2{ Vec3{ 0.55f, 1.0f, 0.0f } };
-    RigidBody* body1 = nullptr;
-    RigidBody* body2 = nullptr;
+    std::unique_ptr<Shape> shape1;
+    std::unique_ptr<Shape> shape2;
     int32 item1 = 0;
     int32 item2 = 0;
     float radius1 = 0.6f;

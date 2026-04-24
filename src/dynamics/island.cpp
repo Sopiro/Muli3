@@ -103,28 +103,6 @@ void Island::Solve()
         }
     }
 
-    for (int32 i = 0; i < settings.step.position_iterations; ++i)
-    {
-        bool contactSolved = true;
-
-        for (int32 j = contactCount; j > 0; --j)
-        {
-            Contact* c = contacts[j - 1];
-            bool solved = c->SolvePositionConstraints(step);
-            if (solved == false)
-            {
-                c->bodyA->Awake();
-                c->bodyB->Awake();
-            }
-
-            contactSolved &= solved;
-        }
-
-        if (contactSolved)
-        {
-            break;
-        }
-    }
 }
 
 } // namespace muli3

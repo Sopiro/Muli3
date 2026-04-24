@@ -273,7 +273,7 @@ void Game::InitDemo(size_t index)
     }
 
     bool restoreSettings = demo && demoIndex == index;
-    bool restoreCameraPosition = demo && !options.reset_camera;
+    bool restoreCameraPosition = demo && demoIndex == index && !options.reset_camera;
     Camera previousCamera;
     WorldSettings previousSettings;
 
@@ -301,7 +301,6 @@ void Game::InitDemo(size_t index)
     }
 
     demo->dt = fixedDeltaTime;
-    options.pause = false;
     options.step = false;
 }
 

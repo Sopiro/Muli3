@@ -19,6 +19,8 @@ public:
     Vec3 GetForward() const;
     Vec3 GetRight() const;
     Vec3 GetUp() const;
+    void SetPosition(const Vec3& position);
+    void SetRotation(float yaw, float pitch);
 
 private:
     Vec3 position{ 0.0f, 3.0f, 8.0f };
@@ -33,6 +35,17 @@ private:
 inline Vec3 Camera::GetPosition() const
 {
     return position;
+}
+
+inline void Camera::SetPosition(const Vec3& newPosition)
+{
+    position = newPosition;
+}
+
+inline void Camera::SetRotation(float yaw, float pitch)
+{
+    yawDegrees = yaw;
+    pitchDegrees = pitch;
 }
 
 } // namespace muli3

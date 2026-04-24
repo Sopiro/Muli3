@@ -42,7 +42,7 @@ void Contact::Prepare(const Timestep& step)
 
     friction = SafeSqrt(bodyA->friction * bodyB->friction);
     restitution = Min(bodyA->restitution, bodyB->restitution);
-    restitutionThreshold = 0.0f;
+    restitutionThreshold = restitution_slop;
     surfaceSpeed = 0.0f;
 
     for (int32 i = 0; i < max_contact_point_count; ++i)
@@ -76,7 +76,9 @@ void Contact::SolveVelocityConstraints(const Timestep& step)
         Vec3 relativeVelocity = velocityB - velocityA;
         float velocityAlongNormal = Dot(relativeVelocity, manifold.contactNormal);
 
-        float restitutionBias = velocityAlongNormal < -restitutionThreshold ? restitution * velocityAlongNormal : 0.0f;
+        float restitutionBias = restitution * Min(velocityAlongNormal + restitutionThreshold, 0.0f);
+        float penetrationBias = -baumgarte * step.inv_dt * Max(manifold.penetrationDepth - linear_slop, 0.0f);
+        float bias = restitutionBias + penetrationBias;
 
         Vec3 angularA = Cross(inverseInertiaA * Cross(ra, manifold.contactNormal), ra);
         Vec3 angularB = Cross(inverseInertiaB * Cross(rb, manifold.contactNormal), rb);
@@ -86,7 +88,7 @@ void Contact::SolveVelocityConstraints(const Timestep& step)
             continue;
         }
 
-        float impulseMagnitude = -(velocityAlongNormal + restitutionBias) / normalMass;
+        float impulseMagnitude = -(velocityAlongNormal + bias) / normalMass;
         if (impulseMagnitude <= 0.0f)
         {
             continue;
@@ -129,38 +131,6 @@ void Contact::SolveVelocityConstraints(const Timestep& step)
     }
 
     MuliNotUsed(step);
-}
-
-bool Contact::SolvePositionConstraints(const Timestep& step)
-{
-    MuliNotUsed(step);
-
-    Update();
-    if (IsTouching() == false)
-    {
-        return true;
-    }
-
-    float invMassSum = bodyA->invMass + bodyB->invMass;
-    if (invMassSum <= epsilon)
-    {
-        return true;
-    }
-
-    float correctionMagnitude = position_correction * Clamp(manifold.penetrationDepth - linear_slop, 0.0f, max_position_correction);
-    Vec3 correction = manifold.contactNormal * (correctionMagnitude / invMassSum);
-
-    if (bodyA->IsStatic() == false)
-    {
-        bodyA->transform.p -= correction * bodyA->invMass;
-    }
-
-    if (bodyB->IsStatic() == false)
-    {
-        bodyB->transform.p += correction * bodyB->invMass;
-    }
-
-    return manifold.penetrationDepth <= linear_slop;
 }
 
 } // namespace muli3

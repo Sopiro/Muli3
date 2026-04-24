@@ -347,17 +347,27 @@ void Renderer::Shutdown()
 
 void Renderer::DrawBody(const RigidBody& body, const Vec3& color, const Shader& shader)
 {
-    const Shape* shape = body.GetShape();
+    QueueShape(body.GetShape(), body.transform, Vec4{ color, 1.0f }, shader);
+}
+
+void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color)
+{
+    QueueShape(shape, transform, color, surfaceShader);
+}
+
+void Renderer::QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader)
+{
     if (!shape || shape->GetType() != ShapeType::sphere)
     {
         return;
     }
 
     const Sphere* sphere = (const Sphere*)shape;
-    Transform renderTransform = body.transform;
+    Transform renderTransform = transform;
+    renderTransform.p = Mul(transform, sphere->GetCenter());
     renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
     Mat4 model(renderTransform);
-    sphereInstances.push_back(SphereInstance{ model.ex, model.ey, model.ez, model.ew, Vec4{ color, 1.0f } });
+    sphereInstances.push_back(SphereInstance{ model.ex, model.ey, model.ez, model.ew, color });
 
     if (sphereInstances.size() == g_maxSphereBatchCount)
     {
@@ -424,6 +434,10 @@ void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& verti
         return;
     }
 
+    const GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_PROGRAM_POINT_SIZE);
+
     batchShader.Use();
     batchShader.SetMat4("uView", viewMatrix);
     batchShader.SetMat4("uProjection", projectionMatrix);
@@ -434,6 +448,11 @@ void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& verti
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(vertexCount * sizeof(Vertex)), vertices.data());
     glDrawArrays(primitive, 0, vertexCount);
     glBindVertexArray(0);
+
+    if (depthTestEnabled)
+    {
+        glEnable(GL_DEPTH_TEST);
+    }
 }
 
 void Renderer::EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount)
