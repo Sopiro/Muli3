@@ -21,6 +21,8 @@ public:
     void Upload(const std::vector<Vertex>& vertices, const std::vector<uint32>& indices, GLenum primitiveType);
     void Destroy();
     void Draw() const;
+    void DrawInstanced(GLsizei instanceCount) const;
+    GLuint GetVAO() const;
 
 private:
     GLuint vao = 0;

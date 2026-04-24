@@ -65,6 +65,18 @@ void Mesh::Draw() const
     glBindVertexArray(0);
 }
 
+void Mesh::DrawInstanced(GLsizei instanceCount) const
+{
+    glBindVertexArray(vao);
+    glDrawElementsInstanced(primitive, indexCount, GL_UNSIGNED_INT, nullptr, instanceCount);
+    glBindVertexArray(0);
+}
+
+GLuint Mesh::GetVAO() const
+{
+    return vao;
+}
+
 std::vector<Vertex> BuildSphereVertices(int32 segments, int32 rings)
 {
     std::vector<Vertex> vertices;

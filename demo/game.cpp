@@ -110,6 +110,7 @@ void Game::EnableKeyboardShortcut()
     if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
     if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_wireframe = !options.draw_wireframe;
     if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
+    if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
     if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
     if (Input::IsKeyPressed(GLFW_KEY_N)) options.show_contact_normal = !options.show_contact_normal;
     if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
@@ -189,6 +190,7 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Camera reset", &options.reset_camera);
                     ImGui::Checkbox("Draw body", &options.draw_body);
                     ImGui::Checkbox("Draw wireframe", &options.draw_wireframe);
+                    ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);
                     ImGui::Checkbox("Show contact point", &options.show_contact_point);
                     ImGui::Checkbox("Show contact normal", &options.show_contact_normal);

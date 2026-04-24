@@ -7,14 +7,20 @@ namespace
 {
 
 constexpr int g_shadowMapSize = 2048;
+constexpr size_t g_maxSphereBatchCount = 4096;
+constexpr size_t g_maxDebugVertexCount = 8192;
 
 constexpr const char* g_surfaceVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec3 aNormal;
 layout (location = 2) in vec2 aTexCoord;
+layout (location = 3) in vec4 iModel0;
+layout (location = 4) in vec4 iModel1;
+layout (location = 5) in vec4 iModel2;
+layout (location = 6) in vec4 iModel3;
+layout (location = 7) in vec4 iColor;
 
-uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform mat4 uLightViewProjection;
@@ -23,14 +29,17 @@ out vec3 vWorldPosition;
 out vec3 vWorldNormal;
 out vec2 vTexCoord;
 out vec4 vShadowPosition;
+out vec3 vBaseColor;
 
 void main()
 {
-    vec4 worldPosition = uModel * vec4(aPosition, 1.0);
+    mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
+    vec4 worldPosition = model * vec4(aPosition, 1.0);
     vWorldPosition = worldPosition.xyz;
-    vWorldNormal = normalize(mat3(uModel) * aNormal);
+    vWorldNormal = normalize(mat3(model) * aNormal);
     vTexCoord = aTexCoord;
     vShadowPosition = uLightViewProjection * worldPosition;
+    vBaseColor = iColor.rgb;
     gl_Position = uProjection * uView * worldPosition;
 }
 )";
@@ -41,8 +50,8 @@ in vec3 vWorldPosition;
 in vec3 vWorldNormal;
 in vec2 vTexCoord;
 in vec4 vShadowPosition;
+in vec3 vBaseColor;
 
-uniform vec3 uBaseColor;
 uniform vec3 uLightDirection;
 uniform sampler2D uShadowMap;
 
@@ -88,7 +97,7 @@ void main()
 
     vec3 colorA = vec3(0.96, 0.96, 0.96);
     vec3 colorB = vec3(0.76, 0.76, 0.76);
-    vec3 albedo = mix(colorA, colorB, checker) * uBaseColor;
+    vec3 albedo = mix(colorA, colorB, checker) * vBaseColor;
 
     vec3 normal = normalize(vWorldNormal);
     vec3 lightDir = normalize(-uLightDirection);
@@ -104,13 +113,17 @@ void main()
 constexpr const char* g_shadowVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
+layout (location = 3) in vec4 iModel0;
+layout (location = 4) in vec4 iModel1;
+layout (location = 5) in vec4 iModel2;
+layout (location = 6) in vec4 iModel3;
 
-uniform mat4 uModel;
 uniform mat4 uLightViewProjection;
 
 void main()
 {
-    gl_Position = uLightViewProjection * uModel * vec4(aPosition, 1.0);
+    mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
+    gl_Position = uLightViewProjection * model * vec4(aPosition, 1.0);
 }
 )";
 
@@ -124,27 +137,31 @@ void main()
 constexpr const char* g_debugVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
+layout (location = 1) in vec3 aColor;
 
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform float uPointSize;
 
+out vec3 vColor;
+
 void main()
 {
     gl_Position = uProjection * uView * vec4(aPosition, 1.0);
     gl_PointSize = uPointSize;
+    vColor = aColor;
 }
 )";
 
 constexpr const char* g_debugFragmentShader = R"(
 #version 330 core
-uniform vec3 uColor;
+in vec3 vColor;
 
 out vec4 FragColor;
 
 void main()
 {
-    FragColor = vec4(uColor, 1.0);
+    FragColor = vec4(vColor, 1.0);
 }
 )";
 
@@ -155,6 +172,13 @@ Mat4 ComputeLightViewProjection(const Vec3& lightDirection)
     const Mat4 lightView = Mat4::LookAt(lightPosition, sceneCenter, Vec3{ 0.0f, 1.0f, 0.0f });
     const Mat4 lightProjection = Mat4::Orth(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 64.0f);
     return lightProjection * lightView;
+}
+
+void SetInstanceAttribute(GLuint index, GLint size, GLsizei stride, size_t offset)
+{
+    glVertexAttribPointer(index, size, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(offset));
+    glEnableVertexAttribArray(index);
+    glVertexAttribDivisor(index, 1);
 }
 
 } // namespace
@@ -204,11 +228,32 @@ bool Renderer::CreateDebugResources()
     glBindVertexArray(debugVAO);
     glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vec3), nullptr);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(DebugVertex), reinterpret_cast<void*>(offsetof(DebugVertex, position)));
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(DebugVertex), reinterpret_cast<void*>(offsetof(DebugVertex, color)));
+    glEnableVertexAttribArray(1);
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     return debugVAO != 0 && debugVBO != 0;
+}
+
+bool Renderer::CreateBatchResources()
+{
+    glGenBuffers(1, &sphereInstanceVBO);
+
+    glBindVertexArray(sphereMesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, sphereInstanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, g_maxSphereBatchCount * sizeof(SphereInstance), nullptr, GL_DYNAMIC_DRAW);
+
+    SetInstanceAttribute(3, 4, sizeof(SphereInstance), offsetof(SphereInstance, model0));
+    SetInstanceAttribute(4, 4, sizeof(SphereInstance), offsetof(SphereInstance, model1));
+    SetInstanceAttribute(5, 4, sizeof(SphereInstance), offsetof(SphereInstance, model2));
+    SetInstanceAttribute(6, 4, sizeof(SphereInstance), offsetof(SphereInstance, model3));
+    SetInstanceAttribute(7, 4, sizeof(SphereInstance), offsetof(SphereInstance, color));
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    return sphereInstanceVBO != 0;
 }
 
 void Renderer::DestroyShadowResources()
@@ -239,6 +284,15 @@ void Renderer::DestroyDebugResources()
     }
 }
 
+void Renderer::DestroyBatchResources()
+{
+    if (sphereInstanceVBO != 0)
+    {
+        glDeleteBuffers(1, &sphereInstanceVBO);
+        sphereInstanceVBO = 0;
+    }
+}
+
 bool Renderer::Initialize()
 {
     if (!surfaceShader.Create(g_surfaceVertexShader, g_surfaceFragmentShader))
@@ -262,6 +316,14 @@ bool Renderer::Initialize()
     surfaceShader.SetInt("uShadowMap", 0);
 
     sphereMesh.Upload(BuildSphereVertices(48, 24), BuildSphereIndices(48, 24), GL_TRIANGLES);
+    if (!CreateBatchResources())
+    {
+        return false;
+    }
+
+    sphereInstances.reserve(g_maxSphereBatchCount);
+    points.reserve(g_maxDebugVertexCount);
+    lines.reserve(g_maxDebugVertexCount);
     initialized = true;
     return true;
 }
@@ -273,6 +335,7 @@ void Renderer::Shutdown()
         return;
     }
 
+    DestroyBatchResources();
     sphereMesh.Destroy();
     surfaceShader.Destroy();
     shadowShader.Destroy();
@@ -282,7 +345,7 @@ void Renderer::Shutdown()
     initialized = false;
 }
 
-void Renderer::DrawBody(const RigidBody& body, const Shader& shader) const
+void Renderer::DrawBody(const RigidBody& body, const Vec3& color, const Shader& shader)
 {
     const Shape* shape = body.GetShape();
     if (!shape || shape->GetType() != ShapeType::sphere)
@@ -293,11 +356,27 @@ void Renderer::DrawBody(const RigidBody& body, const Shader& shader) const
     const Sphere* sphere = (const Sphere*)shape;
     Transform renderTransform = body.transform;
     renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-    shader.SetMat4("uModel", Mat4(renderTransform));
-    sphereMesh.Draw();
+    Mat4 model(renderTransform);
+    sphereInstances.push_back(SphereInstance{ model.ex, model.ey, model.ez, model.ew, Vec4{ color, 1.0f } });
+
+    if (sphereInstances.size() == g_maxSphereBatchCount)
+    {
+        FlushSpheres(shader);
+    }
 }
 
-void Renderer::DrawAABB(const AABB& aabb, std::vector<Vec3>& lines) const
+void Renderer::DrawPoint(const Vec3& point, const Vec3& color)
+{
+    points.push_back(DebugVertex{ point, color });
+}
+
+void Renderer::DrawLine(const Vec3& p1, const Vec3& p2, const Vec3& color)
+{
+    lines.push_back(DebugVertex{ p1, color });
+    lines.push_back(DebugVertex{ p2, color });
+}
+
+void Renderer::DrawAABB(const AABB& aabb, const Vec3& color)
 {
     const Vec3 v000{ aabb.min.x, aabb.min.y, aabb.min.z };
     const Vec3 v001{ aabb.min.x, aabb.min.y, aabb.max.z };
@@ -308,20 +387,49 @@ void Renderer::DrawAABB(const AABB& aabb, std::vector<Vec3>& lines) const
     const Vec3 v110{ aabb.max.x, aabb.max.y, aabb.min.z };
     const Vec3 v111{ aabb.max.x, aabb.max.y, aabb.max.z };
 
-    const Vec3 edges[] = {
-        v000, v001, v001, v011, v011, v010, v010, v000, v100, v101, v101, v111,
-        v111, v110, v110, v100, v000, v100, v001, v101, v010, v110, v011, v111,
-    };
-    lines.insert(lines.end(), std::begin(edges), std::end(edges));
+    DrawLine(v000, v001, color);
+    DrawLine(v001, v011, color);
+    DrawLine(v011, v010, color);
+    DrawLine(v010, v000, color);
+    DrawLine(v100, v101, color);
+    DrawLine(v101, v111, color);
+    DrawLine(v111, v110, color);
+    DrawLine(v110, v100, color);
+    DrawLine(v000, v100, color);
+    DrawLine(v001, v101, color);
+    DrawLine(v010, v110, color);
+    DrawLine(v011, v111, color);
 }
 
-void Renderer::DrawDebugPrimitives(
-    const Mat4& view,
-    const Mat4& projection,
-    GLenum primitive,
-    const std::vector<Vec3>& vertices,
-    const Vec3& color,
-    float pointSize
+void Renderer::FlushSpheres(const Shader& shader)
+{
+    if (sphereInstances.empty())
+    {
+        return;
+    }
+
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, sphereInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(sphereInstances.size() * sizeof(SphereInstance)), sphereInstances.data());
+    sphereMesh.DrawInstanced((GLsizei)sphereInstances.size());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    sphereInstances.clear();
+}
+
+void Renderer::FlushPoints(const Mat4& view, const Mat4& projection, float pointSize)
+{
+    FlushDebugVertices(view, projection, GL_POINTS, points, pointSize);
+    points.clear();
+}
+
+void Renderer::FlushLines(const Mat4& view, const Mat4& projection)
+{
+    FlushDebugVertices(view, projection, GL_LINES, lines, 1.0f);
+    lines.clear();
+}
+
+void Renderer::FlushDebugVertices(
+    const Mat4& view, const Mat4& projection, GLenum primitive, const std::vector<DebugVertex>& vertices, float pointSize
 )
 {
     if (vertices.empty())
@@ -332,37 +440,41 @@ void Renderer::DrawDebugPrimitives(
     debugShader.Use();
     debugShader.SetMat4("uView", view);
     debugShader.SetMat4("uProjection", projection);
-    debugShader.SetVec3("uColor", color);
     debugShader.SetFloat("uPointSize", pointSize);
 
     glBindVertexArray(debugVAO);
     glBindBuffer(GL_ARRAY_BUFFER, debugVBO);
-    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(vertices.size() * sizeof(Vec3)), vertices.data(), GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)(vertices.size() * sizeof(DebugVertex)), vertices.data(), GL_DYNAMIC_DRAW);
     glDrawArrays(primitive, 0, (GLsizei)vertices.size());
     glBindVertexArray(0);
 }
 
+void Renderer::FlushAllDebug(const Mat4& view, const Mat4& projection)
+{
+    FlushPoints(view, projection, 5.0f);
+    FlushLines(view, projection);
+}
+
 void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& projection, const DebugOptions& options)
 {
-    std::vector<Vec3> aabbLines;
-    if (options.show_aabb)
+    if (options.show_bvh || options.show_aabb)
     {
-        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
-        {
-            const Shape* shape = body->GetShape();
-            if (shape)
+        const Vec3 aabbColor{ 0.08f, 0.09f, 0.10f };
+        const AABBTree& tree = world.GetDynamicTree();
+        tree.Traverse([&](const AABBTree::Node* node) -> void {
+            if (options.show_bvh == false && node->IsLeaf() == false)
             {
-                AABB aabb;
-                shape->ComputeAABB(body->transform, &aabb);
-                DrawAABB(aabb, aabbLines);
+                return;
             }
-        }
+
+            DrawAABB(node->aabb, aabbColor);
+        });
     }
 
-    std::vector<Vec3> contactPoints;
-    std::vector<Vec3> contactNormalLines;
     if (options.show_contact_point || options.show_contact_normal)
     {
+        const Vec3 pointColor{ 1.0f, 0.18f, 0.08f };
+        const Vec3 normalColor{ 0.05f, 0.25f, 1.0f };
         for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
         {
             if (contact->IsEnabled() == false || contact->IsTouching() == false)
@@ -378,7 +490,7 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
 
                 if (options.show_contact_point)
                 {
-                    contactPoints.push_back(p1);
+                    DrawPoint(p1, pointColor);
                 }
 
                 if (options.show_contact_normal)
@@ -391,12 +503,9 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
                     const Vec3 arrowA = arrowBase + tangent * 0.02f;
                     const Vec3 arrowB = arrowBase - tangent * 0.02f;
 
-                    contactNormalLines.push_back(p1);
-                    contactNormalLines.push_back(p2);
-                    contactNormalLines.push_back(p2);
-                    contactNormalLines.push_back(arrowA);
-                    contactNormalLines.push_back(p2);
-                    contactNormalLines.push_back(arrowB);
+                    DrawLine(p1, p2, normalColor);
+                    DrawLine(p2, arrowA, normalColor);
+                    DrawLine(p2, arrowB, normalColor);
                 }
             }
         }
@@ -405,11 +514,9 @@ void Renderer::DrawDebug(const World& world, const Mat4& view, const Mat4& proje
     const GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    glLineWidth(2.0f);
+    glLineWidth(1.0f);
 
-    DrawDebugPrimitives(view, projection, GL_LINES, aabbLines, Vec3{ 0.08f, 0.09f, 0.10f });
-    DrawDebugPrimitives(view, projection, GL_POINTS, contactPoints, Vec3{ 1.0f, 0.18f, 0.08f }, 5.0f);
-    DrawDebugPrimitives(view, projection, GL_LINES, contactNormalLines, Vec3{ 0.05f, 0.25f, 1.0f });
+    FlushAllDebug(view, projection);
 
     glLineWidth(1.0f);
     if (depthTestEnabled)
@@ -442,8 +549,9 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     {
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*body, shadowShader);
+            DrawBody(*body, Vec3{ 1.0f, 1.0f, 1.0f }, shadowShader);
         }
+        FlushSpheres(shadowShader);
     }
 
     glDisable(GL_POLYGON_OFFSET_FILL);
@@ -464,9 +572,10 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     {
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            surfaceShader.SetVec3("uBaseColor", body->IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f });
-            DrawBody(*body, surfaceShader);
+            const Vec3 color = body->IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f };
+            DrawBody(*body, color, surfaceShader);
         }
+        FlushSpheres(surfaceShader);
     }
 
     if (options.draw_wireframe)
@@ -476,11 +585,11 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         glDepthFunc(GL_LEQUAL);
         glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         glDisable(GL_CULL_FACE);
-        surfaceShader.SetVec3("uBaseColor", Vec3{ 0.03f, 0.04f, 0.05f });
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*body, surfaceShader);
+            DrawBody(*body, Vec3{ 0.03f, 0.04f, 0.05f }, surfaceShader);
         }
+        FlushSpheres(surfaceShader);
         glEnable(GL_CULL_FACE);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDepthFunc(previousDepthFunc);
