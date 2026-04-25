@@ -16,6 +16,7 @@ struct ContactPoint
 struct ContactManifold
 {
     ContactPoint contactPoints[max_contact_point_count];
+    ContactPoint referencePoint;
     Vec3 contactNormal{ 1.0f, 0.0f, 0.0f };
     float penetrationDepth = 0.0f;
     int32 contactCount = 0;

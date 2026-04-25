@@ -28,6 +28,7 @@ void Island::Solve()
     const WorldSettings& settings = world->settings;
     const Timestep& step = settings.step;
 
+    // Integrate velocities, yield tentative velocities that possibly violate the constraint
     for (int32 i = 0; i < bodyCount; ++i)
     {
         RigidBody* b = bodies[i];
@@ -70,11 +71,14 @@ void Island::Solve()
         }
     }
 
+    // Prepare constraints for solving step
     for (int32 i = 0; i < contactCount; ++i)
     {
         contacts[i]->Prepare(step);
     }
 
+    // Iteratively solve the violated velocity constraints
+    // Solving contacts backward converges fast
     for (int32 i = 0; i < step.velocity_iterations; ++i)
     {
         for (int32 j = contactCount; j > 0; --j)
@@ -83,6 +87,7 @@ void Island::Solve()
         }
     }
 
+    // Update positions using corrected velocities (Semi-implicit euler integration)
     for (int32 i = 0; i < bodyCount; ++i)
     {
         RigidBody* b = bodies[i];
@@ -103,6 +108,30 @@ void Island::Solve()
         }
     }
 
+    // Solve position constraints
+    for (int32 i = 0; i < step.position_iterations; ++i)
+    {
+        bool contactSolved = true;
+
+        for (int32 j = contactCount; j > 0; j--)
+        {
+            Contact* c = contacts[j - 1];
+
+            bool solved = c->SolvePositionConstraints(step);
+            if (solved == false)
+            {
+                c->b1->Awake();
+                c->b2->Awake();
+            }
+
+            contactSolved &= solved;
+        }
+
+        if (contactSolved)
+        {
+            break;
+        }
+    }
 }
 
 } // namespace muli3

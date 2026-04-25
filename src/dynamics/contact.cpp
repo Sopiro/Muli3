@@ -4,6 +4,20 @@
 namespace muli3
 {
 
+static void ComputeTangents(const Vec3& normal, Vec3& tangent1, Vec3& tangent2)
+{
+    if (Abs(normal.x) >= 0.57735f)
+    {
+        tangent1 = Vec3{ normal.y, -normal.x, 0.0f };
+    }
+    else
+    {
+        tangent1 = Vec3{ 0.0f, normal.z, -normal.y };
+    }
+    tangent1.Normalize();
+    tangent2 = Cross(normal, tangent1);
+}
+
 void Contact::Update()
 {
     flag |= flag_enabled;
@@ -14,123 +28,112 @@ void Contact::Update()
         return;
     }
 
+    ContactManifold oldManifold = manifold;
+    for (int32 i = 0; i < max_contact_point_count; ++i)
+    {
+        normalSolvers[i].impulseSave = normalSolvers[i].impulse;
+        tangent1Solvers[i].impulseSave = tangent1Solvers[i].impulse;
+        tangent2Solvers[i].impulseSave = tangent2Solvers[i].impulse;
+        normalSolvers[i].impulse = 0.0f;
+        tangent1Solvers[i].impulse = 0.0f;
+        tangent2Solvers[i].impulse = 0.0f;
+    }
+
+    bool wasTouching = (flag & flag_touching) == flag_touching;
     bool touching = Collide(bodyA->shape, bodyA->transform, bodyB->shape, bodyB->transform, &manifold);
+
     if (touching)
     {
         flag |= flag_touching;
-
-        if (manifold.featureFlipped)
-        {
-            b1 = bodyB;
-            b2 = bodyA;
-        }
-        else
-        {
-            b1 = bodyA;
-            b2 = bodyB;
-        }
     }
     else
     {
         flag &= ~flag_touching;
     }
+
+    if (touching == false)
+    {
+        return;
+    }
+
+    if (manifold.featureFlipped)
+    {
+        b1 = bodyB;
+        b2 = bodyA;
+    }
+    else
+    {
+        b1 = bodyA;
+        b2 = bodyB;
+    }
+
+    // Restore the impulses to warm start the solver
+    for (int32 n = 0; n < manifold.contactCount; ++n)
+    {
+        for (int32 o = 0; o < oldManifold.contactCount; ++o)
+        {
+            if (manifold.contactPoints[n].id == oldManifold.contactPoints[o].id)
+            {
+                normalSolvers[n].impulse = normalSolvers[o].impulseSave;
+                tangent1Solvers[n].impulse = tangent1Solvers[o].impulseSave;
+                tangent2Solvers[n].impulse = tangent2Solvers[o].impulseSave;
+                break;
+            }
+        }
+    }
+
+    MuliNotUsed(wasTouching);
 }
 
 void Contact::Prepare(const Timestep& step)
 {
-    MuliNotUsed(step);
-
     friction = SafeSqrt(bodyA->friction * bodyB->friction);
-    restitution = Min(bodyA->restitution, bodyB->restitution);
+    restitution = Max(bodyA->restitution, bodyB->restitution);
     restitutionThreshold = restitution_slop;
     surfaceSpeed = 0.0f;
 
-    for (int32 i = 0; i < max_contact_point_count; ++i)
+    Vec3 tangent1, tangent2;
+    ComputeTangents(manifold.contactNormal, tangent1, tangent2);
+
+    for (int32 i = 0; i < manifold.contactCount; ++i)
     {
-        normalImpulses[i] = 0.0f;
-        tangentImpulses[i] = 0.0f;
+        normalSolvers[i].Prepare(this, i, step);
+        tangent1Solvers[i].Prepare(this, tangent1, i, step);
+        tangent2Solvers[i].Prepare(this, tangent2, i, step);
+        positionSolvers[i].Prepare(this, i);
     }
 }
 
 void Contact::SolveVelocityConstraints(const Timestep& step)
 {
-    float invMassSum = bodyA->invMass + bodyB->invMass;
-    if (invMassSum <= epsilon)
+    MuliNotUsed(step);
+
+    // Solve tangential constraints first
+    for (int32 i = 0; i < manifold.contactCount; ++i)
     {
-        return;
+        tangent1Solvers[i].Solve(this, normalSolvers + i);
+        tangent2Solvers[i].Solve(this, normalSolvers + i);
     }
 
-    Vec3 centerOfMassA = bodyA->GetWorldCenterOfMass();
-    Vec3 centerOfMassB = bodyB->GetWorldCenterOfMass();
-    Mat3 inverseInertiaA = bodyA->GetInverseInertiaTensorWorld();
-    Mat3 inverseInertiaB = bodyB->GetInverseInertiaTensorWorld();
+    // Solve normal constraints
+    for (int32 i = 0; i < manifold.contactCount; ++i)
+    {
+        normalSolvers[i].Solve(this);
+    }
+}
+
+bool Contact::SolvePositionConstraints(const Timestep& step)
+{
+    MuliNotUsed(step);
+
+    bool solved = true;
 
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
-        Vec3 point = manifold.contactPoints[i].p;
-        Vec3 ra = point - centerOfMassA;
-        Vec3 rb = point - centerOfMassB;
-
-        Vec3 velocityA = bodyA->GetVelocityAtWorldPoint(point);
-        Vec3 velocityB = bodyB->GetVelocityAtWorldPoint(point);
-        Vec3 relativeVelocity = velocityB - velocityA;
-        float velocityAlongNormal = Dot(relativeVelocity, manifold.contactNormal);
-
-        float restitutionBias = restitution * Min(velocityAlongNormal + restitutionThreshold, 0.0f);
-        float penetrationBias = -baumgarte * step.inv_dt * Max(manifold.penetrationDepth - linear_slop, 0.0f);
-        float bias = restitutionBias + penetrationBias;
-
-        Vec3 angularA = Cross(inverseInertiaA * Cross(ra, manifold.contactNormal), ra);
-        Vec3 angularB = Cross(inverseInertiaB * Cross(rb, manifold.contactNormal), rb);
-        float normalMass = invMassSum + Dot(angularA + angularB, manifold.contactNormal);
-        if (normalMass <= epsilon)
-        {
-            continue;
-        }
-
-        float impulseMagnitude = -(velocityAlongNormal + bias) / normalMass;
-        if (impulseMagnitude <= 0.0f)
-        {
-            continue;
-        }
-
-        normalImpulses[i] += impulseMagnitude;
-
-        Vec3 impulse = manifold.contactNormal * impulseMagnitude;
-        bodyA->ApplyImpulse(point, -impulse);
-        bodyB->ApplyImpulse(point, impulse);
-
-        Vec3 postVelocityA = bodyA->GetVelocityAtWorldPoint(point);
-        Vec3 postVelocityB = bodyB->GetVelocityAtWorldPoint(point);
-        Vec3 tangent =
-            postVelocityB - postVelocityA - manifold.contactNormal * Dot(postVelocityB - postVelocityA, manifold.contactNormal);
-        float tangentLength = Length(tangent);
-        if (tangentLength <= epsilon)
-        {
-            continue;
-        }
-
-        tangent /= tangentLength;
-        Vec3 tangentAngularA = Cross(inverseInertiaA * Cross(ra, tangent), ra);
-        Vec3 tangentAngularB = Cross(inverseInertiaB * Cross(rb, tangent), rb);
-        float tangentMass = invMassSum + Dot(tangentAngularA + tangentAngularB, tangent);
-        if (tangentMass <= epsilon)
-        {
-            continue;
-        }
-
-        float frictionMagnitude = -Dot(postVelocityB - postVelocityA, tangent) / tangentMass;
-        float frictionLimit = impulseMagnitude * friction;
-        frictionMagnitude = Clamp(frictionMagnitude, -frictionLimit, frictionLimit);
-
-        tangentImpulses[i] += frictionMagnitude;
-
-        Vec3 frictionImpulse = tangent * frictionMagnitude;
-        bodyA->ApplyImpulse(point, -frictionImpulse);
-        bodyB->ApplyImpulse(point, frictionImpulse);
+        solved &= positionSolvers[i].Solve();
     }
 
-    MuliNotUsed(step);
+    return solved;
 }
 
 } // namespace muli3

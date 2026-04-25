@@ -10,6 +10,8 @@
 #include "collision.h"    // IWYU pragma: export
 #include "contact_graph.h" // IWYU pragma: export
 #include "contact.h"      // IWYU pragma: export
+#include "contact_solver.h" // IWYU pragma: export
+#include "position_solver.h" // IWYU pragma: export
 #include "growable_array.h" // IWYU pragma: export
 #include "island.h"       // IWYU pragma: export
 #include "linear_allocator.h" // IWYU pragma: export

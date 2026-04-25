@@ -44,6 +44,7 @@ bool SphereVsSphere(
     manifold->contactNormal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactPoints[0].p = pb - normal * rb;
+    manifold->referencePoint.p = pa + normal * ra;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
     manifold->featureFlipped = false;

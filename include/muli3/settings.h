@@ -8,7 +8,9 @@ namespace muli3
 inline constexpr float linear_slop = 0.005f;
 inline constexpr float restitution_slop = 0.5f;
 
-inline constexpr float baumgarte = 0.2f;
+inline constexpr float position_correction = 0.2f;
+inline constexpr float max_position_correction = 0.1f;
+inline constexpr float position_solver_threshold = linear_slop * 2.5f;
 
 inline constexpr float aabb_margin = 0.1f;
 inline constexpr float aabb_multiplier = 2.0f;
@@ -17,7 +19,8 @@ inline constexpr float default_density = 1.0f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 3;
+    int32 velocity_iterations = 8;
+    int32 position_iterations = 3;
 
     bool warm_starting = true;
     float dt = 0.0f;

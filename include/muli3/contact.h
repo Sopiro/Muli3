@@ -1,6 +1,8 @@
 #pragma once
 
 #include "collision.h"
+#include "contact_solver.h"
+#include "position_solver.h"
 #include "rigidbody.h"
 #include "settings.h"
 
@@ -56,9 +58,13 @@ private:
     friend class Island;
     friend class ContactGraph;
     friend class BroadPhase;
+    friend class ContactSolverNormal;
+    friend class ContactSolverTangent;
+    friend class PositionSolver;
 
     void Prepare(const Timestep& step);
     void SolveVelocityConstraints(const Timestep& step);
+    bool SolvePositionConstraints(const Timestep& step);
 
     void Update();
 
@@ -74,8 +80,12 @@ private:
     ContactEdge nodeB;
 
     ContactManifold manifold;
-    float normalImpulses[max_contact_point_count] = {};
-    float tangentImpulses[max_contact_point_count] = {};
+
+    ContactSolverNormal normalSolvers[max_contact_point_count];
+    ContactSolverTangent tangent1Solvers[max_contact_point_count];
+    ContactSolverTangent tangent2Solvers[max_contact_point_count];
+    PositionSolver positionSolvers[max_contact_point_count];
+
     float friction = 0.0f;
     float restitution = 0.0f;
     float restitutionThreshold = 0.0f;
@@ -156,13 +166,13 @@ inline int32 Contact::GetContactCount() const
 inline float Contact::GetNormalImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return normalImpulses[index];
+    return normalSolvers[index].impulse;
 }
 
 inline float Contact::GetTangentImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return tangentImpulses[index];
+    return tangent1Solvers[index].impulse;
 }
 
 inline float Contact::GetFriction() const
