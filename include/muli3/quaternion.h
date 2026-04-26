@@ -8,6 +8,8 @@ namespace muli3
 
 struct Quat
 {
+    Float x, y, z, w;
+
     constexpr Quat() = default;
 
     constexpr Quat(Identity)
@@ -254,8 +256,10 @@ struct Quat
         return ToEuler().ToString();
     }
 
-    Float x, y, z, w;
+    static const Quat zero;
 };
+
+const inline Quat Quat::zero{ 0.0f };
 
 // Quat inline functions begin
 

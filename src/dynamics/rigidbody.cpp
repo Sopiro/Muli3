@@ -191,11 +191,32 @@ Vec3 RigidBody::GetWorldCenterOfMass() const
     return transform.p + transform.q.Rotate(shape->GetCenterOfMass());
 }
 
+Mat3 RigidBody::GetInertiaTensorLocal() const
+{
+    if (!shape || type != dynamic_body)
+    {
+        return Mat3::zero;
+    }
+
+    return shape->ComputeLocalInertiaTensor(GetMass());
+}
+
+Mat3 RigidBody::GetInertiaTensorWorld() const
+{
+    if (!shape || type != dynamic_body)
+    {
+        return Mat3::zero;
+    }
+
+    const Mat3 rotation{ transform.q };
+    return rotation * GetInertiaTensorLocal() * rotation.GetTranspose();
+}
+
 Mat3 RigidBody::GetInverseInertiaTensorLocal() const
 {
     if (!shape || type != dynamic_body)
     {
-        return Mat3(0.0f);
+        return Mat3::zero;
     }
 
     const Mat3 localInertia = shape->ComputeLocalInertiaTensor(GetMass());
@@ -206,7 +227,7 @@ Mat3 RigidBody::GetInverseInertiaTensorWorld() const
 {
     if (!shape || type != dynamic_body)
     {
-        return Mat3(0.0f);
+        return Mat3::zero;
     }
 
     const Mat3 rotation{ transform.q };

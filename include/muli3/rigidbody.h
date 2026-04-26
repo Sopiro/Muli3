@@ -76,6 +76,8 @@ public:
 
     float GetMass() const;
     Vec3 GetWorldCenterOfMass() const;
+    Mat3 GetInertiaTensorLocal() const;
+    Mat3 GetInertiaTensorWorld() const;
     Mat3 GetInverseInertiaTensorLocal() const;
     Mat3 GetInverseInertiaTensorWorld() const;
 

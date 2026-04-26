@@ -1,26 +1,26 @@
 #pragma once
 
-#include "types.h"
+#include "types.h"    // IWYU pragma: export
 
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <cfloat>
-#include <cmath>
-#include <cstdarg>
-#include <cstdint>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <format>
-#include <functional>
-#include <limits>
-#include <memory>
-#include <new>
-#include <span>
-#include <string>
-#include <utility>
-#include <vector>
+#include <algorithm>  // IWYU pragma: export
+#include <array>      // IWYU pragma: export
+#include <cassert>    // IWYU pragma: export
+#include <cfloat>     // IWYU pragma: export
+#include <cmath>      // IWYU pragma: export
+#include <cstdarg>    // IWYU pragma: export
+#include <cstdint>    // IWYU pragma: export
+#include <cstdio>     // IWYU pragma: export
+#include <cstdlib>    // IWYU pragma: export
+#include <cstring>    // IWYU pragma: export
+#include <format>     // IWYU pragma: export
+#include <functional> // IWYU pragma: export
+#include <limits>     // IWYU pragma: export
+#include <memory>     // IWYU pragma: export
+#include <new>        // IWYU pragma: export
+#include <span>       // IWYU pragma: export
+#include <string>     // IWYU pragma: export
+#include <utility>    // IWYU pragma: export
+#include <vector>     // IWYU pragma: export
 
 #define MuliAssert(A) assert(A)
 #define MuliNotUsed(x) ((void)(x))

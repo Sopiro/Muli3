@@ -107,7 +107,11 @@ struct Mat2
     {
         return std::format("{:.4f}\t{:.4f}\n{:.4f}\t{:.4f}", ex.x, ey.x, ex.y, ey.y);
     }
+
+    static const Mat2 zero;
 };
+
+const inline Mat2 Mat2::zero{ 0.0f };
 
 struct Mat3
 {
@@ -197,7 +201,11 @@ struct Mat3
             ey.z, ez.z
         );
     }
+
+    static const Mat3 zero;
 };
+
+const inline Mat3 Mat3::zero{ 0.0f };
 
 struct Mat4
 {
@@ -306,7 +314,11 @@ struct Mat4
             ex.x, ey.x, ez.x, ew.x, ex.y, ey.y, ez.y, ew.y, ex.z, ey.z, ez.z, ew.z, ex.w, ey.w, ez.w, ew.w
         );
     }
+
+    static const Mat4 zero;
 };
+
+const inline Mat4 Mat4::zero{ 0.0f };
 
 // Mat2 inline functions begin
 

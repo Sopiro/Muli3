@@ -48,8 +48,7 @@ void Island::Solve()
         }
 
         if (Length2(b->angularVelocity) > settings.rest_angular_tolerance ||
-            Length2(b->linearVelocity) > settings.rest_linear_tolerance || Length2(b->torque) > 0.0f ||
-            Length2(b->force) > 0.0f)
+            Length2(b->linearVelocity) > settings.rest_linear_tolerance || Length2(b->torque) > 0.0f || Length2(b->force) > 0.0f)
         {
             MuliAssert(sleeping == false);
             awakeIsland = true;
@@ -67,7 +66,9 @@ void Island::Solve()
             }
 
             b->linearVelocity += b->force * b->invMass * step.dt;
-            b->angularVelocity += b->GetInverseInertiaTensorWorld() * b->torque * step.dt;
+            b->angularVelocity += b->GetInverseInertiaTensorWorld() *
+                                  (b->torque - Cross(b->angularVelocity, b->GetInertiaTensorWorld() * b->angularVelocity)) *
+                                  step.dt;
         }
     }
 

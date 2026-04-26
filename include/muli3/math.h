@@ -1,10 +1,10 @@
 #pragma once
 
-#include "floats.h"
-#include "matrix.h"
-#include "quaternion.h"
-#include "transform.h"
-#include "vectors.h"
+#include "floats.h"     // IWYU pragma: export
+#include "matrix.h"     // IWYU pragma: export
+#include "quaternion.h" // IWYU pragma: export
+#include "transform.h"  // IWYU pragma: export
+#include "vectors.h"    // IWYU pragma: export
 
 namespace muli3
 {
