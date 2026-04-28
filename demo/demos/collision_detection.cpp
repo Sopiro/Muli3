@@ -11,7 +11,7 @@ namespace muli3
 namespace
 {
 
-static const char* items[] = { "Sphere" };
+static const char* shapeItems[] = { "Sphere", "Box" };
 
 } // namespace
 
@@ -24,8 +24,7 @@ public:
         settings.apply_gravity = false;
         camera.SetPosition(Vec3{ 0.0f, 1.0f, 2.2f });
         camera.SetRotation(-90.0f, 0.0f);
-        UpdateShape1();
-        UpdateShape2();
+        Reset();
         Step();
     }
 
@@ -37,7 +36,7 @@ public:
             bool changed = false;
 
             ImGui::SetNextItemWidth(100.0f);
-            if (ImGui::Combo("shape1", &item1, items, IM_ARRAYSIZE(items)))
+            if (ImGui::Combo("shape1", &item1, shapeItems, IM_ARRAYSIZE(shapeItems)))
             {
                 UpdateShape1();
                 changed = true;
@@ -45,7 +44,7 @@ public:
 
             ImGui::SameLine();
             ImGui::SetNextItemWidth(100.0f);
-            if (ImGui::Combo("shape2", &item2, items, IM_ARRAYSIZE(items)))
+            if (ImGui::Combo("shape2", &item2, shapeItems, IM_ARRAYSIZE(shapeItems)))
             {
                 UpdateShape2();
                 changed = true;
@@ -65,7 +64,22 @@ public:
             }
 
             ImGui::SetNextItemWidth(120.0f);
-            if (ImGui::DragFloat("radius1", &radius1, 0.01f, 0.05f, 5.0f))
+            if (ImGui::DragFloat3("rot1", &rot1.x, 0.5f))
+            {
+                tf1.q = Quat::FromEuler(Vec3{ DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z) });
+                changed = true;
+            }
+
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::DragFloat3("rot2", &rot2.x, 0.5f))
+            {
+                tf2.q = Quat::FromEuler(Vec3{ DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z) });
+                changed = true;
+            }
+
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::DragFloat3("size1", &size1.x, 0.01f, 0.05f, 5.0f))
             {
                 UpdateShape1();
                 changed = true;
@@ -73,7 +87,22 @@ public:
 
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.0f);
-            if (ImGui::DragFloat("radius2", &radius2, 0.01f, 0.05f, 5.0f))
+            if (ImGui::DragFloat3("size2", &size2.x, 0.01f, 0.05f, 5.0f))
+            {
+                UpdateShape2();
+                changed = true;
+            }
+
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::DragFloat("convex radius1", &convexRadius1, 0.001f, 0.0f, 0.2f))
+            {
+                UpdateShape1();
+                changed = true;
+            }
+
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.0f);
+            if (ImGui::DragFloat("convex radius2", &convexRadius2, 0.001f, 0.0f, 0.2f))
             {
                 UpdateShape2();
                 changed = true;
@@ -140,8 +169,14 @@ private:
     {
         tf1 = Transform{ Vec3{ -0.55f, 1.0f, 0.0f } };
         tf2 = Transform{ Vec3{ 0.55f, 1.0f, 0.0f } };
-        radius1 = 0.6f;
-        radius2 = 0.55f;
+        rot1 = Vec3::zero;
+        rot2 = Vec3{ 0.0f, 24.0f, 0.0f };
+        tf1.q = Quat::FromEuler(Vec3{ DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z) });
+        tf2.q = Quat::FromEuler(Vec3{ DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z) });
+        size1 = Vec3{ 0.65f, 0.65f, 0.65f };
+        size2 = Vec3{ 0.7f, 0.55f, 0.6f };
+        convexRadius1 = default_radius;
+        convexRadius2 = default_radius;
         UpdateShape1();
         UpdateShape2();
     }
@@ -151,7 +186,10 @@ private:
         switch (item1)
         {
         case 0:
-            shape1.reset(new Sphere(radius1));
+            shape1.reset(new Sphere(size1.x));
+            break;
+        case 1:
+            shape1.reset(new Box(size1, convexRadius1));
             break;
         default:
             break;
@@ -163,7 +201,10 @@ private:
         switch (item2)
         {
         case 0:
-            shape2.reset(new Sphere(radius2));
+            shape2.reset(new Sphere(size2.x));
+            break;
+        case 1:
+            shape2.reset(new Box(size2, convexRadius2));
             break;
         default:
             break;
@@ -175,9 +216,13 @@ private:
     std::unique_ptr<Shape> shape1;
     std::unique_ptr<Shape> shape2;
     int32 item1 = 0;
-    int32 item2 = 0;
-    float radius1 = 0.6f;
-    float radius2 = 0.55f;
+    int32 item2 = 1;
+    Vec3 rot1 = Vec3::zero;
+    Vec3 rot2{ 0.0f, 24.0f, 0.0f };
+    Vec3 size1{ 0.65f, 0.65f, 0.65f };
+    Vec3 size2{ 0.7f, 0.55f, 0.6f };
+    float convexRadius1 = default_radius;
+    float convexRadius2 = default_radius;
     bool collide = false;
     ContactManifold manifold;
 };

@@ -1,4 +1,5 @@
 #include "muli3/rigidbody.h"
+#include "muli3/box.h"
 #include "muli3/shape.h"
 #include "muli3/sphere.h"
 #include "muli3/world.h"
@@ -179,6 +180,22 @@ Shape* RigidBody::CreateSphereShape(float radius, const Transform& shapeTransfor
 {
     Sphere sphere{ radius };
     return CreateShape(&sphere, shapeTransform, density);
+}
+
+Shape* RigidBody::CreateBoxShape(float width, float height, float depth, const Transform& shapeTransform, float radius, float density)
+{
+    Box box{ width, height, depth, radius };
+    return CreateShape(&box, shapeTransform, density);
+}
+
+Shape* RigidBody::CreateBoxShape(const Vec3& size, const Transform& shapeTransform, float radius, float density)
+{
+    return CreateBoxShape(size.x, size.y, size.z, shapeTransform, radius, density);
+}
+
+Shape* RigidBody::CreateBoxShape(float size, const Transform& shapeTransform, float radius, float density)
+{
+    return CreateBoxShape(size, size, size, shapeTransform, radius, density);
 }
 
 Vec3 RigidBody::GetWorldCenterOfMass() const

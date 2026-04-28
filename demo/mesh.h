@@ -34,6 +34,8 @@ private:
 
 std::vector<MeshVertex> BuildSphereVertices(int32 segments, int32 rings);
 std::vector<uint32> BuildSphereIndices(int32 segments, int32 rings);
+std::vector<MeshVertex> BuildBoxVertices();
+std::vector<uint32> BuildBoxIndices();
 std::vector<MeshVertex> BuildGridVertices(int32 halfExtent, float spacing);
 std::vector<uint32> BuildGridIndices(int32 halfExtent);
 std::vector<MeshVertex> BuildPlaneVertices();

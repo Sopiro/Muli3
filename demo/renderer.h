@@ -62,6 +62,7 @@ private:
     void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushSpheres(const Shader& shader);
+    void FlushBoxes(const Shader& shader);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void DrawOverlay(const World& world, const DebugOptions& options);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
@@ -70,6 +71,7 @@ private:
     Shader shadowShader;
     Shader batchShader;
     Mesh sphereMesh;
+    Mesh boxMesh;
     bool initialized = false;
     GLuint shadowFramebuffer = 0;
     GLuint shadowDepthTexture = 0;
@@ -77,6 +79,7 @@ private:
     GLuint VBO = 0;
     GLuint sphereInstanceVBO = 0;
     std::vector<SphereInstance> sphereInstances;
+    std::vector<SphereInstance> boxInstances;
     std::vector<Vertex> points;
     int32 pointCount = 0;
     std::vector<Vertex> lines;
@@ -146,6 +149,7 @@ inline void Renderer::DrawAABB(const AABB& aabb)
 inline void Renderer::FlushAll()
 {
     if (sphereInstances.empty() == false) FlushSpheres(surfaceShader);
+    if (boxInstances.empty() == false) FlushBoxes(surfaceShader);
     if (lineCount > 0) FlushLines();
     if (pointCount > 0) FlushPoints();
 }

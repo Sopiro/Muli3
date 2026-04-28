@@ -34,6 +34,29 @@ public:
         RigidBody::Type type = RigidBody::dynamic_body,
         float density = default_density
     );
+    RigidBody* CreateBox(
+        float width,
+        float height,
+        float depth,
+        const Transform& transform = identity,
+        RigidBody::Type type = RigidBody::dynamic_body,
+        float radius = default_radius,
+        float density = default_density
+    );
+    RigidBody* CreateBox(
+        const Vec3& size,
+        const Transform& transform = identity,
+        RigidBody::Type type = RigidBody::dynamic_body,
+        float radius = default_radius,
+        float density = default_density
+    );
+    RigidBody* CreateBox(
+        float size,
+        const Transform& transform = identity,
+        RigidBody::Type type = RigidBody::dynamic_body,
+        float radius = default_radius,
+        float density = default_density
+    );
 
     RigidBody* GetBodyList() const;
     RigidBody* GetBodyListTail() const;

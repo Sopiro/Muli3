@@ -55,6 +55,7 @@ Window::Window(int32 width, int32 height, const char* title)
     glfwSetWindowUserPointer(handle, this);
     glfwSetFramebufferSizeCallback(handle, OnFramebufferSize);
     glfwSetKeyCallback(handle, OnKey);
+    glfwSetCharCallback(handle, OnChar);
     glfwSetMouseButtonCallback(handle, OnMouseButton);
     glfwSetCursorPosCallback(handle, OnCursorPosition);
     glfwSetScrollCallback(handle, OnScroll);
@@ -165,6 +166,11 @@ void Window::OnKey(GLFWwindow* window, int key, int scancode, int action, int mo
     {
         Input::currentKeys[key] = false;
     }
+}
+
+void Window::OnChar(GLFWwindow* window, unsigned int c)
+{
+    ImGui_ImplGlfw_CharCallback(window, c);
 }
 
 void Window::OnMouseButton(GLFWwindow* window, int button, int action, int mods)

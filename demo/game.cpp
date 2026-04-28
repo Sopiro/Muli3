@@ -102,7 +102,7 @@ void Game::UpdateInput()
 
 void Game::EnableKeyboardShortcut()
 {
-    if (ImGui::GetIO().WantCaptureKeyboard)
+    if (ImGui::GetIO().WantCaptureKeyboard || Window::Get()->GetCursorHidden())
     {
         return;
     }
@@ -204,6 +204,8 @@ void Game::UpdateUI()
                     ImGui::Text("Constraint solve iterations");
                     ImGui::SetNextItemWidth(120.0f);
                     ImGui::SliderInt("Velocity", &settings.step.velocity_iterations, 0, 50);
+                    ImGui::SetNextItemWidth(120.0f);
+                    ImGui::SliderInt("Position", &settings.step.position_iterations, 0, 50);
                 }
 
                 ImGui::Separator();

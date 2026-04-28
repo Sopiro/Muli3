@@ -132,6 +132,53 @@ std::vector<uint32> BuildSphereIndices(int32 segments, int32 rings)
     return indices;
 }
 
+std::vector<MeshVertex> BuildBoxVertices()
+{
+    return {
+        MeshVertex{ Vec3{ -1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, 1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 1.0f, 1.0f } },
+        MeshVertex{ Vec3{ -1.0f, 1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 0.0f, 1.0f } },
+
+        MeshVertex{ Vec3{ -1.0f, -1.0f, 1.0f }, Vec3{ 0.0f, 0.0f, 1.0f }, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, -1.0f, 1.0f }, Vec3{ 0.0f, 0.0f, 1.0f }, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, 1.0f, 1.0f }, Vec3{ 0.0f, 0.0f, 1.0f }, Vec2{ 1.0f, 1.0f } },
+        MeshVertex{ Vec3{ -1.0f, 1.0f, 1.0f }, Vec3{ 0.0f, 0.0f, 1.0f }, Vec2{ 0.0f, 1.0f } },
+
+        MeshVertex{ Vec3{ -1.0f, -1.0f, -1.0f }, Vec3{ -1.0f, 0.0f, 0.0f }, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ -1.0f, 1.0f, -1.0f }, Vec3{ -1.0f, 0.0f, 0.0f }, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ -1.0f, 1.0f, 1.0f }, Vec3{ -1.0f, 0.0f, 0.0f }, Vec2{ 1.0f, 1.0f } },
+        MeshVertex{ Vec3{ -1.0f, -1.0f, 1.0f }, Vec3{ -1.0f, 0.0f, 0.0f }, Vec2{ 0.0f, 1.0f } },
+
+        MeshVertex{ Vec3{ 1.0f, -1.0f, -1.0f }, Vec3{ 1.0f, 0.0f, 0.0f }, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, -1.0f, 1.0f }, Vec3{ 1.0f, 0.0f, 0.0f }, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, 1.0f, 1.0f }, Vec3{ 1.0f, 0.0f, 0.0f }, Vec2{ 1.0f, 1.0f } },
+        MeshVertex{ Vec3{ 1.0f, 1.0f, -1.0f }, Vec3{ 1.0f, 0.0f, 0.0f }, Vec2{ 0.0f, 1.0f } },
+
+        MeshVertex{ Vec3{ -1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, -1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ -1.0f, -1.0f, 1.0f }, Vec3{ 0.0f, -1.0f, 0.0f }, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, -1.0f, 1.0f }, Vec3{ 0.0f, -1.0f, 0.0f }, Vec2{ 1.0f, 1.0f } },
+        MeshVertex{ Vec3{ 1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, -1.0f, 0.0f }, Vec2{ 0.0f, 1.0f } },
+
+        MeshVertex{ Vec3{ -1.0f, 1.0f, -1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, 1.0f, -1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, 1.0f, 1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 1.0f, 1.0f } },
+        MeshVertex{ Vec3{ -1.0f, 1.0f, 1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 1.0f } },
+    };
+}
+
+std::vector<uint32> BuildBoxIndices()
+{
+    return {
+        0, 2, 1, 0, 3, 2,
+        4, 5, 6, 4, 6, 7,
+        8, 10, 9, 8, 11, 10,
+        12, 14, 13, 12, 15, 14,
+        16, 18, 17, 16, 19, 18,
+        20, 22, 21, 20, 23, 22,
+    };
+}
+
 std::vector<MeshVertex> BuildGridVertices(int32 halfExtent, float spacing)
 {
     std::vector<MeshVertex> vertices;

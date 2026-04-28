@@ -42,6 +42,7 @@ private:
     static void ErrorCallback(int error, const char* description);
     static void OnFramebufferSize(GLFWwindow* window, int width, int height);
     static void OnKey(GLFWwindow* window, int key, int scancode, int action, int mods);
+    static void OnChar(GLFWwindow* window, unsigned int c);
     static void OnMouseButton(GLFWwindow* window, int button, int action, int mods);
     static void OnCursorPosition(GLFWwindow* window, double x, double y);
     static void OnScroll(GLFWwindow* window, double x, double y);

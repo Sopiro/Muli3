@@ -61,6 +61,21 @@ public:
     Shape* CreateShape(Shape* shape, const Transform& transform = identity, float density = default_density);
     void DestroyShape();
     Shape* CreateSphereShape(float radius, const Transform& transform = identity, float density = default_density);
+    Shape* CreateBoxShape(
+        float width,
+        float height,
+        float depth,
+        const Transform& transform = identity,
+        float radius = default_radius,
+        float density = default_density
+    );
+    Shape* CreateBoxShape(
+        const Vec3& size,
+        const Transform& transform = identity,
+        float radius = default_radius,
+        float density = default_density
+    );
+    Shape* CreateBoxShape(float size, const Transform& transform = identity, float radius = default_radius, float density = default_density);
     Shape* GetShape();
     const Shape* GetShape() const;
 

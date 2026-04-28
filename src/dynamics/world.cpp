@@ -1,4 +1,5 @@
 #include "muli3/world.h"
+#include "muli3/box.h"
 #include "muli3/island.h"
 #include "muli3/sphere.h"
 
@@ -69,6 +70,23 @@ RigidBody* World::CreateSphere(float radius, const Transform& transform, RigidBo
     RigidBody* b = CreateEmptyBody(transform, type);
     b->CreateSphereShape(radius, identity, density);
     return b;
+}
+
+RigidBody* World::CreateBox(float width, float height, float depth, const Transform& transform, RigidBody::Type type, float radius, float density)
+{
+    RigidBody* b = CreateEmptyBody(transform, type);
+    b->CreateBoxShape(width, height, depth, identity, radius, density);
+    return b;
+}
+
+RigidBody* World::CreateBox(const Vec3& size, const Transform& transform, RigidBody::Type type, float radius, float density)
+{
+    return CreateBox(size.x, size.y, size.z, transform, type, radius, density);
+}
+
+RigidBody* World::CreateBox(float size, const Transform& transform, RigidBody::Type type, float radius, float density)
+{
+    return CreateBox(size, size, size, transform, type, radius, density);
 }
 
 float World::Step(float dt)
@@ -315,6 +333,11 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
         void* mem = blockAllocator.Allocate(sizeof(Sphere));
         return new (mem) Sphere(*(const Sphere*)shape, transform);
     }
+    case ShapeType::box:
+    {
+        void* mem = blockAllocator.Allocate(sizeof(Box));
+        return new (mem) Box(*(const Box*)shape, transform);
+    }
     default:
         MuliAssert(false);
         break;
@@ -330,6 +353,10 @@ void World::FreeShape(Shape* shape)
     case ShapeType::sphere:
         ((Sphere*)shape)->~Sphere();
         blockAllocator.Free(shape, sizeof(Sphere));
+        break;
+    case ShapeType::box:
+        ((Box*)shape)->~Box();
+        blockAllocator.Free(shape, sizeof(Box));
         break;
     default:
         MuliAssert(false);

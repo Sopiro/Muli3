@@ -18,6 +18,9 @@ public:
     int32 GetVertexCount() const override;
     Vec3 GetVertex(int32 id) const override;
     int32 GetSupport(const Vec3& localDir) const override;
+    int32 GetFaceCount() const override;
+    bool GetFace(int32 id, const Transform& transform, Face* outFace) const override;
+    bool GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const override;
 
     bool TestPoint(const Transform& transform, const Vec3& q) const override;
     Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const override;
@@ -44,6 +47,27 @@ inline int32 Sphere::GetSupport(const Vec3& localDir) const
 {
     MuliNotUsed(localDir);
     return 0;
+}
+
+inline int32 Sphere::GetFaceCount() const
+{
+    return 0;
+}
+
+inline bool Sphere::GetFace(int32 id, const Transform& transform, Face* outFace) const
+{
+    MuliNotUsed(id);
+    MuliNotUsed(transform);
+    MuliNotUsed(outFace);
+    return false;
+}
+
+inline bool Sphere::GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const
+{
+    MuliNotUsed(transform);
+    MuliNotUsed(dir);
+    MuliNotUsed(outFace);
+    return false;
 }
 
 } // namespace muli3

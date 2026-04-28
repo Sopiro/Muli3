@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "window.h"
 
 namespace muli3
 {
@@ -6,69 +7,82 @@ namespace muli3
 void Camera::Reset()
 {
     position = Vec3{ 0.0f, 3.0f, 8.0f };
-    yawDegrees = -90.0f;
-    pitchDegrees = -18.0f;
+    rotation = Vec3{ DegToRad(-18.0f), 0.0f, 0.0f };
+    scale = Vec3{ 1.0f, 1.0f, 1.0f };
+    velocity = Vec3::zero;
 }
 
 void Camera::Update(float dt, bool captureMouse)
 {
-    if (captureMouse)
+    MuliNotUsed(captureMouse);
+    UpdateInput(dt);
+}
+
+bool Camera::UpdateInput(float dt)
+{
+    bool captureMouse = Window::Get()->GetCursorHidden();
+    bool moved = false;
+
+    Vec3 accel{ 0.0f, 0.0f, 0.0f };
+
+    if (Input::IsKeyDown(GLFW_KEY_W)) accel.z -= 1.0f;
+    if (Input::IsKeyDown(GLFW_KEY_S)) accel.z += 1.0f;
+    if (Input::IsKeyDown(GLFW_KEY_A)) accel.x -= 1.0f;
+    if (Input::IsKeyDown(GLFW_KEY_D)) accel.x += 1.0f;
+    if (Input::IsKeyDown(GLFW_KEY_SPACE)) accel.y += 1.0f;
+    if (Input::IsKeyDown(GLFW_KEY_LEFT_CONTROL) || Input::IsKeyDown(GLFW_KEY_C)) accel.y -= 1.0f;
+
+    if (Length2(accel) > epsilon)
     {
-        const Vec2 mouseDelta = Input::GetMouseDelta();
-        yawDegrees += mouseDelta.x * mouseSensitivity;
-        pitchDegrees -= mouseDelta.y * mouseSensitivity;
-        pitchDegrees = Clamp(pitchDegrees, -89.0f, 89.0f);
+        accel.Normalize();
     }
 
-    Vec3 moveDirection{ 0.0f, 0.0f, 0.0f };
-    const Vec3 forward = GetForward();
-    const Vec3 right = GetRight();
-    float speed = moveSpeed;
-
+    float cameraSpeed = speed;
     if (Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || Input::IsKeyDown(GLFW_KEY_RIGHT_SHIFT))
     {
-        speed *= 3.0f;
+        cameraSpeed *= 3.0f;
     }
     if (Input::IsKeyDown(GLFW_KEY_LEFT_ALT) || Input::IsKeyDown(GLFW_KEY_RIGHT_ALT))
     {
-        speed *= 0.25f;
+        cameraSpeed *= 0.25f;
     }
 
-    if (Input::IsKeyDown(GLFW_KEY_W))
+    if (captureMouse)
     {
-        moveDirection += forward;
-    }
-    if (Input::IsKeyDown(GLFW_KEY_S))
-    {
-        moveDirection -= forward;
-    }
-    if (Input::IsKeyDown(GLFW_KEY_A))
-    {
-        moveDirection -= right;
-    }
-    if (Input::IsKeyDown(GLFW_KEY_D))
-    {
-        moveDirection += right;
-    }
-    if (Input::IsKeyDown(GLFW_KEY_SPACE))
-    {
-        moveDirection += worldUp;
-    }
-    if (Input::IsKeyDown(GLFW_KEY_LEFT_CONTROL))
-    {
-        moveDirection -= worldUp;
+        Vec2 mouseDelta = Input::GetMouseDelta();
+        rotation.y -= mouseDelta.x * DegToRad(sensitivity) * dt;
+        rotation.x -= mouseDelta.y * DegToRad(sensitivity) * dt;
+        moved |= mouseDelta != Vec2::zero;
     }
 
-    if (Length2(moveDirection) > epsilon)
-    {
-        moveDirection.Normalize();
-        position += moveDirection * (speed * dt);
-    }
+    rotation.x = Clamp(rotation.x, DegToRad(-89.0f), DegToRad(89.0f));
+
+    float cos = std::cos(rotation.y);
+    float sin = std::sin(rotation.y);
+
+    velocity.x += cameraSpeed * (accel.x * cos + accel.z * sin);
+    velocity.z += cameraSpeed * (accel.x * -sin + accel.z * cos);
+    velocity.y += cameraSpeed * accel.y;
+
+    moved |= velocity != Vec3::zero;
+
+    position += velocity * dt;
+    velocity *= std::exp(-damping * dt);
+
+    return moved;
 }
 
 Mat4 Camera::GetViewMatrix() const
 {
-    return Mat4::LookAt(position, position + GetForward(), worldUp);
+    return GetCameraMatrix();
+}
+
+Mat4 Camera::GetCameraMatrix() const
+{
+    Mat4 m{ Vec4{ Vec3{ 1.0f, 1.0f, 1.0f } / scale, 1.0f } };
+    m = MulT(Mat4(Quat::FromEuler(rotation), Vec3::zero), m);
+    m = m.Translate(-position);
+    return m;
 }
 
 Mat4 Camera::GetProjectionMatrix(float aspectRatio) const
@@ -78,27 +92,21 @@ Mat4 Camera::GetProjectionMatrix(float aspectRatio) const
 
 Vec3 Camera::GetForward() const
 {
-    const float yaw = DegToRad(yawDegrees);
-    const float pitch = DegToRad(pitchDegrees);
-    Vec3 forward{
-        std::cos(yaw) * std::cos(pitch),
-        std::sin(pitch),
-        std::sin(yaw) * std::cos(pitch),
-    };
+    Vec3 forward = Quat::FromEuler(rotation).Rotate(Vec3{ 0.0f, 0.0f, -1.0f });
     forward.Normalize();
     return forward;
 }
 
 Vec3 Camera::GetRight() const
 {
-    Vec3 right = Cross(GetForward(), worldUp);
+    Vec3 right = Quat::FromEuler(rotation).Rotate(Vec3{ 1.0f, 0.0f, 0.0f });
     right.Normalize();
     return right;
 }
 
 Vec3 Camera::GetUp() const
 {
-    Vec3 up = Cross(GetRight(), GetForward());
+    Vec3 up = Quat::FromEuler(rotation).Rotate(Vec3{ 0.0f, 1.0f, 0.0f });
     up.Normalize();
     return up;
 }

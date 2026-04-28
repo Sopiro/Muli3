@@ -1,6 +1,8 @@
 #include "muli3/contact_solver.h"
 #include "muli3/contact.h"
 
+#include <iostream>
+
 namespace muli3
 {
 
@@ -28,8 +30,7 @@ void ContactSolverNormal::Prepare(Contact* c, int32 index, const Timestep& step)
 
     // Relative velocity at contact point
     Vec3 relativeVelocity =
-        (c->b2->linearVelocity + Cross(c->b2->angularVelocity, rb)) -
-        (c->b1->linearVelocity + Cross(c->b1->angularVelocity, ra));
+        (c->b2->linearVelocity + Cross(c->b2->angularVelocity, rb)) - (c->b1->linearVelocity + Cross(c->b1->angularVelocity, ra));
 
     // Normal velocity == velocity constraint: jv
     float normalVelocity = Dot(normal, relativeVelocity);
