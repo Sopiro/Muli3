@@ -14,8 +14,6 @@ public:
         : Demo(game)
     {
         RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
-        ground->restitution = 0.15f;
-        ground->friction = 0.9f;
 
         float size = 1.0f;
         float gap = 0.03f;
@@ -27,8 +25,6 @@ public:
             float z = std::sin((float)i * 78.2330f) * error;
 
             RigidBody* b = world->CreateBox(size, Transform{ Vec3{ x, start + i * (size + gap), z } }, RigidBody::dynamic_body);
-            b->restitution = 0.15f;
-            b->friction = 0.65f;
         }
 
         float h = Max(12.0f, (float)count * (size + gap));

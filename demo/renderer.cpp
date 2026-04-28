@@ -9,6 +9,10 @@ namespace
 constexpr int g_shadowMapSize = 2048;
 constexpr size_t g_maxSphereBatchCount = 4096;
 constexpr int32 g_maxVertexCount = 1024 * 3;
+constexpr int32 g_colorCount = 10;
+
+Vec4 g_colors[g_colorCount];
+bool g_colorsInitialized = false;
 
 constexpr const char* g_surfaceVertexShader = R"(
 #version 330 core
@@ -73,7 +77,7 @@ float ComputeShadow(vec3 normal, vec3 lightDir)
         return 1.0;
     }
 
-    float bias = max(0.0008, 0.0040 * (1.0 - dot(normal, lightDir)));
+    float bias = max(0.00015, 0.0012 * (1.0 - dot(normal, lightDir)));
     vec2 texelSize = 1.0 / vec2(textureSize(uShadowMap, 0));
 
     float visibility = 0.0;
@@ -179,6 +183,86 @@ void SetInstanceAttribute(GLuint index, GLint size, GLsizei stride, size_t offse
     glVertexAttribPointer(index, size, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(offset));
     glEnableVertexAttribArray(index);
     glVertexAttribDivisor(index, 1);
+}
+
+float HueToRGB(float p, float q, float t)
+{
+    if (t < 0.0f)
+    {
+        t += 1.0f;
+    }
+    else if (t > 1.0f)
+    {
+        t -= 1.0f;
+    }
+
+    if (t < 1.0f / 6.0f)
+    {
+        return p + (q - p) * 6.0f * t;
+    }
+    else if (t < 1.0f / 2.0f)
+    {
+        return q;
+    }
+    else if (t < 2.0f / 3.0f)
+    {
+        return p + (q - p) * (2.0f / 3.0f - t) * 6.0f;
+    }
+
+    return p;
+}
+
+Vec3 HSLToRGB(const Vec3& hsl)
+{
+    Vec3 result;
+
+    if (hsl.y == 0.0f)
+    {
+        result.x = result.y = result.z = hsl.z;
+    }
+    else
+    {
+        float q = hsl.z < 0.5f ? hsl.z * (1.0f + hsl.y) : hsl.z + hsl.y - hsl.z * hsl.y;
+        float p = 2.0f * hsl.z - q;
+        result.x = HueToRGB(p, q, hsl.x + 1.0f / 3.0f);
+        result.y = HueToRGB(p, q, hsl.x);
+        result.z = HueToRGB(p, q, hsl.x - 1.0f / 3.0f);
+    }
+
+    return result;
+}
+
+void InitializeColors()
+{
+    if (g_colorsInitialized)
+    {
+        return;
+    }
+
+    constexpr float stride = 360.0f / g_colorCount;
+    for (int32 i = 0; i < g_colorCount; ++i)
+    {
+        Vec3 rgb = HSLToRGB({ i * stride / 360.0f, 1.0f, 0.8f });
+        g_colors[i] = Vec4{ rgb.x, rgb.y, rgb.z, 0.85f };
+    }
+
+    g_colorsInitialized = true;
+}
+
+Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
+{
+    if (body.IsStatic() || body.IsSleeping())
+    {
+        return Renderer::default_white;
+    }
+
+    int32 colorIndex = options.colorize_island ? body.GetIslandID() - 1 : body.GetType() - 2;
+    if (colorIndex < 0)
+    {
+        return Renderer::default_white;
+    }
+
+    return g_colors[colorIndex % g_colorCount];
 }
 
 } // namespace
@@ -319,6 +403,7 @@ bool Renderer::Initialize()
     {
         return false;
     }
+    InitializeColors();
 
     surfaceShader.Use();
     surfaceShader.SetInt("uShadowMap", 0);
@@ -356,9 +441,9 @@ void Renderer::Shutdown()
     initialized = false;
 }
 
-void Renderer::DrawBody(const RigidBody& body, const Vec3& color, const Shader& shader)
+void Renderer::DrawBody(const RigidBody& body, const Vec4& color, const Shader& shader)
 {
-    QueueShape(body.GetShape(), body.transform, Vec4{ color, 1.0f }, shader);
+    QueueShape(body.GetShape(), body.transform, color, shader);
 }
 
 void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color)
@@ -597,18 +682,18 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer);
     glViewport(0, 0, g_shadowMapSize, g_shadowMapSize);
     glClear(GL_DEPTH_BUFFER_BIT);
-    glCullFace(GL_FRONT);
+    glCullFace(GL_BACK);
     glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(2.0f, 4.0f);
+    glPolygonOffset(0.5f, 1.0f);
 
     shadowShader.Use();
     shadowShader.SetMat4("uLightViewProjection", lightViewProjection);
 
-    if (options.draw_body || options.draw_wireframe)
+    if (options.draw_body)
     {
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*body, Vec3{ 1.0f, 1.0f, 1.0f }, shadowShader);
+            DrawBody(*body, default_white, shadowShader);
         }
         FlushSpheres(shadowShader);
         FlushBoxes(shadowShader);
@@ -630,16 +715,18 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body)
     {
-        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+        if (options.draw_outlined == false)
         {
-            const Vec3 color = body->IsStatic() ? Vec3{ 0.92f, 0.92f, 0.92f } : Vec3{ 1.0f, 1.0f, 1.0f };
-            DrawBody(*body, color, surfaceShader);
+            for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+            {
+                DrawBody(*body, GetBodyColor(*body, options), surfaceShader);
+            }
+            FlushSpheres(surfaceShader);
+            FlushBoxes(surfaceShader);
         }
-        FlushSpheres(surfaceShader);
-        FlushBoxes(surfaceShader);
     }
 
-    if (options.draw_wireframe)
+    if (options.draw_body && options.draw_outlined)
     {
         GLint previousDepthFunc = GL_LESS;
         glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
@@ -648,7 +735,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         glDisable(GL_CULL_FACE);
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*body, Vec3{ 0.03f, 0.04f, 0.05f }, surfaceShader);
+            DrawBody(*body, default_black, surfaceShader);
         }
         FlushSpheres(surfaceShader);
         FlushBoxes(surfaceShader);

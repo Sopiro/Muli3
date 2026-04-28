@@ -108,7 +108,7 @@ void Game::EnableKeyboardShortcut()
     }
 
     if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
-    if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_wireframe = !options.draw_wireframe;
+    if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_outlined = !options.draw_outlined;
     if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
     if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
     if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
@@ -129,8 +129,8 @@ void Game::UpdateUI()
     World& world = demo->GetWorld();
     WorldSettings& settings = demo->GetWorldSettings();
 
-    ImGui::SetNextWindowPos({ 2.0f, 2.0f }, ImGuiCond_Once, { 0.0f, 0.0f });
-    ImGui::SetNextWindowSize({ 240.0f, 470.0f }, ImGuiCond_Once);
+    ImGui::SetNextWindowPos({ 2, 2 }, ImGuiCond_Once, { 0.0f, 0.0f });
+    ImGui::SetNextWindowSize({ 240, 470 }, ImGuiCond_Once);
 
     static bool collapsed = false;
     if (Input::IsKeyPressed(GLFW_KEY_GRAVE_ACCENT))
@@ -140,15 +140,12 @@ void Game::UpdateUI()
     ImGui::SetNextWindowCollapsed(collapsed, ImGuiCond_None);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
-    if (ImGui::Begin("Muli3", NULL, flags))
+    if (ImGui::Begin("Muli Engine", NULL, flags))
     {
         if (ImGui::BeginTabBar("TabBar", ImGuiTabBarFlags_AutoSelectNewTabs))
         {
             if (ImGui::BeginTabItem("Control"))
             {
-                static int32 fps = GetFrameRate();
-                static int32 ups = GetUpdateRate();
-
                 ImGui::BeginDisabled(options.pause);
                 if (ImGui::Button("Pause")) options.pause = true;
                 ImGui::EndDisabled();
@@ -168,13 +165,16 @@ void Game::UpdateUI()
                 ImGui::SameLine();
                 if (ImGui::Button("Restart")) InitDemo(demoIndex);
 
-                ImGui::SetNextItemWidth(120.0f);
+                static int32 fps = GetFrameRate();
+                static int32 ups = GetUpdateRate();
+
+                ImGui::SetNextItemWidth(120);
                 if (ImGui::SliderInt("Frame rate", &fps, 30, 300))
                 {
                     SetFrameRate(fps);
                 }
 
-                ImGui::SetNextItemWidth(120.0f);
+                ImGui::SetNextItemWidth(120);
                 if (ImGui::SliderInt("Update rate", &ups, 30, 300))
                 {
                     SetUpdateRate(ups);
@@ -188,8 +188,9 @@ void Game::UpdateUI()
                 if (ImGui::CollapsingHeader("Debug options"))
                 {
                     ImGui::Checkbox("Camera reset", &options.reset_camera);
+                    ImGui::Checkbox("Colorize island", &options.colorize_island);
                     ImGui::Checkbox("Draw body", &options.draw_body);
-                    ImGui::Checkbox("Draw wireframe", &options.draw_wireframe);
+                    ImGui::Checkbox("Draw outlined", &options.draw_outlined);
                     ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);
                     ImGui::Checkbox("Show contact point", &options.show_contact_point);
@@ -199,34 +200,31 @@ void Game::UpdateUI()
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                 if (ImGui::CollapsingHeader("Simulation settings"))
                 {
-                    ImGui::Checkbox("Apply gravity", &settings.apply_gravity);
+                    if (ImGui::Checkbox("Apply gravity", &settings.apply_gravity))
+                    {
+                        world.Awake();
+                    }
 
                     ImGui::Text("Constraint solve iterations");
-                    ImGui::SetNextItemWidth(120.0f);
+                    ImGui::SetNextItemWidth(120);
                     ImGui::SliderInt("Velocity", &settings.step.velocity_iterations, 0, 50);
-                    ImGui::SetNextItemWidth(120.0f);
+                    ImGui::SetNextItemWidth(120);
                     ImGui::SliderInt("Position", &settings.step.position_iterations, 0, 50);
+                    ImGui::Checkbox("Warm starting", &settings.step.warm_starting);
+                    ImGui::Checkbox("Sleeping", &settings.sleeping);
                 }
 
                 ImGui::Separator();
                 ImGui::Text("%s", demoFrames[demoIndex].name);
                 ImGui::Text("Bodies: %d", world.GetBodyCount());
-                ImGui::Text("Pause: Q");
-                ImGui::Text("Step: E / Right");
-                ImGui::Text("Camera: Hold RMB");
-                ImGui::Text("Cursor: Esc");
-                ImGui::Text("Demos: PageUp / PageDown");
-                ImGui::Text("Draw body: Y");
-                ImGui::Text("Wireframe: O");
-                ImGui::Text("AABB: B");
-                ImGui::Text("Contact point: P");
-                ImGui::Text("Contact normal: N");
+                ImGui::Text("Sleeping dynamic bodies: %d", world.GetSleepingBodyCount());
+                ImGui::Text("Broad phase contacts: %d", world.GetContactCount());
                 ImGui::EndTabItem();
             }
 
             if (ImGui::BeginTabItem("Demos"))
             {
-                if (ImGui::BeginListBox("##demo_list", ImVec2{ -FLT_MIN, 20.0f * ImGui::GetTextLineHeightWithSpacing() }))
+                if (ImGui::BeginListBox("##listbox 2", ImVec2{ -FLT_MIN, 24 * ImGui::GetTextLineHeightWithSpacing() }))
                 {
                     for (int32 i = 0; i < (int32)demoCount; ++i)
                     {

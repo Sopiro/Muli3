@@ -58,7 +58,7 @@ private:
     void DestroyShadowResources();
     void DestroyBatchResources();
     void DestroyShapeResources();
-    void DrawBody(const RigidBody& body, const Vec3& color, const Shader& shader);
+    void DrawBody(const RigidBody& body, const Vec4& color, const Shader& shader);
     void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushSpheres(const Shader& shader);
