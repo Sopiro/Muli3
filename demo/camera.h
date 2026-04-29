@@ -1,8 +1,5 @@
 #pragma once
 
-#include "common.h"
-#include "input.h"
-
 namespace muli3
 {
 
@@ -32,7 +29,7 @@ public:
     Vec3 velocity{ 0.0f, 0.0f, 0.0f };
     float speed = 1.0f;
     float sensitivity = 18.0f;
-    float damping = 10.0f;
+    float damping = 12.0f;
     float fovDegrees = 60.0f;
 };
 

@@ -71,8 +71,8 @@ bool Collide(const Shape* a, const Transform& transformA,
 struct GJKResult
 {
     Simplex simplex;
-    Vec3 direction{ 1.0f, 0.0f, 0.0f };
-    float distance = 0.0f;
+    Vec3 direction;
+    float distance;
 };
 
 bool GJK(const Shape* a, const Transform& transformA,
@@ -81,8 +81,8 @@ bool GJK(const Shape* a, const Transform& transformA,
 
 struct EPAResult
 {
-    Vec3 contactNormal{ 1.0f, 0.0f, 0.0f };
-    float penetrationDepth = 0.0f;
+    Vec3 contactNormal;
+    float penetrationDepth;
 };
 
 void EPA(const Shape* a, const Transform& transformA,

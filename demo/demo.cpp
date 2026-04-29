@@ -1,7 +1,4 @@
-#include "demo.h"
-
 #include "game.h"
-#include "renderer.h"
 
 namespace muli3
 {
@@ -12,6 +9,8 @@ Demo::Demo(Game& game)
     , world{ new World(settings) }
 {
     camera.Reset();
+    camera.position = Vec3{ 0.0f, 5.0f, 10.0f };
+    camera.rotation = Vec3{ DegToRad(-20.0f), 0.0f, 0.0f };
     dt = game.GetFixedDeltaTime();
 }
 

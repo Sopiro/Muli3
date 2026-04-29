@@ -6,9 +6,9 @@ namespace muli3
 
 void Camera::Reset()
 {
-    position = Vec3{ 0.0f, 3.0f, 8.0f };
-    rotation = Vec3{ DegToRad(-18.0f), 0.0f, 0.0f };
-    scale = Vec3{ 1.0f, 1.0f, 1.0f };
+    position = Vec3::zero;
+    rotation = Vec3::zero;
+    scale = Vec3(1);
     velocity = Vec3::zero;
 }
 
@@ -92,21 +92,21 @@ Mat4 Camera::GetProjectionMatrix(float aspectRatio) const
 
 Vec3 Camera::GetForward() const
 {
-    Vec3 forward = Quat::FromEuler(rotation).Rotate(Vec3{ 0.0f, 0.0f, -1.0f });
+    Vec3 forward = Quat::FromEuler(rotation).Rotate(-z_axis);
     forward.Normalize();
     return forward;
 }
 
 Vec3 Camera::GetRight() const
 {
-    Vec3 right = Quat::FromEuler(rotation).Rotate(Vec3{ 1.0f, 0.0f, 0.0f });
+    Vec3 right = Quat::FromEuler(rotation).Rotate(x_axis);
     right.Normalize();
     return right;
 }
 
 Vec3 Camera::GetUp() const
 {
-    Vec3 up = Quat::FromEuler(rotation).Rotate(Vec3{ 0.0f, 1.0f, 0.0f });
+    Vec3 up = Quat::FromEuler(rotation).Rotate(y_axis);
     up.Normalize();
     return up;
 }

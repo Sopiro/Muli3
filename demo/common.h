@@ -15,13 +15,6 @@
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 
-#include <chrono>
-#include <cstddef>
-#include <cstdio>
-#include <functional>
-#include <string>
-#include <vector>
-
 namespace muli3
 {
 

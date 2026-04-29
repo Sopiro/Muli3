@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-bool detectionFunctionInitialized = false;
-CollideFunction* collideFunctionMap[Shape::shape_count][Shape::shape_count];
+bool detection_function_initialized = false;
+CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
 
 void InitializeDetectionFunctionMap();
 
@@ -38,7 +38,7 @@ bool GJK(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
         simplex.Save(save, &saveCount);
         simplex.Advance(Vec3::zero);
 
-        if (simplex.count == 4)
+        if (simplex.count == max_simplex_vertex_count)
         {
             break;
         }
@@ -242,26 +242,24 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
 
 void InitializeDetectionFunctionMap()
 {
-    for (int32 i = 0; i < Shape::shape_count; ++i)
+    if (detection_function_initialized)
     {
-        for (int32 j = 0; j < Shape::shape_count; ++j)
-        {
-            collideFunctionMap[i][j] = nullptr;
-        }
+        return;
     }
 
-    collideFunctionMap[Shape::sphere][Shape::sphere] = SphereVsSphere;
-    collideFunctionMap[Shape::box][Shape::sphere] = BoxVsSphere;
-    collideFunctionMap[Shape::box][Shape::box] = ConvexVsConvex;
-    detectionFunctionInitialized = true;
+    collide_function_map[Shape::sphere][Shape::sphere] = SphereVsSphere;
+    collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
+    collide_function_map[Shape::box][Shape::box] = ConvexVsConvex;
+
+    detection_function_initialized = true;
 }
 
-bool Collide(const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold)
+bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
     MuliAssert(a != nullptr);
     MuliAssert(b != nullptr);
 
-    if (!detectionFunctionInitialized)
+    if (!detection_function_initialized)
     {
         InitializeDetectionFunctionMap();
     }
@@ -276,29 +274,19 @@ bool Collide(const Shape* a, const Transform& transformA, const Shape* b, const 
 
     if (shapeB > shapeA)
     {
-        CollideFunction* collideFunction = collideFunctionMap[shapeB][shapeA];
-        MuliAssert(collideFunction != nullptr);
-        if (!collideFunction)
-        {
-            return false;
-        }
+        MuliAssert(collide_function_map[shapeB][shapeA] != nullptr);
 
-        bool collide = collideFunction(b, transformB, a, transformA, manifold);
-        if (manifold && collide)
-        {
-            manifold->featureFlipped = !manifold->featureFlipped;
-        }
+        bool collide = collide_function_map[shapeB][shapeA](b, tfB, a, tfA, manifold);
+        manifold->featureFlipped = !manifold->featureFlipped;
+
         return collide;
     }
-
-    CollideFunction* collideFunction = collideFunctionMap[shapeA][shapeB];
-    MuliAssert(collideFunction != nullptr);
-    if (!collideFunction)
+    else
     {
-        return false;
-    }
+        MuliAssert(collide_function_map[shapeA][shapeB] != nullptr);
 
-    return collideFunction(a, transformA, b, transformB, manifold);
+        return collide_function_map[shapeA][shapeB](a, tfA, b, tfB, manifold);
+    }
 }
 
 } // namespace muli3
