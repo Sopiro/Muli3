@@ -22,6 +22,164 @@ inline SupportPoint CSOSupport(const Shape* a, const Transform& tfA, const Shape
     return supportPoint;
 }
 
+struct EPAFace
+{
+    int32 a, b, c;
+    Vec3 normal;
+    float distance;
+    bool removed;
+};
+
+struct EPAEdge
+{
+    int32 a, b;
+};
+
+constexpr int32 epa_max_vertex_count = max_simplex_vertex_count + epa_max_iteration;
+constexpr int32 epa_max_face_count = 4 + epa_max_iteration * 2;
+constexpr int32 epa_max_edge_count = epa_max_face_count * 3;
+
+static Vec3 GetPerpendicular(const Vec3& v)
+{
+    Vec3 axis = Abs(v.x) < Abs(v.y) ? x_axis : y_axis;
+    if (Abs(v.z) < Abs(Dot(v, axis)))
+    {
+        axis = z_axis;
+    }
+
+    Vec3 p = Cross(v, axis);
+    if (Length2(p) <= epsilon)
+    {
+        p = Cross(v, x_axis);
+    }
+
+    return NormalizeSafe(p);
+}
+
+static bool AddEPAFace(EPAFace* faces, int32* faceCount, const SupportPoint* vertices, int32 a, int32 b, int32 c)
+{
+    if (*faceCount >= epa_max_face_count)
+    {
+        return false;
+    }
+
+    Vec3 pa = vertices[a].point;
+    Vec3 pb = vertices[b].point;
+    Vec3 pc = vertices[c].point;
+
+    Vec3 normal = Cross(pb - pa, pc - pa);
+    float length = normal.Normalize();
+    if (length <= epsilon)
+    {
+        return false;
+    }
+
+    float distance = Dot(normal, pa);
+    if (distance < 0.0f)
+    {
+        std::swap(b, c);
+        normal = -normal;
+        distance = -distance;
+    }
+
+    faces[*faceCount] = EPAFace{ a, b, c, normal, distance, false };
+    ++(*faceCount);
+    return true;
+}
+
+static bool AddEPAEdge(EPAEdge* edges, int32* edgeCount, int32 a, int32 b)
+{
+    for (int32 i = 0; i < *edgeCount; ++i)
+    {
+        if (edges[i].a == b && edges[i].b == a)
+        {
+            edges[i] = edges[*edgeCount - 1];
+            --(*edgeCount);
+            return true;
+        }
+    }
+
+    if (*edgeCount >= epa_max_edge_count)
+    {
+        return false;
+    }
+
+    edges[*edgeCount] = EPAEdge{ a, b };
+    ++(*edgeCount);
+    return true;
+}
+
+static bool ExpandSimplexToTetrahedron(
+    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Simplex* simplex
+)
+{
+    switch (simplex->count)
+    {
+    case 1:
+    {
+        SupportPoint support = CSOSupport(a, tfA, b, tfB, x_axis);
+        if (support.point == simplex->vertices[0].point)
+        {
+            support = CSOSupport(a, tfA, b, tfB, -x_axis);
+        }
+
+        simplex->AddVertex(support);
+    }
+
+        [[fallthrough]];
+
+    case 2:
+    {
+        Vec3 e = simplex->vertices[1].point - simplex->vertices[0].point;
+        Vec3 normal = GetPerpendicular(e);
+        SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
+        if (support.point == simplex->vertices[0].point || support.point == simplex->vertices[1].point)
+        {
+            support = CSOSupport(a, tfA, b, tfB, -normal);
+        }
+
+        simplex->AddVertex(support);
+    }
+
+        [[fallthrough]];
+
+    case 3:
+    {
+        Vec3 a0 = simplex->vertices[0].point;
+        Vec3 b0 = simplex->vertices[1].point;
+        Vec3 c0 = simplex->vertices[2].point;
+
+        Vec3 normal = Cross(b0 - a0, c0 - a0);
+        if (Length2(normal) <= epsilon)
+        {
+            normal = GetPerpendicular(b0 - a0);
+        }
+        else
+        {
+            normal.Normalize();
+        }
+
+        SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
+        if (support.point == simplex->vertices[0].point || support.point == simplex->vertices[1].point ||
+            support.point == simplex->vertices[2].point)
+        {
+            support = CSOSupport(a, tfA, b, tfB, -normal);
+        }
+
+        simplex->AddVertex(support);
+    }
+
+        [[fallthrough]];
+
+    case 4:
+        return true;
+
+    default:
+        MuliAssert(false);
+        return false;
+    }
+}
+
 bool GJK(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GJKResult* result)
 {
     Simplex simplex;
@@ -74,6 +232,108 @@ end:
     result->distance = distance;
 
     return distance < gjk_tolerance;
+}
+
+void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, const Simplex& simplex, EPAResult* result)
+{
+    Simplex tetrahedron = simplex;
+    if (!ExpandSimplexToTetrahedron(a, tfA, b, tfB, &tetrahedron))
+    {
+        result->contactNormal = NormalizeSafe(simplex.GetSearchDirection());
+        result->penetrationDepth = 0.0f;
+        return;
+    }
+
+    SupportPoint vertices[epa_max_vertex_count];
+    int32 vertexCount = tetrahedron.count;
+    for (int32 i = 0; i < vertexCount; ++i)
+    {
+        vertices[i] = tetrahedron.vertices[i];
+    }
+
+    EPAFace faces[epa_max_face_count];
+    int32 faceCount = 0;
+    AddEPAFace(faces, &faceCount, vertices, 0, 1, 2);
+    AddEPAFace(faces, &faceCount, vertices, 0, 3, 1);
+    AddEPAFace(faces, &faceCount, vertices, 0, 2, 3);
+    AddEPAFace(faces, &faceCount, vertices, 1, 3, 2);
+
+    if (faceCount == 0)
+    {
+        result->contactNormal = NormalizeSafe(simplex.GetSearchDirection());
+        result->penetrationDepth = 0.0f;
+        return;
+    }
+
+    EPAFace best = faces[0];
+
+    for (int32 k = 0; k < epa_max_iteration; ++k)
+    {
+        int32 bestIndex = -1;
+        float bestDistance = max_float;
+        for (int32 i = 0; i < faceCount; ++i)
+        {
+            if (!faces[i].removed && faces[i].distance < bestDistance)
+            {
+                bestIndex = i;
+                bestDistance = faces[i].distance;
+            }
+        }
+
+        if (bestIndex == -1)
+        {
+            break;
+        }
+
+        best = faces[bestIndex];
+
+        SupportPoint support = CSOSupport(a, tfA, b, tfB, best.normal);
+        float newDistance = Dot(best.normal, support.point);
+        if (newDistance - best.distance <= epa_tolerance)
+        {
+            break;
+        }
+
+        if (vertexCount >= epa_max_vertex_count)
+        {
+            break;
+        }
+
+        int32 newIndex = vertexCount;
+        vertices[vertexCount++] = support;
+
+        EPAEdge edges[epa_max_edge_count];
+        int32 edgeCount = 0;
+
+        for (int32 i = 0; i < faceCount; ++i)
+        {
+            EPAFace& face = faces[i];
+            if (face.removed)
+            {
+                continue;
+            }
+
+            if (Dot(face.normal, support.point - vertices[face.a].point) > 0.0f)
+            {
+                face.removed = true;
+                if (!AddEPAEdge(edges, &edgeCount, face.a, face.b) || !AddEPAEdge(edges, &edgeCount, face.b, face.c) ||
+                    !AddEPAEdge(edges, &edgeCount, face.c, face.a))
+                {
+                    result->contactNormal = best.normal;
+                    result->penetrationDepth = best.distance;
+                    return;
+                }
+            }
+        }
+
+        for (int32 i = 0; i < edgeCount; ++i)
+        {
+            AddEPAFace(faces, &faceCount, vertices, edges[i].a, edges[i].b, newIndex);
+        }
+    }
+
+    result->contactNormal = best.normal;
+    result->penetrationDepth = best.distance;
 }
 
 bool SphereVsSphere(

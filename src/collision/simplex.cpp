@@ -365,7 +365,7 @@ void Simplex::SolveTetrahedron(const Vec3& q)
     }
 
     Simplex best;
-    float bestDist2 = FLT_MAX;
+    float bestDist2 = max_float;
 
     // A degenerate tetrahedron has no reliable inside/outside face test,
     // so all faces are tested and the closest one is kept.
