@@ -41,9 +41,11 @@ Vec3 Simplex::GetSearchDirection() const
         {
             return -GetClosestPoint();
         }
-
-        // Choose the face normal that points toward the origin.
-        return Dot(n, -a) > 0.0f ? n : -n;
+        else
+        {
+            // Choose the face normal that points toward the origin.
+            return Dot(n, -a) > 0.0f ? n : -n;
+        }
     }
 
     default:
@@ -160,11 +162,10 @@ void Simplex::SolveSegment(const Vec3& q)
 
     Vec3 a = va.point;
     Vec3 b = vb.point;
-    Vec3 ab = b - a;
+    Vec3 e = b - a;
 
-    float denom = Dot(ab, ab);
-
-    if (denom <= epsilon)
+    divisor = Dot(e, e);
+    if (divisor <= epsilon)
     {
         count = 1;
         vertices[0] = va;
@@ -173,10 +174,10 @@ void Simplex::SolveSegment(const Vec3& q)
         return;
     }
 
-    float t = Dot(q - a, ab) / denom;
+    Vec2 w{ Dot(q - b, a - b), Dot(q - a, b - a) };
 
     // Region A
-    if (t <= 0.0f)
+    if (w.y <= 0.0f)
     {
         count = 1;
         vertices[0] = va;
@@ -186,7 +187,7 @@ void Simplex::SolveSegment(const Vec3& q)
     }
 
     // Region B
-    if (t >= 1.0f)
+    if (w.x <= 0.0f)
     {
         count = 1;
         vertices[0] = vb;
@@ -200,10 +201,8 @@ void Simplex::SolveSegment(const Vec3& q)
     vertices[0] = va;
     vertices[1] = vb;
 
-    vertices[0].weight = 1.0f - t;
-    vertices[1].weight = t;
-
-    divisor = 1.0f;
+    vertices[0].weight = w.x;
+    vertices[1].weight = w.y;
 }
 
 void Simplex::SolveTriangle(const Vec3& q)
@@ -216,52 +215,12 @@ void Simplex::SolveTriangle(const Vec3& q)
     Vec3 b = vb.point;
     Vec3 c = vc.point;
 
-    Vec3 ab = b - a;
-    Vec3 ac = c - a;
-
-    Vec3 n = Cross(ab, ac);
-
-    // Degenerate triangle: reduce it to the closest edge.
-    if (Dot(n, n) <= epsilon)
-    {
-        Simplex best;
-        float bestDist2 = FLT_MAX;
-
-        auto TestEdge = [&](const SupportPoint& p0, const SupportPoint& p1) {
-            Simplex s;
-            s.count = 2;
-            s.vertices[0] = p0;
-            s.vertices[1] = p1;
-            s.SolveSegment(q);
-
-            Vec3 p = s.GetClosestPoint();
-            Vec3 r = p - q;
-            float dist2 = Dot(r, r);
-
-            if (dist2 < bestDist2)
-            {
-                bestDist2 = dist2;
-                best = s;
-            }
-        };
-
-        TestEdge(va, vb);
-        TestEdge(vb, vc);
-        TestEdge(vc, va);
-
-        *this = best;
-        return;
-    }
-
-    // Triangle Voronoi region test.
-    // Based on the closest point on triangle method from Real-Time Collision Detection.
-
-    Vec3 ap = q - a;
-    float d1 = Dot(ab, ap);
-    float d2 = Dot(ac, ap);
+    Vec2 wab{ Dot(q - b, a - b), Dot(q - a, b - a) };
+    Vec2 wbc{ Dot(q - c, b - c), Dot(q - b, c - b) };
+    Vec2 wca{ Dot(q - a, c - a), Dot(q - c, a - c) };
 
     // Region A
-    if (d1 <= 0.0f && d2 <= 0.0f)
+    if (wca.x <= 0.0f && wab.y <= 0.0f)
     {
         count = 1;
         vertices[0] = va;
@@ -270,12 +229,8 @@ void Simplex::SolveTriangle(const Vec3& q)
         return;
     }
 
-    Vec3 bp = q - b;
-    float d3 = Dot(ab, bp);
-    float d4 = Dot(ac, bp);
-
     // Region B
-    if (d3 >= 0.0f && d4 <= d3)
+    if (wab.x <= 0.0f && wbc.y <= 0.0f)
     {
         count = 1;
         vertices[0] = vb;
@@ -284,29 +239,8 @@ void Simplex::SolveTriangle(const Vec3& q)
         return;
     }
 
-    // Region AB
-    float vcArea = d1 * d4 - d3 * d2;
-    if (vcArea <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
-    {
-        float t = d1 / (d1 - d3);
-
-        count = 2;
-        vertices[0] = va;
-        vertices[1] = vb;
-
-        vertices[0].weight = 1.0f - t;
-        vertices[1].weight = t;
-
-        divisor = 1.0f;
-        return;
-    }
-
-    Vec3 cp = q - c;
-    float d5 = Dot(ab, cp);
-    float d6 = Dot(ac, cp);
-
     // Region C
-    if (d6 >= 0.0f && d5 <= d6)
+    if (wbc.x <= 0.0f && wca.y <= 0.0f)
     {
         count = 1;
         vertices[0] = vc;
@@ -315,47 +249,62 @@ void Simplex::SolveTriangle(const Vec3& q)
         return;
     }
 
-    // Region AC
-    float vbArea = d5 * d2 - d1 * d6;
-    if (vbArea <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
-    {
-        float t = d2 / (d2 - d6);
+    Vec3 ab = b - a;
+    Vec3 ac = c - a;
 
+    Vec3 n = Cross(ab, ac);
+    float n2 = Dot(n, n);
+
+    float u = Dot(Cross(b - q, c - q), n);
+    float v = Dot(Cross(c - q, a - q), n);
+    float w = Dot(Cross(a - q, b - q), n);
+
+    // Region AB
+    if (wab.x > 0.0f && wab.y > 0.0f && (w <= 0.0f || n2 <= epsilon))
+    {
         count = 2;
         vertices[0] = va;
-        vertices[1] = vc;
+        vertices[1] = vb;
 
-        vertices[0].weight = 1.0f - t;
-        vertices[1].weight = t;
+        vertices[0].weight = wab.x;
+        vertices[1].weight = wab.y;
 
-        divisor = 1.0f;
+        Vec3 e = b - a;
+        divisor = Dot(e, e);
         return;
     }
 
     // Region BC
-    float vaArea = d3 * d6 - d5 * d4;
-    if (vaArea <= 0.0f && (d4 - d3) >= 0.0f && (d5 - d6) >= 0.0f)
+    if (wbc.x > 0.0f && wbc.y > 0.0f && (u <= 0.0f || n2 <= epsilon))
     {
-        float t = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-
         count = 2;
         vertices[0] = vb;
         vertices[1] = vc;
 
-        vertices[0].weight = 1.0f - t;
-        vertices[1].weight = t;
+        vertices[0].weight = wbc.x;
+        vertices[1].weight = wbc.y;
 
-        divisor = 1.0f;
+        Vec3 e = c - b;
+        divisor = Dot(e, e);
+        return;
+    }
+
+    // Region CA
+    if (wca.x > 0.0f && wca.y > 0.0f && (v <= 0.0f || n2 <= epsilon))
+    {
+        count = 2;
+        vertices[0] = vc;
+        vertices[1] = va;
+
+        vertices[0].weight = wca.x;
+        vertices[1].weight = wca.y;
+
+        Vec3 e = a - c;
+        divisor = Dot(e, e);
         return;
     }
 
     // Region ABC
-    float denom = 1.0f / (vaArea + vbArea + vcArea);
-
-    float v = vbArea * denom;
-    float w = vcArea * denom;
-    float u = 1.0f - v - w;
-
     count = 3;
     vertices[0] = va;
     vertices[1] = vb;
@@ -365,7 +314,7 @@ void Simplex::SolveTriangle(const Vec3& q)
     vertices[1].weight = v;
     vertices[2].weight = w;
 
-    divisor = 1.0f;
+    divisor = n2;
 }
 
 void Simplex::SolveTetrahedron(const Vec3& q)
@@ -381,18 +330,21 @@ void Simplex::SolveTetrahedron(const Vec3& q)
     Vec3 d = vd.point;
 
     float volume = Dot(b - a, Cross(c - a, d - a));
+    float wa = 0.0f;
+    float wb = 0.0f;
+    float wc = 0.0f;
+    float wd = 0.0f;
 
-    // Check whether q lies inside the tetrahedron using barycentric coordinates.
+    // Use signed sub-volumes as unnormalized barycentric weights.
     if (std::fabs(volume) > epsilon)
     {
-        float invVolume = 1.0f / volume;
+        wb = Dot(q - a, Cross(c - a, d - a));
+        wc = Dot(b - a, Cross(q - a, d - a));
+        wd = Dot(b - a, Cross(c - a, q - a));
+        wa = volume - wb - wc - wd;
 
-        float wb = Dot(q - a, Cross(c - a, d - a)) * invVolume;
-        float wc = Dot(b - a, Cross(q - a, d - a)) * invVolume;
-        float wd = Dot(b - a, Cross(c - a, q - a)) * invVolume;
-        float wa = 1.0f - wb - wc - wd;
-
-        if (wa >= -epsilon && wb >= -epsilon && wc >= -epsilon && wd >= -epsilon)
+        if ((volume > 0.0f && wa >= 0.0f && wb >= 0.0f && wc >= 0.0f && wd >= 0.0f) ||
+            (volume < 0.0f && wa <= 0.0f && wb <= 0.0f && wc <= 0.0f && wd <= 0.0f))
         {
             // Region ABCD: q is inside the tetrahedron.
             count = 4;
@@ -407,24 +359,33 @@ void Simplex::SolveTetrahedron(const Vec3& q)
             vertices[2].weight = wc;
             vertices[3].weight = wd;
 
-            divisor = 1.0f;
+            divisor = volume;
             return;
         }
     }
 
-    // If q is outside the tetrahedron, choose the closest face simplex.
     Simplex best;
     float bestDist2 = FLT_MAX;
 
-    SupportPoint old[4] = { va, vb, vc, vd };
+    // A degenerate tetrahedron has no reliable inside/outside face test,
+    // so all faces are tested and the closest one is kept.
+    bool degenerate = std::fabs(volume) <= epsilon;
 
-    const auto TestFace = [&](int32 i0, int32 i1, int32 i2) {
+    // Outside faces are the only candidates for the closest feature.
+    // Each weight belongs to the opposite face:
+    // wd -> ABC
+    // wc -> ABD
+    // wb -> ACD
+    // wa -> BCD
+
+    // Region ABC
+    if ((volume > 0.0f && wd < 0.0f) || (volume < 0.0f && wd > 0.0f) || degenerate)
+    {
         Simplex s;
         s.count = 3;
-        s.vertices[0] = old[i0];
-        s.vertices[1] = old[i1];
-        s.vertices[2] = old[i2];
-
+        s.vertices[0] = va;
+        s.vertices[1] = vb;
+        s.vertices[2] = vc;
         s.SolveTriangle(q);
 
         Vec3 p = s.GetClosestPoint();
@@ -436,12 +397,67 @@ void Simplex::SolveTetrahedron(const Vec3& q)
             bestDist2 = dist2;
             best = s;
         }
-    };
+    }
 
-    TestFace(0, 1, 2); // ABC
-    TestFace(0, 1, 3); // ABD
-    TestFace(0, 2, 3); // ACD
-    TestFace(1, 2, 3); // BCD
+    // Region ABD
+    if ((volume > 0.0f && wc < 0.0f) || (volume < 0.0f && wc > 0.0f) || degenerate)
+    {
+        Simplex s;
+        s.count = 3;
+        s.vertices[0] = va;
+        s.vertices[1] = vb;
+        s.vertices[2] = vd;
+        s.SolveTriangle(q);
+
+        Vec3 p = s.GetClosestPoint();
+        Vec3 r = p - q;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = s;
+        }
+    }
+
+    // Region ACD
+    if ((volume > 0.0f && wb < 0.0f) || (volume < 0.0f && wb > 0.0f) || degenerate)
+    {
+        Simplex s;
+        s.count = 3;
+        s.vertices[0] = va;
+        s.vertices[1] = vc;
+        s.vertices[2] = vd;
+        s.SolveTriangle(q);
+
+        Vec3 p = s.GetClosestPoint();
+        Vec3 r = p - q;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = s;
+        }
+    }
+
+    // Region BCD
+    if ((volume > 0.0f && wa < 0.0f) || (volume < 0.0f && wa > 0.0f) || degenerate)
+    {
+        Simplex s;
+        s.count = 3;
+        s.vertices[0] = vb;
+        s.vertices[1] = vc;
+        s.vertices[2] = vd;
+        s.SolveTriangle(q);
+
+        Vec3 p = s.GetClosestPoint();
+        Vec3 r = p - q;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = s;
+        }
+    }
 
     *this = best;
 }

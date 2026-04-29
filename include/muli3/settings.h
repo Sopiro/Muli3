@@ -32,7 +32,7 @@ inline constexpr float default_restitution = 0.0f;
 struct Timestep
 {
     int32 velocity_iterations = 3;
-    int32 position_iterations = 2;
+    int32 position_iterations = 1;
 
     bool warm_starting = true;
     float dt = 0.0f;
