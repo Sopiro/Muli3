@@ -10,6 +10,72 @@ CollideFunction* collideFunctionMap[Shape::shape_count][Shape::shape_count];
 
 void InitializeDetectionFunctionMap();
 
+inline SupportPoint CSOSupport(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, const Vec3& dir)
+{
+    SupportPoint supportPoint;
+    supportPoint.pointA.id = a->GetSupport(tfA.q.RotateInv(dir));
+    supportPoint.pointB.id = b->GetSupport(tfB.q.RotateInv(-dir));
+    supportPoint.pointA.p = Mul(tfA, a->GetVertex(supportPoint.pointA.id));
+    supportPoint.pointB.p = Mul(tfB, b->GetVertex(supportPoint.pointB.id));
+    supportPoint.point = supportPoint.pointA.p - supportPoint.pointB.p;
+
+    return supportPoint;
+}
+
+bool GJK(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GJKResult* result)
+{
+    Simplex simplex;
+
+    Vec3 direction = tfB.p - tfA.p;
+    SupportPoint support = CSOSupport(a, tfA, b, tfB, direction);
+    simplex.AddVertex(support);
+
+    Vec3 save[max_simplex_vertex_count];
+    int32 saveCount;
+
+    for (int32 k = 0; k < gjk_max_iteration; ++k)
+    {
+        simplex.Save(save, &saveCount);
+        simplex.Advance(Vec3::zero);
+
+        if (simplex.count == 4)
+        {
+            break;
+        }
+
+        direction = simplex.GetSearchDirection();
+
+        // Simplex contains the origin
+        if (Dot(direction, direction) == 0.0f)
+        {
+            break;
+        }
+
+        support = CSOSupport(a, tfA, b, tfB, direction);
+
+        // Check duplicate vertices
+        for (int32 i = 0; i < saveCount; ++i)
+        {
+            if (save[i] == support.point)
+            {
+                goto end;
+            }
+        }
+
+        simplex.AddVertex(support);
+    }
+
+end:
+    Vec3 closest = simplex.GetClosestPoint();
+    float distance = Length(closest);
+
+    result->simplex = simplex;
+    result->direction = Normalize(direction);
+    result->distance = distance;
+
+    return distance < gjk_tolerance;
+}
+
 bool SphereVsSphere(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
