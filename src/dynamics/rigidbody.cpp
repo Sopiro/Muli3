@@ -17,8 +17,8 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , invMass{ 0.0f }
     , inertia{ 0.0f }
     , invInertia{ 0.0f }
-    , restitution{ 0.0f }
-    , friction{ 0.5f }
+    , restitution{ default_restitution }
+    , friction{ default_friction }
     , force{ 0.0f, 0.0f, 0.0f }
     , torque{ 0.0f, 0.0f, 0.0f }
     , islandIndex{ 0 }

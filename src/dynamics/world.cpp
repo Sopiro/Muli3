@@ -68,7 +68,9 @@ RigidBody* World::CreateSphere(float radius, const Transform& transform, RigidBo
     return b;
 }
 
-RigidBody* World::CreateBox(float width, float height, float depth, const Transform& transform, RigidBody::Type type, float radius, float density)
+RigidBody* World::CreateBox(
+    float width, float height, float depth, const Transform& transform, RigidBody::Type type, float radius, float density
+)
 {
     RigidBody* b = CreateEmptyBody(transform, type);
     b->CreateBoxShape(width, height, depth, identity, radius, density);
@@ -326,12 +328,12 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
 
     switch (shape->GetType())
     {
-    case ShapeType::sphere:
+    case Shape::sphere:
     {
         void* mem = blockAllocator.Allocate(sizeof(Sphere));
         return new (mem) Sphere(*(const Sphere*)shape, transform);
     }
-    case ShapeType::box:
+    case Shape::box:
     {
         void* mem = blockAllocator.Allocate(sizeof(Box));
         return new (mem) Box(*(const Box*)shape, transform);
@@ -348,11 +350,11 @@ void World::FreeShape(Shape* shape)
 {
     switch (shape->GetType())
     {
-    case ShapeType::sphere:
+    case Shape::sphere:
         ((Sphere*)shape)->~Sphere();
         blockAllocator.Free(shape, sizeof(Sphere));
         break;
-    case ShapeType::box:
+    case Shape::box:
         ((Box*)shape)->~Box();
         blockAllocator.Free(shape, sizeof(Box));
         break;

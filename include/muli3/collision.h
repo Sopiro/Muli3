@@ -2,20 +2,29 @@
 
 #include "shape.h"
 
+/*
+ *           \   A    /         ↑ <- Contact normal
+ *            \      /          |
+ *    ---------\----/-------------------------------  <- Reference face
+ *              \  /
+ *        B      \/  <- Incident point(Contact point)
+ *
+ *    A: Incident body
+ *    B: Reference body
+ */
+
 namespace muli3
 {
 
 constexpr int32 max_contact_point_count = 4;
 constexpr int32 max_simplex_vertex_count = 4;
 
-using ContactPoint = Point;
-
 struct SupportPoint
 {
     Point pointA;
     Point pointB;
-    Vec3 point{ 0.0f, 0.0f, 0.0f };
-    float weight = 0.0f;
+    Vec3 point; // pointA - pointB
+    float weight;
 };
 
 struct Simplex
@@ -31,17 +40,18 @@ struct Simplex
 
     int32 count = 0;
     SupportPoint vertices[max_simplex_vertex_count];
-    float divisor = 1.0f;
+
+    float divisor;
 };
 
 struct ContactManifold
 {
-    ContactPoint contactPoints[max_contact_point_count];
-    ContactPoint referencePoint;
-    Vec3 contactNormal{ 1.0f, 0.0f, 0.0f };
-    float penetrationDepth = 0.0f;
-    int32 contactCount = 0;
-    bool featureFlipped = false;
+    Point contactPoints[max_contact_point_count];
+    Point referencePoint;
+    Vec3 contactNormal;  // Contact normal is always pointing from reference body to incident body
+    float penetrationDepth;
+    int32 contactCount;
+    bool featureFlipped; // Set to true if shape a is incident body
 };
 
 // clang-format off

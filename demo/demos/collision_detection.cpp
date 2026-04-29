@@ -8,14 +8,9 @@
 namespace muli3
 {
 
-namespace
-{
-
 static const char* shapeItems[] = { "Sphere", "Box" };
 
-} // namespace
-
-class CollisionDetection final : public Demo
+class CollisionDetection : public Demo
 {
 public:
     CollisionDetection(Game& game)

@@ -458,7 +458,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         return;
     }
 
-    if (shape->GetType() == ShapeType::sphere)
+    if (shape->GetType() == Shape::sphere)
     {
         const Sphere* sphere = (const Sphere*)shape;
         Transform renderTransform = transform;
@@ -472,7 +472,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
             FlushSpheres(shader);
         }
     }
-    else if (shape->GetType() == ShapeType::box)
+    else if (shape->GetType() == Shape::box)
     {
         const Box* box = (const Box*)shape;
         Transform renderTransform = transform;

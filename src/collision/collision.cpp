@@ -6,7 +6,7 @@ namespace muli3
 {
 
 bool detectionFunctionInitialized = false;
-CollideFunction* collideFunctionMap[ShapeType::shape_count][ShapeType::shape_count];
+CollideFunction* collideFunctionMap[Shape::shape_count][Shape::shape_count];
 
 void InitializeDetectionFunctionMap();
 
@@ -176,17 +176,17 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
 
 void InitializeDetectionFunctionMap()
 {
-    for (int32 i = 0; i < ShapeType::shape_count; ++i)
+    for (int32 i = 0; i < Shape::shape_count; ++i)
     {
-        for (int32 j = 0; j < ShapeType::shape_count; ++j)
+        for (int32 j = 0; j < Shape::shape_count; ++j)
         {
             collideFunctionMap[i][j] = nullptr;
         }
     }
 
-    collideFunctionMap[ShapeType::sphere][ShapeType::sphere] = SphereVsSphere;
-    collideFunctionMap[ShapeType::box][ShapeType::sphere] = BoxVsSphere;
-    collideFunctionMap[ShapeType::box][ShapeType::box] = ConvexVsConvex;
+    collideFunctionMap[Shape::sphere][Shape::sphere] = SphereVsSphere;
+    collideFunctionMap[Shape::box][Shape::sphere] = BoxVsSphere;
+    collideFunctionMap[Shape::box][Shape::box] = ConvexVsConvex;
     detectionFunctionInitialized = true;
 }
 
@@ -205,8 +205,8 @@ bool Collide(const Shape* a, const Transform& transformA, const Shape* b, const 
         *manifold = ContactManifold{};
     }
 
-    ShapeType shapeA = a->GetType();
-    ShapeType shapeB = b->GetType();
+    Shape::Type shapeA = a->GetType();
+    Shape::Type shapeB = b->GetType();
 
     if (shapeB > shapeA)
     {

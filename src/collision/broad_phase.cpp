@@ -137,7 +137,7 @@ bool BroadPhase::QueryCallback(NodeIndex nodeB, RigidBody* bodyB)
         return true;
     }
 
-    ShapeType typeB = bodyB->shape->GetType();
+    Shape::Type typeB = bodyB->shape->GetType();
     if (typeA <= typeB)
     {
         contactGraph->OnNewContact(bodyB, bodyA);

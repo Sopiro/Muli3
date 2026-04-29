@@ -3,7 +3,7 @@
 namespace muli3
 {
 
-class SingleBox final : public Demo
+class SingleBox : public Demo
 {
 public:
     SingleBox(Game& game)

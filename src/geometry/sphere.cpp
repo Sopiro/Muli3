@@ -4,7 +4,7 @@ namespace muli3
 {
 
 Sphere::Sphere(float radius, const Transform& transform)
-    : Shape{ ShapeType::sphere, radius }
+    : Shape{ Shape::sphere, radius }
 {
     center = transform.p;
     volume = 4.0f / 3.0f * pi * radius * radius * radius;
@@ -23,8 +23,7 @@ void Sphere::ComputeMass(float density, MassData* outMassData) const
     float m = outMassData->mass;
 
     outMassData->inertia = Mat3(
-        Vec3{ i + m * (y * y + z * z), -m * x * y, -m * x * z },
-        Vec3{ -m * y * x, i + m * (x * x + z * z), -m * y * z },
+        Vec3{ i + m * (y * y + z * z), -m * x * y, -m * x * z }, Vec3{ -m * y * x, i + m * (x * x + z * z), -m * y * z },
         Vec3{ -m * z * x, -m * z * y, i + m * (x * x + y * y) }
     );
 }

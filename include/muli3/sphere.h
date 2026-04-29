@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-class Sphere final : public Shape
+class Sphere : public Shape
 {
 public:
     explicit Sphere(float radius, const Transform& transform = identity);
@@ -17,8 +17,7 @@ public:
     int32 GetVertexCount() const override;
     Vec3 GetVertex(int32 id) const override;
     int32 GetSupport(const Vec3& localDir) const override;
-    bool GetFace(int32 id, const Transform& transform, Face* outFace) const override;
-    bool GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const override;
+    Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const override;
 
     bool TestPoint(const Transform& transform, const Vec3& q) const override;
     Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const override;
@@ -47,20 +46,16 @@ inline int32 Sphere::GetSupport(const Vec3& localDir) const
     return 0;
 }
 
-inline bool Sphere::GetFace(int32 id, const Transform& transform, Face* outFace) const
+inline Face Sphere::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
-    MuliNotUsed(id);
-    MuliNotUsed(transform);
-    MuliNotUsed(outFace);
-    return false;
-}
-
-inline bool Sphere::GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const
-{
-    MuliNotUsed(transform);
     MuliNotUsed(dir);
-    MuliNotUsed(outFace);
-    return false;
+
+    Face f;
+    f.count = 1;
+    f.points[0].p = Mul(transform, center);
+    f.points[0].id = -1;
+    f.normal = Vec3::zero;
+    return f;
 }
 
 } // namespace muli3

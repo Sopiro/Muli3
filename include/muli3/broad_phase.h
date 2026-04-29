@@ -37,7 +37,7 @@ private:
 
     NodeIndex nodeA;
     RigidBody* bodyA;
-    ShapeType typeA;
+    Shape::Type typeA;
 
     void BufferMove(NodeIndex node);
     void UnBufferMove(NodeIndex node);

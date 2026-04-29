@@ -6,7 +6,7 @@
 namespace muli3
 {
 
-class Box final : public Shape
+class Box : public Shape
 {
 public:
     Box(float width, float height, float depth, float radius = default_radius, const Transform& transform = identity);
@@ -19,10 +19,8 @@ public:
 
     int32 GetVertexCount() const override;
     Vec3 GetVertex(int32 id) const override;
-
     int32 GetSupport(const Vec3& localDir) const override;
-    bool GetFace(int32 id, const Transform& transform, Face* outFace) const override;
-    bool GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const override;
+    Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const override;
 
     bool TestPoint(const Transform& transform, const Vec3& q) const override;
     Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const override;
@@ -30,9 +28,7 @@ public:
     const Vec3& GetHalfExtents() const;
 
 private:
-    Vec3 vertices[8];
-    Vec3 normals[6];
-    Vec3 halfExtents{ 0.5f, 0.5f, 0.5f };
+    Vec3 halfExtents;
 };
 
 inline Box::Box(const Vec3& size, float radius, const Transform& transform)
@@ -53,7 +49,33 @@ inline int32 Box::GetVertexCount() const
 inline Vec3 Box::GetVertex(int32 id) const
 {
     MuliAssert(0 <= id && id < 8);
-    return vertices[id];
+
+    Vec3 localPoint{
+        (id & 1) ? halfExtents.x : -halfExtents.x,
+        (id & 2) ? halfExtents.y : -halfExtents.y,
+        (id & 4) ? halfExtents.z : -halfExtents.z,
+    };
+
+    return center + localPoint;
+}
+
+inline int32 Box::GetSupport(const Vec3& localDir) const
+{
+    int32 id = 0;
+    if (localDir.x > 0.0f)
+    {
+        id |= 1;
+    }
+    if (localDir.y > 0.0f)
+    {
+        id |= 2;
+    }
+    if (localDir.z > 0.0f)
+    {
+        id |= 4;
+    }
+
+    return id;
 }
 
 inline const Vec3& Box::GetHalfExtents() const

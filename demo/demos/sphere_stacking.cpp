@@ -3,7 +3,7 @@
 namespace muli3
 {
 
-class SphereStacking final : public Demo
+class SphereStacking : public Demo
 {
 public:
     SphereStacking(Game& game)

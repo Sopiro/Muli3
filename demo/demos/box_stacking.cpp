@@ -7,7 +7,7 @@ namespace muli3
 static int32 count = 20;
 static float error = 0.0f;
 
-class BoxStacking final : public Demo
+class BoxStacking : public Demo
 {
 public:
     BoxStacking(Game& game)

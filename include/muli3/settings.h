@@ -26,11 +26,13 @@ inline constexpr float aabb_multiplier = 2.0f;
 inline constexpr float minimum_radius = linear_slop * 2.0f;
 inline constexpr float default_radius = linear_slop * 2.5f;
 inline constexpr float default_density = 1.0f;
+inline constexpr float default_friction = 0.5f;
+inline constexpr float default_restitution = 0.0f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 8;
-    int32 position_iterations = 3;
+    int32 velocity_iterations = 3;
+    int32 position_iterations = 2;
 
     bool warm_starting = true;
     float dt = 0.0f;

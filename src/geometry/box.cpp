@@ -3,10 +3,7 @@
 namespace muli3
 {
 
-namespace
-{
-
-constexpr int32 boxFaceVertexIndices[6][4] = {
+constexpr static int32 boxFaceVertexIndices[6][4] = {
     { 0, 4, 6, 2 }, // -x
     { 1, 3, 7, 5 }, // +x
     { 0, 1, 5, 4 }, // -y
@@ -15,63 +12,34 @@ constexpr int32 boxFaceVertexIndices[6][4] = {
     { 4, 5, 7, 6 }, // +z
 };
 
-constexpr Vec3 boxLocalNormals[6] = {
-    Vec3{ -1.0f, 0.0f, 0.0f },
-    Vec3{ 1.0f, 0.0f, 0.0f },
-    Vec3{ 0.0f, -1.0f, 0.0f },
-    Vec3{ 0.0f, 1.0f, 0.0f },
-    Vec3{ 0.0f, 0.0f, -1.0f },
-    Vec3{ 0.0f, 0.0f, 1.0f },
+constexpr static Vec3 boxNormals[6] = {
+    Vec3{ -1.0f, 0.0f, 0.0f }, Vec3{ 1.0f, 0.0f, 0.0f },  Vec3{ 0.0f, -1.0f, 0.0f },
+    Vec3{ 0.0f, 1.0f, 0.0f },  Vec3{ 0.0f, 0.0f, -1.0f }, Vec3{ 0.0f, 0.0f, 1.0f },
 };
 
-} // namespace
-
 Box::Box(float width, float height, float depth, float inRadius, const Transform& transform)
-    : Shape{ ShapeType::box, inRadius }
+    : Shape{ Shape::box, inRadius }
+    , halfExtents{
+        width * 0.5f * Abs(transform.s.x),
+        height * 0.5f * Abs(transform.s.y),
+        depth * 0.5f * Abs(transform.s.z),
+    }
 {
-    halfExtents = Vec3{ width, height, depth } * 0.5f;
-
-    const Vec3 baseVertices[8] = {
-        Vec3{ -halfExtents.x, -halfExtents.y, -halfExtents.z },
-        Vec3{ halfExtents.x, -halfExtents.y, -halfExtents.z },
-        Vec3{ -halfExtents.x, halfExtents.y, -halfExtents.z },
-        Vec3{ halfExtents.x, halfExtents.y, -halfExtents.z },
-        Vec3{ -halfExtents.x, -halfExtents.y, halfExtents.z },
-        Vec3{ halfExtents.x, -halfExtents.y, halfExtents.z },
-        Vec3{ -halfExtents.x, halfExtents.y, halfExtents.z },
-        Vec3{ halfExtents.x, halfExtents.y, halfExtents.z },
-    };
-
     center = transform.p;
-    for (int32 i = 0; i < 8; ++i)
-    {
-        vertices[i] = Mul(transform, baseVertices[i]);
-    }
-
-    for (int32 i = 0; i < 6; ++i)
-    {
-        normals[i] = transform.q.Rotate(boxLocalNormals[i]);
-    }
 
     Vec3 fullExtents = halfExtents + Vec3{ radius, radius, radius };
     volume = 8.0f * fullExtents.x * fullExtents.y * fullExtents.z;
 }
 
 Box::Box(const Box& other, const Transform& transform)
-    : Shape{ ShapeType::box, other.radius }
+    : Shape{ Shape::box, other.radius }
+    , halfExtents{
+        other.halfExtents.x * Abs(transform.s.x),
+        other.halfExtents.y * Abs(transform.s.y),
+        other.halfExtents.z * Abs(transform.s.z),
+    }
 {
-    halfExtents = other.halfExtents * transform.s;
     center = Mul(transform, other.center);
-
-    for (int32 i = 0; i < 8; ++i)
-    {
-        vertices[i] = Mul(transform, other.vertices[i]);
-    }
-
-    for (int32 i = 0; i < 6; ++i)
-    {
-        normals[i] = transform.q.Rotate(other.normals[i]);
-    }
 
     Vec3 fullExtents = halfExtents + Vec3{ radius, radius, radius };
     volume = 8.0f * fullExtents.x * fullExtents.y * fullExtents.z;
@@ -83,20 +51,18 @@ void Box::ComputeMass(float density, MassData* outMassData) const
 
     outMassData->mass = density * volume;
     outMassData->centerOfMass = center;
+
     Vec3 size = (halfExtents + Vec3{ radius, radius, radius }) * 2.0f;
     float x2 = size.x * size.x;
     float y2 = size.y * size.y;
     float z2 = size.z * size.z;
     float s = outMassData->mass / 12.0f;
 
-    Mat3 rotation{ normals[1], normals[3], normals[5] };
-    Mat3 inertiaCenter = rotation *
-                         Mat3(
-                             Vec3{ s * (y2 + z2), 0.0f, 0.0f },
-                             Vec3{ 0.0f, s * (x2 + z2), 0.0f },
-                             Vec3{ 0.0f, 0.0f, s * (x2 + y2) }
-                         ) *
-                         rotation.GetTranspose();
+    Mat3 inertiaCenter{
+        Vec3{ s * (y2 + z2), 0.0f, 0.0f },
+        Vec3{ 0.0f, s * (x2 + z2), 0.0f },
+        Vec3{ 0.0f, 0.0f, s * (x2 + y2) },
+    };
 
     float x = center.x;
     float y = center.y;
@@ -114,113 +80,86 @@ void Box::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
-    Vec3 p = Mul(transform, vertices[0]);
-    Vec3 min = p;
-    Vec3 max = p;
-    for (int32 i = 1; i < 8; ++i)
-    {
-        p = Mul(transform, vertices[i]);
-        min = Min(min, p);
-        max = Max(max, p);
-    }
+    Mat3 worldRotation{ transform.q };
+    Vec3 worldCenter = Mul(transform, center);
+
+    Vec3 e{
+        Abs(worldRotation.ex.x) * halfExtents.x + Abs(worldRotation.ey.x) * halfExtents.y +
+            Abs(worldRotation.ez.x) * halfExtents.z,
+        Abs(worldRotation.ex.y) * halfExtents.x + Abs(worldRotation.ey.y) * halfExtents.y +
+            Abs(worldRotation.ez.y) * halfExtents.z,
+        Abs(worldRotation.ex.z) * halfExtents.x + Abs(worldRotation.ey.z) * halfExtents.y +
+            Abs(worldRotation.ez.z) * halfExtents.z,
+    };
 
     Vec3 r{ radius, radius, radius };
-    *outAABB = AABB{ min - r, max + r };
+    *outAABB = AABB{ worldCenter - e - r, worldCenter + e + r };
 }
 
-int32 Box::GetSupport(const Vec3& localDir) const
+Face Box::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
-    int32 best = 0;
-    float bestProjection = Dot(vertices[0], localDir);
-    for (int32 i = 1; i < 8; ++i)
+    Vec3 localDir = transform.q.RotateInv(dir);
+
+    int32 axis = 0;
+    float maxProjection = Abs(localDir.x);
+    if (Abs(localDir.y) > maxProjection)
     {
-        float projection = Dot(vertices[i], localDir);
-        if (projection > bestProjection)
-        {
-            best = i;
-            bestProjection = projection;
-        }
+        axis = 1;
+        maxProjection = Abs(localDir.y);
+    }
+    if (Abs(localDir.z) > maxProjection)
+    {
+        axis = 2;
     }
 
-    return best;
-}
+    int32 face = axis * 2 + (localDir[axis] > 0.0f ? 1 : 0);
 
-bool Box::GetFace(int32 id, const Transform& transform, Face* outFace) const
-{
-    MuliAssert(outFace != nullptr);
-    MuliAssert(0 <= id && id < 6);
-
-    outFace->normal = transform.q.Rotate(normals[id]);
-    outFace->count = 4;
-    outFace->id = id;
+    Face outFace;
+    outFace.count = 4;
+    outFace.normal = transform.q.Rotate(boxNormals[face]);
     for (int32 i = 0; i < 4; ++i)
     {
-        int32 vertexId = boxFaceVertexIndices[id][i];
-        outFace->points[i].id = vertexId;
-        outFace->points[i].p = Mul(transform, vertices[vertexId]);
+        int32 vertexId = boxFaceVertexIndices[face][i];
+        outFace.points[i].id = vertexId;
+        outFace.points[i].p = Mul(transform, GetVertex(vertexId));
     }
 
-    return true;
-}
-
-bool Box::GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const
-{
-    MuliAssert(outFace != nullptr);
-
-    int32 index = 0;
-    Vec3 normal = transform.q.Rotate(normals[0]);
-    float bestProjection = Dot(normal, dir);
-    for (int32 i = 1; i < 6; ++i)
-    {
-        Vec3 n = transform.q.Rotate(normals[i]);
-        float projection = Dot(n, dir);
-        if (projection > bestProjection)
-        {
-            index = i;
-            normal = n;
-            bestProjection = projection;
-        }
-    }
-
-    return GetFace(index, transform, outFace);
+    return outFace;
 }
 
 bool Box::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    for (int32 i = 0; i < 6; ++i)
-    {
-        if (Dot(normals[i], localQ - vertices[boxFaceVertexIndices[i][0]]) > radius)
-        {
-            return false;
-        }
-    }
+    Vec3 boxQ = localQ - center;
+    Vec3 clamped{
+        Clamp(boxQ.x, -halfExtents.x, halfExtents.x),
+        Clamp(boxQ.y, -halfExtents.y, halfExtents.y),
+        Clamp(boxQ.z, -halfExtents.z, halfExtents.z),
+    };
+    Vec3 delta = boxQ - clamped;
 
-    return true;
+    return Length2(delta) <= radius * radius;
 }
 
 Vec3 Box::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    Vec3 closest = localQ;
+    Vec3 boxQ = localQ - center;
+    Vec3 clamped{
+        Clamp(boxQ.x, -halfExtents.x, halfExtents.x),
+        Clamp(boxQ.y, -halfExtents.y, halfExtents.y),
+        Clamp(boxQ.z, -halfExtents.z, halfExtents.z),
+    };
+    Vec3 delta = boxQ - clamped;
 
-    for (int32 i = 0; i < 6; ++i)
+    float distance = delta.Normalize();
+    if (distance <= radius)
     {
-        float separation = Dot(normals[i], closest - vertices[boxFaceVertexIndices[i][0]]);
-        if (separation > 0.0f)
-        {
-            closest -= normals[i] * separation;
-        }
+        return q;
     }
 
-    Vec3 d = localQ - closest;
-    float distance = d.Normalize();
-    if (distance > radius)
-    {
-        closest += d * radius;
-    }
-
-    return Mul(transform, closest);
+    Vec3 localClosest = center + clamped + delta * radius;
+    return Mul(transform, localClosest);
 }
 
 } // namespace muli3
