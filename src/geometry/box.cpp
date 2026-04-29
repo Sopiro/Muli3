@@ -83,18 +83,31 @@ void Box::ComputeMass(float density, MassData* outMassData) const
 
     outMassData->mass = density * volume;
     outMassData->centerOfMass = center;
-    outMassData->inertia = ComputeLocalInertiaTensor(outMassData->mass);
-}
-
-Mat3 Box::ComputeLocalInertiaTensor(float mass) const
-{
     Vec3 size = (halfExtents + Vec3{ radius, radius, radius }) * 2.0f;
     float x2 = size.x * size.x;
     float y2 = size.y * size.y;
     float z2 = size.z * size.z;
-    float s = mass / 12.0f;
+    float s = outMassData->mass / 12.0f;
 
-    return Mat3(Vec3{ s * (y2 + z2), 0.0f, 0.0f }, Vec3{ 0.0f, s * (x2 + z2), 0.0f }, Vec3{ 0.0f, 0.0f, s * (x2 + y2) });
+    Mat3 rotation{ normals[1], normals[3], normals[5] };
+    Mat3 inertiaCenter = rotation *
+                         Mat3(
+                             Vec3{ s * (y2 + z2), 0.0f, 0.0f },
+                             Vec3{ 0.0f, s * (x2 + z2), 0.0f },
+                             Vec3{ 0.0f, 0.0f, s * (x2 + y2) }
+                         ) *
+                         rotation.GetTranspose();
+
+    float x = center.x;
+    float y = center.y;
+    float z = center.z;
+    float m = outMassData->mass;
+
+    outMassData->inertia = Mat3(
+        inertiaCenter.ex + Vec3{ m * (y * y + z * z), -m * x * y, -m * x * z },
+        inertiaCenter.ey + Vec3{ -m * y * x, m * (x * x + z * z), -m * y * z },
+        inertiaCenter.ez + Vec3{ -m * z * x, -m * z * y, m * (x * x + y * y) }
+    );
 }
 
 void Box::ComputeAABB(const Transform& transform, AABB* outAABB) const

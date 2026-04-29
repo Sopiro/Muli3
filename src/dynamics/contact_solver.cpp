@@ -1,8 +1,6 @@
 #include "muli3/contact_solver.h"
 #include "muli3/contact.h"
 
-#include <iostream>
-
 namespace muli3
 {
 
@@ -14,11 +12,11 @@ void ContactSolverNormal::Prepare(Contact* c, int32 index, const Timestep& step)
 
     Vec3 normal = c->manifold.contactNormal;
     Vec3 point = c->manifold.contactPoints[index].p;
-    Vec3 ra = point - c->b1->GetWorldCenterOfMass();
-    Vec3 rb = point - c->b2->GetWorldCenterOfMass();
+    Vec3 ra = point - c->b1->motion.c;
+    Vec3 rb = point - c->b2->motion.c;
 
-    Mat3 iiA = c->b1->GetInverseInertiaTensorWorld();
-    Mat3 iiB = c->b2->GetInverseInertiaTensorWorld();
+    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
+    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
 
     // Setup jacobian
     j.va = -normal;
@@ -65,8 +63,8 @@ void ContactSolverNormal::Solve(Contact* c)
     // Pc = J^t * λ (λ: lagrangian multiplier)
     // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
 
-    Mat3 iiA = c->b1->GetInverseInertiaTensorWorld();
-    Mat3 iiB = c->b2->GetInverseInertiaTensorWorld();
+    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
+    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
 
     // clang-format off
     // Velocity constraint: C' = jv
@@ -100,11 +98,11 @@ void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index,
     // W = (J · M^-1 · J^t)^-1
 
     Vec3 point = c->manifold.contactPoints[index].p;
-    Vec3 ra = point - c->b1->GetWorldCenterOfMass();
-    Vec3 rb = point - c->b2->GetWorldCenterOfMass();
+    Vec3 ra = point - c->b1->motion.c;
+    Vec3 rb = point - c->b2->motion.c;
 
-    Mat3 iiA = c->b1->GetInverseInertiaTensorWorld();
-    Mat3 iiB = c->b2->GetInverseInertiaTensorWorld();
+    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
+    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
 
     // Setup jacobian
     j.va = -tangent;
@@ -139,8 +137,8 @@ void ContactSolverTangent::Solve(Contact* c, const ContactSolverNormal* normalSo
     // Pc = J^t * λ (λ: lagrangian multiplier)
     // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
 
-    Mat3 iiA = c->b1->GetInverseInertiaTensorWorld();
-    Mat3 iiB = c->b2->GetInverseInertiaTensorWorld();
+    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
+    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
 
     // clang-format off
     // Velocity constraint: C' = jv

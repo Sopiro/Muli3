@@ -21,10 +21,13 @@ public:
         dynamic_body,
     };
 
-    RigidBody() = default;
+    RigidBody(const Transform& tf, RigidBody::Type type);
 
     const Transform& GetTransform() const;
     void SetTransform(const Transform& transform);
+
+    const Motion& GetMotion() const;
+    const Vec3& GetLocalCenter() const;
 
     const Vec3& GetPosition() const;
     void SetPosition(const Vec3& position);
@@ -70,12 +73,11 @@ public:
         float density = default_density
     );
     Shape* CreateBoxShape(
-        const Vec3& size,
-        const Transform& transform = identity,
-        float radius = default_radius,
-        float density = default_density
+        const Vec3& size, const Transform& transform = identity, float radius = default_radius, float density = default_density
     );
-    Shape* CreateBoxShape(float size, const Transform& transform = identity, float radius = default_radius, float density = default_density);
+    Shape* CreateBoxShape(
+        float size, const Transform& transform = identity, float radius = default_radius, float density = default_density
+    );
     Shape* GetShape();
     const Shape* GetShape() const;
 
@@ -90,39 +92,29 @@ public:
     const World* GetWorld() const;
 
     float GetMass() const;
-    Vec3 GetWorldCenterOfMass() const;
-    Mat3 GetInertiaTensorLocal() const;
-    Mat3 GetInertiaTensorWorld() const;
-    Mat3 GetInverseInertiaTensorLocal() const;
-    Mat3 GetInverseInertiaTensorWorld() const;
+    const Mat3& GetInertiaTensor() const;
+    Mat3 GetInertiaTensorLocalOrigin() const;
 
-    void SetMass(float mass);
+    Mat3 GetWorldInertiaTensor() const;
+    Mat3 GetWorldInverseInertiaTensor() const;
+
     void ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse);
     void ApplyLinearImpulse(const Vec3& impulse);
     void ApplyAngularImpulse(const Vec3& impulse);
     Vec3 GetVelocityAtWorldPoint(const Vec3& point) const;
     void Integrate(float dt);
 
-    Transform transform{};
-    Transform transform0{};
-
-    Vec3 linearVelocity{ 0.0f, 0.0f, 0.0f };
-    Vec3 angularVelocity{ 0.0f, 0.0f, 0.0f };
-
-    float invMass = 0.0f;
-
-    float restitution = 0.0f;
-    float friction = 0.5f;
-
-    Vec3 force{ 0.0f, 0.0f, 0.0f };
-    Vec3 torque{ 0.0f, 0.0f, 0.0f };
-
-private:
+protected:
     friend class World;
     friend class Island;
-    friend class Contact;
-    friend class ContactGraph;
+
     friend class BroadPhase;
+    friend class ContactGraph;
+
+    friend class Contact;
+    friend class ContactSolverNormal;
+    friend class ContactSolverTangent;
+    friend class PositionSolver;
 
     enum
     {
@@ -131,25 +123,61 @@ private:
         flag_sleeping = 1 << 2,
     };
 
-    Type type = dynamic_body;
+    Type type;
 
-    World* world = nullptr;
-    RigidBody* prev = nullptr;
-    RigidBody* next = nullptr;
+    Transform transform;
+    Motion motion;
 
-    Shape* shape = nullptr;
-    ContactEdge* contactList = nullptr;
-    int32 node = -1;
+    Vec3 linearVelocity;
+    Vec3 angularVelocity;
 
-    int32 islandIndex = 0;
-    int32 islandID = 0;
-    uint16 flag = flag_enabled;
-    float resting = 0.0f;
+    float mass;
+    float invMass;
+    Mat3 inertia; // Inertia tensor calculated in local frame
+    Mat3 invInertia;
+
+    float restitution;
+    float friction;
+
+    Vec3 force;
+    Vec3 torque;
+
+    int32 islandIndex;
+    int32 islandID;
+
+    uint16 flag;
+
+    void ResetMassData();
+    void SynchronizeTransform();
+
+private:
+    friend class World;
+
+    World* world;
+    RigidBody* prev;
+    RigidBody* next;
+
+    Shape* shape;
+    float shapeDensity;
+    ContactEdge* contactList;
+    int32 node;
+
+    float resting;
 };
 
 inline const Transform& RigidBody::GetTransform() const
 {
     return transform;
+}
+
+inline const Motion& RigidBody::GetMotion() const
+{
+    return motion;
+}
+
+inline const Vec3& RigidBody::GetLocalCenter() const
+{
+    return motion.localCenter;
 }
 
 inline const Vec3& RigidBody::GetPosition() const
@@ -267,7 +295,7 @@ inline void RigidBody::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, b
     if (IsSleeping() == false)
     {
         force += inForce;
-        torque += Cross(worldPoint - GetWorldCenterOfMass(), inForce);
+        torque += Cross(worldPoint - motion.c, inForce);
     }
 }
 
@@ -372,7 +400,42 @@ inline void RigidBody::Sleep()
 
 inline float RigidBody::GetMass() const
 {
-    return invMass <= epsilon ? 0.0f : 1.0f / invMass;
+    return mass;
+}
+
+inline const Mat3& RigidBody::GetInertiaTensor() const
+{
+    return inertia;
+}
+
+inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
+{
+    const Vec3& c = motion.localCenter;
+
+    return Mat3(
+        inertia.ex + Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z },
+        inertia.ey + Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z },
+        inertia.ez + Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) }
+    );
+}
+
+inline void RigidBody::SynchronizeTransform()
+{
+    transform.q = motion.q;
+    transform.p = motion.c - transform.q.Rotate(motion.localCenter);
+    transform.s = Vec3{ 1.0f, 1.0f, 1.0f };
+}
+
+inline Mat3 RigidBody::GetWorldInertiaTensor() const
+{
+    Mat3 rotation{ motion.q };
+    return rotation * inertia * rotation.GetTranspose();
+}
+
+inline Mat3 RigidBody::GetWorldInverseInertiaTensor() const
+{
+    Mat3 rotation{ motion.q };
+    return rotation * invInertia * rotation.GetTranspose();
 }
 
 } // namespace muli3

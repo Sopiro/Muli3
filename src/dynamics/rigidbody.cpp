@@ -7,11 +7,43 @@
 namespace muli3
 {
 
+RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
+    : type{ type }
+    , transform{ tf }
+    , motion{ tf }
+    , linearVelocity{ 0.0f, 0.0f, 0.0f }
+    , angularVelocity{ 0.0f, 0.0f, 0.0f }
+    , mass{ 0.0f }
+    , invMass{ 0.0f }
+    , inertia{ 0.0f }
+    , invInertia{ 0.0f }
+    , restitution{ 0.0f }
+    , friction{ 0.5f }
+    , force{ 0.0f, 0.0f, 0.0f }
+    , torque{ 0.0f, 0.0f, 0.0f }
+    , islandIndex{ 0 }
+    , islandID{ 0 }
+    , flag{ flag_enabled }
+    , world{ nullptr }
+    , prev{ nullptr }
+    , next{ nullptr }
+    , shape{ nullptr }
+    , shapeDensity{ default_density }
+    , contactList{ nullptr }
+    , node{ -1 }
+    , resting{ 0.0f }
+{
+}
+
 void RigidBody::SetTransform(const Transform& newTransform)
 {
     Transform oldTransform = transform;
     transform = newTransform;
-    transform0 = transform;
+    motion.c = Mul(transform, motion.localCenter);
+    motion.q = transform.q;
+    motion.c0 = motion.c;
+    motion.q0 = motion.q;
+    motion.alpha0 = 0.0f;
 
     if (world != nullptr && IsEnabled())
     {
@@ -23,7 +55,9 @@ void RigidBody::SetPosition(float x, float y, float z)
 {
     Transform oldTransform = transform;
     transform.p = Vec3{ x, y, z };
-    transform0 = transform;
+    motion.c = Mul(transform, motion.localCenter);
+    motion.c0 = motion.c;
+    motion.alpha0 = 0.0f;
 
     if (world != nullptr && IsEnabled())
     {
@@ -35,7 +69,11 @@ void RigidBody::SetRotation(const Quat& rotation)
 {
     Transform oldTransform = transform;
     transform.q = rotation;
-    transform0 = transform;
+    motion.q = transform.q;
+    motion.q0 = motion.q;
+    motion.c = Mul(transform, motion.localCenter);
+    motion.c0 = motion.c;
+    motion.alpha0 = 0.0f;
 
     if (world != nullptr && IsEnabled())
     {
@@ -79,25 +117,17 @@ void RigidBody::SetType(RigidBody::Type newType)
     }
 
     type = newType;
+    ResetMassData();
 
     force = Vec3::zero;
     torque = Vec3::zero;
-    if (type != dynamic_body)
-    {
-        invMass = 0.0f;
-    }
-    else if (shape != nullptr && invMass <= epsilon)
-    {
-        MassData massData;
-        shape->ComputeMass(default_density, &massData);
-        SetMass(massData.mass);
-    }
 
     if (type == static_body)
     {
         linearVelocity = Vec3::zero;
         angularVelocity = Vec3::zero;
-        transform0 = transform;
+        motion.c0 = motion.c;
+        motion.q0 = motion.q;
     }
 
     Awake();
@@ -127,17 +157,9 @@ Shape* RigidBody::CreateShape(Shape* newShape, const Transform& shapeTransform, 
 
     DestroyShape();
 
+    shapeDensity = density;
     shape = world->CloneShape(newShape, shapeTransform);
-    if (type == dynamic_body)
-    {
-        MassData massData;
-        shape->ComputeMass(density, &massData);
-        SetMass(massData.mass);
-    }
-    else
-    {
-        invMass = 0.0f;
-    }
+    ResetMassData();
 
     if (IsEnabled())
     {
@@ -167,7 +189,7 @@ void RigidBody::DestroyShape()
     Shape* oldShape = shape;
 
     shape = nullptr;
-    invMass = 0.0f;
+    ResetMassData();
 
     world->FreeShape(oldShape);
 
@@ -182,7 +204,9 @@ Shape* RigidBody::CreateSphereShape(float radius, const Transform& shapeTransfor
     return CreateShape(&sphere, shapeTransform, density);
 }
 
-Shape* RigidBody::CreateBoxShape(float width, float height, float depth, const Transform& shapeTransform, float radius, float density)
+Shape* RigidBody::CreateBoxShape(
+    float width, float height, float depth, const Transform& shapeTransform, float radius, float density
+)
 {
     Box box{ width, height, depth, radius };
     return CreateShape(&box, shapeTransform, density);
@@ -198,64 +222,6 @@ Shape* RigidBody::CreateBoxShape(float size, const Transform& shapeTransform, fl
     return CreateBoxShape(size, size, size, shapeTransform, radius, density);
 }
 
-Vec3 RigidBody::GetWorldCenterOfMass() const
-{
-    if (!shape)
-    {
-        return transform.p;
-    }
-
-    return transform.p + transform.q.Rotate(shape->GetCenterOfMass());
-}
-
-Mat3 RigidBody::GetInertiaTensorLocal() const
-{
-    if (!shape || type != dynamic_body)
-    {
-        return Mat3::zero;
-    }
-
-    return shape->ComputeLocalInertiaTensor(GetMass());
-}
-
-Mat3 RigidBody::GetInertiaTensorWorld() const
-{
-    if (!shape || type != dynamic_body)
-    {
-        return Mat3::zero;
-    }
-
-    const Mat3 rotation{ transform.q };
-    return rotation * GetInertiaTensorLocal() * rotation.GetTranspose();
-}
-
-Mat3 RigidBody::GetInverseInertiaTensorLocal() const
-{
-    if (!shape || type != dynamic_body)
-    {
-        return Mat3::zero;
-    }
-
-    const Mat3 localInertia = shape->ComputeLocalInertiaTensor(GetMass());
-    return localInertia.GetInverse();
-}
-
-Mat3 RigidBody::GetInverseInertiaTensorWorld() const
-{
-    if (!shape || type != dynamic_body)
-    {
-        return Mat3::zero;
-    }
-
-    const Mat3 rotation{ transform.q };
-    return rotation * GetInverseInertiaTensorLocal() * rotation.GetTranspose();
-}
-
-void RigidBody::SetMass(float mass)
-{
-    invMass = mass <= epsilon ? 0.0f : 1.0f / mass;
-}
-
 void RigidBody::ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse)
 {
     if (type != dynamic_body)
@@ -265,10 +231,8 @@ void RigidBody::ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse)
 
     ApplyLinearImpulse(impulse);
 
-    const Vec3 centerOfMass = GetWorldCenterOfMass();
-    const Vec3 r = impulsePoint - centerOfMass;
-    const Vec3 angularImpulse = Cross(r, impulse);
-    ApplyAngularImpulse(angularImpulse);
+    const Vec3 r = impulsePoint - motion.c;
+    ApplyAngularImpulse(Cross(r, impulse));
 }
 
 void RigidBody::ApplyLinearImpulse(const Vec3& impulse)
@@ -288,14 +252,12 @@ void RigidBody::ApplyAngularImpulse(const Vec3& impulse)
         return;
     }
 
-    angularVelocity += GetInverseInertiaTensorWorld() * impulse;
+    angularVelocity += GetWorldInverseInertiaTensor() * impulse;
 }
 
 Vec3 RigidBody::GetVelocityAtWorldPoint(const Vec3& point) const
 {
-    const Vec3 centerOfMass = GetWorldCenterOfMass();
-    const Vec3 r = point - centerOfMass;
-    return linearVelocity + Cross(angularVelocity, r);
+    return linearVelocity + Cross(angularVelocity, point - motion.c);
 }
 
 void RigidBody::Integrate(float dt)
@@ -305,16 +267,62 @@ void RigidBody::Integrate(float dt)
         return;
     }
 
-    transform.p += linearVelocity * dt;
+    motion.c += linearVelocity * dt;
 
     const float angularSpeed = Length(angularVelocity);
     if (angularSpeed > epsilon)
     {
         const Vec3 axis = angularVelocity / angularSpeed;
         const Quat delta{ angularSpeed * dt, axis };
-        transform.q = delta * transform.q;
-        transform.q.Normalize();
+        motion.q = delta * motion.q;
+        motion.q.Normalize();
     }
+
+    SynchronizeTransform();
+}
+
+void RigidBody::ResetMassData()
+{
+    mass = 0.0f;
+    invMass = 0.0f;
+    inertia = Mat3::zero;
+    invInertia = Mat3::zero;
+
+    if (type != dynamic_body)
+    {
+        return;
+    }
+
+    if (shape == nullptr)
+    {
+        return;
+    }
+
+    MassData massData;
+    shape->ComputeMass(shapeDensity, &massData);
+
+    mass = massData.mass;
+    if (mass > 0.0f)
+    {
+        invMass = 1.0f / mass;
+    }
+
+    Vec3 oldCenter = motion.c;
+    motion.localCenter = massData.centerOfMass;
+    motion.c = Mul(transform, motion.localCenter);
+    motion.c0 = motion.c;
+    motion.alpha0 = 0.0f;
+
+    inertia = massData.inertia;
+    const Vec3& c = motion.localCenter;
+
+    inertia.ex -= Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z };
+    inertia.ey -= Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z };
+    inertia.ez -= Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) };
+
+    invInertia = inertia.GetInverse();
+
+    linearVelocity += Cross(angularVelocity, motion.c - oldCenter);
 }
 
 } // namespace muli3

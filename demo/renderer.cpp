@@ -443,7 +443,7 @@ void Renderer::Shutdown()
 
 void Renderer::DrawBody(const RigidBody& body, const Vec4& color, const Shader& shader)
 {
-    QueueShape(body.GetShape(), body.transform, color, shader);
+    QueueShape(body.GetShape(), body.GetTransform(), color, shader);
 }
 
 void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color)

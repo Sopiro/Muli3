@@ -16,12 +16,11 @@ public:
 
     void ComputeMass(float density, MassData* outMassData) const override;
     void ComputeAABB(const Transform& transform, AABB* outAABB) const override;
-    Mat3 ComputeLocalInertiaTensor(float mass) const override;
 
     int32 GetVertexCount() const override;
     Vec3 GetVertex(int32 id) const override;
+
     int32 GetSupport(const Vec3& localDir) const override;
-    int32 GetFaceCount() const override;
     bool GetFace(int32 id, const Transform& transform, Face* outFace) const override;
     bool GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const override;
 
@@ -55,11 +54,6 @@ inline Vec3 Box::GetVertex(int32 id) const
 {
     MuliAssert(0 <= id && id < 8);
     return vertices[id];
-}
-
-inline int32 Box::GetFaceCount() const
-{
-    return 6;
 }
 
 inline const Vec3& Box::GetHalfExtents() const

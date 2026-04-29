@@ -32,7 +32,9 @@ void Island::Solve()
     for (int32 i = 0; i < bodyCount; ++i)
     {
         RigidBody* b = bodies[i];
-        b->transform0 = b->transform;
+        b->motion.c0 = b->motion.c;
+        b->motion.q0 = b->motion.q;
+        b->motion.alpha0 = 0.0f;
 
         if (sleeping)
         {
@@ -65,10 +67,12 @@ void Island::Solve()
                 b->linearVelocity += settings.gravity * step.dt;
             }
 
+            const Mat3 rotation{ b->motion.q };
+            const Mat3 worldInvInertia = rotation * b->invInertia * rotation.GetTranspose();
+            const Mat3 worldInertia = rotation * b->inertia * rotation.GetTranspose();
+
             b->linearVelocity += b->force * b->invMass * step.dt;
-            b->angularVelocity += b->GetInverseInertiaTensorWorld() *
-                                  (b->torque - Cross(b->angularVelocity, b->GetInertiaTensorWorld() * b->angularVelocity)) *
-                                  step.dt;
+            b->angularVelocity += worldInvInertia * (b->torque - Cross(b->angularVelocity, worldInertia * b->angularVelocity)) * step.dt;
         }
     }
 

@@ -16,13 +16,17 @@ void Sphere::ComputeMass(float density, MassData* outMassData) const
 
     outMassData->mass = density * volume;
     outMassData->centerOfMass = center;
-    outMassData->inertia = ComputeLocalInertiaTensor(outMassData->mass);
-}
+    float i = 0.4f * outMassData->mass * radius * radius;
+    float x = center.x;
+    float y = center.y;
+    float z = center.z;
+    float m = outMassData->mass;
 
-Mat3 Sphere::ComputeLocalInertiaTensor(float mass) const
-{
-    const float value = 0.4f * mass * radius * radius;
-    return Mat3(Vec3(value, 0, 0), Vec3(0, value, 0), Vec3(0, 0, value));
+    outMassData->inertia = Mat3(
+        Vec3{ i + m * (y * y + z * z), -m * x * y, -m * x * z },
+        Vec3{ -m * y * x, i + m * (x * x + z * z), -m * y * z },
+        Vec3{ -m * z * x, -m * z * y, i + m * (x * x + y * y) }
+    );
 }
 
 void Sphere::ComputeAABB(const Transform& transform, AABB* outAABB) const

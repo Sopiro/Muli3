@@ -46,15 +46,12 @@ public:
     float GetVolume() const;
     const Vec3& GetCenter() const;
 
-    const Vec3& GetCenterOfMass() const;
     virtual void ComputeMass(float density, MassData* outMassData) const = 0;
     virtual void ComputeAABB(const Transform& transform, AABB* outAABB) const = 0;
-    virtual Mat3 ComputeLocalInertiaTensor(float mass) const = 0;
 
     virtual int32 GetVertexCount() const = 0;
     virtual Vec3 GetVertex(int32 id) const = 0;
     virtual int32 GetSupport(const Vec3& localDir) const = 0;
-    virtual int32 GetFaceCount() const = 0;
 
     virtual bool GetFace(int32 id, const Transform& transform, Face* outFace) const = 0;
     virtual bool GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const = 0;
@@ -62,10 +59,12 @@ public:
     virtual bool TestPoint(const Transform& transform, const Vec3& q) const = 0;
     virtual Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const = 0;
 
-private:
+protected:
+    friend class ContactGraph;
+    friend class RigidBody;
+
     ShapeType type;
 
-protected:
     Vec3 center{ 0.0f, 0.0f, 0.0f };
     float radius = 0.0f;
     float volume = 0.0f;
@@ -93,11 +92,6 @@ inline float Shape::GetVolume() const
 }
 
 inline const Vec3& Shape::GetCenter() const
-{
-    return center;
-}
-
-inline const Vec3& Shape::GetCenterOfMass() const
 {
     return center;
 }

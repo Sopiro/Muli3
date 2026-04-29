@@ -169,4 +169,79 @@ constexpr inline Transform& Transform::operator*=(const Transform& other)
     return *this;
 }
 
+struct Motion
+{
+    Motion() = default;
+
+    constexpr Motion(Identity)
+        : localCenter{ 0.0f, 0.0f, 0.0f }
+        , c0{ 0.0f, 0.0f, 0.0f }
+        , c{ 0.0f, 0.0f, 0.0f }
+        , q0{ identity }
+        , q{ identity }
+        , alpha0{ 0.0f }
+    {
+    }
+
+    constexpr Motion(const Transform& tf)
+        : localCenter{ 0.0f, 0.0f, 0.0f }
+        , c0{ tf.p }
+        , c{ tf.p }
+        , q0{ tf.q }
+        , q{ tf.q }
+        , alpha0{ 0.0f }
+    {
+    }
+
+    void GetTransform(float beta, Transform* transform) const;
+    void Advance(float alpha);
+    void Normalize();
+
+    Vec3 localCenter;
+    Vec3 c0, c;
+    Quat q0, q;
+    float alpha0;
+};
+
+inline void Motion::GetTransform(float beta, Transform* transform) const
+{
+    Quat q1 = q;
+    if (Dot(q0, q1) < 0.0f)
+    {
+        q1 = -q1;
+    }
+
+    transform->q = q0 * (1.0f - beta) + q1 * beta;
+    transform->q.Normalize();
+    transform->s = Vec3{ 1.0f, 1.0f, 1.0f };
+    transform->p = c0 * (1.0f - beta) + c * beta - transform->q.Rotate(localCenter);
+}
+
+inline void Motion::Advance(float alpha)
+{
+    if (alpha0 >= 1.0f)
+    {
+        return;
+    }
+
+    float beta = (alpha - alpha0) / (1.0f - alpha0);
+    c0 += (c - c0) * beta;
+
+    Quat q1 = q;
+    if (Dot(q0, q1) < 0.0f)
+    {
+        q1 = -q1;
+    }
+
+    q0 = q0 * (1.0f - beta) + q1 * beta;
+    q0.Normalize();
+    alpha0 = alpha;
+}
+
+inline void Motion::Normalize()
+{
+    q0.Normalize();
+    q.Normalize();
+}
+
 } // namespace muli3

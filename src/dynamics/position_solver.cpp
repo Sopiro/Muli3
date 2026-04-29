@@ -8,10 +8,10 @@ void PositionSolver::Prepare(Contact* inContact, int32 index)
 {
     contact = inContact;
 
-    Vec3 comA = contact->b1->GetWorldCenterOfMass();
-    Vec3 comB = contact->b2->GetWorldCenterOfMass();
-    Quat qA = contact->b1->transform.q;
-    Quat qB = contact->b2->transform.q;
+    Vec3 comA = contact->b1->motion.c;
+    Vec3 comB = contact->b2->motion.c;
+    Quat qA = contact->b1->motion.q;
+    Quat qB = contact->b2->motion.q;
 
     localPlanePoint = qA.RotateInv(contact->manifold.referencePoint.p - comA);
     localClipPoint = qB.RotateInv(contact->manifold.contactPoints[index].p - comB);
@@ -20,10 +20,10 @@ void PositionSolver::Prepare(Contact* inContact, int32 index)
 
 bool PositionSolver::Solve()
 {
-    Vec3 comA = contact->b1->GetWorldCenterOfMass();
-    Vec3 comB = contact->b2->GetWorldCenterOfMass();
-    Quat qA = contact->b1->transform.q;
-    Quat qB = contact->b2->transform.q;
+    Vec3 comA = contact->b1->motion.c;
+    Vec3 comB = contact->b2->motion.c;
+    Quat qA = contact->b1->motion.q;
+    Quat qB = contact->b2->motion.q;
 
     Vec3 planePoint = qA.Rotate(localPlanePoint) + comA;
     Vec3 clipPoint = qB.Rotate(localClipPoint) + comB;
@@ -34,8 +34,8 @@ bool PositionSolver::Solve()
     Vec3 ra = clipPoint - comA;
     Vec3 rb = clipPoint - comB;
 
-    Mat3 iiA = contact->b1->GetInverseInertiaTensorWorld();
-    Mat3 iiB = contact->b2->GetInverseInertiaTensorWorld();
+    Mat3 iiA = contact->b1->GetWorldInverseInertiaTensor();
+    Mat3 iiB = contact->b2->GetWorldInverseInertiaTensor();
 
     Vec3 ran = Cross(ra, normal);
     Vec3 rbn = Cross(rb, normal);
@@ -56,7 +56,7 @@ bool PositionSolver::Solve()
     Vec3 impulse = normal * lambda;
 
     // Apply position correction
-    contact->b1->transform.p -= impulse * contact->b1->invMass;
+    contact->b1->motion.c -= impulse * contact->b1->invMass;
     // Apply angular correction for body A
     {
         Vec3 angularImpulse = iiA * Cross(ra, impulse);
@@ -65,12 +65,12 @@ bool PositionSolver::Solve()
         {
             Vec3 axis = angularImpulse / angle;
             Quat delta{ angle, axis };
-            contact->b1->transform.q = delta * contact->b1->transform.q;
-            contact->b1->transform.q.Normalize();
+            contact->b1->motion.q = delta * contact->b1->motion.q;
+            contact->b1->motion.q.Normalize();
         }
     }
 
-    contact->b2->transform.p += impulse * contact->b2->invMass;
+    contact->b2->motion.c += impulse * contact->b2->invMass;
     // Apply angular correction for body B
     {
         Vec3 angularImpulse = iiB * Cross(rb, impulse);
@@ -79,10 +79,13 @@ bool PositionSolver::Solve()
         {
             Vec3 axis = angularImpulse / angle;
             Quat delta{ angle, axis };
-            contact->b2->transform.q = delta * contact->b2->transform.q;
-            contact->b2->transform.q.Normalize();
+            contact->b2->motion.q = delta * contact->b2->motion.q;
+            contact->b2->motion.q.Normalize();
         }
     }
+
+    contact->b1->SynchronizeTransform();
+    contact->b2->SynchronizeTransform();
 
     // We can't expect separation >= -linear_slop
     // because we don't push the separation above -linear_slop

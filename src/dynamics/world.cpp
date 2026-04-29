@@ -36,18 +36,14 @@ void World::Reset()
 RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type type)
 {
     void* mem = blockAllocator.Allocate(sizeof(RigidBody));
-    RigidBody* b = new (mem) RigidBody;
+    RigidBody* b = new (mem) RigidBody(transform, type);
 
     b->world = this;
     b->prev = bodyListTail;
     b->next = nullptr;
     b->node = AABBTree::nullNode;
     b->contactList = nullptr;
-    b->transform = transform;
-    b->transform0 = transform;
     b->shape = nullptr;
-    b->type = type;
-    b->invMass = 0.0f;
     b->flag &= ~RigidBody::flag_island;
     b->flag |= RigidBody::flag_enabled;
 
@@ -302,7 +298,9 @@ void World::Solve()
         MuliAssert(body->IsStatic() == false);
 
         body->flag &= ~RigidBody::flag_island;
-        contactGraph.UpdateBody(body, body->transform0, body->transform);
+        Transform transform0;
+        body->motion.GetTransform(0.0f, &transform0);
+        contactGraph.UpdateBody(body, transform0, body->transform);
     }
 
     for (Contact* contact = contactGraph.contactList; contact; contact = contact->next)
