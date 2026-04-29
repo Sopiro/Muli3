@@ -41,7 +41,12 @@ struct Simplex
     int32 count = 0;
     SupportPoint vertices[max_simplex_vertex_count];
 
-    float divisor;
+    float divisor = 1.0f;
+
+private:
+    void SolveSegment(const Vec3& q);
+    void SolveTriangle(const Vec3& q);
+    void SolveTetrahedron(const Vec3& q);
 };
 
 struct ContactManifold
@@ -88,8 +93,7 @@ void EPA(const Shape* a, const Transform& transformA,
 
 inline void Simplex::AddVertex(const SupportPoint& vertex)
 {
-    MuliAssert(count != max_simplex_vertex_count);
-
+    MuliAssert(count < max_simplex_vertex_count);
     vertices[count++] = vertex;
 }
 
