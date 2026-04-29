@@ -7,23 +7,23 @@ namespace muli3
 
 struct MassData
 {
-    float mass = 0.0f;
-    Mat3 inertia = Mat3{ 0.0f };
-    Vec3 centerOfMass{ 0.0f, 0.0f, 0.0f };
+    float mass;
+    Mat3 inertia;
+    Vec3 centerOfMass;
 };
 
 struct Point
 {
-    Vec3 p{ 0.0f, 0.0f, 0.0f };
-    int32 id = 0;
+    Vec3 p;
+    int32 id;
 };
 
 struct Face
 {
     Point points[4];
-    Vec3 normal{ 1.0f, 0.0f, 0.0f };
-    int32 count = 0;
-    int32 id = 0;
+    Vec3 normal;
+    int32 count;
+    int32 id;
 };
 
 enum ShapeType
@@ -55,6 +55,7 @@ public:
     virtual Vec3 GetVertex(int32 id) const = 0;
     virtual int32 GetSupport(const Vec3& localDir) const = 0;
     virtual int32 GetFaceCount() const = 0;
+
     virtual bool GetFace(int32 id, const Transform& transform, Face* outFace) const = 0;
     virtual bool GetFeaturedFace(const Transform& transform, const Vec3& dir, Face* outFace) const = 0;
 

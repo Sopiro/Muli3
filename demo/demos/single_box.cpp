@@ -12,7 +12,7 @@ public:
         RigidBody* ground =
             world->CreateBox(100.0f, 0.2f, 100.0f, Transform{ Vec3{ 0.0f, -0.1f, 0.0f } }, RigidBody::static_body);
 
-        RigidBody* box = world->CreateBox(0.4f, Transform{ Vec3{ 0.0f, 5.0f, 0.0f } });
+        RigidBody* box = world->CreateBox(0.5f, Transform{ Vec3{ 0.0f, 5.0f, 0.0f } });
         box->SetAngularVelocity(7.0f, -5.0f, 9.0f);
 
         camera.SetPosition(Vec3{ 0.0f, 3.0f, 8.0f });

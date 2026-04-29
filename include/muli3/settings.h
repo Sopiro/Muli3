@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-inline constexpr float linear_slop = 0.005f;
+inline constexpr float linear_slop = 0.01f;
 inline constexpr float restitution_slop = 0.5f;
 
 inline constexpr int32 gjk_max_iteration = 20;
