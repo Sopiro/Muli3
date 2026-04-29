@@ -3,6 +3,7 @@
 #include "settings.h"  // IWYU pragma: export
 
 #include "collision.h" // IWYU pragma: export
+#include "distance.h"  // IWYU pragma: export
 #include "rigidbody.h" // IWYU pragma: export
 #include "world.h"     // IWYU pragma: export
 

@@ -8,16 +8,16 @@
 namespace muli3
 {
 
-static const char* shapeItems[] = { "Sphere", "Box" };
+static const char* distanceShapeItems[] = { "Sphere", "Box" };
 
-class CollisionDetection : public Demo
+class ComputeDistanceShape : public Demo
 {
 public:
-    CollisionDetection(Game& game)
+    ComputeDistanceShape(Game& game)
         : Demo(game)
     {
         settings.apply_gravity = false;
-        camera.SetPosition(Vec3{ 0.0f, 1.0f, 2.2f });
+        camera.SetPosition(Vec3{ 0.0f, 1.1f, 2.6f });
         camera.SetRotation(-90.0f, 0.0f);
         Reset();
         Step();
@@ -26,12 +26,12 @@ public:
     void UpdateUI() override
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
-        if (ImGui::Begin("Collision detection", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+        if (ImGui::Begin("Distance between shapes", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
         {
             bool changed = false;
 
             ImGui::SetNextItemWidth(100.0f);
-            if (ImGui::Combo("shape1", &item1, shapeItems, IM_ARRAYSIZE(shapeItems)))
+            if (ImGui::Combo("shape1", &item1, distanceShapeItems, IM_ARRAYSIZE(distanceShapeItems)))
             {
                 UpdateShape1();
                 changed = true;
@@ -39,7 +39,7 @@ public:
 
             ImGui::SameLine();
             ImGui::SetNextItemWidth(100.0f);
-            if (ImGui::Combo("shape2", &item2, shapeItems, IM_ARRAYSIZE(shapeItems)))
+            if (ImGui::Combo("shape2", &item2, distanceShapeItems, IM_ARRAYSIZE(distanceShapeItems)))
             {
                 UpdateShape2();
                 changed = true;
@@ -110,10 +110,16 @@ public:
             }
 
             ImGui::Separator();
-            ImGui::Text("Collide: %s", collide ? "true" : "false");
-            ImGui::Text("Contacts: %d", manifold.contactCount);
-            ImGui::Text("Penetration: %.4f", manifold.penetrationDepth);
-            ImGui::Text("Normal: %.3f, %.3f, %.3f", manifold.contactNormal.x, manifold.contactNormal.y, manifold.contactNormal.z);
+            if (distance > 0.0f)
+            {
+                ImGui::Text("Distance: %.5f", distance);
+                ImGui::Text("Point A: %.3f, %.3f, %.3f", pointA.x, pointA.y, pointA.z);
+                ImGui::Text("Point B: %.3f, %.3f, %.3f", pointB.x, pointB.y, pointB.z);
+            }
+            else
+            {
+                ImGui::Text("%s", "Collide");
+            }
 
             if (changed)
             {
@@ -125,35 +131,24 @@ public:
 
     void Step() override
     {
-        collide = Collide(shape1.get(), tf1, shape2.get(), tf2, &manifold);
+        distance = ComputeDistance(shape1.get(), tf1, shape2.get(), tf2, &pointA, &pointB);
     }
 
     void Render() override
     {
-        renderer.SetPointSize(7.0f);
+        renderer.SetPointSize(8.0f);
         renderer.DrawShape(shape1.get(), tf1);
         renderer.DrawShape(shape2.get(), tf2);
 
-        if (collide)
+        if (distance > 0.0f)
         {
-            const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 1.0f };
-            const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 1.0f };
+            const Vec4 pointAColor{ 1.0f, 0.18f, 0.08f, 1.0f };
+            const Vec4 pointBColor{ 0.05f, 0.25f, 1.0f, 1.0f };
+            const Vec4 lineColor{ 0.08f, 0.09f, 0.10f, 1.0f };
 
-            for (int32 i = 0; i < manifold.contactCount; ++i)
-            {
-                Vec3 p1 = manifold.contactPoints[i].p;
-                Vec3 p2 = p1 + manifold.contactNormal * 0.35f;
-                Vec3 reference = Abs(manifold.contactNormal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
-                Vec3 tangent = NormalizeSafe(Cross(manifold.contactNormal, reference));
-                Vec3 arrowBase = p2 - manifold.contactNormal * 0.08f;
-                Vec3 arrowA = arrowBase + tangent * 0.04f;
-                Vec3 arrowB = arrowBase - tangent * 0.04f;
-
-                renderer.DrawPoint(p1, pointColor);
-                renderer.DrawLine(p1, p2, normalColor);
-                renderer.DrawLine(p2, arrowA, normalColor);
-                renderer.DrawLine(p2, arrowB, normalColor);
-            }
+            renderer.DrawPoint(pointA, pointAColor);
+            renderer.DrawPoint(pointB, pointBColor);
+            renderer.DrawLine(pointA, pointB, lineColor);
         }
 
         renderer.FlushAll();
@@ -162,16 +157,18 @@ public:
 private:
     void Reset()
     {
-        tf1 = Transform{ Vec3{ -0.55f, 1.0f, 0.0f } };
-        tf2 = Transform{ Vec3{ 0.55f, 1.0f, 0.0f } };
+        tf1 = Transform{ Vec3{ -0.65f, 1.0f, 0.0f } };
+        tf2 = Transform{ Vec3{ 0.65f, 1.0f, 0.0f } };
         rot1 = Vec3::zero;
         rot2 = Vec3{ 15.0f, 30.0f, 0.0f };
         tf1.q = Quat::FromEuler(Vec3{ DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z) });
         tf2.q = Quat::FromEuler(Vec3{ DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z) });
-        size1 = Vec3{ 0.65f, 0.65f, 0.65f };
-        size2 = Vec3{ 0.7f, 0.55f, 0.6f };
+        size1 = Vec3{ 0.55f, 0.55f, 0.55f };
+        size2 = Vec3{ 0.7f, 0.5f, 0.6f };
         convexRadius1 = default_radius;
         convexRadius2 = default_radius;
+        item1 = 1;
+        item2 = 1;
         UpdateShape1();
         UpdateShape2();
     }
@@ -206,27 +203,28 @@ private:
         }
     }
 
-    Transform tf1{ Vec3{ -0.55f, 1.0f, 0.0f } };
-    Transform tf2{ Vec3{ 0.55f, 1.0f, 0.0f } };
+    Transform tf1{ Vec3{ -0.65f, 1.0f, 0.0f } };
+    Transform tf2{ Vec3{ 0.65f, 1.0f, 0.0f } };
     std::unique_ptr<Shape> shape1;
     std::unique_ptr<Shape> shape2;
-    int32 item1 = 0;
+    int32 item1 = 1;
     int32 item2 = 1;
     Vec3 rot1 = Vec3::zero;
-    Vec3 rot2{ 0.0f, 24.0f, 0.0f };
-    Vec3 size1{ 0.65f, 0.65f, 0.65f };
-    Vec3 size2{ 0.7f, 0.55f, 0.6f };
+    Vec3 rot2{ 0.0f, 28.0f, 0.0f };
+    Vec3 size1{ 0.55f, 0.55f, 0.55f };
+    Vec3 size2{ 0.7f, 0.5f, 0.6f };
     float convexRadius1 = default_radius;
     float convexRadius2 = default_radius;
-    bool collide = false;
-    ContactManifold manifold;
+    Vec3 pointA = Vec3::zero;
+    Vec3 pointB = Vec3::zero;
+    float distance = 0.0f;
 };
 
-static Demo* CreateCollisionDetection(Game& game)
+static Demo* CreateComputeDistanceShape(Game& game)
 {
-    return new CollisionDetection(game);
+    return new ComputeDistanceShape(game);
 }
 
-static int32 collision_detection = register_demo("Collision detection", CreateCollisionDetection, 24);
+static int32 compute_distance_shape = register_demo("Distance between shapes", CreateComputeDistanceShape, 25);
 
 } // namespace muli3
