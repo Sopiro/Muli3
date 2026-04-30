@@ -1,5 +1,6 @@
 #include "muli3/collision.h"
 #include "muli3/box.h"
+#include "muli3/frame.h"
 #include "muli3/settings.h"
 
 namespace muli3
@@ -77,6 +78,7 @@ static bool AddEPAFace(EPAFace* faces, int32* faceCount, const SupportPoint* ver
     float distance = Dot(normal, pa);
     if (distance < 0.0f)
     {
+        // Ensure outward normal
         std::swap(b, c);
         normal = -normal;
         distance = -distance;
@@ -258,6 +260,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
     AddEPAFace(faces, &faceCount, vertices, 0, 2, 3);
     AddEPAFace(faces, &faceCount, vertices, 1, 3, 2);
 
+    // Degenerate tetrahedron
     if (faceCount == 0)
     {
         result->contactNormal = NormalizeSafe(simplex.GetSearchDirection());
@@ -497,6 +500,83 @@ bool BoxVsSphere(
 
 bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
+    GJKResult gjkResult;
+    bool collide = GJK(a, tfA, b, tfB, &gjkResult);
+
+    Simplex& simplex = gjkResult.simplex;
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    float radii = ra + rb;
+
+    if (collide == false)
+    {
+        switch (simplex.count)
+        {
+        case 1: // vertex vs. vertex collision
+            if (gjkResult.distance < radii)
+            {
+                Vec3 normal = Normalize(-simplex.vertices[0].point);
+
+                Point supportA = simplex.vertices[0].pointA;
+                Point supportB = simplex.vertices[0].pointB;
+                supportA.p += normal * ra;
+                supportB.p -= normal * rb;
+
+                manifold->contactNormal = normal;
+                manifold->contactPoints[0] = supportB;
+                manifold->contactCount = 1;
+                manifold->referencePoint = supportA;
+                manifold->penetrationDepth = radii - gjkResult.distance;
+                manifold->featureFlipped = false;
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
+        case 2: // vertex vs. edge collision
+            if (gjkResult.distance < radii)
+            {
+                Vec3 edge = simplex.vertices[1].point - simplex.vertices[0].point;
+                Vec3 normal = GramSchmidt(edge, -simplex.vertices[0].point);
+                normal.Normalize();
+
+                manifold->contactNormal = normal;
+                manifold->penetrationDepth = radii - gjkResult.distance;
+            }
+            else
+            {
+                return false;
+            }
+        case 3: // vertex vs. face collision
+            if (gjkResult.distance < radii)
+            {
+                Vec3 edgeA = simplex.vertices[1].point - simplex.vertices[0].point;
+                Vec3 edgeB = simplex.vertices[2].point - simplex.vertices[0].point;
+                Vec3 normal = Cross(edgeA, edgeB);
+                normal.Normalize();
+
+                Vec3 k = -simplex.vertices[0].point;
+                if (Dot(normal, k) < 0)
+                {
+                    normal = -normal;
+                }
+
+                manifold->contactNormal = normal;
+                manifold->penetrationDepth = radii - gjkResult.distance;
+            }
+            else
+            {
+                return false;
+            }
+        }
+    }
+    else
+    {
+    }
+
     return false;
 }
 
