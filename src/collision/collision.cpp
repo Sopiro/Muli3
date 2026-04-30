@@ -40,23 +40,6 @@ constexpr int32 epa_max_vertex_count = max_simplex_vertex_count + epa_max_iterat
 constexpr int32 epa_max_face_count = 4 + epa_max_iteration * 2;
 constexpr int32 epa_max_edge_count = epa_max_face_count * 3;
 
-static Vec3 GetPerpendicular(const Vec3& v)
-{
-    Vec3 axis = Abs(v.x) < Abs(v.y) ? x_axis : y_axis;
-    if (Abs(v.z) < Abs(Dot(v, axis)))
-    {
-        axis = z_axis;
-    }
-
-    Vec3 p = Cross(v, axis);
-    if (Length2(p) <= epsilon)
-    {
-        p = Cross(v, x_axis);
-    }
-
-    return NormalizeSafe(p);
-}
-
 static bool AddEPAFace(EPAFace* faces, int32* faceCount, const SupportPoint* vertices, int32 a, int32 b, int32 c)
 {
     if (*faceCount >= epa_max_face_count)
@@ -109,77 +92,6 @@ static bool AddEPAEdge(EPAEdge* edges, int32* edgeCount, int32 a, int32 b)
     edges[*edgeCount] = EPAEdge{ a, b };
     ++(*edgeCount);
     return true;
-}
-
-static bool ExpandSimplexToTetrahedron(
-    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Simplex* simplex
-)
-{
-    switch (simplex->count)
-    {
-    case 1:
-    {
-        SupportPoint support = CSOSupport(a, tfA, b, tfB, x_axis);
-        if (support.point == simplex->vertices[0].point)
-        {
-            support = CSOSupport(a, tfA, b, tfB, -x_axis);
-        }
-
-        simplex->AddVertex(support);
-    }
-
-        [[fallthrough]];
-
-    case 2:
-    {
-        Vec3 e = simplex->vertices[1].point - simplex->vertices[0].point;
-        Vec3 normal = GetPerpendicular(e);
-        SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
-        if (support.point == simplex->vertices[0].point || support.point == simplex->vertices[1].point)
-        {
-            support = CSOSupport(a, tfA, b, tfB, -normal);
-        }
-
-        simplex->AddVertex(support);
-    }
-
-        [[fallthrough]];
-
-    case 3:
-    {
-        Vec3 a0 = simplex->vertices[0].point;
-        Vec3 b0 = simplex->vertices[1].point;
-        Vec3 c0 = simplex->vertices[2].point;
-
-        Vec3 normal = Cross(b0 - a0, c0 - a0);
-        if (Length2(normal) <= epsilon)
-        {
-            normal = GetPerpendicular(b0 - a0);
-        }
-        else
-        {
-            normal.Normalize();
-        }
-
-        SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
-        if (support.point == simplex->vertices[0].point || support.point == simplex->vertices[1].point ||
-            support.point == simplex->vertices[2].point)
-        {
-            support = CSOSupport(a, tfA, b, tfB, -normal);
-        }
-
-        simplex->AddVertex(support);
-    }
-
-        [[fallthrough]];
-
-    case 4:
-        return true;
-
-    default:
-        MuliAssert(false);
-        return false;
-    }
 }
 
 bool GJK(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GJKResult* result)
@@ -238,23 +150,17 @@ end:
 
 void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, const Simplex& simplex, EPAResult* result)
 {
-    Simplex tetrahedron = simplex;
-    if (!ExpandSimplexToTetrahedron(a, tfA, b, tfB, &tetrahedron))
-    {
-        result->contactNormal = NormalizeSafe(simplex.GetSearchDirection());
-        result->penetrationDepth = 0.0f;
-        return;
-    }
+    MuliAssert(simplex.count == max_simplex_vertex_count);
 
+    int32 vertexCount = simplex.count;
     SupportPoint vertices[epa_max_vertex_count];
-    int32 vertexCount = tetrahedron.count;
     for (int32 i = 0; i < vertexCount; ++i)
     {
-        vertices[i] = tetrahedron.vertices[i];
+        vertices[i] = simplex.vertices[i];
     }
 
-    EPAFace faces[epa_max_face_count];
     int32 faceCount = 0;
+    EPAFace faces[epa_max_face_count];
     AddEPAFace(faces, &faceCount, vertices, 0, 1, 2);
     AddEPAFace(faces, &faceCount, vertices, 0, 3, 1);
     AddEPAFace(faces, &faceCount, vertices, 0, 2, 3);
@@ -337,6 +243,64 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
 
     result->contactNormal = best.normal;
     result->penetrationDepth = best.distance;
+}
+
+static inline void TranslateFace(Face* face, Vec3 d)
+{
+    for (int32 i = 0; i < max_face_vertices; ++i)
+    {
+        face->points[i].p += d;
+    }
+}
+
+static void FindContactPoints(
+    const Vec3& n, const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
+)
+{
+    Face faceA = a->GetFeaturedFace(tfA, n);
+    Face faceB = b->GetFeaturedFace(tfB, -n);
+
+    TranslateFace(&faceA, n * a->GetRadius());
+    TranslateFace(&faceB, -n * b->GetRadius());
+
+    Face* ref = &faceA; // Reference edge
+    Face* inc = &faceB; // Incident edge
+    manifold->contactNormal = n;
+    manifold->featureFlipped = false;
+
+    float aParallelness = AbsDot(faceA.normal, n);
+    float bParallelness = AbsDot(faceB.normal, n);
+
+    if (bParallelness > aParallelness)
+    {
+        ref = &faceB;
+        inc = &faceA;
+        manifold->contactNormal = -n;
+        manifold->featureFlipped = true;
+    }
+
+    // ClipEdge(inc, ref->p1.p, ref->tangent, false);
+    // ClipEdge(inc, ref->p2.p, -ref->tangent, false);
+    // ClipEdge(inc, ref->p1.p, -manifold->contactNormal, true);
+
+    // // To ensure consistent warm starting, the contact point id is always set based on Shape A
+    // if (inc->GetLength2() <= contact_merge_threshold)
+    // {
+    //     // If two points are closer than the threshold, merge them into one point
+    //     manifold->contactPoints[0].id = edgeA.p1.id;
+    //     manifold->contactPoints[0].p = inc->p1.p;
+    //     manifold->contactCount = 1;
+    // }
+    // else
+    // {
+    //     manifold->contactPoints[0].id = edgeA.p1.id;
+    //     manifold->contactPoints[0].p = inc->p1.p;
+    //     manifold->contactPoints[1].id = edgeA.p2.id;
+    //     manifold->contactPoints[1].p = inc->p2.p;
+    //     manifold->contactCount = 2;
+    // }
+
+    // manifold->referencePoint = ref->p1;
 }
 
 bool SphereVsSphere(
@@ -540,11 +504,12 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
             if (gjkResult.distance < radii)
             {
                 Vec3 edge = simplex.vertices[1].point - simplex.vertices[0].point;
-                Vec3 normal = GramSchmidt(edge, -simplex.vertices[0].point);
+                Vec3 normal = GramSchmidt(-simplex.vertices[0].point, edge);
                 normal.Normalize();
 
                 manifold->contactNormal = normal;
                 manifold->penetrationDepth = radii - gjkResult.distance;
+                break;
             }
             else
             {
@@ -566,6 +531,7 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
 
                 manifold->contactNormal = normal;
                 manifold->penetrationDepth = radii - gjkResult.distance;
+                break;
             }
             else
             {
@@ -575,9 +541,67 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
     }
     else
     {
+        // Expand to a full simplex if the gjk termination simplex has vertices less than 3
+        // We need a full n-simplex to start EPA (actually it's rare case)
+        switch (simplex.count)
+        {
+        case 1:
+        {
+            SupportPoint support = CSOSupport(a, tfA, b, tfB, x_axis);
+            if (support.point == simplex.vertices[0].point)
+            {
+                support = CSOSupport(a, tfA, b, tfB, -x_axis);
+            }
+
+            simplex.AddVertex(support);
+        }
+
+            [[fallthrough]];
+
+        case 2:
+        {
+            Vec3 edge = Normalize(simplex.vertices[1].point - simplex.vertices[0].point);
+            Vec3 normal = GramSchmidt(-simplex.vertices[0].point, edge);
+            SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
+            if (support.point == simplex.vertices[0].point || support.point == simplex.vertices[1].point)
+            {
+                support = CSOSupport(a, tfA, b, tfB, -normal);
+            }
+
+            simplex.AddVertex(support);
+        }
+
+            [[fallthrough]];
+
+        case 3:
+        {
+            Vec3 edge1 = simplex.vertices[1].point - simplex.vertices[0].point;
+            Vec3 edge2 = simplex.vertices[2].point - simplex.vertices[0].point;
+
+            Vec3 normal = Cross(edge1, edge2);
+            normal.Normalize();
+
+            SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
+            if (support.point == simplex.vertices[0].point || support.point == simplex.vertices[1].point ||
+                support.point == simplex.vertices[2].point)
+            {
+                support = CSOSupport(a, tfA, b, tfB, -normal);
+            }
+
+            simplex.AddVertex(support);
+        }
+        }
+
+        EPAResult epaResult;
+        EPA(a, tfA, b, tfB, simplex, &epaResult);
+
+        manifold->contactNormal = epaResult.contactNormal;
+        manifold->penetrationDepth = epaResult.penetrationDepth;
     }
 
-    return false;
+    FindContactPoints(manifold->contactNormal, a, tfA, b, tfB, manifold);
+
+    return true;
 }
 
 void InitializeDetectionFunctionMap()
