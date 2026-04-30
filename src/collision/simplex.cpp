@@ -71,8 +71,7 @@ Vec3 Simplex::GetClosestPoint() const
                (d * vertices[2].weight) * vertices[2].point;
 
     case 4:
-        return (d * vertices[0].weight) * vertices[0].point + (d * vertices[1].weight) * vertices[1].point +
-               (d * vertices[2].weight) * vertices[2].point + (d * vertices[3].weight) * vertices[3].point;
+        return Vec3::zero;
 
     default:
         MuliAssert(false);
