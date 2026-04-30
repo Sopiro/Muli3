@@ -302,6 +302,7 @@ void World::Solve()
         body->flag &= ~RigidBody::flag_island;
         Transform transform0;
         body->motion.GetTransform(0.0f, &transform0);
+        body->SynchronizeTransform();
         contactGraph.UpdateBody(body, transform0, body->transform);
     }
 

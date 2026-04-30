@@ -17,6 +17,14 @@ struct Quat
     {
     }
 
+    constexpr Quat(Vec3 v, Float w)
+        : x{ v.x }
+        , y{ v.y }
+        , z{ v.z }
+        , w{ w }
+    {
+    }
+
     constexpr Quat(Float x, Float y, Float z, Float w)
         : x{ x }
         , y{ y }

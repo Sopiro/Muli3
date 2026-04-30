@@ -86,6 +86,11 @@ private:
     ContactSolverTangent tangent2Solvers[max_contact_point_count];
     PositionSolver positionSolvers[max_contact_point_count];
 
+    // Impulse buffer for position correction
+    // prefix 'c' stands for corrective
+    Vec3 cLinearImpulseA, cLinearImpulseB;
+    Vec3 cAngularImpulseA, cAngularImpulseB;
+
     float friction = 0.0f;
     float restitution = 0.0f;
     float restitutionThreshold = 0.0f;

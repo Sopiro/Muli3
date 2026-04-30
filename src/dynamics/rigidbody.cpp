@@ -269,14 +269,9 @@ void RigidBody::Integrate(float dt)
 
     motion.c += linearVelocity * dt;
 
-    const float angularSpeed = Length(angularVelocity);
-    if (angularSpeed > epsilon)
-    {
-        const Vec3 axis = angularVelocity / angularSpeed;
-        const Quat delta{ angularSpeed * dt, axis };
-        motion.q = delta * motion.q;
-        motion.q.Normalize();
-    }
+    Quat w{ angularVelocity, 0.0f };
+    motion.q = motion.q + (w * motion.q) * dt * 0.5f;
+    motion.q.Normalize();
 
     SynchronizeTransform();
 }
