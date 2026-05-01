@@ -6,6 +6,7 @@ namespace muli3
 Demo::Demo(Game& game)
     : game{ game }
     , renderer{ game.GetRenderer() }
+    , options{ game.GetDebugOptions() }
     , world{ new World(settings) }
 {
     camera.Reset();

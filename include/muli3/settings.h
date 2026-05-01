@@ -18,7 +18,7 @@ inline constexpr float contact_merge_threshold = linear_slop * 0.001f;
 
 inline constexpr float position_correction = 0.2f;
 inline constexpr float max_position_correction = 0.1f;
-inline constexpr float position_solver_threshold = linear_slop * 2.5f;
+inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 
 inline constexpr float aabb_margin = 0.1f;
 inline constexpr float aabb_multiplier = 2.0f;

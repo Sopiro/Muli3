@@ -14,6 +14,7 @@
 #include <cstring>    // IWYU pragma: export
 #include <format>     // IWYU pragma: export
 #include <functional> // IWYU pragma: export
+#include <iostream>   // IWYU pragma: export
 #include <limits>     // IWYU pragma: export
 #include <memory>     // IWYU pragma: export
 #include <new>        // IWYU pragma: export

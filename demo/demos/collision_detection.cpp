@@ -3,8 +3,6 @@
 #include "renderer.h"
 #include "window.h"
 
-#include <memory>
-
 namespace muli3
 {
 
@@ -131,9 +129,21 @@ public:
 
     void Render() override
     {
+        float prevSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
-        renderer.DrawShape(shape1.get(), tf1);
-        renderer.DrawShape(shape2.get(), tf2);
+
+        Vec4 color = Renderer::default_white;
+        if (options.draw_outlined)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            color = Renderer::default_black;
+        }
+        else
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+        renderer.DrawShape(shape1.get(), tf1, color);
+        renderer.DrawShape(shape2.get(), tf2, color);
 
         if (collide)
         {
@@ -158,6 +168,7 @@ public:
         }
 
         renderer.FlushAll();
+        renderer.SetPointSize(prevSize);
     }
 
 private:

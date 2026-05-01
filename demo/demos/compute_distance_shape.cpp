@@ -19,6 +19,7 @@ public:
         settings.apply_gravity = false;
         camera.SetPosition(Vec3{ 0.0f, 1.1f, 2.6f });
         camera.SetRotation(-90.0f, 0.0f);
+        camera.speed = 0.2f;
         Reset();
         Step();
     }
@@ -136,7 +137,8 @@ public:
 
     void Render() override
     {
-        renderer.SetPointSize(8.0f);
+        float prevSize = renderer.GetPointSize();
+        renderer.SetPointSize(7.0f);
         renderer.DrawShape(shape1.get(), tf1);
         renderer.DrawShape(shape2.get(), tf2);
 
@@ -152,6 +154,7 @@ public:
         }
 
         renderer.FlushAll();
+        renderer.SetPointSize(prevSize);
     }
 
 private:

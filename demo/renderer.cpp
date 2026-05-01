@@ -684,8 +684,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.show_contact_point || options.show_contact_normal)
     {
-        const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 1.0f };
-        const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 1.0f };
+        const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 0.9f };
+        const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 0.9f };
         for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
         {
             if (contact->IsEnabled() == false || contact->IsTouching() == false)
@@ -707,16 +707,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
                 if (options.show_contact_normal)
                 {
                     const Vec3 p2 = p1 + manifold.contactNormal * 0.18f;
-                    const Vec3 reference =
-                        Abs(manifold.contactNormal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
-                    const Vec3 tangent = NormalizeSafe(Cross(manifold.contactNormal, reference));
-                    const Vec3 arrowBase = p2 - manifold.contactNormal * 0.04f;
-                    const Vec3 arrowA = arrowBase + tangent * 0.02f;
-                    const Vec3 arrowB = arrowBase - tangent * 0.02f;
-
                     DrawLine(p1, p2, normalColor);
-                    DrawLine(p2, arrowA, normalColor);
-                    DrawLine(p2, arrowB, normalColor);
                 }
             }
         }

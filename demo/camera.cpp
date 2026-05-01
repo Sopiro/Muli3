@@ -30,7 +30,7 @@ bool Camera::UpdateInput(float dt)
     if (Input::IsKeyDown(GLFW_KEY_A)) accel.x -= 1.0f;
     if (Input::IsKeyDown(GLFW_KEY_D)) accel.x += 1.0f;
     if (Input::IsKeyDown(GLFW_KEY_SPACE)) accel.y += 1.0f;
-    if (Input::IsKeyDown(GLFW_KEY_LEFT_CONTROL) || Input::IsKeyDown(GLFW_KEY_C)) accel.y -= 1.0f;
+    if (Input::IsKeyDown(GLFW_KEY_LEFT_CONTROL)) accel.y -= 1.0f;
 
     if (Length2(accel) > epsilon)
     {

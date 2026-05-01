@@ -27,8 +27,11 @@ public:
 
     void Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options);
 
+    float GetPointSize() const;
+    float GetLineWidth() const;
     void SetPointSize(float size);
-    void SetLineWidth(float lineWidth) const;
+    void SetLineWidth(float lineWidth);
+
     void SetProjectionMatrix(const Mat4& projection);
     void SetViewMatrix(const Mat4& view);
 
@@ -83,16 +86,28 @@ private:
     Mat4 viewMatrix{ identity };
     Mat4 projectionMatrix{ identity };
 
-    float pointSize = 4.0f;
+    float pointSize = 5.0f;
+    float lineWidth = 1.0f;
 };
+
+inline float Renderer::GetPointSize() const
+{
+    return pointSize;
+}
+
+inline float Renderer::GetLineWidth() const
+{
+    return lineWidth;
+}
 
 inline void Renderer::SetPointSize(float size)
 {
     pointSize = size;
 }
 
-inline void Renderer::SetLineWidth(float lineWidth) const
+inline void Renderer::SetLineWidth(float width)
 {
+    lineWidth = width;
     glLineWidth(lineWidth);
 }
 

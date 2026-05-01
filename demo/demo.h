@@ -2,6 +2,7 @@
 
 #include "camera.h"
 #include "common.h"
+#include "options.h"
 
 namespace muli3
 {
@@ -29,6 +30,7 @@ protected:
 
     Game& game;
     Renderer& renderer;
+    DebugOptions& options;
 
     Camera camera;
     WorldSettings settings;
