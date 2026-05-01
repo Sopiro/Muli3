@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-inline constexpr float linear_slop = 0.01f;
+inline constexpr float linear_slop = 0.005f;
 inline constexpr float restitution_slop = 0.5f;
 
 inline constexpr int32 gjk_max_iteration = 20;
@@ -31,8 +31,8 @@ inline constexpr float default_restitution = 0.0f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 3;
-    int32 position_iterations = 1;
+    int32 velocity_iterations = 4;
+    int32 position_iterations = 2;
 
     bool warm_starting = true;
     float dt = 0.0f;

@@ -24,6 +24,7 @@ public:
 
     bool Initialize();
     void Shutdown();
+
     void Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options);
 
     void SetPointSize(float size);
@@ -43,50 +44,46 @@ public:
     void FlushLines();
 
 private:
-    struct SphereInstance
-    {
-        Vec4 model0;
-        Vec4 model1;
-        Vec4 model2;
-        Vec4 model3;
-        Vec4 color;
-    };
-
     bool CreateShadowResources();
-    bool CreateBatchResources();
+    bool CreatePrimitiveResources();
     bool CreateShapeResources();
     void DestroyShadowResources();
-    void DestroyBatchResources();
+    void DestroyPrimitiveResources();
     void DestroyShapeResources();
+
     void DrawBody(const RigidBody& body, const Vec4& color, const Shader& shader);
     void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushSpheres(const Shader& shader);
     void FlushBoxes(const Shader& shader);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
-    void DrawOverlay(const World& world, const DebugOptions& options);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
-    Shader surfaceShader;
-    Shader shadowShader;
-    Shader batchShader;
-    Mesh sphereMesh;
-    Mesh boxMesh;
+    struct ShapeInstance
+    {
+        Mat4 model;
+        Vec4 color;
+    };
+
     bool initialized = false;
-    GLuint shadowFramebuffer = 0;
-    GLuint shadowDepthTexture = 0;
-    GLuint VAO = 0;
-    GLuint VBO = 0;
-    GLuint sphereInstanceVBO = 0;
-    std::vector<SphereInstance> sphereInstances;
-    std::vector<SphereInstance> boxInstances;
-    std::vector<Vertex> points;
+    Shader shapeShader, shadowShader, primitiveShader;
+    Mesh sphereMesh, boxMesh;
+
+    GLuint shadowFramebuffer;
+    GLuint shadowDepthTexture;
+
+    GLuint primVAO, primVBO, shapeInstanceVBO;
+    std::vector<ShapeInstance> sphereInstances, boxInstances;
+
     int32 pointCount = 0;
-    std::vector<Vertex> lines;
+    std::vector<Vertex> points;
     int32 lineCount = 0;
+    std::vector<Vertex> lines;
+
     Mat4 viewMatrix{ identity };
     Mat4 projectionMatrix{ identity };
-    float pointSize = 5.0f;
+
+    float pointSize = 4.0f;
 };
 
 inline void Renderer::SetPointSize(float size)
@@ -148,8 +145,8 @@ inline void Renderer::DrawAABB(const AABB& aabb)
 
 inline void Renderer::FlushAll()
 {
-    if (sphereInstances.empty() == false) FlushSpheres(surfaceShader);
-    if (boxInstances.empty() == false) FlushBoxes(surfaceShader);
+    if (!sphereInstances.empty()) FlushSpheres(shapeShader);
+    if (!boxInstances.empty()) FlushBoxes(shapeShader);
     if (lineCount > 0) FlushLines();
     if (pointCount > 0) FlushPoints();
 }

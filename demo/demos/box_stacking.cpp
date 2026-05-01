@@ -1,10 +1,11 @@
 #include "demo.h"
+#include "game.h"
 #include "window.h"
 
 namespace muli3
 {
 
-static int32 count = 20;
+static int32 count = 15;
 static float error = 0.0f;
 
 class BoxStacking : public Demo
@@ -17,7 +18,7 @@ public:
 
         float size = 1.0f;
         float gap = 0.1f;
-        float start = 0.5f + size / 2.0f + gap;
+        float start = 0.5f + gap;
 
         for (int32 i = 0; i < count; ++i)
         {
@@ -28,7 +29,7 @@ public:
         }
 
         float h = Max(12.0f, (float)count * (size + gap));
-        camera.SetPosition(Vec3{ 0.0f, h * 0.45f, h * 1.05f });
+        camera.SetPosition(Vec3{ 0.0f, h * 0.7f, h * 1.5f });
         camera.SetRotation(-90.0f, -15.0f);
     }
 
@@ -38,8 +39,8 @@ public:
 
         if (ImGui::Begin("Box stacking", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::SliderInt("Count", &count, 1, 100);
-            ImGui::SliderFloat("Error", &error, 0.0f, 0.1f, "%.2f");
+            if (ImGui::SliderInt("Count", &count, 1, 100)) game.RestartDemo();
+            if (ImGui::SliderFloat("Error", &error, 0.0f, 0.1f, "%.2f")) game.RestartDemo();
         }
         ImGui::End();
     }

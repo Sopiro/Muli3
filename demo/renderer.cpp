@@ -3,18 +3,15 @@
 namespace muli3
 {
 
-namespace
-{
-
 constexpr int g_shadowMapSize = 2048;
-constexpr size_t g_maxSphereBatchCount = 4096;
+constexpr size_t g_maxShapeBatchCount = 4096;
 constexpr int32 g_maxVertexCount = 1024 * 3;
 constexpr int32 g_colorCount = 10;
 
 Vec4 g_colors[g_colorCount];
 bool g_colorsInitialized = false;
 
-constexpr const char* g_surfaceVertexShader = R"(
+constexpr const char* g_shapeVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
 layout (location = 1) in vec3 aNormal;
@@ -48,7 +45,7 @@ void main()
 }
 )";
 
-constexpr const char* g_surfaceFragmentShader = R"(
+constexpr const char* g_shapeFragmentShader = R"(
 #version 330 core
 in vec3 vWorldPosition;
 in vec3 vWorldNormal;
@@ -138,7 +135,7 @@ void main()
 }
 )";
 
-constexpr const char* g_batchVertexShader = R"(
+constexpr const char* g_primitiveVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPoint;
 layout (location = 1) in vec4 aColor;
@@ -157,7 +154,7 @@ void main()
 }
 )";
 
-constexpr const char* g_batchFragmentShader = R"(
+constexpr const char* g_primitiveFragmentShader = R"(
 #version 330 core
 in vec4 vColor;
 
@@ -265,8 +262,6 @@ Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
     return g_colors[colorIndex % g_colorCount];
 }
 
-} // namespace
-
 Renderer::~Renderer()
 {
     Shutdown();
@@ -299,18 +294,18 @@ bool Renderer::CreateShadowResources()
     return status == GL_FRAMEBUFFER_COMPLETE;
 }
 
-bool Renderer::CreateBatchResources()
+bool Renderer::CreatePrimitiveResources()
 {
-    if (!batchShader.Create(g_batchVertexShader, g_batchFragmentShader))
+    if (!primitiveShader.Create(g_primitiveVertexShader, g_primitiveFragmentShader))
     {
         return false;
     }
 
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
+    glGenVertexArrays(1, &primVAO);
+    glGenBuffers(1, &primVBO);
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindVertexArray(primVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, primVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * g_maxVertexCount, nullptr, GL_DYNAMIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, point)));
     glEnableVertexAttribArray(0);
@@ -318,34 +313,34 @@ bool Renderer::CreateBatchResources()
     glEnableVertexAttribArray(1);
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    return VAO != 0 && VBO != 0;
+    return primVAO != 0 && primVBO != 0;
 }
 
 bool Renderer::CreateShapeResources()
 {
-    glGenBuffers(1, &sphereInstanceVBO);
+    glGenBuffers(1, &shapeInstanceVBO);
 
     glBindVertexArray(sphereMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, sphereInstanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, g_maxSphereBatchCount * sizeof(SphereInstance), nullptr, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, g_maxShapeBatchCount * sizeof(ShapeInstance), nullptr, GL_DYNAMIC_DRAW);
 
-    SetInstanceAttribute(3, 4, sizeof(SphereInstance), offsetof(SphereInstance, model0));
-    SetInstanceAttribute(4, 4, sizeof(SphereInstance), offsetof(SphereInstance, model1));
-    SetInstanceAttribute(5, 4, sizeof(SphereInstance), offsetof(SphereInstance, model2));
-    SetInstanceAttribute(6, 4, sizeof(SphereInstance), offsetof(SphereInstance, model3));
-    SetInstanceAttribute(7, 4, sizeof(SphereInstance), offsetof(SphereInstance, color));
+    SetInstanceAttribute(3, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ex));
+    SetInstanceAttribute(4, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ey));
+    SetInstanceAttribute(5, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ez));
+    SetInstanceAttribute(6, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ew));
+    SetInstanceAttribute(7, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, color));
 
     glBindVertexArray(boxMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, sphereInstanceVBO);
-    SetInstanceAttribute(3, 4, sizeof(SphereInstance), offsetof(SphereInstance, model0));
-    SetInstanceAttribute(4, 4, sizeof(SphereInstance), offsetof(SphereInstance, model1));
-    SetInstanceAttribute(5, 4, sizeof(SphereInstance), offsetof(SphereInstance, model2));
-    SetInstanceAttribute(6, 4, sizeof(SphereInstance), offsetof(SphereInstance, model3));
-    SetInstanceAttribute(7, 4, sizeof(SphereInstance), offsetof(SphereInstance, color));
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetInstanceAttribute(3, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ex));
+    SetInstanceAttribute(4, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ey));
+    SetInstanceAttribute(5, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ez));
+    SetInstanceAttribute(6, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ew));
+    SetInstanceAttribute(7, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, color));
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    return sphereInstanceVBO != 0;
+    return shapeInstanceVBO != 0;
 }
 
 void Renderer::DestroyShadowResources()
@@ -362,32 +357,32 @@ void Renderer::DestroyShadowResources()
     }
 }
 
-void Renderer::DestroyBatchResources()
+void Renderer::DestroyPrimitiveResources()
 {
-    if (VBO != 0)
+    if (primVBO != 0)
     {
-        glDeleteBuffers(1, &VBO);
-        VBO = 0;
+        glDeleteBuffers(1, &primVBO);
+        primVBO = 0;
     }
-    if (VAO != 0)
+    if (primVAO != 0)
     {
-        glDeleteVertexArrays(1, &VAO);
-        VAO = 0;
+        glDeleteVertexArrays(1, &primVAO);
+        primVAO = 0;
     }
 }
 
 void Renderer::DestroyShapeResources()
 {
-    if (sphereInstanceVBO != 0)
+    if (shapeInstanceVBO != 0)
     {
-        glDeleteBuffers(1, &sphereInstanceVBO);
-        sphereInstanceVBO = 0;
+        glDeleteBuffers(1, &shapeInstanceVBO);
+        shapeInstanceVBO = 0;
     }
 }
 
 bool Renderer::Initialize()
 {
-    if (!surfaceShader.Create(g_surfaceVertexShader, g_surfaceFragmentShader))
+    if (!shapeShader.Create(g_shapeVertexShader, g_shapeFragmentShader))
     {
         return false;
     }
@@ -399,14 +394,14 @@ bool Renderer::Initialize()
     {
         return false;
     }
-    if (!CreateBatchResources())
+    if (!CreatePrimitiveResources())
     {
         return false;
     }
     InitializeColors();
 
-    surfaceShader.Use();
-    surfaceShader.SetInt("uShadowMap", 0);
+    shapeShader.Use();
+    shapeShader.SetInt("uShadowMap", 0);
 
     sphereMesh.Upload(BuildSphereVertices(48, 24), BuildSphereIndices(48, 24), GL_TRIANGLES);
     boxMesh.Upload(BuildBoxVertices(), BuildBoxIndices(), GL_TRIANGLES);
@@ -415,8 +410,8 @@ bool Renderer::Initialize()
         return false;
     }
 
-    sphereInstances.reserve(g_maxSphereBatchCount);
-    boxInstances.reserve(g_maxSphereBatchCount);
+    sphereInstances.reserve(g_maxShapeBatchCount);
+    boxInstances.reserve(g_maxShapeBatchCount);
     points.resize(g_maxVertexCount);
     lines.resize(g_maxVertexCount);
     initialized = true;
@@ -433,11 +428,11 @@ void Renderer::Shutdown()
     DestroyShapeResources();
     sphereMesh.Destroy();
     boxMesh.Destroy();
-    surfaceShader.Destroy();
+    shapeShader.Destroy();
     shadowShader.Destroy();
     DestroyShadowResources();
-    batchShader.Destroy();
-    DestroyBatchResources();
+    primitiveShader.Destroy();
+    DestroyPrimitiveResources();
     initialized = false;
 }
 
@@ -448,7 +443,7 @@ void Renderer::DrawBody(const RigidBody& body, const Vec4& color, const Shader& 
 
 void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color)
 {
-    QueueShape(shape, transform, color, surfaceShader);
+    QueueShape(shape, transform, color, shapeShader);
 }
 
 void Renderer::QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader)
@@ -464,10 +459,9 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, sphere->GetCenter());
         renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-        Mat4 model(renderTransform);
-        sphereInstances.push_back(SphereInstance{ model.ex, model.ey, model.ez, model.ew, color });
+        sphereInstances.emplace_back(Mat4(renderTransform), color);
 
-        if (sphereInstances.size() == g_maxSphereBatchCount)
+        if (sphereInstances.size() == g_maxShapeBatchCount)
         {
             FlushSpheres(shader);
         }
@@ -478,10 +472,9 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, box->GetCenter());
         renderTransform.s = renderTransform.s * box->GetHalfExtents();
-        Mat4 model(renderTransform);
-        boxInstances.push_back(SphereInstance{ model.ex, model.ey, model.ez, model.ew, color });
+        boxInstances.emplace_back(Mat4(renderTransform), color);
 
-        if (boxInstances.size() == g_maxSphereBatchCount)
+        if (boxInstances.size() == g_maxShapeBatchCount)
         {
             FlushBoxes(shader);
         }
@@ -521,8 +514,8 @@ void Renderer::FlushSpheres(const Shader& shader)
     }
 
     shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, sphereInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(sphereInstances.size() * sizeof(SphereInstance)), sphereInstances.data());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(sphereInstances.size() * sizeof(ShapeInstance)), sphereInstances.data());
     sphereMesh.DrawInstanced((GLsizei)sphereInstances.size());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     sphereInstances.clear();
@@ -536,8 +529,8 @@ void Renderer::FlushBoxes(const Shader& shader)
     }
 
     shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, sphereInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(boxInstances.size() * sizeof(SphereInstance)), boxInstances.data());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(boxInstances.size() * sizeof(ShapeInstance)), boxInstances.data());
     boxMesh.DrawInstanced((GLsizei)boxInstances.size());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     boxInstances.clear();
@@ -566,13 +559,13 @@ void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& verti
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
 
-    batchShader.Use();
-    batchShader.SetMat4("uView", viewMatrix);
-    batchShader.SetMat4("uProjection", projectionMatrix);
-    batchShader.SetFloat("uPointSize", pointSize);
+    primitiveShader.Use();
+    primitiveShader.SetMat4("uView", viewMatrix);
+    primitiveShader.SetMat4("uProjection", projectionMatrix);
+    primitiveShader.SetFloat("uPointSize", pointSize);
 
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindVertexArray(primVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, primVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(vertexCount * sizeof(Vertex)), vertices.data());
     glDrawArrays(primitive, 0, vertexCount);
     glBindVertexArray(0);
@@ -593,15 +586,91 @@ void Renderer::EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requ
     int32 newCapacity = Max<int32>((int32)vertices.size() * 2, requiredCount);
     vertices.resize(newCapacity);
 
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, primVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * newCapacity, nullptr, GL_DYNAMIC_DRAW);
 }
 
-void Renderer::DrawOverlay(const World& world, const DebugOptions& options)
+void Renderer::Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options)
 {
+    const Mat4 view = camera.GetViewMatrix();
+    const Mat4 projection = camera.GetProjectionMatrix(aspectRatio);
+    const Vec3 lightDirection = Normalize(Vec3{ 0.45f, -1.0f, 0.35f });
+    const Mat4 lightViewProjection = ComputeLightViewProjection(lightDirection);
+    SetViewMatrix(view);
+    SetProjectionMatrix(projection);
+
+    GLint viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer);
+    glViewport(0, 0, g_shadowMapSize, g_shadowMapSize);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    glCullFace(GL_BACK);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(0.5f, 1.0f);
+
+    shadowShader.Use();
+    shadowShader.SetMat4("uLightViewProjection", lightViewProjection);
+
+    if (options.draw_body)
+    {
+        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+        {
+            DrawBody(*body, default_white, shadowShader);
+        }
+        FlushSpheres(shadowShader);
+        FlushBoxes(shadowShader);
+    }
+
+    glDisable(GL_POLYGON_OFFSET_FILL);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+    glCullFace(GL_BACK);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
+
+    shapeShader.Use();
+    shapeShader.SetMat4("uView", view);
+    shapeShader.SetMat4("uProjection", projection);
+    shapeShader.SetMat4("uLightViewProjection", lightViewProjection);
+    shapeShader.SetVec3("uLightDirection", lightDirection);
+
+    if (options.draw_body)
+    {
+        if (options.draw_outlined == false)
+        {
+            for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+            {
+                DrawBody(*body, GetBodyColor(*body, options), shapeShader);
+            }
+            FlushSpheres(shapeShader);
+            FlushBoxes(shapeShader);
+        }
+    }
+
+    if (options.draw_body && options.draw_outlined)
+    {
+        GLint previousDepthFunc = GL_LESS;
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+        {
+            DrawBody(*body, default_black, shapeShader);
+        }
+        FlushSpheres(shapeShader);
+        FlushBoxes(shapeShader);
+        glEnable(GL_CULL_FACE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    // Overlays
+
     if (options.show_bvh || options.show_aabb)
     {
-        const Vec4 aabbColor{ 0.08f, 0.09f, 0.10f, 1.0f };
         const AABBTree& tree = world.GetDynamicTree();
         tree.Traverse([&](const AABBTree::Node* node) -> void {
             if (options.show_bvh == false && node->IsLeaf() == false)
@@ -609,7 +678,7 @@ void Renderer::DrawOverlay(const World& world, const DebugOptions& options)
                 return;
             }
 
-            DrawAABB(node->aabb, aabbColor);
+            DrawAABB(node->aabb, default_black);
         });
     }
 
@@ -665,86 +734,6 @@ void Renderer::DrawOverlay(const World& world, const DebugOptions& options)
     {
         glEnable(GL_DEPTH_TEST);
     }
-}
-
-void Renderer::Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options)
-{
-    const Mat4 view = camera.GetViewMatrix();
-    const Mat4 projection = camera.GetProjectionMatrix(aspectRatio);
-    const Vec3 lightDirection = Normalize(Vec3{ 0.45f, -1.0f, 0.35f });
-    const Mat4 lightViewProjection = ComputeLightViewProjection(lightDirection);
-    SetViewMatrix(view);
-    SetProjectionMatrix(projection);
-
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-
-    glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer);
-    glViewport(0, 0, g_shadowMapSize, g_shadowMapSize);
-    glClear(GL_DEPTH_BUFFER_BIT);
-    glCullFace(GL_BACK);
-    glEnable(GL_POLYGON_OFFSET_FILL);
-    glPolygonOffset(0.5f, 1.0f);
-
-    shadowShader.Use();
-    shadowShader.SetMat4("uLightViewProjection", lightViewProjection);
-
-    if (options.draw_body)
-    {
-        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
-        {
-            DrawBody(*body, default_white, shadowShader);
-        }
-        FlushSpheres(shadowShader);
-        FlushBoxes(shadowShader);
-    }
-
-    glDisable(GL_POLYGON_OFFSET_FILL);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
-    glCullFace(GL_BACK);
-
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
-
-    surfaceShader.Use();
-    surfaceShader.SetMat4("uView", view);
-    surfaceShader.SetMat4("uProjection", projection);
-    surfaceShader.SetMat4("uLightViewProjection", lightViewProjection);
-    surfaceShader.SetVec3("uLightDirection", lightDirection);
-
-    if (options.draw_body)
-    {
-        if (options.draw_outlined == false)
-        {
-            for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
-            {
-                DrawBody(*body, GetBodyColor(*body, options), surfaceShader);
-            }
-            FlushSpheres(surfaceShader);
-            FlushBoxes(surfaceShader);
-        }
-    }
-
-    if (options.draw_body && options.draw_outlined)
-    {
-        GLint previousDepthFunc = GL_LESS;
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
-        {
-            DrawBody(*body, default_black, surfaceShader);
-        }
-        FlushSpheres(surfaceShader);
-        FlushBoxes(surfaceShader);
-        glEnable(GL_CULL_FACE);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
-
-    DrawOverlay(world, options);
 }
 
 } // namespace muli3
