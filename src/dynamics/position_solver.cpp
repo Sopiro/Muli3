@@ -4,10 +4,8 @@
 namespace muli3
 {
 
-void PositionSolver::Prepare(Contact* inContact, int32 index)
+void PositionSolver::Prepare(Contact* contact, int32 index)
 {
-    contact = inContact;
-
     Vec3 comA = contact->b1->motion.c;
     Vec3 comB = contact->b2->motion.c;
     Quat qA = contact->b1->motion.q;
@@ -18,7 +16,7 @@ void PositionSolver::Prepare(Contact* inContact, int32 index)
     localNormal = qA.RotateInv(contact->manifold.contactNormal);
 }
 
-bool PositionSolver::Solve()
+bool PositionSolver::Solve(Contact* contact)
 {
     Vec3 comA = contact->b1->motion.c;
     Vec3 comB = contact->b2->motion.c;

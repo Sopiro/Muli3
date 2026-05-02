@@ -11,12 +11,10 @@ class PositionSolver
 {
 public:
     void Prepare(Contact* contact, int32 index);
-    bool Solve();
+    bool Solve(Contact* contact);
 
 private:
     friend class Contact;
-
-    Contact* contact;
 
     Vec3 localPlanePoint;
     Vec3 localClipPoint;

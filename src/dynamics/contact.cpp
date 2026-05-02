@@ -1,22 +1,9 @@
 #include "muli3/contact.h"
+#include "muli3/frame.h"
 #include "muli3/settings.h"
 
 namespace muli3
 {
-
-static void ComputeTangents(const Vec3& normal, Vec3& tangent1, Vec3& tangent2)
-{
-    if (Abs(normal.x) >= 0.57735f)
-    {
-        tangent1 = Vec3{ normal.y, -normal.x, 0.0f };
-    }
-    else
-    {
-        tangent1 = Vec3{ 0.0f, normal.z, -normal.y };
-    }
-    tangent1.Normalize();
-    tangent2 = Cross(normal, tangent1);
-}
 
 void Contact::Update()
 {
@@ -93,7 +80,7 @@ void Contact::Prepare(const Timestep& step)
     surfaceSpeed = 0.0f;
 
     Vec3 tangent1, tangent2;
-    ComputeTangents(manifold.contactNormal, tangent1, tangent2);
+    CoordinateSystem(manifold.contactNormal, &tangent1, &tangent2);
 
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
@@ -135,7 +122,7 @@ bool Contact::SolvePositionConstraints(const Timestep& step)
 
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
-        solved &= positionSolvers[i].Solve();
+        solved &= positionSolvers[i].Solve(this);
     }
 
     b1->motion.c += b1->invMass * cLinearImpulseA;
