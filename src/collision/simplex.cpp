@@ -458,6 +458,7 @@ void Simplex::SolveTetrahedron(const Vec3& q)
         }
     }
 
+    MuliAssert(bestDist2 < max_float);
     *this = best;
 }
 

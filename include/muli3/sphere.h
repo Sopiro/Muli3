@@ -53,7 +53,7 @@ inline Face Sphere::GetFeaturedFace(const Transform& transform, const Vec3& dir)
     Face f;
     f.count = 1;
     f.points[0].p = Mul(transform, center);
-    f.points[0].id = -1;
+    f.points[0].id = 0;
     f.normal = Vec3::zero;
     return f;
 }

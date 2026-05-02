@@ -52,8 +52,7 @@ static bool AddEPAFace(EPAFace* faces, int32* faceCount, const SupportPoint* ver
     Vec3 pc = vertices[c].point;
 
     Vec3 normal = Cross(pb - pa, pc - pa);
-    float length = normal.Normalize();
-    if (length <= epsilon)
+    if (normal.Normalize() == 0.0f)
     {
         return false;
     }
@@ -169,7 +168,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
     // Degenerate tetrahedron
     if (faceCount == 0)
     {
-        result->contactNormal = NormalizeSafe(simplex.GetSearchDirection());
+        result->contactNormal = NormalizeSafe(tfB.p - tfA.p);
         result->penetrationDepth = 0.0f;
         return;
     }
@@ -253,6 +252,114 @@ static inline void TranslateFace(Face* face, Vec3 d)
     }
 }
 
+static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
+{
+    const float denom = da - db;
+    if (Abs(denom) < epsilon)
+    {
+        return a;
+    }
+
+    float t = Clamp(da / denom, 0, 1);
+    return a + t * (b - a);
+}
+
+static int32 ClipFace(const Face& f, const Vec3& p, const Vec3& dir, Vec3* result, int32* clipBegin, int32* clipEnd)
+{
+    const int32 count = f.count;
+
+    float d[max_face_vertices];
+    bool outside[max_face_vertices];
+    int32 active[max_face_vertices];
+
+    int32 activeCount = 0;
+    int32 outsideCount = 0;
+
+    for (int32 i = 0; i < count; ++i)
+    {
+        if (f.points[i].id < 0)
+        {
+            continue;
+        }
+
+        d[i] = Dot(f.points[i].p - p, dir);
+
+        // Dot(x - p, dir) >= 0 : inside
+        // Dot(x - p, dir) <  0 : outside / clipped
+        outside[i] = d[i] < -epsilon;
+
+        active[activeCount++] = i;
+
+        if (outside[i])
+        {
+            ++outsideCount;
+        }
+    }
+
+    MuliAssert(activeCount >= 2);
+
+    // No clips.
+    if (outsideCount == 0)
+    {
+        *clipBegin = -1;
+        *clipEnd = -1;
+        return 0;
+    }
+
+    // The entire active face is outside the clipping plane.
+    // No intersection points can be generated in this case.
+    if (outsideCount == activeCount)
+    {
+        *clipBegin = active[0];
+        *clipEnd = active[activeCount - 1];
+        return outsideCount;
+    }
+
+    int32 begin = -1;
+    int32 end = -1;
+
+    int32 beforeBegin = -1;
+    int32 afterEnd = -1;
+
+    for (int32 k0 = activeCount - 1, k1 = 0; k1 < activeCount; k0 = k1, ++k1)
+    {
+        const int32 i0 = active[k0];
+        const int32 i1 = active[k1];
+
+        const bool outside0 = outside[i0];
+        const bool outside1 = outside[i1];
+
+        // Active edge: i0 -> i1
+
+        // inside -> outside
+        // First vertex of the clipped range.
+        if (!outside0 && outside1)
+        {
+            beforeBegin = i0;
+            begin = i1;
+        }
+
+        // outside -> inside
+        // Last vertex of the clipped range.
+        if (outside0 && !outside1)
+        {
+            end = i0;
+            afterEnd = i1;
+        }
+    }
+
+    MuliAssert(begin >= 0 && end >= 0);
+    MuliAssert(beforeBegin >= 0 && afterEnd >= 0);
+
+    result[0] = IntersectPlaneEdge(f.points[beforeBegin].p, f.points[begin].p, d[beforeBegin], d[begin]);
+    result[1] = IntersectPlaneEdge(f.points[end].p, f.points[afterEnd].p, d[end], d[afterEnd]);
+
+    *clipBegin = begin;
+    *clipEnd = end;
+
+    return outsideCount;
+}
+
 static void FindContactPoints(
     const Vec3& n, const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
 )
@@ -263,63 +370,97 @@ static void FindContactPoints(
     TranslateFace(&faceA, n * a->GetRadius());
     TranslateFace(&faceB, -n * b->GetRadius());
 
-    Face* ref = &faceA; // Reference edge
-    Face* inc = &faceB; // Incident edge
-    manifold->contactNormal = n;
-    manifold->featureFlipped = false;
+    Face ref; // Reference face
+    Face inc; // Incident face
 
     float aParallelness = AbsDot(faceA.normal, n);
     float bParallelness = AbsDot(faceB.normal, n);
 
     if (bParallelness > aParallelness)
     {
-        ref = &faceB;
-        inc = &faceA;
-        manifold->contactNormal = -n;
+        ref = faceB;
+        inc = faceA;
         manifold->featureFlipped = true;
+        manifold->contactNormal = -n;
+    }
+    else
+    {
+        ref = faceA;
+        inc = faceB;
+        manifold->featureFlipped = false;
+        manifold->contactNormal = n;
     }
 
-    Point deepest = inc->points[0];
-    int32 bestIndex = 0;
-    float best = Dot(inc->points[0].p - ref->points[0].p, -n);
-    for (int32 i = 1; i < inc->count; ++i)
+    manifold->referencePoint = ref.points[0];
+
+    Vec3 planeNormal = ref.normal;
+    Vec3 planePoint = ref.points[0].p;
+
+    for (int32 i0 = ref.count - 1, i1 = 0; i1 < ref.count; i0 = i1, ++i1)
     {
-        float penetration = Dot(inc->points[i].p - ref->points[0].p, -n);
-        if (penetration > best)
+        Vec3 edge = ref.points[i1].p - ref.points[i0].p;
+        Vec3 inward = Normalize(Cross(planeNormal, edge));
+
+        Vec3 clipped[2];
+        int32 clipBegin, clipEnd;
+        if (!ClipFace(inc, ref.points[i0].p, inward, clipped, &clipBegin, &clipEnd))
         {
-            deepest = inc->points[i];
-            best = penetration;
-            bestIndex = i;
+            continue;
+        }
+
+        if (clipBegin == clipEnd)
+        {
+            float penetration0 = Dot(clipped[0] - planePoint, -planeNormal);
+            float penetration1 = Dot(clipped[1] - planePoint, -planeNormal);
+            if (penetration0 > penetration1)
+            {
+                inc.points[clipBegin].p = clipped[0];
+            }
+            else
+            {
+                inc.points[clipBegin].p = clipped[1];
+            }
+        }
+        else
+        {
+            inc.points[clipBegin].p = clipped[0];
+            inc.points[clipEnd].p = clipped[1];
+
+            // Invalidate vertices between clipBegin and clipEnd
+            for (int32 i = (clipBegin + 1 == inc.count) ? 0 : clipBegin + 1; i != clipEnd; i = (i + 1 == inc.count) ? 0 : i + 1)
+            {
+                inc.points[i].id = -1;
+            }
         }
     }
 
-    manifold->contactCount = 1;
-    manifold->contactPoints[0] = deepest;
-    manifold->contactPoints[0].id = faceA.points[bestIndex].id;
-    manifold->referencePoint = ref->points[0];
+    // Invalidate vertices that lie above the reference plane
+    for (int32 i = 0; i < inc.count; ++i)
+    {
+        float penetration = Dot(inc.points[i].p - planePoint, planeNormal);
+        if (penetration > 0)
+        {
+            inc.points[i].id = -1;
+        }
+    }
 
-    // ClipEdge(inc, ref->p1.p, ref->tangent, false);
-    // ClipEdge(inc, ref->p2.p, -ref->tangent, false);
-    // ClipEdge(inc, ref->p1.p, -manifold->contactNormal, true);
+    Face* major = faceA.count > faceB.count ? &faceA : &faceB;
 
-    // // To ensure consistent warm starting, the contact point id is always set based on Shape A
-    // if (inc->GetLength2() <= contact_merge_threshold)
-    // {
-    //     // If two points are closer than the threshold, merge them into one point
-    //     manifold->contactPoints[0].id = edgeA.p1.id;
-    //     manifold->contactPoints[0].p = inc->p1.p;
-    //     manifold->contactCount = 1;
-    // }
-    // else
-    // {
-    //     manifold->contactPoints[0].id = edgeA.p1.id;
-    //     manifold->contactPoints[0].p = inc->p1.p;
-    //     manifold->contactPoints[1].id = edgeA.p2.id;
-    //     manifold->contactPoints[1].p = inc->p2.p;
-    //     manifold->contactCount = 2;
-    // }
+    int32 contactCount = 0;
+    for (int32 i = 0; i < inc.count; ++i)
+    {
+        if (inc.points[i].id == -1)
+        {
+            continue;
+        }
 
-    // manifold->referencePoint = ref->p1;
+        // To ensure consistent warm starting, the contact point id is always set based on the face with more vertices
+        manifold->contactPoints[contactCount].p = inc.points[i].p;
+        manifold->contactPoints[contactCount].id = major->points[i].id;
+        ++contactCount;
+    }
+
+    manifold->contactCount = contactCount;
 }
 
 bool SphereVsSphere(
@@ -558,10 +699,11 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
         {
         case 1:
         {
-            SupportPoint support = CSOSupport(a, tfA, b, tfB, x_axis);
+            Vec3 d = Normalize(tfA.p - tfB.p);
+            SupportPoint support = CSOSupport(a, tfA, b, tfB, d);
             if (support.point == simplex.vertices[0].point)
             {
-                support = CSOSupport(a, tfA, b, tfB, -x_axis);
+                support = CSOSupport(a, tfA, b, tfB, -d);
             }
 
             simplex.AddVertex(support);
@@ -614,7 +756,7 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
 
     FindContactPoints(manifold->contactNormal, a, tfA, b, tfB, manifold);
 
-    return true;
+    return manifold->contactCount > 0;
 }
 
 void InitializeDetectionFunctionMap()
