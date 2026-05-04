@@ -1,6 +1,7 @@
 #include "muli3/collision.h"
 #include "muli3/box.h"
 #include "muli3/frame.h"
+#include "muli3/growable_array.h"
 #include "muli3/settings.h"
 
 namespace muli3
@@ -40,13 +41,11 @@ constexpr int32 epa_max_vertex_count = max_simplex_vertex_count + epa_max_iterat
 constexpr int32 epa_max_face_count = 4 + epa_max_iteration * 2;
 constexpr int32 epa_max_edge_count = epa_max_face_count * 3;
 
-static bool AddEPAFace(EPAFace* faces, int32* faceCount, const SupportPoint* vertices, int32 a, int32 b, int32 c)
-{
-    if (*faceCount >= epa_max_face_count)
-    {
-        return false;
-    }
+using EPAFaces = GrowableArray<EPAFace, epa_max_face_count>;
+using EPAEdges = GrowableArray<EPAEdge, epa_max_edge_count>;
 
+static bool AddEPAFace(EPAFaces& faces, const SupportPoint* vertices, int32 a, int32 b, int32 c, const Vec3& inside)
+{
     Vec3 pa = vertices[a].point;
     Vec3 pb = vertices[b].point;
     Vec3 pc = vertices[c].point;
@@ -58,39 +57,30 @@ static bool AddEPAFace(EPAFace* faces, int32* faceCount, const SupportPoint* ver
     }
 
     float distance = Dot(normal, pa);
-    if (distance < 0.0f)
+    if (Dot(normal, inside) - distance > 0.0f)
     {
-        // Ensure outward normal
         std::swap(b, c);
         normal = -normal;
         distance = -distance;
     }
 
-    faces[*faceCount] = EPAFace{ a, b, c, normal, distance, false };
-    ++(*faceCount);
+    faces.EmplaceBack(a, b, c, normal, distance, false);
     return true;
 }
 
-static bool AddEPAEdge(EPAEdge* edges, int32* edgeCount, int32 a, int32 b)
+static void AddEPAEdge(EPAEdges& edges, int32 a, int32 b)
 {
-    for (int32 i = 0; i < *edgeCount; ++i)
+    for (int32 i = 0; i < edges.Count(); ++i)
     {
         if (edges[i].a == b && edges[i].b == a)
         {
-            edges[i] = edges[*edgeCount - 1];
-            --(*edgeCount);
-            return true;
+            std::swap(edges[i], edges.Back());
+            edges.PopBack();
+            return;
         }
     }
 
-    if (*edgeCount >= epa_max_edge_count)
-    {
-        return false;
-    }
-
-    edges[*edgeCount] = EPAEdge{ a, b };
-    ++(*edgeCount);
-    return true;
+    edges.EmplaceBack(a, b);
 }
 
 bool GJK(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GJKResult* result)
@@ -151,23 +141,26 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
 {
     MuliAssert(simplex.count == max_simplex_vertex_count);
 
+    // To properly handle the origin-on-faces case, the center of the tetrahedron is needed
+    Vec3 center = Vec3::zero;
     int32 vertexCount = simplex.count;
     SupportPoint vertices[epa_max_vertex_count];
     for (int32 i = 0; i < vertexCount; ++i)
     {
         vertices[i] = simplex.vertices[i];
+        center += vertices[i].point;
     }
+    center *= 1.0f / max_simplex_vertex_count;
 
-    int32 faceCount = 0;
-    EPAFace faces[epa_max_face_count];
-    AddEPAFace(faces, &faceCount, vertices, 0, 1, 2);
-    AddEPAFace(faces, &faceCount, vertices, 0, 3, 1);
-    AddEPAFace(faces, &faceCount, vertices, 0, 2, 3);
-    AddEPAFace(faces, &faceCount, vertices, 1, 3, 2);
+    EPAFaces faces;
+    AddEPAFace(faces, vertices, 0, 1, 2, center);
+    AddEPAFace(faces, vertices, 1, 2, 3, center);
+    AddEPAFace(faces, vertices, 2, 3, 0, center);
+    AddEPAFace(faces, vertices, 3, 0, 1, center);
 
-    // Degenerate tetrahedron
-    if (faceCount == 0)
+    if (faces.Count() != max_simplex_vertex_count)
     {
+        // Degenerate tetrahedron case
         result->contactNormal = NormalizeSafe(tfB.p - tfA.p);
         result->penetrationDepth = 0.0f;
         return;
@@ -177,9 +170,10 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
 
     for (int32 k = 0; k < epa_max_iteration; ++k)
     {
+        // Utilize heap for min distance query
         int32 bestIndex = -1;
         float bestDistance = max_float;
-        for (int32 i = 0; i < faceCount; ++i)
+        for (int32 i = 0; i < faces.Count(); ++i)
         {
             if (!faces[i].removed && faces[i].distance < bestDistance)
             {
@@ -210,10 +204,9 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
         int32 newIndex = vertexCount;
         vertices[vertexCount++] = support;
 
-        EPAEdge edges[epa_max_edge_count];
-        int32 edgeCount = 0;
+        EPAEdges edges;
 
-        for (int32 i = 0; i < faceCount; ++i)
+        for (int32 i = 0; i < faces.Count(); ++i)
         {
             EPAFace& face = faces[i];
             if (face.removed)
@@ -224,19 +217,20 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
             if (Dot(face.normal, support.point - vertices[face.a].point) > 0.0f)
             {
                 face.removed = true;
-                if (!AddEPAEdge(edges, &edgeCount, face.a, face.b) || !AddEPAEdge(edges, &edgeCount, face.b, face.c) ||
-                    !AddEPAEdge(edges, &edgeCount, face.c, face.a))
-                {
-                    result->contactNormal = best.normal;
-                    result->penetrationDepth = best.distance;
-                    return;
-                }
+                AddEPAEdge(edges, face.a, face.b);
+                AddEPAEdge(edges, face.b, face.c);
+                AddEPAEdge(edges, face.c, face.a);
             }
         }
 
-        for (int32 i = 0; i < edgeCount; ++i)
+        for (int32 i = 0; i < edges.Count(); ++i)
         {
-            AddEPAFace(faces, &faceCount, vertices, edges[i].a, edges[i].b, newIndex);
+            if (!AddEPAFace(faces, vertices, edges[i].a, edges[i].b, newIndex, center))
+            {
+                result->contactNormal = best.normal;
+                result->penetrationDepth = best.distance;
+                return;
+            }
         }
     }
 
