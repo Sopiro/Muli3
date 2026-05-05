@@ -1,5 +1,6 @@
 #include "muli3/collision.h"
 #include "muli3/box.h"
+#include "muli3/capsule.h"
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
@@ -607,6 +608,75 @@ bool BoxVsSphere(
     return true;
 }
 
+bool CapsuleVsSphere(
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+)
+{
+    const Capsule* capsule = (const Capsule*)a;
+
+    Vec3 pa = capsule->GetVertexA();
+    Vec3 pb = capsule->GetVertexB();
+    Vec3 ab = pb - pa;
+
+    Vec3 centerB = Mul(transformB, b->GetCenter());
+    Vec3 localP = MulT(transformA, centerB);
+
+    float ab2 = Dot(ab, ab);
+    float t = 0.0f;
+    if (ab2 > epsilon)
+    {
+        t = Clamp(Dot(localP - pa, ab) / ab2, 0.0f, 1.0f);
+    }
+
+    Vec3 closest = pa + ab * t;
+    Vec3 normal = localP - closest;
+    float distance = normal.Normalize();
+
+    if (distance <= epsilon)
+    {
+        Vec3 axis = NormalizeSafe(ab);
+        if (Length2(axis) <= epsilon)
+        {
+            axis = y_axis;
+        }
+
+        normal = GramSchmidt(localP - capsule->GetCenter(), axis);
+        if (normal.Normalize() == 0.0f)
+        {
+            CoordinateSystem(axis, &normal);
+        }
+    }
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    float radii = ra + rb;
+
+    if (distance > radii)
+    {
+        return false;
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    normal = transformA.q.Rotate(normal);
+    Point supportA;
+    supportA.id = t <= linear_slop ? 0 : (t >= 1.0f - linear_slop ? 1 : 0);
+    supportA.p = Mul(transformA, closest) + normal * ra;
+
+    manifold->contactNormal = normal;
+    manifold->contactPoints[0].id = 0;
+    manifold->contactPoints[0].p = centerB - normal * rb;
+    manifold->referencePoint = supportA;
+    manifold->contactCount = 1;
+    manifold->penetrationDepth = radii - distance;
+    manifold->featureFlipped = false;
+
+    return true;
+}
+
 bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
     GJKResult gjkResult;
@@ -752,7 +822,12 @@ void InitializeDetectionFunctionMap()
     }
 
     collide_function_map[Shape::sphere][Shape::sphere] = SphereVsSphere;
+
+    collide_function_map[Shape::capsule][Shape::sphere] = CapsuleVsSphere;
+    collide_function_map[Shape::capsule][Shape::capsule] = ConvexVsConvex;
+
     collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
+    collide_function_map[Shape::box][Shape::capsule] = ConvexVsConvex;
     collide_function_map[Shape::box][Shape::box] = ConvexVsConvex;
 
     detection_function_initialized = true;

@@ -8,7 +8,7 @@
 namespace muli3
 {
 
-static const char* distanceShapeItems[] = { "Sphere", "Box" };
+static const char* distanceShapeItems[] = { "Sphere", "Capsule", "Box" };
 
 class ComputeDistanceShape : public Demo
 {
@@ -184,6 +184,9 @@ private:
             shape1.reset(new Sphere(size1.x));
             break;
         case 1:
+            shape1.reset(new Capsule(size1.x, size1.y / 2));
+            break;
+        case 2:
             shape1.reset(new Box(size1, convexRadius1));
             break;
         default:
@@ -199,6 +202,9 @@ private:
             shape2.reset(new Sphere(size2.x));
             break;
         case 1:
+            shape2.reset(new Capsule(size2.x, size2.y / 2));
+            break;
+        case 2:
             shape2.reset(new Box(size2, convexRadius2));
             break;
         default:
@@ -206,16 +212,17 @@ private:
         }
     }
 
-    Transform tf1{ Vec3{ -0.65f, 1.0f, 0.0f } };
-    Transform tf2{ Vec3{ 0.65f, 1.0f, 0.0f } };
-    std::unique_ptr<Shape> shape1;
-    std::unique_ptr<Shape> shape2;
     int32 item1 = 1;
     int32 item2 = 1;
-    Vec3 rot1 = Vec3::zero;
-    Vec3 rot2{ 0.0f, 28.0f, 0.0f };
-    Vec3 size1{ 0.55f, 0.55f, 0.55f };
-    Vec3 size2{ 0.7f, 0.5f, 0.6f };
+
+    Transform tf1;
+    Transform tf2;
+    std::unique_ptr<Shape> shape1;
+    std::unique_ptr<Shape> shape2;
+    Vec3 rot1;
+    Vec3 rot2;
+    Vec3 size1;
+    Vec3 size2;
     float convexRadius1 = default_radius;
     float convexRadius2 = default_radius;
     Vec3 pointA = Vec3::zero;

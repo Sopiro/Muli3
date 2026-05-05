@@ -77,10 +77,15 @@ GLuint Mesh::GetVAO() const
     return vao;
 }
 
-std::vector<MeshVertex> BuildSphereVertices(int32 segments, int32 rings)
+void BuildSphereMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings)
 {
-    std::vector<MeshVertex> vertices;
-    vertices.reserve((size_t)((segments + 1) * (rings + 1)));
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve((size_t)((segments + 1) * (rings + 1)));
+    indices->reserve((size_t)(segments * rings * 6));
 
     for (int32 ring = 0; ring <= rings; ++ring)
     {
@@ -98,17 +103,9 @@ std::vector<MeshVertex> BuildSphereVertices(int32 segments, int32 rings)
                 std::sin(theta) * std::sin(phi),
             };
 
-            vertices.push_back(MeshVertex{ normal, normal, Vec2{ u, v } });
+            vertices->push_back(MeshVertex{ normal, normal, Vec2{ u, v } });
         }
     }
-
-    return vertices;
-}
-
-std::vector<uint32> BuildSphereIndices(int32 segments, int32 rings)
-{
-    std::vector<uint32> indices;
-    indices.reserve((size_t)(segments * rings * 6));
 
     for (int32 ring = 0; ring < rings; ++ring)
     {
@@ -119,22 +116,238 @@ std::vector<uint32> BuildSphereIndices(int32 segments, int32 rings)
             const uint32 c = a + 1;
             const uint32 d = b + 1;
 
-            indices.push_back(a);
-            indices.push_back(c);
-            indices.push_back(b);
+            indices->push_back(a);
+            indices->push_back(c);
+            indices->push_back(b);
 
-            indices.push_back(c);
-            indices.push_back(d);
-            indices.push_back(b);
+            indices->push_back(c);
+            indices->push_back(d);
+            indices->push_back(b);
+        }
+    }
+}
+
+void BuildCapsuleMesh(
+    std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings, float height, float inRadius
+)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve((size_t)((segments + 1) * (rings * 2 + 2)));
+    indices->reserve((size_t)(segments * (rings * 2 + 1) * 6));
+
+    const float halfHeight = height * 0.5f;
+    const int32 rowCount = rings * 2 + 2;
+
+    for (int32 ring = 0; ring <= rings; ++ring)
+    {
+        const float theta = (float)ring / (float)rings * pi * 0.5f;
+        const float y = std::cos(theta);
+        const float radius = std::sin(theta);
+
+        for (int32 segment = 0; segment <= segments; ++segment)
+        {
+            const float u = (float)segment / (float)segments;
+            const float phi = u * 2.0f * pi;
+            const Vec3 normal{ radius * std::cos(phi), y, radius * std::sin(phi) };
+            vertices->push_back(
+                MeshVertex{ Vec3{ inRadius * normal.x, halfHeight + inRadius * normal.y, inRadius * normal.z }, normal,
+                            Vec2{ u, (float)ring / (float)(rowCount - 1) } }
+            );
         }
     }
 
-    return indices;
+    for (int32 segment = 0; segment <= segments; ++segment)
+    {
+        const float u = (float)segment / (float)segments;
+        const float phi = u * 2.0f * pi;
+        const Vec3 normal{ std::cos(phi), 0.0f, std::sin(phi) };
+        vertices->push_back(
+            MeshVertex{ Vec3{ inRadius * normal.x, -halfHeight, inRadius * normal.z }, normal,
+                        Vec2{ u, (float)(rings + 1) / (float)(rowCount - 1) } }
+        );
+    }
+
+    for (int32 ring = 1; ring <= rings; ++ring)
+    {
+        const float theta = pi * 0.5f + (float)ring / (float)rings * pi * 0.5f;
+        const float y = std::cos(theta);
+        const float radius = std::sin(theta);
+
+        for (int32 segment = 0; segment <= segments; ++segment)
+        {
+            const float u = (float)segment / (float)segments;
+            const float phi = u * 2.0f * pi;
+            const Vec3 normal{ radius * std::cos(phi), y, radius * std::sin(phi) };
+            vertices->push_back(
+                MeshVertex{ Vec3{ inRadius * normal.x, -halfHeight + inRadius * normal.y, inRadius * normal.z }, normal,
+                            Vec2{ u, (float)(rings + 1 + ring) / (float)(rowCount - 1) } }
+            );
+        }
+    }
+
+    for (int32 row = 0; row < rowCount - 1; ++row)
+    {
+        for (int32 segment = 0; segment < segments; ++segment)
+        {
+            const uint32 a = (uint32)(row * (segments + 1) + segment);
+            const uint32 b = a + (uint32)(segments + 1);
+            const uint32 c = a + 1;
+            const uint32 d = b + 1;
+
+            indices->push_back(a);
+            indices->push_back(c);
+            indices->push_back(b);
+
+            indices->push_back(c);
+            indices->push_back(d);
+            indices->push_back(b);
+        }
+    }
 }
 
-std::vector<MeshVertex> BuildBoxVertices()
+void BuildCapsuleTopMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings)
 {
-    return {
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve((size_t)((segments + 1) * (rings + 1)));
+    indices->reserve((size_t)(segments * rings * 6));
+
+    for (int32 ring = 0; ring <= rings; ++ring)
+    {
+        const float v = (float)ring / (float)rings;
+        const float theta = v * pi * 0.5f;
+        const float y = std::cos(theta);
+        const float radius = std::sin(theta);
+
+        for (int32 segment = 0; segment <= segments; ++segment)
+        {
+            const float u = (float)segment / (float)segments;
+            const float phi = u * 2.0f * pi;
+            Vec3 normal{ radius * std::cos(phi), y, radius * std::sin(phi) };
+            vertices->push_back(MeshVertex{ normal, normal, Vec2{ u, v } });
+        }
+    }
+
+    for (int32 ring = 0; ring < rings; ++ring)
+    {
+        for (int32 segment = 0; segment < segments; ++segment)
+        {
+            const uint32 a = (uint32)(ring * (segments + 1) + segment);
+            const uint32 b = a + (uint32)(segments + 1);
+            const uint32 c = a + 1;
+            const uint32 d = b + 1;
+
+            indices->push_back(a);
+            indices->push_back(c);
+            indices->push_back(b);
+
+            indices->push_back(c);
+            indices->push_back(d);
+            indices->push_back(b);
+        }
+    }
+}
+
+void BuildCapsuleBottomMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve((size_t)((segments + 1) * (rings + 1)));
+    indices->reserve((size_t)(segments * rings * 6));
+
+    for (int32 ring = 0; ring <= rings; ++ring)
+    {
+        const float v = (float)ring / (float)rings;
+        const float theta = pi * 0.5f + v * pi * 0.5f;
+        const float y = std::cos(theta);
+        const float radius = std::sin(theta);
+
+        for (int32 segment = 0; segment <= segments; ++segment)
+        {
+            const float u = (float)segment / (float)segments;
+            const float phi = u * 2.0f * pi;
+            Vec3 normal{ radius * std::cos(phi), y, radius * std::sin(phi) };
+            vertices->push_back(MeshVertex{ normal, normal, Vec2{ u, v } });
+        }
+    }
+
+    for (int32 ring = 0; ring < rings; ++ring)
+    {
+        for (int32 segment = 0; segment < segments; ++segment)
+        {
+            const uint32 a = (uint32)(ring * (segments + 1) + segment);
+            const uint32 b = a + (uint32)(segments + 1);
+            const uint32 c = a + 1;
+            const uint32 d = b + 1;
+
+            indices->push_back(a);
+            indices->push_back(c);
+            indices->push_back(b);
+
+            indices->push_back(c);
+            indices->push_back(d);
+            indices->push_back(b);
+        }
+    }
+}
+
+void BuildCapsuleMidMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve((size_t)((segments + 1) * 2));
+    indices->reserve((size_t)(segments * 6));
+
+    for (int32 yIndex = 0; yIndex < 2; ++yIndex)
+    {
+        const float y = yIndex == 0 ? 1.0f : -1.0f;
+        const float v = (float)yIndex;
+
+        for (int32 segment = 0; segment <= segments; ++segment)
+        {
+            const float u = (float)segment / (float)segments;
+            const float phi = u * 2.0f * pi;
+            Vec3 normal{ std::cos(phi), 0.0f, std::sin(phi) };
+            vertices->push_back(MeshVertex{ Vec3{ normal.x, y, normal.z }, normal, Vec2{ u, v } });
+        }
+    }
+
+    for (int32 segment = 0; segment < segments; ++segment)
+    {
+        const uint32 a = (uint32)segment;
+        const uint32 b = a + (uint32)(segments + 1);
+        const uint32 c = a + 1;
+        const uint32 d = b + 1;
+
+        indices->push_back(a);
+        indices->push_back(c);
+        indices->push_back(b);
+
+        indices->push_back(c);
+        indices->push_back(d);
+        indices->push_back(b);
+    }
+}
+
+void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    *vertices = {
         MeshVertex{ Vec3{ -1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 0.0f, 0.0f } },
         MeshVertex{ Vec3{ 1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 1.0f, 0.0f } },
         MeshVertex{ Vec3{ 1.0f, 1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 1.0f, 1.0f } },
@@ -165,71 +378,68 @@ std::vector<MeshVertex> BuildBoxVertices()
         MeshVertex{ Vec3{ 1.0f, 1.0f, 1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 1.0f, 1.0f } },
         MeshVertex{ Vec3{ -1.0f, 1.0f, 1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 1.0f } },
     };
-}
 
-std::vector<uint32> BuildBoxIndices()
-{
-    return {
-        0, 2, 1, 0, 3, 2,
-        4, 5, 6, 4, 6, 7,
-        8, 10, 9, 8, 11, 10,
-        12, 14, 13, 12, 15, 14,
-        16, 18, 17, 16, 19, 18,
-        20, 22, 21, 20, 23, 22,
+    *indices = {
+        0,  2,  1,  0,  3,  2,  4,  5,  6,  4,  6,  7,  8,  10, 9,  8,  11, 10,
+        12, 14, 13, 12, 15, 14, 16, 18, 17, 16, 19, 18, 20, 22, 21, 20, 23, 22,
     };
 }
 
-std::vector<MeshVertex> BuildGridVertices(int32 halfExtent, float spacing)
+void BuildGridMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 halfExtent, float spacing)
 {
-    std::vector<MeshVertex> vertices;
-    vertices.reserve((size_t)((halfExtent * 2 + 1) * 4));
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve((size_t)((halfExtent * 2 + 1) * 4));
 
     for (int32 i = -halfExtent; i <= halfExtent; ++i)
     {
         const float value = (float)i * spacing;
 
-        vertices.push_back(MeshVertex{ Vec3{ value, 0.0f, -halfExtent * spacing }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } });
-        vertices.push_back(MeshVertex{ Vec3{ value, 0.0f, halfExtent * spacing }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } });
+        vertices->push_back(
+            MeshVertex{ Vec3{ value, 0.0f, -halfExtent * spacing }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } }
+        );
+        vertices->push_back(
+            MeshVertex{ Vec3{ value, 0.0f, halfExtent * spacing }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } }
+        );
 
-        vertices.push_back(MeshVertex{ Vec3{ -halfExtent * spacing, 0.0f, value }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } });
-        vertices.push_back(MeshVertex{ Vec3{ halfExtent * spacing, 0.0f, value }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } });
+        vertices->push_back(
+            MeshVertex{ Vec3{ -halfExtent * spacing, 0.0f, value }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } }
+        );
+        vertices->push_back(
+            MeshVertex{ Vec3{ halfExtent * spacing, 0.0f, value }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } }
+        );
     }
 
-    return vertices;
-}
-
-std::vector<uint32> BuildGridIndices(int32 halfExtent)
-{
     const int32 lineCount = halfExtent * 2 + 1;
-    std::vector<uint32> indices;
-    indices.reserve((size_t)(lineCount * 4));
+    indices->reserve((size_t)(lineCount * 4));
 
     uint32 vertex = 0;
     for (int32 i = 0; i < lineCount; ++i)
     {
-        indices.push_back(vertex + 0);
-        indices.push_back(vertex + 1);
-        indices.push_back(vertex + 2);
-        indices.push_back(vertex + 3);
+        indices->push_back(vertex + 0);
+        indices->push_back(vertex + 1);
+        indices->push_back(vertex + 2);
+        indices->push_back(vertex + 3);
         vertex += 4;
     }
-
-    return indices;
 }
 
-std::vector<MeshVertex> BuildPlaneVertices()
+void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices)
 {
-    return {
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    *vertices = {
         MeshVertex{ Vec3{ -1.0f, 0.0f, -1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 0.0f } },
         MeshVertex{ Vec3{ 1.0f, 0.0f, -1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 1.0f, 0.0f } },
         MeshVertex{ Vec3{ 1.0f, 0.0f, 1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 1.0f, 1.0f } },
         MeshVertex{ Vec3{ -1.0f, 0.0f, 1.0f }, Vec3{ 0.0f, 1.0f, 0.0f }, Vec2{ 0.0f, 1.0f } },
     };
-}
 
-std::vector<uint32> BuildPlaneIndices()
-{
-    return { 0, 2, 1, 0, 3, 2 };
+    *indices = { 0, 2, 1, 0, 3, 2 };
 }
 
 } // namespace muli3

@@ -32,13 +32,15 @@ private:
     GLenum primitive = GL_TRIANGLES;
 };
 
-std::vector<MeshVertex> BuildSphereVertices(int32 segments, int32 rings);
-std::vector<uint32> BuildSphereIndices(int32 segments, int32 rings);
-std::vector<MeshVertex> BuildBoxVertices();
-std::vector<uint32> BuildBoxIndices();
-std::vector<MeshVertex> BuildGridVertices(int32 halfExtent, float spacing);
-std::vector<uint32> BuildGridIndices(int32 halfExtent);
-std::vector<MeshVertex> BuildPlaneVertices();
-std::vector<uint32> BuildPlaneIndices();
+void BuildSphereMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings);
+void BuildCapsuleMesh(
+    std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings, float height, float radius
+);
+void BuildCapsuleTopMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings);
+void BuildCapsuleBottomMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings);
+void BuildCapsuleMidMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments);
+void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
+void BuildGridMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 halfExtent, float spacing);
+void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
 
 } // namespace muli3

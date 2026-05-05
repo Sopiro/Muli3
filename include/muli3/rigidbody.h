@@ -64,6 +64,12 @@ public:
     Shape* CreateShape(Shape* shape, const Transform& transform = identity, float density = default_density);
     void DestroyShape();
     Shape* CreateSphereShape(float radius, const Transform& transform = identity, float density = default_density);
+    Shape* CreateCapsuleShape(
+        float height,
+        float radius,
+        const Transform& transform = identity,
+        float density = default_density
+    );
     Shape* CreateBoxShape(
         float width,
         float height,

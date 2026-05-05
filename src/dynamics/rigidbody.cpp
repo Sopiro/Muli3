@@ -1,5 +1,6 @@
 #include "muli3/rigidbody.h"
 #include "muli3/box.h"
+#include "muli3/capsule.h"
 #include "muli3/shape.h"
 #include "muli3/sphere.h"
 #include "muli3/world.h"
@@ -202,6 +203,12 @@ Shape* RigidBody::CreateSphereShape(float radius, const Transform& shapeTransfor
 {
     Sphere sphere{ radius };
     return CreateShape(&sphere, shapeTransform, density);
+}
+
+Shape* RigidBody::CreateCapsuleShape(float height, float radius, const Transform& shapeTransform, float density)
+{
+    Capsule capsule{ height, radius };
+    return CreateShape(&capsule, shapeTransform, density);
 }
 
 Shape* RigidBody::CreateBoxShape(

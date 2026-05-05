@@ -1,5 +1,6 @@
 #include "muli3/world.h"
 #include "muli3/box.h"
+#include "muli3/capsule.h"
 #include "muli3/island.h"
 #include "muli3/sphere.h"
 
@@ -68,6 +69,13 @@ RigidBody* World::CreateSphere(float radius, const Transform& transform, RigidBo
     return b;
 }
 
+RigidBody* World::CreateCapsule(float height, float radius, const Transform& transform, RigidBody::Type type, float density)
+{
+    RigidBody* b = CreateEmptyBody(transform, type);
+    b->CreateCapsuleShape(height, radius, identity, density);
+    return b;
+}
+
 RigidBody* World::CreateBox(
     float width, float height, float depth, const Transform& transform, RigidBody::Type type, float radius, float density
 )
@@ -99,10 +107,15 @@ float World::Step(float dt)
 
     linearAllocator.GrowMemory();
 
-    contactGraph.UpdateContactGraph();
-    contactGraph.EvaluateContacts();
+    {
+        // Update broad-phase contact graph
+        contactGraph.UpdateContactGraph();
 
-    Solve();
+        // Narrow-phase
+        contactGraph.EvaluateContacts();
+
+        Solve();
+    }
 
     for (RigidBody* body : destroyBodyBuffer)
     {
@@ -125,12 +138,6 @@ void World::Destroy(RigidBody* body)
     }
 
     MuliAssert(body->world == this);
-    if (body->world != this)
-    {
-        return;
-    }
-
-    destroyBodyBuffer.erase(std::remove(destroyBodyBuffer.begin(), destroyBodyBuffer.end(), body), destroyBodyBuffer.end());
 
     body->DestroyShape();
     contactGraph.RemoveBody(body);
@@ -141,43 +148,34 @@ void World::Destroy(RigidBody* body)
     if (body == bodyListTail) bodyListTail = body->prev;
     --bodyCount;
 
-    body->shape = nullptr;
-    body->world = nullptr;
-    body->prev = nullptr;
-    body->next = nullptr;
-    body->contactList = nullptr;
-    body->node = AABBTree::nullNode;
     FreeBody(body);
 }
 
-void World::Destroy(std::span<RigidBody*> inBodies)
+void World::Destroy(std::span<RigidBody*> bodies)
 {
-    std::vector<RigidBody*> temp{ inBodies.begin(), inBodies.end() };
-    for (RigidBody* body : temp)
+    std::unordered_set<RigidBody*> destroyed;
+
+    for (size_t i = 0; i < bodies.size(); ++i)
     {
-        if (body && body->world == this)
+        RigidBody* b = bodies[i];
+
+        if (destroyed.find(b) != destroyed.end())
         {
-            Destroy(body);
+            destroyed.insert(b);
+            Destroy(b);
         }
     }
 }
 
 void World::BufferDestroy(RigidBody* body)
 {
-    if (body == nullptr)
-    {
-        return;
-    }
-
-    if (std::find(destroyBodyBuffer.begin(), destroyBodyBuffer.end(), body) == destroyBodyBuffer.end())
-    {
-        destroyBodyBuffer.push_back(body);
-    }
+    MuliAssert(body != nullptr);
+    destroyBodyBuffer.push_back(body);
 }
 
-void World::BufferDestroy(std::span<RigidBody*> inBodies)
+void World::BufferDestroy(std::span<RigidBody*> bodies)
 {
-    for (RigidBody* body : inBodies)
+    for (RigidBody* body : bodies)
     {
         BufferDestroy(body);
     }
@@ -334,6 +332,11 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
         void* mem = blockAllocator.Allocate(sizeof(Sphere));
         return new (mem) Sphere(*(const Sphere*)shape, transform);
     }
+    case Shape::capsule:
+    {
+        void* mem = blockAllocator.Allocate(sizeof(Capsule));
+        return new (mem) Capsule(*(const Capsule*)shape, transform);
+    }
     case Shape::box:
     {
         void* mem = blockAllocator.Allocate(sizeof(Box));
@@ -354,6 +357,10 @@ void World::FreeShape(Shape* shape)
     case Shape::sphere:
         ((Sphere*)shape)->~Sphere();
         blockAllocator.Free(shape, sizeof(Sphere));
+        break;
+    case Shape::capsule:
+        ((Capsule*)shape)->~Capsule();
+        blockAllocator.Free(shape, sizeof(Capsule));
         break;
     case Shape::box:
         ((Box*)shape)->~Box();

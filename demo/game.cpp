@@ -10,6 +10,8 @@ extern void SetUpdateRate(muli3::int32 newUpdateRate);
 namespace muli3
 {
 
+constexpr float g_throwInterval = 0.1f;
+
 Game::Game()
 {
     bool rendererInitialized = renderer.Initialize();
@@ -98,6 +100,45 @@ void Game::UpdateInput()
     EnableKeyboardShortcut();
 
     demo->Update(dt, window->GetCursorHidden());
+
+    if (!ImGui::GetIO().WantCaptureKeyboard)
+    {
+        bool shift = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || Input::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
+
+        if (shift)
+        {
+            bool throwSphere = Input::IsKeyDown(GLFW_KEY_1) || Input::IsKeyDown(GLFW_KEY_KP_1);
+            bool throwCapsule = Input::IsKeyDown(GLFW_KEY_2) || Input::IsKeyDown(GLFW_KEY_KP_2);
+            bool throwBox = Input::IsKeyDown(GLFW_KEY_3) || Input::IsKeyDown(GLFW_KEY_KP_3);
+
+            if (throwSphere || throwCapsule || throwBox)
+            {
+                throwCooldown -= dt;
+                if (throwCooldown <= 0.0f)
+                {
+                    if (throwSphere) ThrowShape(Shape::sphere);
+                    if (throwCapsule) ThrowShape(Shape::capsule);
+                    if (throwBox) ThrowShape(Shape::box);
+                    throwCooldown = g_throwInterval;
+                }
+            }
+            else
+            {
+                throwCooldown = 0.0f;
+            }
+        }
+        else
+        {
+            throwCooldown = 0.0f;
+            if (Input::IsKeyPressed(GLFW_KEY_1) || Input::IsKeyPressed(GLFW_KEY_KP_1)) ThrowShape(Shape::sphere);
+            if (Input::IsKeyPressed(GLFW_KEY_2) || Input::IsKeyPressed(GLFW_KEY_KP_2)) ThrowShape(Shape::capsule);
+            if (Input::IsKeyPressed(GLFW_KEY_3) || Input::IsKeyPressed(GLFW_KEY_KP_3)) ThrowShape(Shape::box);
+        }
+    }
+    else
+    {
+        throwCooldown = 0.0f;
+    }
 }
 
 void Game::EnableKeyboardShortcut()
@@ -109,6 +150,7 @@ void Game::EnableKeyboardShortcut()
 
     if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
     if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_outlined = !options.draw_outlined;
+    if (Input::IsKeyPressed(GLFW_KEY_L)) options.colorize_island = !options.colorize_island;
     if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
     if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
     if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
@@ -120,6 +162,36 @@ void Game::EnableKeyboardShortcut()
     if (Input::IsKeyPressed(GLFW_KEY_G))
     {
         demo->GetWorldSettings().apply_gravity = !demo->GetWorldSettings().apply_gravity;
+    }
+}
+
+void Game::ThrowShape(Shape::Type type)
+{
+    Camera& camera = demo->GetCamera();
+    Vec3 forward = camera.GetForward();
+    Vec3 position = camera.GetPosition() + forward * 1.4f;
+    Transform transform{ position, Quat::FromEuler(camera.rotation) };
+    RigidBody* body = nullptr;
+
+    switch (type)
+    {
+    case Shape::sphere:
+        body = demo->GetWorld().CreateSphere(0.25f, transform);
+        break;
+    case Shape::capsule:
+        body = demo->GetWorld().CreateCapsule(0.65f, 0.18f, transform);
+        break;
+    case Shape::box:
+        body = demo->GetWorld().CreateBox(0.45f, transform);
+        break;
+    default:
+        break;
+    }
+
+    if (body)
+    {
+        body->SetLinearVelocity(forward * 18.0f);
+        body->SetAngularVelocity(camera.GetUp() * 6.0f + camera.GetRight() * 4.0f);
     }
 }
 

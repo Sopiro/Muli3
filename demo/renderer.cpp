@@ -93,7 +93,7 @@ float ComputeShadow(vec3 normal, vec3 lightDir)
 void main()
 {
     vec2 uv = vec2(fract(vTexCoord.x), clamp(vTexCoord.y, 0.0, 1.0));
-    vec2 tiledUv = uv * vec2(16.0, 12.0);
+    vec2 tiledUv = uv * vec2(8.0, 6.0);
     float checker = CheckerMask(tiledUv);
 
     vec3 colorA = vec3(0.96, 0.96, 0.96);
@@ -248,12 +248,22 @@ void InitializeColors()
 
 Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
 {
-    if (body.IsStatic() || body.IsSleeping())
+    if (body.IsStatic())
     {
         return Renderer::default_white;
     }
 
-    int32 colorIndex = options.colorize_island ? body.GetIslandID() - 1 : body.GetType() - 2;
+    if (options.colorize_island == false)
+    {
+        return body.IsSleeping() ? Vec4{ 0.9f, 0.9f, 0.9f, Renderer::default_white.w } : Renderer::default_white;
+    }
+
+    if (body.IsSleeping())
+    {
+        return Renderer::default_white;
+    }
+
+    int32 colorIndex = body.GetIslandID() - 1;
     if (colorIndex < 0)
     {
         return Renderer::default_white;
@@ -316,6 +326,15 @@ bool Renderer::CreatePrimitiveResources()
     return primVAO != 0 && primVBO != 0;
 }
 
+void Renderer::SetShapeInstanceAttributes()
+{
+    SetInstanceAttribute(3, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ex));
+    SetInstanceAttribute(4, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ey));
+    SetInstanceAttribute(5, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ez));
+    SetInstanceAttribute(6, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ew));
+    SetInstanceAttribute(7, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, color));
+}
+
 bool Renderer::CreateShapeResources()
 {
     glGenBuffers(1, &shapeInstanceVBO);
@@ -324,19 +343,23 @@ bool Renderer::CreateShapeResources()
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     glBufferData(GL_ARRAY_BUFFER, g_maxShapeBatchCount * sizeof(ShapeInstance), nullptr, GL_DYNAMIC_DRAW);
 
-    SetInstanceAttribute(3, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ex));
-    SetInstanceAttribute(4, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ey));
-    SetInstanceAttribute(5, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ez));
-    SetInstanceAttribute(6, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ew));
-    SetInstanceAttribute(7, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, color));
+    SetShapeInstanceAttributes();
+
+    glBindVertexArray(capsuleTopMesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+
+    glBindVertexArray(capsuleBottomMesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+
+    glBindVertexArray(capsuleMidMesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
 
     glBindVertexArray(boxMesh.GetVAO());
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetInstanceAttribute(3, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ex));
-    SetInstanceAttribute(4, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ey));
-    SetInstanceAttribute(5, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ez));
-    SetInstanceAttribute(6, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, model.ew));
-    SetInstanceAttribute(7, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, color));
+    SetShapeInstanceAttributes();
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -403,14 +426,32 @@ bool Renderer::Initialize()
     shapeShader.Use();
     shapeShader.SetInt("uShadowMap", 0);
 
-    sphereMesh.Upload(BuildSphereVertices(48, 24), BuildSphereIndices(48, 24), GL_TRIANGLES);
-    boxMesh.Upload(BuildBoxVertices(), BuildBoxIndices(), GL_TRIANGLES);
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32> indices;
+
+    BuildSphereMesh(&vertices, &indices, 24, 12);
+    sphereMesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    BuildCapsuleTopMesh(&vertices, &indices, 24, 12);
+    capsuleTopMesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    BuildCapsuleBottomMesh(&vertices, &indices, 24, 12);
+    capsuleBottomMesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    BuildCapsuleMidMesh(&vertices, &indices, 24);
+    capsuleMidMesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    BuildBoxMesh(&vertices, &indices);
+    boxMesh.Upload(vertices, indices, GL_TRIANGLES);
     if (!CreateShapeResources())
     {
         return false;
     }
 
     sphereInstances.reserve(g_maxShapeBatchCount);
+    capsuleTopInstances.reserve(g_maxShapeBatchCount);
+    capsuleBottomInstances.reserve(g_maxShapeBatchCount);
+    capsuleMidInstances.reserve(g_maxShapeBatchCount);
     boxInstances.reserve(g_maxShapeBatchCount);
     points.resize(g_maxVertexCount);
     lines.resize(g_maxVertexCount);
@@ -427,6 +468,9 @@ void Renderer::Shutdown()
 
     DestroyShapeResources();
     sphereMesh.Destroy();
+    capsuleTopMesh.Destroy();
+    capsuleBottomMesh.Destroy();
+    capsuleMidMesh.Destroy();
     boxMesh.Destroy();
     shapeShader.Destroy();
     shadowShader.Destroy();
@@ -464,6 +508,75 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         if (sphereInstances.size() == g_maxShapeBatchCount)
         {
             FlushSpheres(shader);
+        }
+    }
+    else if (shape->GetType() == Shape::capsule)
+    {
+        const Capsule* capsule = (const Capsule*)shape;
+        Vec3 a = Mul(transform, capsule->GetVertexA());
+        Vec3 b = Mul(transform, capsule->GetVertexB());
+        Vec3 axis = b - a;
+        float height = axis.Normalize();
+        float radius = capsule->GetRadius() * Max(Abs(transform.s.x), Max(Abs(transform.s.y), Abs(transform.s.z)));
+        Vec3 center = (a + b) * 0.5f;
+
+        if (height == 0.0f)
+        {
+            axis = transform.q.Rotate(y_axis);
+        }
+
+        Vec3 localAxis = capsule->GetVertexB() - capsule->GetVertexA();
+        if (localAxis.Normalize() == 0.0f)
+        {
+            localAxis = y_axis;
+        }
+
+        Vec3 localX = x_axis - Dot(x_axis, localAxis) * localAxis;
+        if (localX.Normalize() == 0.0f)
+        {
+            localX = z_axis - Dot(z_axis, localAxis) * localAxis;
+            localX.Normalize();
+        }
+
+        Vec3 x = transform.q.Rotate(localX);
+        x = x - Dot(x, axis) * axis;
+        if (x.Normalize() == 0.0f)
+        {
+            x = z_axis - Dot(z_axis, axis) * axis;
+            if (x.Normalize() == 0.0f)
+            {
+                x = x_axis;
+            }
+        }
+        Vec3 z = Cross(x, axis);
+        float halfHeight = height * 0.5f;
+
+        Mat4 model{
+            Vec4{ x * radius, 0.0f },
+            Vec4{ axis * radius, 0.0f },
+            Vec4{ z * radius, 0.0f },
+            Vec4{ center, 1.0f },
+        };
+        Mat4 topModel = model;
+        topModel.ew = Vec4{ center + axis * halfHeight, 1.0f };
+
+        Mat4 bottomModel = model;
+        bottomModel.ew = Vec4{ center - axis * halfHeight, 1.0f };
+
+        Mat4 midModel{
+            Vec4{ x * radius, 0.0f },
+            Vec4{ axis * halfHeight, 0.0f },
+            Vec4{ z * radius, 0.0f },
+            Vec4{ center, 1.0f },
+        };
+
+        capsuleTopInstances.emplace_back(topModel, color);
+        capsuleBottomInstances.emplace_back(bottomModel, color);
+        capsuleMidInstances.emplace_back(midModel, color);
+
+        if (capsuleTopInstances.size() == g_maxShapeBatchCount)
+        {
+            FlushCapsules(shader);
         }
     }
     else if (shape->GetType() == Shape::box)
@@ -519,6 +632,33 @@ void Renderer::FlushSpheres(const Shader& shader)
     sphereMesh.DrawInstanced((GLsizei)sphereInstances.size());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     sphereInstances.clear();
+}
+
+void Renderer::FlushCapsules(const Shader& shader)
+{
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleTopInstances.size() * sizeof(ShapeInstance)), capsuleTopInstances.data()
+    );
+    capsuleTopMesh.DrawInstanced((GLsizei)capsuleTopInstances.size());
+
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleBottomInstances.size() * sizeof(ShapeInstance)), capsuleBottomInstances.data()
+    );
+    capsuleBottomMesh.DrawInstanced((GLsizei)capsuleBottomInstances.size());
+
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleMidInstances.size() * sizeof(ShapeInstance)), capsuleMidInstances.data()
+    );
+    capsuleMidMesh.DrawInstanced((GLsizei)capsuleMidInstances.size());
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    capsuleTopInstances.clear();
+    capsuleBottomInstances.clear();
+    capsuleMidInstances.clear();
 }
 
 void Renderer::FlushBoxes(const Shader& shader)
@@ -619,6 +759,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             DrawBody(*body, default_white, shadowShader);
         }
         FlushSpheres(shadowShader);
+        FlushCapsules(shadowShader);
         FlushBoxes(shadowShader);
     }
 
@@ -645,6 +786,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
                 DrawBody(*body, GetBodyColor(*body, options), shapeShader);
             }
             FlushSpheres(shapeShader);
+            FlushCapsules(shapeShader);
             FlushBoxes(shapeShader);
         }
     }
@@ -661,6 +803,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             DrawBody(*body, default_black, shapeShader);
         }
         FlushSpheres(shapeShader);
+        FlushCapsules(shapeShader);
         FlushBoxes(shapeShader);
         glEnable(GL_CULL_FACE);
         glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);

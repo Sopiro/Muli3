@@ -7,8 +7,10 @@ Demo::Demo(Game& game)
     : game{ game }
     , renderer{ game.GetRenderer() }
     , options{ game.GetDebugOptions() }
-    , world{ new World(settings) }
 {
+    settings.world_bounds.min.y = -30;
+    world = new World(settings);
+
     camera.Reset();
     camera.position = Vec3{ 0.0f, 5.0f, 10.0f };
     camera.rotation = Vec3{ DegToRad(-20.0f), 0.0f, 0.0f };

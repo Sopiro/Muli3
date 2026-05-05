@@ -20,6 +20,7 @@ public:
     {
         // Order matters!
         sphere = 0,
+        capsule,
         box,
         shape_count,
     };

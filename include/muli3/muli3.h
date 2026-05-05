@@ -8,5 +8,6 @@
 #include "world.h"     // IWYU pragma: export
 
 #include "box.h"       // IWYU pragma: export
+#include "capsule.h"   // IWYU pragma: export
 #include "shape.h"     // IWYU pragma: export
 #include "sphere.h"    // IWYU pragma: export

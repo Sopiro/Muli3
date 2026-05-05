@@ -47,9 +47,16 @@ public:
     void FlushLines();
 
 private:
+    struct ShapeInstance
+    {
+        Mat4 model;
+        Vec4 color;
+    };
+
     bool CreateShadowResources();
     bool CreatePrimitiveResources();
     bool CreateShapeResources();
+    void SetShapeInstanceAttributes();
     void DestroyShadowResources();
     void DestroyPrimitiveResources();
     void DestroyShapeResources();
@@ -58,25 +65,20 @@ private:
     void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushSpheres(const Shader& shader);
+    void FlushCapsules(const Shader& shader);
     void FlushBoxes(const Shader& shader);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
-    struct ShapeInstance
-    {
-        Mat4 model;
-        Vec4 color;
-    };
-
     bool initialized = false;
     Shader shapeShader, shadowShader, primitiveShader;
-    Mesh sphereMesh, boxMesh;
+    Mesh sphereMesh, capsuleTopMesh, capsuleBottomMesh, capsuleMidMesh, boxMesh;
 
     GLuint shadowFramebuffer;
     GLuint shadowDepthTexture;
 
     GLuint primVAO, primVBO, shapeInstanceVBO;
-    std::vector<ShapeInstance> sphereInstances, boxInstances;
+    std::vector<ShapeInstance> sphereInstances, capsuleTopInstances, capsuleBottomInstances, capsuleMidInstances, boxInstances;
 
     int32 pointCount = 0;
     std::vector<Vertex> points;
@@ -161,6 +163,7 @@ inline void Renderer::DrawAABB(const AABB& aabb)
 inline void Renderer::FlushAll()
 {
     if (!sphereInstances.empty()) FlushSpheres(shapeShader);
+    if (!capsuleTopInstances.empty()) FlushCapsules(shapeShader);
     if (!boxInstances.empty()) FlushBoxes(shapeShader);
     if (lineCount > 0) FlushLines();
     if (pointCount > 0) FlushPoints();

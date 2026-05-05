@@ -6,7 +6,7 @@
 namespace muli3
 {
 
-static const char* shapeItems[] = { "Sphere", "Box" };
+static const char* shapeItems[] = { "Sphere", "Capsule", "Box" };
 
 class CollisionDetection : public Demo
 {
@@ -193,9 +193,12 @@ private:
         switch (item1)
         {
         case 0:
-            shape1.reset(new Sphere(size1.x));
+            shape1.reset(new Sphere(size1.x / 2));
             break;
         case 1:
+            shape1.reset(new Capsule(size1.x, size1.y / 2));
+            break;
+        case 2:
             shape1.reset(new Box(size1, convexRadius1));
             break;
         default:
@@ -208,9 +211,12 @@ private:
         switch (item2)
         {
         case 0:
-            shape2.reset(new Sphere(size2.x));
+            shape2.reset(new Sphere(size2.x / 2));
             break;
         case 1:
+            shape2.reset(new Capsule(size2.x, size2.y / 2));
+            break;
+        case 2:
             shape2.reset(new Box(size2, convexRadius2));
             break;
         default:
@@ -219,7 +225,7 @@ private:
     }
 
     int32 item1 = 1;
-    int32 item2 = 1;
+    int32 item2 = 2;
 
     Transform tf1;
     Transform tf2;
