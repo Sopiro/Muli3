@@ -15,7 +15,7 @@ public:
         : Demo(game)
     {
         settings.apply_gravity = false;
-        camera.SetPosition(Vec3{ 0.0f, 1.0f, 2.2f });
+        camera.SetPosition(Vec3{ 0.0f, 0.0f, 3.0f });
         camera.SetRotation(-90.0f, 0.0f);
         camera.speed = 0.2f;
         Reset();
@@ -174,14 +174,14 @@ public:
 private:
     void Reset()
     {
-        tf1 = Transform{ Vec3{ -0.55f, 1.0f, 0.0f } };
-        tf2 = Transform{ Vec3{ 0.55f, 1.0f, 0.0f } };
-        rot1 = Vec3::zero;
-        rot2 = Vec3{ 15.0f, 30.0f, 0.0f };
+        tf1 = Transform{ Vec3{ -1.0f, 0.0f, 0.0f } };
+        tf2 = Transform{ Vec3{ 0, 0.0f, 0.0f } };
+        rot1 = { 0, 0, 0 };
+        rot2 = { 15, 30, 0 };
         tf1.q = Quat::FromEuler(Vec3{ DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z) });
         tf2.q = Quat::FromEuler(Vec3{ DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z) });
-        size1 = Vec3{ 0.65f, 0.65f, 0.65f };
-        size2 = Vec3{ 0.7f, 0.55f, 0.6f };
+        size1 = Vec3{ 1.0f };
+        size2 = Vec3{ 1.0f };
         convexRadius1 = default_radius;
         convexRadius2 = default_radius;
         UpdateShape1();
@@ -218,16 +218,17 @@ private:
         }
     }
 
-    Transform tf1{ Vec3{ -0.55f, 1.0f, 0.0f } };
-    Transform tf2{ Vec3{ 0.55f, 1.0f, 0.0f } };
+    int32 item1 = 1;
+    int32 item2 = 1;
+
+    Transform tf1;
+    Transform tf2;
     std::unique_ptr<Shape> shape1;
     std::unique_ptr<Shape> shape2;
-    int32 item1 = 0;
-    int32 item2 = 1;
-    Vec3 rot1 = Vec3::zero;
-    Vec3 rot2{ 0.0f, 24.0f, 0.0f };
-    Vec3 size1{ 0.65f, 0.65f, 0.65f };
-    Vec3 size2{ 0.7f, 0.55f, 0.6f };
+    Vec3 rot1;
+    Vec3 rot2;
+    Vec3 size1;
+    Vec3 size2;
     float convexRadius1 = default_radius;
     float convexRadius2 = default_radius;
     bool collide = false;

@@ -404,16 +404,7 @@ static void FindContactPoints(
 
         if (clipBegin == clipEnd)
         {
-            float penetration0 = Dot(clipped[0] - planePoint, -planeNormal);
-            float penetration1 = Dot(clipped[1] - planePoint, -planeNormal);
-            if (penetration0 > penetration1)
-            {
-                inc.points[clipBegin].p = clipped[0];
-            }
-            else
-            {
-                inc.points[clipBegin].p = clipped[1];
-            }
+            inc.points[clipBegin].p = clipped[0];
         }
         else
         {
@@ -687,8 +678,8 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
     }
     else
     {
-        // Expand to a full simplex if the gjk termination simplex has vertices less than 3
-        // We need a full n-simplex to start EPA (actually it's rare case)
+        // Expand to a full simplex if the gjk termination simplex has fewer vertices.
+        // Origin-on-line cases need perpendicular fallback directions to avoid a degenerate tetrahedron.
         switch (simplex.count)
         {
         case 1:
@@ -745,7 +736,7 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
         EPA(a, tfA, b, tfB, simplex, &epaResult);
 
         manifold->contactNormal = epaResult.contactNormal;
-        manifold->penetrationDepth = epaResult.penetrationDepth;
+        manifold->penetrationDepth = epaResult.penetrationDepth + radii;
     }
 
     FindContactPoints(manifold->contactNormal, a, tfA, b, tfB, manifold);
