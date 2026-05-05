@@ -159,10 +159,9 @@ void Game::EnableKeyboardShortcut()
     if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
     if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
 
-    if (Input::IsKeyPressed(GLFW_KEY_G))
-    {
-        demo->GetWorldSettings().apply_gravity = !demo->GetWorldSettings().apply_gravity;
-    }
+    WorldSettings& settings = demo->GetWorldSettings();
+    if (Input::IsKeyPressed(GLFW_KEY_G)) settings.apply_gravity = !settings.apply_gravity;
+    if (Input::IsKeyPressed(GLFW_KEY_H)) settings.apply_gyroscopic_force = !settings.apply_gyroscopic_force;
 }
 
 void Game::ThrowShape(Shape::Type type)
@@ -191,7 +190,7 @@ void Game::ThrowShape(Shape::Type type)
     if (body)
     {
         body->SetLinearVelocity(forward * 18.0f);
-        body->SetAngularVelocity(camera.GetUp() * 6.0f + camera.GetRight() * 4.0f);
+        // body->SetAngularVelocity(camera.GetUp() * 6.0f + camera.GetRight() * 4.0f);
     }
 }
 
@@ -272,10 +271,15 @@ void Game::UpdateUI()
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                 if (ImGui::CollapsingHeader("Simulation settings"))
                 {
-                    if (ImGui::Checkbox("Apply gravity", &settings.apply_gravity))
-                    {
-                        world.Awake();
-                    }
+                    // if (ImGui::Checkbox("Apply gravity", &settings.apply_gravity))
+                    // {
+                    //     world.Awake();
+                    // }
+
+                    // if (ImGui::Checkbox("Apply gyroscopic force", &settings.apply_gyroscopic_force))
+                    // {
+                    //     world.Awake();
+                    // }
 
                     ImGui::Text("Constraint solve iterations");
                     ImGui::SetNextItemWidth(120);

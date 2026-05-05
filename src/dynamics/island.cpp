@@ -3,6 +3,18 @@
 namespace muli3
 {
 
+// Erin Catto's numerical method for stable gyroscopic force integration
+static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, float h)
+{
+    Vec3 localW = q.RotateInv(w);
+    Vec3 localL = inertia * localW;
+    Vec3 f = h * Cross(localW, localL);
+    Mat3 gyro = Skew(localW) * inertia - Skew(localL);
+    Mat3 j = inertia + Mat3{ gyro.ex * h, gyro.ey * h, gyro.ez * h };
+    localW -= j.GetInverse() * f;
+    return q.Rotate(localW);
+}
+
 Island::Island(World* world, int32 bodyCapacity, int32 contactCapacity)
     : world{ world }
     , bodyCapacity{ bodyCapacity }
@@ -67,12 +79,16 @@ void Island::Solve()
                 b->linearVelocity += settings.gravity * step.dt;
             }
 
-            const Mat3 rotation{ b->motion.q };
-            const Mat3 worldInvInertia = rotation * b->invInertia * rotation.GetTranspose();
-            const Mat3 worldInertia = rotation * b->inertia * rotation.GetTranspose();
-
             b->linearVelocity += b->force * b->invMass * step.dt;
-            b->angularVelocity += worldInvInertia * (b->torque - Cross(b->angularVelocity, worldInertia * b->angularVelocity)) * step.dt;
+            b->angularVelocity += b->GetWorldInverseInertiaTensor() * b->torque * step.dt;
+
+            if (settings.apply_gyroscopic_force)
+            {
+                b->angularVelocity = SolveGyroscopic(b->motion.q, b->inertia, b->angularVelocity, step.dt);
+            }
+
+            b->linearVelocity *= 1.0f / (1.0f + b->linearDamping * step.dt);
+            b->angularVelocity *= 1.0f / (1.0f + b->angularDamping * step.dt);
         }
     }
 

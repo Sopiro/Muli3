@@ -28,10 +28,12 @@ inline constexpr float default_radius = linear_slop * 2.5f;
 inline constexpr float default_density = 1.0f;
 inline constexpr float default_friction = 0.5f;
 inline constexpr float default_restitution = 0.0f;
+inline constexpr float default_linear_damping = 0.05f;
+inline constexpr float default_angular_damping = 0.05f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 4;
+    int32 velocity_iterations = 3;
     int32 position_iterations = 2;
 
     bool warm_starting = true;
@@ -42,6 +44,8 @@ struct Timestep
 struct WorldSettings
 {
     bool apply_gravity = true;
+    bool apply_gyroscopic_force = false;
+
     bool sleeping = true;
     Vec3 gravity{ 0.0f, -10.0f, 0.0f };
 

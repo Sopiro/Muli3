@@ -57,6 +57,10 @@ public:
     const Vec3& GetAngularVelocity() const;
     void SetAngularVelocity(const Vec3& angularVelocity);
     void SetAngularVelocity(float vx, float vy, float vz);
+    float GetLinearDamping() const;
+    void SetLinearDamping(float linearDamping);
+    float GetAngularDamping() const;
+    void SetAngularDamping(float angularDamping);
 
     void ApplyForce(const Vec3& worldPoint, const Vec3& force, bool awake);
     void ApplyTorque(const Vec3& torque, bool awake);
@@ -64,12 +68,7 @@ public:
     Shape* CreateShape(Shape* shape, const Transform& transform = identity, float density = default_density);
     void DestroyShape();
     Shape* CreateSphereShape(float radius, const Transform& transform = identity, float density = default_density);
-    Shape* CreateCapsuleShape(
-        float height,
-        float radius,
-        const Transform& transform = identity,
-        float density = default_density
-    );
+    Shape* CreateCapsuleShape(float height, float radius, const Transform& transform = identity, float density = default_density);
     Shape* CreateBoxShape(
         float width,
         float height,
@@ -144,6 +143,8 @@ protected:
 
     float restitution;
     float friction;
+    float linearDamping;
+    float angularDamping;
 
     Vec3 force;
     Vec3 torque;
@@ -284,6 +285,26 @@ inline void RigidBody::SetAngularVelocity(float vx, float vy, float vz)
     }
 
     angularVelocity = Vec3{ vx, vy, vz };
+}
+
+inline float RigidBody::GetLinearDamping() const
+{
+    return linearDamping;
+}
+
+inline void RigidBody::SetLinearDamping(float newLinearDamping)
+{
+    linearDamping = newLinearDamping;
+}
+
+inline float RigidBody::GetAngularDamping() const
+{
+    return angularDamping;
+}
+
+inline void RigidBody::SetAngularDamping(float newAngularDamping)
+{
+    angularDamping = newAngularDamping;
 }
 
 inline void RigidBody::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, bool awake)

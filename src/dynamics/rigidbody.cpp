@@ -20,6 +20,8 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , invInertia{ 0.0f }
     , restitution{ default_restitution }
     , friction{ default_friction }
+    , linearDamping{ default_linear_damping }
+    , angularDamping{ default_angular_damping }
     , force{ 0.0f, 0.0f, 0.0f }
     , torque{ 0.0f, 0.0f, 0.0f }
     , islandIndex{ 0 }

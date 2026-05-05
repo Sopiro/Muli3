@@ -670,4 +670,13 @@ inline Mat4 Mat4::LookAt(const Vec3& position, const Vec3& target, const Vec3& u
 
 // Mat4 functions end
 
+inline Mat3 Skew(const Vec3& v)
+{
+    return Mat3{
+        Vec3{ 0.0f, v.z, -v.y },
+        Vec3{ -v.z, 0.0f, v.x },
+        Vec3{ v.y, -v.x, 0.0f },
+    };
+}
+
 } // namespace muli3

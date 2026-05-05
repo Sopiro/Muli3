@@ -10,10 +10,10 @@ struct Timestep;
 
 struct ContactJacobian
 {
-    Vec3 va;  // -dir
-    Vec3 wa;  // -Cross(ra, dir)
-    Vec3 vb;  //  dir
-    Vec3 wb;  //  Cross(rb, dir)
+    Vec3 va; // -dir
+    Vec3 wa; // -Cross(ra, dir)
+    Vec3 vb; //  dir
+    Vec3 wb; //  Cross(rb, dir)
 };
 
 class ContactSolverNormal
