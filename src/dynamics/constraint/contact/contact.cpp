@@ -1,4 +1,5 @@
 #include "muli3/contact.h"
+#include "muli3/callbacks.h"
 #include "muli3/frame.h"
 #include "muli3/settings.h"
 
@@ -8,12 +9,6 @@ namespace muli3
 void Contact::Update()
 {
     flag |= flag_enabled;
-
-    if (!bodyA->shape || !bodyB->shape)
-    {
-        flag &= ~flag_touching;
-        return;
-    }
 
     ContactManifold oldManifold = manifold;
     for (int32 i = 0; i < max_contact_point_count; ++i)
@@ -27,7 +22,7 @@ void Contact::Update()
     }
 
     bool wasTouching = (flag & flag_touching) == flag_touching;
-    bool touching = Collide(bodyA->shape, bodyA->transform, bodyB->shape, bodyB->transform, &manifold);
+    bool touching = Collide(colliderA->shape, bodyA->transform, colliderB->shape, bodyB->transform, &manifold);
 
     if (touching)
     {
@@ -40,6 +35,12 @@ void Contact::Update()
 
     if (touching == false)
     {
+        if (wasTouching)
+        {
+            if (colliderA->ContactListener) colliderA->ContactListener->OnContactEnd(colliderA, colliderB, this);
+            if (colliderB->ContactListener) colliderB->ContactListener->OnContactEnd(colliderB, colliderA, this);
+        }
+
         return;
     }
 
@@ -54,7 +55,6 @@ void Contact::Update()
         b2 = bodyB;
     }
 
-    // Restore the impulses to warm start the solver
     for (int32 n = 0; n < manifold.contactCount; ++n)
     {
         for (int32 o = 0; o < oldManifold.contactCount; ++o)
@@ -69,15 +69,32 @@ void Contact::Update()
         }
     }
 
-    MuliNotUsed(wasTouching);
+    if (wasTouching == false)
+    {
+        if (colliderA->ContactListener) colliderA->ContactListener->OnContactBegin(colliderA, colliderB, this);
+        if (colliderB->ContactListener) colliderB->ContactListener->OnContactBegin(colliderB, colliderA, this);
+    }
+    else
+    {
+        if (colliderA->ContactListener) colliderA->ContactListener->OnContactTouching(colliderA, colliderB, this);
+        if (colliderB->ContactListener) colliderB->ContactListener->OnContactTouching(colliderB, colliderA, this);
+    }
+
+    if (colliderA->ContactListener) colliderA->ContactListener->OnPreSolve(colliderA, colliderB, this);
+    if (colliderB->ContactListener) colliderB->ContactListener->OnPreSolve(colliderB, colliderA, this);
+
+    if (colliderA->IsEnabled() == false || colliderB->IsEnabled() == false)
+    {
+        flag &= ~flag_enabled;
+    }
 }
 
 void Contact::Prepare(const Timestep& step)
 {
-    friction = SafeSqrt(bodyA->friction * bodyB->friction);
-    restitution = Max(bodyA->restitution, bodyB->restitution);
-    restitutionThreshold = restitution_slop;
-    surfaceSpeed = 0.0f;
+    friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
+    restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
+    restitutionThreshold = MixRestitutionTreshold(colliderA->GetRestitutionTreshold(), colliderB->GetRestitutionTreshold());
+    surfaceSpeed = colliderA->GetSurfaceSpeed() + colliderB->GetSurfaceSpeed();
 
     invIA = b1->GetWorldInverseInertiaTensor();
     invIB = b2->GetWorldInverseInertiaTensor();
@@ -98,14 +115,12 @@ void Contact::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    // Solve tangential constraints first
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
         tangent1Solvers[i].Solve(this, normalSolvers + i);
         tangent2Solvers[i].Solve(this, normalSolvers + i);
     }
 
-    // Solve normal constraints
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
         normalSolvers[i].Solve(this);

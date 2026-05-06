@@ -1,6 +1,7 @@
 #include "muli3/world.h"
 #include "muli3/box.h"
 #include "muli3/capsule.h"
+#include "muli3/collider.h"
 #include "muli3/island.h"
 #include "muli3/raycast.h"
 #include "muli3/sphere.h"
@@ -46,10 +47,10 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     b->world = this;
     b->prev = bodyListTail;
     b->next = nullptr;
-    b->node = AABBTree::nullNode;
     b->contactList = nullptr;
     b->jointList = nullptr;
-    b->shape = nullptr;
+    b->colliderList = nullptr;
+    b->colliderCount = 0;
     b->flag &= ~RigidBody::flag_island;
     b->flag |= RigidBody::flag_enabled;
 
@@ -70,14 +71,14 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
 RigidBody* World::CreateSphere(float radius, const Transform& transform, RigidBody::Type type, float density)
 {
     RigidBody* b = CreateEmptyBody(transform, type);
-    b->CreateSphereShape(radius, identity, density);
+    b->CreateSphereCollider(radius, identity, density);
     return b;
 }
 
 RigidBody* World::CreateCapsule(float height, float radius, const Transform& transform, RigidBody::Type type, float density)
 {
     RigidBody* b = CreateEmptyBody(transform, type);
-    b->CreateCapsuleShape(height, radius, identity, density);
+    b->CreateCapsuleCollider(height, radius, identity, density);
     return b;
 }
 
@@ -86,7 +87,7 @@ RigidBody* World::CreateBox(
 )
 {
     RigidBody* b = CreateEmptyBody(transform, type);
-    b->CreateBoxShape(width, height, depth, identity, radius, density);
+    b->CreateBoxCollider(width, height, depth, identity, radius, density);
     return b;
 }
 
@@ -160,8 +161,10 @@ void World::Destroy(RigidBody* body)
         Destroy(je0->joint);
     }
 
-    body->DestroyShape();
-    contactGraph.RemoveBody(body);
+    while (body->colliderList)
+    {
+        body->DestroyCollider(body->colliderList);
+    }
 
     if (body->next) body->next->prev = body->prev;
     if (body->prev) body->prev->next = body->next;
@@ -180,7 +183,7 @@ void World::Destroy(std::span<RigidBody*> bodies)
     {
         RigidBody* b = bodies[i];
 
-        if (destroyed.find(b) != destroyed.end())
+        if (destroyed.find(b) == destroyed.end())
         {
             destroyed.insert(b);
             Destroy(b);
@@ -237,7 +240,7 @@ void World::Destroy(std::span<Joint*> joints)
     {
         Joint* j = joints[i];
 
-        if (destroyed.find(j) != destroyed.end())
+        if (destroyed.find(j) == destroyed.end())
         {
             destroyed.insert(j);
             Destroy(j);
@@ -270,7 +273,7 @@ void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAn
     {
         RayCastAnyCallback* callback;
 
-        float AABBCastCallback(const AABBCastInput& subInput, RigidBody* body)
+        float AABBCastCallback(const AABBCastInput& subInput, Collider* collider)
         {
             RayCastInput rayInput;
             rayInput.from = subInput.from;
@@ -280,13 +283,13 @@ void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAn
 
             RayCastOutput output;
 
-            bool hit = body->GetShape()->RayCast(body->GetTransform(), rayInput, &output);
+            bool hit = collider->RayCast(rayInput, &output);
             if (hit)
             {
                 float fraction = output.fraction;
                 Vec3 point = (1.0f - fraction) * rayInput.from + fraction * rayInput.to;
 
-                return callback->OnHitAny(body, point, output.normal, fraction);
+                return callback->OnHitAny(collider, point, output.normal, fraction);
             }
 
             return rayInput.maxFraction;
@@ -303,15 +306,15 @@ bool World::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCa
     struct TempCallback : RayCastAnyCallback
     {
         bool hit = false;
-        RigidBody* closestBody;
+        Collider* closestCollider;
         Vec3 closestPoint;
         Vec3 closestNormal;
         float closestFraction;
 
-        float OnHitAny(RigidBody* body, Vec3 point, Vec3 normal, float fraction)
+        float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float fraction) override
         {
             hit = true;
-            closestBody = body;
+            closestCollider = collider;
             closestPoint = point;
             closestNormal = normal;
             closestFraction = fraction;
@@ -325,7 +328,7 @@ bool World::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCa
     if (tempCallback.hit)
     {
         callback->OnHitClosest(
-            tempCallback.closestBody, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestFraction
+            tempCallback.closestCollider, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestFraction
         );
         return true;
     }
@@ -345,16 +348,16 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
         Transform tf;
         Vec3 translation;
 
-        float AABBCastCallback(const AABBCastInput& input, RigidBody* body)
+        float AABBCastCallback(const AABBCastInput& input, Collider* collider)
         {
             ShapeCastOutput output;
 
             bool hit = ShapeCast(
-                shape, tf, body->GetShape(), body->GetTransform(), translation * input.maxFraction, Vec3::zero, &output
+                shape, tf, collider->GetShape(), collider->GetBody()->GetTransform(), translation * input.maxFraction, Vec3::zero, &output
             );
             if (hit)
             {
-                return callback->OnHitAny(body, output.point, output.normal, output.t * input.maxFraction);
+                return callback->OnHitAny(collider, output.point, output.normal, output.t * input.maxFraction);
             }
 
             return input.maxFraction;
@@ -380,15 +383,15 @@ bool World::ShapeCastClosest(const Shape* shape, const Transform& tf, const Vec3
     struct TempCallback : ShapeCastAnyCallback
     {
         bool hit = false;
-        RigidBody* closestBody;
+        Collider* closestCollider;
         Vec3 closestPoint;
         Vec3 closestNormal;
         float closestT = 1.0f;
 
-        float OnHitAny(RigidBody* body, Vec3 point, Vec3 normal, float t)
+        float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float t) override
         {
             hit = true;
-            closestBody = body;
+            closestCollider = collider;
             closestPoint = point;
             closestNormal = normal;
             closestT = t;
@@ -402,7 +405,7 @@ bool World::ShapeCastClosest(const Shape* shape, const Transform& tf, const Vec3
     if (tempCallback.hit)
     {
         callback->OnHitClosest(
-            tempCallback.closestBody, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestT
+            tempCallback.closestCollider, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestT
         );
         return true;
     }
@@ -414,7 +417,7 @@ void World::RayCastAny(
     const Vec3& from,
     const Vec3& to,
     float radius,
-    std::function<float(RigidBody* body, Vec3 point, Vec3 normal, float fraction)> callback
+    std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
     AABBCastInput input;
@@ -432,7 +435,7 @@ void World::RayCastAny(
         {
         }
 
-        float AABBCastCallback(const AABBCastInput& subInput, RigidBody* body)
+        float AABBCastCallback(const AABBCastInput& subInput, Collider* collider)
         {
             RayCastInput rayInput;
             rayInput.from = subInput.from;
@@ -442,13 +445,13 @@ void World::RayCastAny(
 
             RayCastOutput output;
 
-            bool hit = body->GetShape()->RayCast(body->GetTransform(), rayInput, &output);
+            bool hit = collider->RayCast(rayInput, &output);
             if (hit)
             {
                 float fraction = output.fraction;
                 Vec3 point = (1.0f - fraction) * rayInput.from + fraction * rayInput.to;
 
-                return callbackFcn(body, point, output.normal, fraction);
+                return callbackFcn(collider, point, output.normal, fraction);
             }
 
             return rayInput.maxFraction;
@@ -462,21 +465,21 @@ bool World::RayCastClosest(
     const Vec3& from,
     const Vec3& to,
     float radius,
-    std::function<void(RigidBody* body, Vec3 point, Vec3 normal, float fraction)> callback
+    std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
     struct TempCallback : RayCastAnyCallback
     {
         bool hit = false;
-        RigidBody* closestBody;
+        Collider* closestCollider;
         Vec3 closestPoint;
         Vec3 closestNormal;
         float closestFraction;
 
-        float OnHitAny(RigidBody* body, Vec3 point, Vec3 normal, float fraction)
+        float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float fraction) override
         {
             hit = true;
-            closestBody = body;
+            closestCollider = collider;
             closestPoint = point;
             closestNormal = normal;
             closestFraction = fraction;
@@ -489,7 +492,9 @@ bool World::RayCastClosest(
 
     if (tempCallback.hit)
     {
-        callback(tempCallback.closestBody, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestFraction);
+        callback(
+            tempCallback.closestCollider, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestFraction
+        );
         return true;
     }
 
@@ -500,7 +505,7 @@ void World::ShapeCastAny(
     const Shape* shape,
     const Transform& tf,
     const Vec3& translation,
-    std::function<float(RigidBody* body, Vec3 point, Vec3 normal, float t)> callback
+    std::function<float(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
 ) const
 {
     AABB aabb;
@@ -527,16 +532,17 @@ void World::ShapeCastAny(
         {
         }
 
-        float AABBCastCallback(const AABBCastInput& input, RigidBody* body)
+        float AABBCastCallback(const AABBCastInput& input, Collider* collider)
         {
             ShapeCastOutput output;
 
             bool hit = ShapeCast(
-                shape, tf, body->GetShape(), body->GetTransform(), translation * input.maxFraction, Vec3::zero, &output
+                shape, tf, collider->GetShape(), collider->GetBody()->GetTransform(), translation * input.maxFraction, Vec3::zero,
+                &output
             );
             if (hit)
             {
-                return callbackFcn(body, output.point, output.normal, output.t * input.maxFraction);
+                return callbackFcn(collider, output.point, output.normal, output.t * input.maxFraction);
             }
 
             return input.maxFraction;
@@ -550,21 +556,21 @@ bool World::ShapeCastClosest(
     const Shape* shape,
     const Transform& tf,
     const Vec3& translation,
-    std::function<void(RigidBody* body, Vec3 point, Vec3 normal, float t)> callback
+    std::function<void(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
 ) const
 {
     struct TempCallback : ShapeCastAnyCallback
     {
         bool hit = false;
-        RigidBody* closestBody;
+        Collider* closestCollider;
         Vec3 closestPoint;
         Vec3 closestNormal;
         float closestT = 1.0f;
 
-        float OnHitAny(RigidBody* body, Vec3 point, Vec3 normal, float t)
+        float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float t) override
         {
             hit = true;
-            closestBody = body;
+            closestCollider = collider;
             closestPoint = point;
             closestNormal = normal;
             closestT = t;
@@ -577,7 +583,7 @@ bool World::ShapeCastClosest(
 
     if (tempCallback.hit)
     {
-        callback(tempCallback.closestBody, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestT);
+        callback(tempCallback.closestCollider, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestT);
         return true;
     }
 
@@ -738,7 +744,10 @@ void World::Solve()
         Transform transform0;
         body->motion.GetTransform(0.0f, &transform0);
         body->SynchronizeTransform();
-        contactGraph.UpdateBody(body, transform0, body->transform);
+        for (Collider* collider = body->colliderList; collider; collider = collider->next)
+        {
+            contactGraph.UpdateCollider(collider, transform0, body->transform);
+        }
     }
 
     for (Contact* contact = contactGraph.contactList; contact; contact = contact->next)

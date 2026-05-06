@@ -27,9 +27,11 @@ public:
     bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const override;
 
     const Vec3& GetHalfExtents() const;
+    const Quat& GetRotation() const;
 
 private:
     Vec3 halfExtents;
+    Quat rotation;
 };
 
 inline Box::Box(const Vec3& size, float radius, const Transform& transform)
@@ -57,21 +59,23 @@ inline Vec3 Box::GetVertex(int32 id) const
         (id & 4) ? halfExtents.z : -halfExtents.z,
     };
 
-    return center + localPoint;
+    return center + rotation.Rotate(localPoint);
 }
 
 inline int32 Box::GetSupport(const Vec3& localDir) const
 {
+    Vec3 dir = rotation.RotateInv(localDir);
+
     int32 id = 0;
-    if (localDir.x > 0.0f)
+    if (dir.x > 0.0f)
     {
         id |= 1;
     }
-    if (localDir.y > 0.0f)
+    if (dir.y > 0.0f)
     {
         id |= 2;
     }
-    if (localDir.z > 0.0f)
+    if (dir.z > 0.0f)
     {
         id |= 4;
     }
@@ -82,6 +86,11 @@ inline int32 Box::GetSupport(const Vec3& localDir) const
 inline const Vec3& Box::GetHalfExtents() const
 {
     return halfExtents;
+}
+
+inline const Quat& Box::GetRotation() const
+{
+    return rotation;
 }
 
 } // namespace muli3

@@ -499,7 +499,10 @@ void Renderer::Shutdown()
 
 void Renderer::DrawBody(const RigidBody& body, const Vec4& color, bool wireframe, const Shader& shader)
 {
-    QueueShape(body.GetShape(), body.GetTransform(), color, wireframe, shader);
+    for (const Collider* collider = body.GetColliderList(); collider; collider = collider->GetNext())
+    {
+        QueueShape(collider->GetShape(), body.GetTransform(), color, wireframe, shader);
+    }
 }
 
 void Renderer::DrawShape(const Shape* shape, const Transform& transform, const DrawMode& mode)
@@ -618,6 +621,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         const Box* box = (const Box*)shape;
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, box->GetCenter());
+        renderTransform.q = transform.q * box->GetRotation();
         renderTransform.s = renderTransform.s * box->GetHalfExtents();
         boxInstances[pass].emplace_back(Mat4(renderTransform), color);
 

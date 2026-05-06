@@ -3,6 +3,7 @@
 #include "collision.h"
 #include "contact_solver.h"
 #include "position_solver.h"
+#include "collider.h"
 #include "rigidbody.h"
 #include "settings.h"
 
@@ -29,9 +30,11 @@ public:
         flag_island = 1 << 2,
     };
 
-    Contact(RigidBody* bodyA, RigidBody* bodyB);
+    Contact(Collider* colliderA, Collider* colliderB);
     ~Contact() = default;
 
+    Collider* GetColliderA() const;
+    Collider* GetColliderB() const;
     RigidBody* GetBodyA() const;
     RigidBody* GetBodyB() const;
     RigidBody* GetReferenceBody() const;
@@ -68,6 +71,8 @@ private:
 
     void Update();
 
+    Collider* colliderA;
+    Collider* colliderB;
     RigidBody* bodyA;
     RigidBody* bodyB;
     RigidBody* b1;
@@ -100,13 +105,25 @@ private:
     uint16 flag = flag_enabled;
 };
 
-inline Contact::Contact(RigidBody* bodyA, RigidBody* bodyB)
-    : bodyA{ bodyA }
-    , bodyB{ bodyB }
-    , b1{ bodyA }
-    , b2{ bodyB }
+inline Contact::Contact(Collider* colliderA, Collider* colliderB)
+    : colliderA{ colliderA }
+    , colliderB{ colliderB }
+    , bodyA{ colliderA->GetBody() }
+    , bodyB{ colliderB->GetBody() }
+    , b1{ colliderA->GetBody() }
+    , b2{ colliderB->GetBody() }
 {
     manifold.contactCount = 0;
+}
+
+inline Collider* Contact::GetColliderA() const
+{
+    return colliderA;
+}
+
+inline Collider* Contact::GetColliderB() const
+{
+    return colliderB;
 }
 
 inline RigidBody* Contact::GetBodyA() const

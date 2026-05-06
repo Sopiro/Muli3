@@ -28,6 +28,8 @@ inline constexpr float default_radius = linear_slop * 2.5f;
 inline constexpr float default_density = 1.0f;
 inline constexpr float default_friction = 0.5f;
 inline constexpr float default_restitution = 0.0f;
+inline constexpr float default_restitution_treshold = 2.0f;
+inline constexpr float default_surface_speed = 0.0f;
 inline constexpr float default_linear_damping = 0.05f;
 inline constexpr float default_angular_damping = 0.05f;
 

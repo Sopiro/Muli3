@@ -22,11 +22,14 @@ void ContactGraph::EvaluateContacts()
     Contact* c = contactList;
     while (c)
     {
+        Collider* colliderA = c->colliderA;
+        Collider* colliderB = c->colliderB;
+
         RigidBody* bodyA = c->bodyA;
         RigidBody* bodyB = c->bodyB;
 
-        bool activeA = bodyA->IsSleeping() == false && bodyA->IsStatic() == false;
-        bool activeB = bodyB->IsSleeping() == false && bodyB->IsStatic() == false;
+        bool activeA = bodyA->IsSleeping() == false && bodyA->GetType() != RigidBody::static_body;
+        bool activeB = bodyB->IsSleeping() == false && bodyB->GetType() != RigidBody::static_body;
 
         if (activeA == false && activeB == false)
         {
@@ -34,8 +37,7 @@ void ContactGraph::EvaluateContacts()
             continue;
         }
 
-        bool overlap = broadPhase.TestOverlap(bodyA, bodyB);
-        if (overlap == false)
+        if (broadPhase.TestOverlap(colliderA, colliderB) == false)
         {
             Contact* t = c;
             c = c->next;
@@ -48,13 +50,20 @@ void ContactGraph::EvaluateContacts()
     }
 }
 
-void ContactGraph::OnNewContact(RigidBody* bodyA, RigidBody* bodyB)
+void ContactGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
 {
+    RigidBody* bodyA = colliderA->body;
+    RigidBody* bodyB = colliderB->body;
+
     MuliAssert(bodyA != bodyB);
-    MuliAssert(bodyA->shape && bodyB->shape);
-    MuliAssert(bodyA->shape->GetType() >= bodyB->shape->GetType());
+    MuliAssert(colliderA->GetType() >= colliderB->GetType());
 
     if (bodyA->GetType() != RigidBody::dynamic_body && bodyB->GetType() != RigidBody::dynamic_body)
+    {
+        return;
+    }
+
+    if (EvaluateFilter(colliderA->GetFilter(), colliderB->GetFilter()) == false)
     {
         return;
     }
@@ -64,10 +73,10 @@ void ContactGraph::OnNewContact(RigidBody* bodyA, RigidBody* bodyB)
     {
         if (e->other == bodyA)
         {
-            RigidBody* ceA = e->contact->bodyA;
-            RigidBody* ceB = e->contact->bodyB;
+            Collider* ceA = e->contact->colliderA;
+            Collider* ceB = e->contact->colliderB;
 
-            if ((bodyA == ceA && bodyB == ceB) || (bodyA == ceB && bodyB == ceA))
+            if ((colliderA == ceA && colliderB == ceB) || (colliderA == ceB && colliderB == ceA))
             {
                 return;
             }
@@ -77,7 +86,7 @@ void ContactGraph::OnNewContact(RigidBody* bodyA, RigidBody* bodyB)
     }
 
     void* mem = world->blockAllocator.Allocate(sizeof(Contact));
-    Contact* c = new (mem) Contact(bodyA, bodyB);
+    Contact* c = new (mem) Contact(colliderA, colliderB);
 
     c->prev = nullptr;
     c->next = contactList;
@@ -132,69 +141,54 @@ void ContactGraph::Destroy(Contact* c)
     --contactCount;
 }
 
-void ContactGraph::AddBody(RigidBody* body)
+void ContactGraph::AddCollider(Collider* collider)
 {
-    if (!body->shape)
-    {
-        return;
-    }
-
-    AABB aabb;
-    body->shape->ComputeAABB(body->transform, &aabb);
-    broadPhase.Add(body, aabb);
+    broadPhase.Add(collider, collider->GetAABB());
 }
 
-void ContactGraph::RemoveBody(RigidBody* body)
+void ContactGraph::RemoveCollider(Collider* collider)
 {
-    if (body->node != AABBTree::nullNode)
-    {
-        broadPhase.Remove(body);
-        body->node = AABBTree::nullNode;
-    }
+    broadPhase.Remove(collider);
+    collider->node = AABBTree::nullNode;
 
+    RigidBody* body = collider->body;
     ContactEdge* edge = body->contactList;
     while (edge)
     {
         Contact* contact = edge->contact;
         edge = edge->next;
 
-        contact->bodyA->Awake();
-        contact->bodyB->Awake();
+        Collider* colliderA = contact->GetColliderA();
+        Collider* colliderB = contact->GetColliderB();
 
-        Destroy(contact);
+        if (collider == colliderA || collider == colliderB)
+        {
+            Destroy(contact);
+            colliderA->body->Awake();
+            colliderB->body->Awake();
+        }
     }
 }
 
-void ContactGraph::UpdateBody(RigidBody* body, const Transform& transform)
+void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform)
 {
-    if (!body->shape || body->node == AABBTree::nullNode)
-    {
-        return;
-    }
-
     AABB aabb;
-    body->shape->ComputeAABB(transform, &aabb);
-
-    broadPhase.Update(body, aabb, Vec3::zero);
+    collider->GetShape()->ComputeAABB(transform, &aabb);
+    broadPhase.Update(collider, aabb, Vec3::zero);
 }
 
-void ContactGraph::UpdateBody(RigidBody* body, const Transform& transform0, const Transform& transform1)
+void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1)
 {
-    if (!body->shape || body->node == AABBTree::nullNode)
-    {
-        return;
-    }
-
     AABB aabb0;
     AABB aabb1;
-    body->shape->ComputeAABB(transform0, &aabb0);
-    body->shape->ComputeAABB(transform1, &aabb1);
+    collider->GetShape()->ComputeAABB(transform0, &aabb0);
+    collider->GetShape()->ComputeAABB(transform1, &aabb1);
 
     Vec3 prediction = aabb1.GetCenter() - aabb0.GetCenter();
     aabb1.min += prediction;
     aabb1.max += prediction;
 
-    broadPhase.Update(body, AABB::Union(aabb0, aabb1), prediction);
+    broadPhase.Update(collider, AABB::Union(aabb0, aabb1), prediction);
 }
 
 } // namespace muli3

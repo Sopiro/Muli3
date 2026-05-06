@@ -1,9 +1,9 @@
 #pragma once
 
 #include "bounding_box.h"
+#include "collider.h"
 #include "growable_array.h"
 #include "raycast.h"
-#include "rigidbody.h"
 
 namespace muli3
 {
@@ -17,7 +17,7 @@ inline float SurfaceArea(const AABB& aabb)
 
 class AABBTree
 {
-    using Data = RigidBody;
+    using Data = Collider;
 
 public:
     static constexpr inline int32 nullNode = -1;

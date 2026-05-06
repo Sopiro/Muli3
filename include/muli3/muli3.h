@@ -2,17 +2,20 @@
 
 #include "settings.h"  // IWYU pragma: export
 
-#include "collision.h" // IWYU pragma: export
-#include "distance.h"  // IWYU pragma: export
-#include "callbacks.h" // IWYU pragma: export
-#include "raycast.h"   // IWYU pragma: export
-#include "rigidbody.h" // IWYU pragma: export
-#include "world.h"     // IWYU pragma: export
+#include "collision.h"        // IWYU pragma: export
+#include "collision_filter.h" // IWYU pragma: export
+#include "distance.h"         // IWYU pragma: export
+#include "callbacks.h"        // IWYU pragma: export
+#include "raycast.h"          // IWYU pragma: export
+#include "collider.h"         // IWYU pragma: export
+#include "material.h"         // IWYU pragma: export
+#include "rigidbody.h"        // IWYU pragma: export
+#include "world.h"            // IWYU pragma: export
 
-#include "box.h"       // IWYU pragma: export
-#include "capsule.h"   // IWYU pragma: export
-#include "shape.h"     // IWYU pragma: export
-#include "sphere.h"    // IWYU pragma: export
+#include "box.h"              // IWYU pragma: export
+#include "capsule.h"          // IWYU pragma: export
+#include "shape.h"            // IWYU pragma: export
+#include "sphere.h"           // IWYU pragma: export
 
 #include "constraint.h"      // IWYU pragma: export
 #include "joint.h"            // IWYU pragma: export

@@ -21,10 +21,10 @@ public:
 protected:
     friend class RigidBody;
 
-    void AddBody(RigidBody* body);
-    void RemoveBody(RigidBody* body);
-    void UpdateBody(RigidBody* body, const Transform& transform);
-    void UpdateBody(RigidBody* body, const Transform& transform0, const Transform& transform1);
+    void AddCollider(Collider* collider);
+    void RemoveCollider(Collider* collider);
+    void UpdateCollider(Collider* collider, const Transform& transform);
+    void UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1);
 
 private:
     friend class World;
@@ -38,7 +38,7 @@ private:
     int32 contactCount;
 
     void Destroy(Contact* c);
-    void OnNewContact(RigidBody* bodyA, RigidBody* bodyB);
+    void OnNewContact(Collider* colliderA, Collider* colliderB);
 };
 
 inline void ContactGraph::UpdateContactGraph()
@@ -52,4 +52,3 @@ inline int32 ContactGraph::GetContactCount() const
 }
 
 } // namespace muli3
-

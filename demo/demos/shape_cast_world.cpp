@@ -105,8 +105,8 @@ public:
         float prevPointSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
 
-        world->ShapeCastAny(shape.get(), tf, translation, [&](RigidBody* body, Vec3 point, Vec3 normal, float fraction) -> float {
-            MuliNotUsed(body);
+        world->ShapeCastAny(shape.get(), tf, translation, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) -> float {
+            MuliNotUsed(collider);
 
             hit = true;
 

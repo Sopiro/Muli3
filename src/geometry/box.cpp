@@ -24,6 +24,7 @@ Box::Box(float width, float height, float depth, float inRadius, const Transform
         height * 0.5f * Abs(transform.s.y),
         depth * 0.5f * Abs(transform.s.z),
     }
+    , rotation{ transform.q }
 {
     center = transform.p;
 
@@ -38,6 +39,7 @@ Box::Box(const Box& other, const Transform& transform)
         other.halfExtents.y * Abs(transform.s.y),
         other.halfExtents.z * Abs(transform.s.z),
     }
+    , rotation{ transform.q * other.rotation }
 {
     center = Mul(transform, other.center);
 
@@ -63,6 +65,8 @@ void Box::ComputeMass(float density, MassData* outMassData) const
         Vec3{ 0.0f, s * (x2 + z2), 0.0f },
         Vec3{ 0.0f, 0.0f, s * (x2 + y2) },
     };
+    Mat3 localRotation{ rotation };
+    inertiaCenter = localRotation * inertiaCenter * localRotation.GetTranspose();
 
     float x = center.x;
     float y = center.y;
@@ -80,7 +84,8 @@ void Box::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
-    Mat3 worldRotation{ transform.q };
+    Quat worldOrientation = transform.q * rotation;
+    Mat3 worldRotation{ worldOrientation };
     Vec3 worldCenter = Mul(transform, center);
 
     Vec3 e{
@@ -98,7 +103,8 @@ void Box::ComputeAABB(const Transform& transform, AABB* outAABB) const
 
 Face Box::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
-    Vec3 localDir = transform.q.RotateInv(dir);
+    Quat worldOrientation = transform.q * rotation;
+    Vec3 localDir = worldOrientation.RotateInv(dir);
 
     int32 axis = 0;
     float maxProjection = Abs(localDir.x);
@@ -116,7 +122,7 @@ Face Box::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 
     Face outFace;
     outFace.count = 4;
-    outFace.normal = transform.q.Rotate(boxNormals[face]);
+    outFace.normal = worldOrientation.Rotate(boxNormals[face]);
     for (int32 i = 0; i < 4; ++i)
     {
         int32 vertexId = boxFaceVertexIndices[face][i];
@@ -129,28 +135,28 @@ Face Box::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 
 bool Box::TestPoint(const Transform& transform, const Vec3& q) const
 {
-    Vec3 localQ = MulT(transform, q);
-    Vec3 boxQ = localQ - center;
+    Transform boxTransform = Mul(transform, Transform{ center, rotation });
+    Vec3 localQ = MulT(boxTransform, q);
     Vec3 clamped{
-        Clamp(boxQ.x, -halfExtents.x, halfExtents.x),
-        Clamp(boxQ.y, -halfExtents.y, halfExtents.y),
-        Clamp(boxQ.z, -halfExtents.z, halfExtents.z),
+        Clamp(localQ.x, -halfExtents.x, halfExtents.x),
+        Clamp(localQ.y, -halfExtents.y, halfExtents.y),
+        Clamp(localQ.z, -halfExtents.z, halfExtents.z),
     };
-    Vec3 delta = boxQ - clamped;
+    Vec3 delta = localQ - clamped;
 
     return Length2(delta) <= radius * radius;
 }
 
 Vec3 Box::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
-    Vec3 localQ = MulT(transform, q);
-    Vec3 boxQ = localQ - center;
+    Transform boxTransform = Mul(transform, Transform{ center, rotation });
+    Vec3 localQ = MulT(boxTransform, q);
     Vec3 clamped{
-        Clamp(boxQ.x, -halfExtents.x, halfExtents.x),
-        Clamp(boxQ.y, -halfExtents.y, halfExtents.y),
-        Clamp(boxQ.z, -halfExtents.z, halfExtents.z),
+        Clamp(localQ.x, -halfExtents.x, halfExtents.x),
+        Clamp(localQ.y, -halfExtents.y, halfExtents.y),
+        Clamp(localQ.z, -halfExtents.z, halfExtents.z),
     };
-    Vec3 delta = boxQ - clamped;
+    Vec3 delta = localQ - clamped;
 
     float distance = delta.Normalize();
     if (distance <= radius)
@@ -158,18 +164,18 @@ Vec3 Box::GetClosestPoint(const Transform& transform, const Vec3& q) const
         return q;
     }
 
-    Vec3 localClosest = center + clamped + delta * radius;
-    return Mul(transform, localClosest);
+    return Mul(boxTransform, clamped + delta * radius);
 }
 
 bool Box::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
 {
+    Transform boxTransform = Mul(transform, Transform{ center, rotation });
     RayCastInput localInput = input;
-    localInput.from = MulT(transform, input.from);
-    localInput.to = MulT(transform, input.to);
+    localInput.from = MulT(boxTransform, input.from);
+    localInput.to = MulT(boxTransform, input.to);
 
-    Vec3 p1 = localInput.from - center;
-    Vec3 p2 = localInput.to - center;
+    Vec3 p1 = localInput.from;
+    Vec3 p2 = localInput.to;
     Vec3 d = p2 - p1;
 
     float radii = radius + input.radius;
@@ -246,7 +252,7 @@ bool Box::RayCast(const Transform& transform, const RayCastInput& input, RayCast
         Vec3 normal = Vec3::zero;
         normal[axis] = sign;
         output->fraction = near;
-        output->normal = transform.q.Rotate(normal);
+        output->normal = boxTransform.q.Rotate(normal);
         return true;
     }
 
@@ -257,12 +263,12 @@ bool Box::RayCast(const Transform& transform, const RayCastInput& input, RayCast
         corner[i1] = q[i1] > 0.0f ? halfExtents[i1] : -halfExtents[i1];
         corner[i2] = q[i2] > 0.0f ? halfExtents[i2] : -halfExtents[i2];
 
-        if (RayCastSphere(center + corner, radius, localInput, output) == false)
+        if (RayCastSphere(corner, radius, localInput, output) == false)
         {
             return false;
         }
 
-        output->normal = transform.q.Rotate(output->normal);
+        output->normal = boxTransform.q.Rotate(output->normal);
         return true;
     }
 
@@ -278,12 +284,12 @@ bool Box::RayCast(const Transform& transform, const RayCastInput& input, RayCast
     edgeA[edgeAxis] = -halfExtents[edgeAxis];
     edgeB[edgeAxis] = halfExtents[edgeAxis];
 
-    if (RayCastCapsule(center + edgeA, center + edgeB, radius, localInput, output) == false)
+    if (RayCastCapsule(edgeA, edgeB, radius, localInput, output) == false)
     {
         return false;
     }
 
-    output->normal = transform.q.Rotate(output->normal);
+    output->normal = boxTransform.q.Rotate(output->normal);
     return true;
 }
 

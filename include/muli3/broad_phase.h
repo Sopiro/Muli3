@@ -1,7 +1,6 @@
 #pragma once
 
 #include "aabb_tree.h"
-#include "shape.h"
 
 namespace muli3
 {
@@ -14,14 +13,14 @@ public:
     ~BroadPhase();
 
     void FindNewContacts();
-    bool TestOverlap(RigidBody* bodyA, RigidBody* bodyB) const;
+    bool TestOverlap(Collider* colliderA, Collider* colliderB) const;
 
-    void Add(RigidBody* body, const AABB& aabb);
-    void Remove(RigidBody* body);
-    void Update(RigidBody* body, const AABB& aabb, const Vec3& displacement);
-    void Refresh(RigidBody* body);
+    void Add(Collider* collider, const AABB& aabb);
+    void Remove(Collider* collider);
+    void Update(Collider* collider, const AABB& aabb, const Vec3& displacement);
+    void Refresh(Collider* collider);
 
-    bool QueryCallback(NodeIndex node, RigidBody* body);
+    bool QueryCallback(NodeIndex node, Collider* collider);
 
 protected:
     friend class World;
@@ -36,6 +35,7 @@ private:
     int32 moveCount;
 
     NodeIndex nodeA;
+    Collider* colliderA;
     RigidBody* bodyA;
     Shape::Type typeA;
 
@@ -43,9 +43,9 @@ private:
     void UnBufferMove(NodeIndex node);
 };
 
-inline bool BroadPhase::TestOverlap(RigidBody* inBodyA, RigidBody* inBodyB) const
+inline bool BroadPhase::TestOverlap(Collider* inColliderA, Collider* inColliderB) const
 {
-    return tree.TestOverlap(inBodyA->node, inBodyB->node);
+    return tree.TestOverlap(inColliderA->node, inColliderB->node);
 }
 
 } // namespace muli3

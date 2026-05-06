@@ -54,15 +54,11 @@ void BroadPhase::FindNewContacts()
             continue;
         }
 
-        bodyA = tree.GetData(nodeA);
-        if (!bodyA->shape)
-        {
-            continue;
-        }
+        colliderA = tree.GetData(nodeA);
+        bodyA = colliderA->body;
+        typeA = colliderA->GetType();
 
-        typeA = bodyA->shape->GetType();
-
-        const AABB& treeAABB = tree.GetAABB(bodyA->node);
+        const AABB& treeAABB = tree.GetAABB(colliderA->node);
         tree.Query(treeAABB, this);
     }
 
@@ -78,17 +74,16 @@ void BroadPhase::FindNewContacts()
     moveCount = 0;
 }
 
-void BroadPhase::Add(RigidBody* body, const AABB& aabb)
+void BroadPhase::Add(Collider* collider, const AABB& aabb)
 {
-    NodeIndex node = tree.CreateNode(body, aabb);
-    body->node = node;
-
+    NodeIndex node = tree.CreateNode(collider, aabb);
+    collider->node = node;
     BufferMove(node);
 }
 
-void BroadPhase::Remove(RigidBody* body)
+void BroadPhase::Remove(Collider* collider)
 {
-    NodeIndex node = body->node;
+    NodeIndex node = collider->node;
     if (node == AABBTree::nullNode)
     {
         return;
@@ -98,35 +93,34 @@ void BroadPhase::Remove(RigidBody* body)
     UnBufferMove(node);
 }
 
-void BroadPhase::Update(RigidBody* body, const AABB& aabb, const Vec3& displacement)
+void BroadPhase::Update(Collider* collider, const AABB& aabb, const Vec3& displacement)
 {
-    NodeIndex node = body->node;
-    bool rested = body->resting > contactGraph->world->settings.sleeping_time;
+    NodeIndex node = collider->node;
+    bool rested = collider->body->resting > contactGraph->world->settings.sleeping_time;
 
-    bool nodeMoved = tree.MoveNode(node, aabb, displacement, rested);
-    if (nodeMoved)
+    if (tree.MoveNode(node, aabb, displacement, rested))
     {
         BufferMove(node);
     }
 }
 
-void BroadPhase::Refresh(RigidBody* body)
+void BroadPhase::Refresh(Collider* collider)
 {
-    NodeIndex node = body->node;
-    AABB aabb;
-    body->shape->ComputeAABB(body->transform, &aabb);
+    NodeIndex node = collider->node;
+    AABB aabb = collider->GetAABB();
 
     tree.MoveNode(node, aabb, Vec3::zero, true);
     BufferMove(node);
 }
 
-bool BroadPhase::QueryCallback(NodeIndex nodeB, RigidBody* bodyB)
+bool BroadPhase::QueryCallback(NodeIndex nodeB, Collider* colliderB)
 {
     if (nodeA == nodeB)
     {
         return true;
     }
 
+    RigidBody* bodyB = colliderB->body;
     if (bodyA == bodyB)
     {
         return true;
@@ -137,14 +131,14 @@ bool BroadPhase::QueryCallback(NodeIndex nodeB, RigidBody* bodyB)
         return true;
     }
 
-    Shape::Type typeB = bodyB->shape->GetType();
+    Shape::Type typeB = colliderB->GetType();
     if (typeA <= typeB)
     {
-        contactGraph->OnNewContact(bodyB, bodyA);
+        contactGraph->OnNewContact(colliderB, colliderA);
     }
     else
     {
-        contactGraph->OnNewContact(bodyA, bodyB);
+        contactGraph->OnNewContact(colliderA, colliderB);
     }
 
     return true;

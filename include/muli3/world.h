@@ -40,14 +40,11 @@ public:
     void Destroy(Joint* joint);
     void Destroy(std::span<Joint*> joints);
 
-    // Buffered body will be destroy at the end of the step
     void BufferDestroy(RigidBody* body);
     void BufferDestroy(std::span<RigidBody*> bodies);
     void BufferDestroy(Joint* joint);
     void BufferDestroy(std::span<Joint*> joints);
 
-    // clang-format off
-    // Factory functions for bodies
     RigidBody* CreateEmptyBody(const Transform& transform = identity, RigidBody::Type type = RigidBody::dynamic_body);
     RigidBody* CreateSphere(
         float radius,
@@ -85,10 +82,7 @@ public:
         float radius = default_radius,
         float density = default_density
     );
-    // clang-format on
 
-    // clang-format off
-    // Factory functions for joints
     GrabJoint* CreateGrabJoint(
         RigidBody* body,
         const Vec3& anchor,
@@ -196,59 +190,37 @@ public:
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
     );
-    // clang-format on
 
-    // clang-format off
-    void RayCastAny(
-        const Vec3& from,
-        const Vec3& to,
-        float radius,
-        RayCastAnyCallback* callback
-    ) const;
-    bool RayCastClosest(
-        const Vec3& from,
-        const Vec3& to,
-        float radius,
-        RayCastClosestCallback* callback
-    ) const;
-    void ShapeCastAny(
-        const Shape* shape,
-        const Transform& tf,
-        const Vec3& translation,
-        ShapeCastAnyCallback* callback
-    ) const;
-    bool ShapeCastClosest(
-        const Shape* shape,
-        const Transform& tf,
-        const Vec3& translation,
-        ShapeCastClosestCallback* callback
-    ) const;
+    void RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const;
+    bool RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const;
+    void ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastAnyCallback* callback) const;
+    bool ShapeCastClosest(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback)
+        const;
 
     void RayCastAny(
         const Vec3& from,
         const Vec3& to,
         float radius,
-        std::function<float(RigidBody* body, Vec3 point, Vec3 normal, float fraction)> callback
+        std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
     ) const;
     bool RayCastClosest(
         const Vec3& from,
         const Vec3& to,
         float radius,
-        std::function<void(RigidBody* body, Vec3 point, Vec3 normal, float fraction)> callback
+        std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
     ) const;
     void ShapeCastAny(
         const Shape* shape,
         const Transform& tf,
         const Vec3& translation,
-        std::function<float(RigidBody* body, Vec3 point, Vec3 normal, float t)> callback
+        std::function<float(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
     ) const;
     bool ShapeCastClosest(
         const Shape* shape,
         const Transform& tf,
         const Vec3& translation,
-        std::function<void(RigidBody* body, Vec3 point, Vec3 normal, float t)> callback
+        std::function<void(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
     ) const;
-    // clang-format on
 
     RigidBody* GetBodyList() const;
     RigidBody* GetBodyListTail() const;
@@ -272,6 +244,7 @@ public:
 
 private:
     friend class RigidBody;
+    friend class Collider;
     friend class Island;
     friend class ContactGraph;
     friend class BroadPhase;

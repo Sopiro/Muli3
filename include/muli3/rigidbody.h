@@ -1,11 +1,17 @@
 #pragma once
 
+#include "collision_filter.h"
+#include "material.h"
 #include "settings.h"
 #include "transform.h"
 
 namespace muli3
 {
 
+class BodyDestroyCallback;
+class Collider;
+class RayCastAnyCallback;
+class RayCastClosestCallback;
 class Shape;
 class World;
 class Contact;
@@ -24,6 +30,7 @@ public:
     };
 
     RigidBody(const Transform& tf, RigidBody::Type type);
+    ~RigidBody();
 
     const Transform& GetTransform() const;
     void SetTransform(const Transform& transform);
@@ -38,15 +45,14 @@ public:
     const Quat& GetRotation() const;
     void SetRotation(const Quat& rotation);
 
-    RigidBody::Type GetType() const;
-    void SetType(RigidBody::Type type);
+    float GetMass() const;
+    const Mat3& GetInertiaTensor() const;
+    Mat3 GetInertiaTensorLocalOrigin() const;
 
-    bool IsStatic() const;
-    void SetEnabled(bool enabled);
-    bool IsEnabled() const;
-    bool IsSleeping() const;
-    void Awake();
-    void Sleep();
+    float GetLinearDamping() const;
+    void SetLinearDamping(float linearDamping);
+    float GetAngularDamping() const;
+    void SetAngularDamping(float angularDamping);
 
     const Vec3& GetForce() const;
     void SetForce(const Vec3& force);
@@ -59,34 +65,23 @@ public:
     const Vec3& GetAngularVelocity() const;
     void SetAngularVelocity(const Vec3& angularVelocity);
     void SetAngularVelocity(float vx, float vy, float vz);
-    float GetLinearDamping() const;
-    void SetLinearDamping(float linearDamping);
-    float GetAngularDamping() const;
-    void SetAngularDamping(float angularDamping);
 
     void ApplyForce(const Vec3& worldPoint, const Vec3& force, bool awake);
     void ApplyTorque(const Vec3& torque, bool awake);
 
-    Shape* CreateShape(Shape* shape, const Transform& transform = identity, float density = default_density);
-    void DestroyShape();
-    Shape* CreateSphereShape(float radius, const Transform& transform = identity, float density = default_density);
-    Shape* CreateCapsuleShape(float height, float radius, const Transform& transform = identity, float density = default_density);
-    Shape* CreateBoxShape(
-        float width,
-        float height,
-        float depth,
-        const Transform& transform = identity,
-        float radius = default_radius,
-        float density = default_density
-    );
-    Shape* CreateBoxShape(
-        const Vec3& size, const Transform& transform = identity, float radius = default_radius, float density = default_density
-    );
-    Shape* CreateBoxShape(
-        float size, const Transform& transform = identity, float radius = default_radius, float density = default_density
-    );
-    Shape* GetShape();
-    const Shape* GetShape() const;
+    void ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse);
+    void ApplyLinearImpulse(const Vec3& impulse);
+    void ApplyAngularImpulse(const Vec3& impulse);
+
+    RigidBody::Type GetType() const;
+    void SetType(RigidBody::Type type);
+
+    void SetEnabled(bool enabled);
+    bool IsEnabled() const;
+    bool IsStatic() const;
+    bool IsSleeping() const;
+    void Awake();
+    void Sleep();
 
     int32 GetIslandID() const;
     int32 GetIslandIndex() const;
@@ -98,16 +93,83 @@ public:
     World* GetWorld();
     const World* GetWorld() const;
 
-    float GetMass() const;
-    const Mat3& GetInertiaTensor() const;
-    Mat3 GetInertiaTensorLocalOrigin() const;
+    void SetCollisionFilter(const CollisionFilter& filter) const;
+    void SetFriction(float friction) const;
+    void SetRestitution(float restitution) const;
+    void SetRestitutionThreshold(float threshold) const;
+    void SetSurfaceSpeed(float surfaceSpeed) const;
+
+    bool TestPoint(const Vec3& q) const;
+    Vec3 GetClosestPoint(const Vec3& q) const;
+    void RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const;
+    bool RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const;
+
+    void RayCastAny(
+        const Vec3& from,
+        const Vec3& to,
+        float radius,
+        std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+    ) const;
+    bool RayCastClosest(
+        const Vec3& from,
+        const Vec3& to,
+        float radius,
+        std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+    ) const;
+
+    Collider* CreateCollider(
+        Shape* shape, const Transform& transform = identity, float density = default_density, const Material& material = default_material
+    );
+    void DestroyCollider(Collider* collider);
+
+    int32 GetColliderCount() const;
+    Collider* GetColliderList();
+    const Collider* GetColliderList() const;
+
+    Collider* CreateSphereCollider(
+        float radius, const Transform& transform = identity, float density = default_density, const Material& material = default_material
+    );
+    Collider* CreateCapsuleCollider(
+        float height, float radius, const Transform& transform = identity, float density = default_density, const Material& material = default_material
+    );
+    Collider* CreateCapsuleCollider(
+        const Vec3& p1,
+        const Vec3& p2,
+        float radius,
+        bool resetPosition = false,
+        const Transform& transform = identity,
+        float density = default_density,
+        const Material& material = default_material
+    );
+    Collider* CreateBoxCollider(
+        float width,
+        float height,
+        float depth,
+        const Transform& transform = identity,
+        float radius = default_radius,
+        float density = default_density,
+        const Material& material = default_material
+    );
+    Collider* CreateBoxCollider(
+        const Vec3& size,
+        const Transform& transform = identity,
+        float radius = default_radius,
+        float density = default_density,
+        const Material& material = default_material
+    );
+    Collider* CreateBoxCollider(
+        float size,
+        const Transform& transform = identity,
+        float radius = default_radius,
+        float density = default_density,
+        const Material& material = default_material
+    );
+
+    BodyDestroyCallback* OnDestroy;
+    void* UserData;
 
     Mat3 GetWorldInertiaTensor() const;
     Mat3 GetWorldInverseInertiaTensor() const;
-
-    void ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse);
-    void ApplyLinearImpulse(const Vec3& impulse);
-    void ApplyAngularImpulse(const Vec3& impulse);
     Vec3 GetVelocityAtWorldPoint(const Vec3& point) const;
     void Integrate(float dt);
 
@@ -115,8 +177,11 @@ protected:
     friend class World;
     friend class Island;
 
+    friend class AABBTree;
     friend class BroadPhase;
     friend class ContactGraph;
+
+    friend class Collider;
 
     friend class Contact;
     friend class ContactSolverNormal;
@@ -151,11 +216,9 @@ protected:
 
     float mass;
     float invMass;
-    Mat3 inertia; // Inertia tensor calculated in local frame
+    Mat3 inertia;
     Mat3 invInertia;
 
-    float restitution;
-    float friction;
     float linearDamping;
     float angularDamping;
 
@@ -169,19 +232,18 @@ protected:
 
     void ResetMassData();
     void SynchronizeTransform();
+    void SynchronizeColliders();
 
 private:
-    friend class World;
-
     World* world;
     RigidBody* prev;
     RigidBody* next;
 
-    Shape* shape;
-    float shapeDensity;
+    Collider* colliderList;
+    int32 colliderCount;
+
     ContactEdge* contactList;
     JointEdge* jointList;
-    int32 node;
 
     float resting;
 };
@@ -216,19 +278,45 @@ inline const Quat& RigidBody::GetRotation() const
     return transform.q;
 }
 
-inline RigidBody::Type RigidBody::GetType() const
+inline float RigidBody::GetMass() const
 {
-    return type;
+    return mass;
 }
 
-inline bool RigidBody::IsStatic() const
+inline const Mat3& RigidBody::GetInertiaTensor() const
 {
-    return type == static_body;
+    return inertia;
 }
 
-inline bool RigidBody::IsEnabled() const
+inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
 {
-    return (flag & flag_enabled) == flag_enabled;
+    const Vec3& c = motion.localCenter;
+
+    return Mat3(
+        inertia.ex + Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z },
+        inertia.ey + Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z },
+        inertia.ez + Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) }
+    );
+}
+
+inline float RigidBody::GetLinearDamping() const
+{
+    return linearDamping;
+}
+
+inline void RigidBody::SetLinearDamping(float newLinearDamping)
+{
+    linearDamping = newLinearDamping;
+}
+
+inline float RigidBody::GetAngularDamping() const
+{
+    return angularDamping;
+}
+
+inline void RigidBody::SetAngularDamping(float newAngularDamping)
+{
+    angularDamping = newAngularDamping;
 }
 
 inline const Vec3& RigidBody::GetForce() const
@@ -301,26 +389,6 @@ inline void RigidBody::SetAngularVelocity(float vx, float vy, float vz)
     angularVelocity = Vec3{ vx, vy, vz };
 }
 
-inline float RigidBody::GetLinearDamping() const
-{
-    return linearDamping;
-}
-
-inline void RigidBody::SetLinearDamping(float newLinearDamping)
-{
-    linearDamping = newLinearDamping;
-}
-
-inline float RigidBody::GetAngularDamping() const
-{
-    return angularDamping;
-}
-
-inline void RigidBody::SetAngularDamping(float newAngularDamping)
-{
-    angularDamping = newAngularDamping;
-}
-
 inline void RigidBody::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, bool awake)
 {
     if (type != dynamic_body)
@@ -358,14 +426,19 @@ inline void RigidBody::ApplyTorque(const Vec3& inTorque, bool awake)
     }
 }
 
-inline Shape* RigidBody::GetShape()
+inline RigidBody::Type RigidBody::GetType() const
 {
-    return shape;
+    return type;
 }
 
-inline const Shape* RigidBody::GetShape() const
+inline bool RigidBody::IsEnabled() const
 {
-    return shape;
+    return (flag & flag_enabled) == flag_enabled;
+}
+
+inline bool RigidBody::IsStatic() const
+{
+    return type == static_body;
 }
 
 inline int32 RigidBody::GetIslandID() const
@@ -439,25 +512,19 @@ inline void RigidBody::Sleep()
     flag |= flag_sleeping;
 }
 
-inline float RigidBody::GetMass() const
+inline Collider* RigidBody::GetColliderList()
 {
-    return mass;
+    return colliderList;
 }
 
-inline const Mat3& RigidBody::GetInertiaTensor() const
+inline const Collider* RigidBody::GetColliderList() const
 {
-    return inertia;
+    return colliderList;
 }
 
-inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
+inline int32 RigidBody::GetColliderCount() const
 {
-    const Vec3& c = motion.localCenter;
-
-    return Mat3(
-        inertia.ex + Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z },
-        inertia.ey + Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z },
-        inertia.ez + Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) }
-    );
+    return colliderCount;
 }
 
 inline void RigidBody::SynchronizeTransform()

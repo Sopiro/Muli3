@@ -1,6 +1,8 @@
 #include "muli3/rigidbody.h"
 #include "muli3/box.h"
 #include "muli3/capsule.h"
+#include "muli3/collider.h"
+#include "muli3/callbacks.h"
 #include "muli3/shape.h"
 #include "muli3/sphere.h"
 #include "muli3/world.h"
@@ -9,7 +11,9 @@ namespace muli3
 {
 
 RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
-    : type{ type }
+    : OnDestroy{ nullptr }
+    , UserData{ nullptr }
+    , type{ type }
     , transform{ tf }
     , motion{ tf }
     , linearVelocity{ 0.0f, 0.0f, 0.0f }
@@ -18,8 +22,6 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , invMass{ 0.0f }
     , inertia{ 0.0f }
     , invInertia{ 0.0f }
-    , restitution{ default_restitution }
-    , friction{ default_friction }
     , linearDamping{ default_linear_damping }
     , angularDamping{ default_angular_damping }
     , force{ 0.0f, 0.0f, 0.0f }
@@ -30,18 +32,26 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , world{ nullptr }
     , prev{ nullptr }
     , next{ nullptr }
-    , shape{ nullptr }
-    , shapeDensity{ default_density }
+    , colliderList{ nullptr }
+    , colliderCount{ 0 }
     , contactList{ nullptr }
     , jointList{ nullptr }
-    , node{ -1 }
     , resting{ 0.0f }
 {
 }
 
+RigidBody::~RigidBody()
+{
+    if (OnDestroy)
+    {
+        OnDestroy->OnBodyDestroy(this);
+    }
+
+    world = nullptr;
+}
+
 void RigidBody::SetTransform(const Transform& newTransform)
 {
-    Transform oldTransform = transform;
     transform = newTransform;
     motion.c = Mul(transform, motion.localCenter);
     motion.q = transform.q;
@@ -49,29 +59,21 @@ void RigidBody::SetTransform(const Transform& newTransform)
     motion.q0 = motion.q;
     motion.alpha0 = 0.0f;
 
-    if (world != nullptr && IsEnabled())
-    {
-        world->contactGraph.UpdateBody(this, oldTransform, transform);
-    }
+    SynchronizeColliders();
 }
 
 void RigidBody::SetPosition(float x, float y, float z)
 {
-    Transform oldTransform = transform;
     transform.p = Vec3{ x, y, z };
     motion.c = Mul(transform, motion.localCenter);
     motion.c0 = motion.c;
     motion.alpha0 = 0.0f;
 
-    if (world != nullptr && IsEnabled())
-    {
-        world->contactGraph.UpdateBody(this, oldTransform, transform);
-    }
+    SynchronizeColliders();
 }
 
 void RigidBody::SetRotation(const Quat& rotation)
 {
-    Transform oldTransform = transform;
     transform.q = rotation;
     motion.q = transform.q;
     motion.q0 = motion.q;
@@ -79,38 +81,284 @@ void RigidBody::SetRotation(const Quat& rotation)
     motion.c0 = motion.c;
     motion.alpha0 = 0.0f;
 
-    if (world != nullptr && IsEnabled())
+    SynchronizeColliders();
+}
+
+Collider* RigidBody::CreateCollider(Shape* shape, const Transform& transform, float density, const Material& material)
+{
+    MuliAssert(world != nullptr);
+    if (world == nullptr || shape == nullptr)
     {
-        world->contactGraph.UpdateBody(this, oldTransform, transform);
+        return nullptr;
+    }
+
+    void* mem = world->blockAllocator.Allocate(sizeof(Collider));
+    Collider* collider = new (mem) Collider;
+    collider->Create(this, shape, transform, density, material);
+
+    collider->next = colliderList;
+    colliderList = collider;
+    ++colliderCount;
+
+    if (IsEnabled())
+    {
+        world->contactGraph.AddCollider(collider);
+    }
+
+    ResetMassData();
+    Awake();
+
+    return collider;
+}
+
+void RigidBody::DestroyCollider(Collider* collider)
+{
+    if (collider == nullptr)
+    {
+        return;
+    }
+
+    MuliAssert(collider->body == this);
+    MuliAssert(colliderCount > 0);
+
+    Collider** c = &colliderList;
+    while (*c)
+    {
+        if (*c == collider)
+        {
+            *c = collider->next;
+            break;
+        }
+
+        c = &(*c)->next;
+    }
+
+    world->contactGraph.RemoveCollider(collider);
+    collider->Destroy(world);
+    collider->~Collider();
+    world->blockAllocator.Free(collider, sizeof(Collider));
+
+    --colliderCount;
+
+    ResetMassData();
+
+    islandID = 0;
+    islandIndex = 0;
+    Awake();
+}
+
+Collider* RigidBody::CreateSphereCollider(float radius, const Transform& transform, float density, const Material& material)
+{
+    Sphere sphere{ radius };
+    return CreateCollider(&sphere, transform, density, material);
+}
+
+Collider* RigidBody::CreateCapsuleCollider(float height, float radius, const Transform& transform, float density, const Material& material)
+{
+    Capsule capsule{ height, radius };
+    return CreateCollider(&capsule, transform, density, material);
+}
+
+Collider* RigidBody::CreateCapsuleCollider(
+    const Vec3& p1, const Vec3& p2, float radius, bool resetPosition, const Transform& transform, float density, const Material& material
+)
+{
+    Capsule capsule{ p1, p2, radius, resetPosition };
+    return CreateCollider(&capsule, transform, density, material);
+}
+
+Collider* RigidBody::CreateBoxCollider(
+    float width, float height, float depth, const Transform& transform, float radius, float density, const Material& material
+)
+{
+    Box box{ width, height, depth, radius };
+    return CreateCollider(&box, transform, density, material);
+}
+
+Collider* RigidBody::CreateBoxCollider(
+    const Vec3& size, const Transform& transform, float radius, float density, const Material& material
+)
+{
+    return CreateBoxCollider(size.x, size.y, size.z, transform, radius, density, material);
+}
+
+Collider* RigidBody::CreateBoxCollider(float size, const Transform& transform, float radius, float density, const Material& material)
+{
+    return CreateBoxCollider(size, size, size, transform, radius, density, material);
+}
+
+bool RigidBody::TestPoint(const Vec3& q) const
+{
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        if (collider->TestPoint(q))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+Vec3 RigidBody::GetClosestPoint(const Vec3& q) const
+{
+    MuliAssert(colliderCount > 0);
+
+    Vec3 cp0 = colliderList->GetClosestPoint(q);
+    if (cp0 == q)
+    {
+        return cp0;
+    }
+
+    float d0 = Dist2(cp0, q);
+
+    for (Collider* collider = colliderList->next; collider; collider = collider->next)
+    {
+        Vec3 cp1 = collider->GetClosestPoint(q);
+        if (cp1 == q)
+        {
+            return cp1;
+        }
+
+        float d1 = Dist2(cp1, q);
+        if (d1 < d0)
+        {
+            cp0 = cp1;
+            d0 = d1;
+        }
+    }
+
+    return cp0;
+}
+
+void RigidBody::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
+{
+    RayCastInput input;
+    input.from = from;
+    input.to = to;
+    input.maxFraction = 1.0f;
+    input.radius = radius;
+
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        RayCastOutput output;
+
+        if (collider->RayCast(input, &output))
+        {
+            float fraction = output.fraction;
+            Vec3 point = (1.0f - fraction) * input.from + fraction * input.to;
+            input.maxFraction = callback->OnHitAny(collider, point, output.normal, fraction);
+        }
+
+        if (input.maxFraction <= 0.0f)
+        {
+            return;
+        }
     }
 }
 
-void RigidBody::SetEnabled(bool enabled)
+bool RigidBody::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const
 {
-    if (enabled == IsEnabled())
+    struct TempCallback : RayCastAnyCallback
     {
-        return;
+        bool hit = false;
+        Collider* closestCollider = nullptr;
+        Vec3 closestPoint;
+        Vec3 closestNormal;
+        float closestFraction = 1.0f;
+
+        float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float fraction) override
+        {
+            hit = true;
+            closestCollider = collider;
+            closestPoint = point;
+            closestNormal = normal;
+            closestFraction = fraction;
+            return fraction;
+        }
+    } tempCallback;
+
+    RayCastAny(from, to, radius, &tempCallback);
+
+    if (tempCallback.hit)
+    {
+        callback->OnHitClosest(
+            tempCallback.closestCollider, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestFraction
+        );
+        return true;
     }
 
-    MuliAssert(world != nullptr);
-    if (world == nullptr)
+    return false;
+}
+
+void RigidBody::RayCastAny(
+    const Vec3& from,
+    const Vec3& to,
+    float radius,
+    std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+) const
+{
+    RayCastInput input;
+    input.from = from;
+    input.to = to;
+    input.maxFraction = 1.0f;
+    input.radius = radius;
+
+    for (Collider* collider = colliderList; collider; collider = collider->next)
     {
-        return;
+        RayCastOutput output;
+
+        if (collider->RayCast(input, &output))
+        {
+            float fraction = output.fraction;
+            Vec3 point = (1.0f - fraction) * input.from + fraction * input.to;
+            input.maxFraction = callback(collider, point, output.normal, fraction);
+        }
+
+        if (input.maxFraction <= 0.0f)
+        {
+            return;
+        }
+    }
+}
+
+bool RigidBody::RayCastClosest(
+    const Vec3& from,
+    const Vec3& to,
+    float radius,
+    std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+) const
+{
+    struct TempCallback : RayCastAnyCallback
+    {
+        bool hit = false;
+        Collider* closestCollider = nullptr;
+        Vec3 closestPoint;
+        Vec3 closestNormal;
+        float closestFraction = 1.0f;
+
+        float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float fraction) override
+        {
+            hit = true;
+            closestCollider = collider;
+            closestPoint = point;
+            closestNormal = normal;
+            closestFraction = fraction;
+            return fraction;
+        }
+    } tempCallback;
+
+    RayCastAny(from, to, radius, &tempCallback);
+
+    if (tempCallback.hit)
+    {
+        callback(
+            tempCallback.closestCollider, tempCallback.closestPoint, tempCallback.closestNormal, tempCallback.closestFraction
+        );
+        return true;
     }
 
-    if (enabled)
-    {
-        flag |= flag_enabled;
-        contactList = nullptr;
-        world->contactGraph.AddBody(this);
-    }
-    else
-    {
-        flag &= ~flag_enabled;
-        world->contactGraph.RemoveBody(this);
-        islandID = 0;
-        islandIndex = 0;
-    }
+    return false;
 }
 
 void RigidBody::SetType(RigidBody::Type newType)
@@ -132,104 +380,106 @@ void RigidBody::SetType(RigidBody::Type newType)
         angularVelocity = Vec3::zero;
         motion.c0 = motion.c;
         motion.q0 = motion.q;
+        SynchronizeColliders();
     }
 
     Awake();
 
-    if (shape != nullptr && world != nullptr)
+    ContactEdge* ce = contactList;
+    while (ce)
     {
-        world->contactGraph.RemoveBody(this);
-        world->contactGraph.AddBody(this);
+        ContactEdge* ce0 = ce;
+        ce = ce->next;
+        world->contactGraph.Destroy(ce0->contact);
+    }
+    contactList = nullptr;
+
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        world->contactGraph.broadPhase.Refresh(collider);
     }
 
     islandID = 0;
     islandIndex = 0;
 }
 
-Shape* RigidBody::CreateShape(Shape* newShape, const Transform& shapeTransform, float density)
+void RigidBody::SetEnabled(bool enabled)
 {
-    MuliAssert(world != nullptr);
-    if (world == nullptr)
-    {
-        return nullptr;
-    }
-
-    if (newShape == nullptr)
-    {
-        return nullptr;
-    }
-
-    DestroyShape();
-
-    shapeDensity = density;
-    shape = world->CloneShape(newShape, shapeTransform);
-    ResetMassData();
-
-    if (IsEnabled())
-    {
-        world->contactGraph.AddBody(this);
-    }
-
-    Awake();
-
-    return shape;
-}
-
-void RigidBody::DestroyShape()
-{
-    if (shape == nullptr)
+    if (enabled == IsEnabled())
     {
         return;
     }
 
-    MuliAssert(world != nullptr);
-    if (world == nullptr)
+    if (enabled)
     {
-        return;
+        flag |= flag_enabled;
+
+        for (Collider* collider = colliderList; collider; collider = collider->next)
+        {
+            world->contactGraph.AddCollider(collider);
+        }
     }
+    else
+    {
+        flag &= ~flag_enabled;
 
-    world->contactGraph.RemoveBody(this);
+        ContactEdge* ce = contactList;
+        while (ce)
+        {
+            ContactEdge* ce0 = ce;
+            ce = ce->next;
+            world->contactGraph.Destroy(ce0->contact);
+        }
+        contactList = nullptr;
 
-    Shape* oldShape = shape;
+        for (Collider* collider = colliderList; collider; collider = collider->next)
+        {
+            world->contactGraph.RemoveCollider(collider);
+        }
 
-    shape = nullptr;
-    ResetMassData();
-
-    world->FreeShape(oldShape);
-
-    islandID = 0;
-    islandIndex = 0;
-    Awake();
+        islandID = 0;
+        islandIndex = 0;
+    }
 }
 
-Shape* RigidBody::CreateSphereShape(float radius, const Transform& shapeTransform, float density)
+void RigidBody::SetCollisionFilter(const CollisionFilter& filter) const
 {
-    Sphere sphere{ radius };
-    return CreateShape(&sphere, shapeTransform, density);
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        collider->SetFilter(filter);
+    }
 }
 
-Shape* RigidBody::CreateCapsuleShape(float height, float radius, const Transform& shapeTransform, float density)
+void RigidBody::SetFriction(float friction) const
 {
-    Capsule capsule{ height, radius };
-    return CreateShape(&capsule, shapeTransform, density);
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        collider->SetFriction(friction);
+    }
 }
 
-Shape* RigidBody::CreateBoxShape(
-    float width, float height, float depth, const Transform& shapeTransform, float radius, float density
-)
+void RigidBody::SetRestitution(float restitution) const
 {
-    Box box{ width, height, depth, radius };
-    return CreateShape(&box, shapeTransform, density);
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        collider->SetRestitution(restitution);
+    }
 }
 
-Shape* RigidBody::CreateBoxShape(const Vec3& size, const Transform& shapeTransform, float radius, float density)
+void RigidBody::SetRestitutionThreshold(float threshold) const
 {
-    return CreateBoxShape(size.x, size.y, size.z, shapeTransform, radius, density);
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        collider->SetRestitutionTreshold(threshold);
+    }
 }
 
-Shape* RigidBody::CreateBoxShape(float size, const Transform& shapeTransform, float radius, float density)
+void RigidBody::SetSurfaceSpeed(float surfaceSpeed) const
 {
-    return CreateBoxShape(size, size, size, shapeTransform, radius, density);
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        collider->SetSurfaceSpeed(surfaceSpeed);
+    }
 }
 
 void RigidBody::ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse)
@@ -240,9 +490,7 @@ void RigidBody::ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse)
     }
 
     ApplyLinearImpulse(impulse);
-
-    const Vec3 r = impulsePoint - motion.c;
-    ApplyAngularImpulse(Cross(r, impulse));
+    ApplyAngularImpulse(Cross(impulsePoint - motion.c, impulse));
 }
 
 void RigidBody::ApplyLinearImpulse(const Vec3& impulse)
@@ -298,36 +546,69 @@ void RigidBody::ResetMassData()
         return;
     }
 
-    if (shape == nullptr)
+    if (colliderCount <= 0)
     {
         return;
     }
 
-    MassData massData;
-    shape->ComputeMass(shapeDensity, &massData);
+    Vec3 localCenter = Vec3::zero;
 
-    mass = massData.mass;
+    for (Collider* collider = colliderList; collider; collider = collider->next)
+    {
+        MassData massData = collider->GetMassData();
+        mass += massData.mass;
+        localCenter += massData.mass * massData.centerOfMass;
+        inertia = inertia + massData.inertia;
+    }
+
     if (mass > 0.0f)
     {
         invMass = 1.0f / mass;
+        localCenter *= invMass;
+    }
+
+    if (mass > 0.0f)
+    {
+        const Vec3& c = localCenter;
+        inertia.ex -= Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z };
+        inertia.ey -= Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z };
+        inertia.ez -= Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) };
+        invInertia = inertia.GetInverse();
     }
 
     Vec3 oldCenter = motion.c;
-    motion.localCenter = massData.centerOfMass;
+    motion.localCenter = localCenter;
     motion.c = Mul(transform, motion.localCenter);
     motion.c0 = motion.c;
     motion.alpha0 = 0.0f;
 
-    inertia = massData.inertia;
-    const Vec3& c = motion.localCenter;
-
-    inertia.ex -= Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z };
-    inertia.ey -= Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z };
-    inertia.ez -= Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) };
-
-    invInertia = inertia.GetInverse();
-
     linearVelocity += Cross(angularVelocity, motion.c - oldCenter);
+}
+
+void RigidBody::SynchronizeColliders()
+{
+    if (world == nullptr || IsEnabled() == false)
+    {
+        return;
+    }
+
+    if (IsSleeping())
+    {
+        for (Collider* collider = colliderList; collider; collider = collider->next)
+        {
+            world->contactGraph.UpdateCollider(collider, transform);
+        }
+    }
+    else
+    {
+        Transform transform0;
+        motion.GetTransform(0.0f, &transform0);
+
+        for (Collider* collider = colliderList; collider; collider = collider->next)
+        {
+            world->contactGraph.UpdateCollider(collider, transform0, transform);
+        }
+    }
 }
 
 } // namespace muli3

@@ -5,34 +5,99 @@
 namespace muli3
 {
 
+class Collider;
 class RigidBody;
+class Contact;
+class Joint;
+
+class ColliderDestroyCallback
+{
+public:
+    virtual ~ColliderDestroyCallback() {}
+    virtual void OnColliderDestroy(Collider* me) = 0;
+};
+
+class BodyDestroyCallback
+{
+public:
+    virtual ~BodyDestroyCallback() {}
+    virtual void OnBodyDestroy(RigidBody* me) = 0;
+};
+
+class JointDestroyCallback
+{
+public:
+    virtual ~JointDestroyCallback() {}
+    virtual void OnJointDestroy(Joint* me) = 0;
+};
+
+class ContactListener
+{
+public:
+    virtual ~ContactListener() {}
+
+    virtual void OnContactBegin(Collider* me, Collider* other, Contact* contact)
+    {
+        MuliNotUsed(me);
+        MuliNotUsed(other);
+        MuliNotUsed(contact);
+    }
+
+    virtual void OnContactTouching(Collider* me, Collider* other, Contact* contact)
+    {
+        MuliNotUsed(me);
+        MuliNotUsed(other);
+        MuliNotUsed(contact);
+    }
+
+    virtual void OnContactEnd(Collider* me, Collider* other, Contact* contact)
+    {
+        MuliNotUsed(me);
+        MuliNotUsed(other);
+        MuliNotUsed(contact);
+    }
+
+    virtual void OnPreSolve(Collider* me, Collider* other, Contact* contact)
+    {
+        MuliNotUsed(me);
+        MuliNotUsed(other);
+        MuliNotUsed(contact);
+    }
+
+    virtual void OnPostSolve(Collider* me, Collider* other, Contact* contact)
+    {
+        MuliNotUsed(me);
+        MuliNotUsed(other);
+        MuliNotUsed(contact);
+    }
+};
 
 class RayCastAnyCallback
 {
 public:
     virtual ~RayCastAnyCallback() {}
-    virtual float OnHitAny(RigidBody* body, Vec3 point, Vec3 normal, float fraction) = 0;
+    virtual float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float fraction) = 0;
 };
 
 class RayCastClosestCallback
 {
 public:
     virtual ~RayCastClosestCallback() {}
-    virtual void OnHitClosest(RigidBody* body, Vec3 point, Vec3 normal, float fraction) = 0;
+    virtual void OnHitClosest(Collider* collider, Vec3 point, Vec3 normal, float fraction) = 0;
 };
 
 class ShapeCastAnyCallback
 {
 public:
     virtual ~ShapeCastAnyCallback() {}
-    virtual float OnHitAny(RigidBody* body, Vec3 point, Vec3 normal, float t) = 0;
+    virtual float OnHitAny(Collider* collider, Vec3 point, Vec3 normal, float t) = 0;
 };
 
 class ShapeCastClosestCallback
 {
 public:
     virtual ~ShapeCastClosestCallback() {}
-    virtual void OnHitClosest(RigidBody* body, Vec3 point, Vec3 normal, float t) = 0;
+    virtual void OnHitClosest(Collider* collider, Vec3 point, Vec3 normal, float t) = 0;
 };
 
 } // namespace muli3

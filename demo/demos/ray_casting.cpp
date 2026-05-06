@@ -87,8 +87,8 @@ public:
         float prevPointSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
 
-        world->RayCastAny(from, to, radius, [&](RigidBody* body, Vec3 point, Vec3 normal, float fraction) -> float {
-            MuliNotUsed(body);
+        world->RayCastAny(from, to, radius, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) -> float {
+            MuliNotUsed(collider);
 
             hit = true;
 
