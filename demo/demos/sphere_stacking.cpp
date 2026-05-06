@@ -43,6 +43,6 @@ static Demo* CreateSphereStacking(Game& game)
     return new SphereStacking(game);
 }
 
-static int32 sphere_stacking = register_demo("Sphere stacking", CreateSphereStacking, 10);
+static int32 sphere_stacking = register_demo("Sphere stacking", CreateSphereStacking, 4);
 
 } // namespace muli3

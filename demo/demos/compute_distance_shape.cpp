@@ -24,6 +24,12 @@ public:
         Step();
     }
 
+    void UpdateInput() override
+    {
+        EnableKeyboardShortcut();
+        EnableCameraControl();
+    }
+
     void UpdateUI() override
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
