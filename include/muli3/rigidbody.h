@@ -9,7 +9,9 @@ namespace muli3
 class Shape;
 class World;
 class Contact;
+class Joint;
 struct ContactEdge;
+struct JointEdge;
 
 class RigidBody
 {
@@ -121,6 +123,17 @@ protected:
     friend class ContactSolverTangent;
     friend class PositionSolver;
 
+    friend class Joint;
+    friend class Constraint;
+    friend class BallSocketJoint;
+    friend class DistanceJoint;
+    friend class GrabJoint;
+    friend class WeldJoint;
+    friend class LineJoint;
+    friend class PrismaticJoint;
+    friend class PulleyJoint;
+    friend class MotorJoint;
+
     enum
     {
         flag_enabled = 1 << 0,
@@ -167,6 +180,7 @@ private:
     Shape* shape;
     float shapeDensity;
     ContactEdge* contactList;
+    JointEdge* jointList;
     int32 node;
 
     float resting;

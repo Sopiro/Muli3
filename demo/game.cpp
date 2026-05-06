@@ -10,8 +10,6 @@ extern void SetUpdateRate(muli3::int32 newUpdateRate);
 namespace muli3
 {
 
-constexpr float g_throwInterval = 0.05f;
-
 Game::Game()
 {
     bool rendererInitialized = renderer.Initialize();
@@ -53,16 +51,6 @@ void Game::Update(float deltaTime)
 
 void Game::FixedUpdate()
 {
-    if (options.pause)
-    {
-        if (options.step)
-        {
-            options.step = false;
-            demo->Step();
-        }
-        return;
-    }
-
     demo->Step();
 }
 
@@ -80,118 +68,7 @@ void Game::UpdateInput()
     if (Input::IsKeyPressed(GLFW_KEY_R)) RestartDemo();
     if (Input::IsKeyPressed(GLFW_KEY_PAGE_DOWN)) PrevDemo();
     if (Input::IsKeyPressed(GLFW_KEY_PAGE_UP)) NextDemo();
-
-    Window* window = Window::Get();
-    if (!window->GetCursorHidden() && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
-    {
-        window->SetCursorHidden(true);
-        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
-    }
-    if (window->GetCursorHidden() && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT))
-    {
-        window->SetCursorHidden(false);
-        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
-    }
-    if (Input::IsKeyPressed(GLFW_KEY_ESCAPE))
-    {
-        window->SetCursorHidden(false);
-        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
-    }
-    EnableKeyboardShortcut();
-
-    demo->Update(dt, window->GetCursorHidden());
-
-    if (!ImGui::GetIO().WantCaptureKeyboard)
-    {
-        bool shift = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || Input::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
-
-        if (shift)
-        {
-            bool throwSphere = Input::IsKeyDown(GLFW_KEY_1) || Input::IsKeyDown(GLFW_KEY_KP_1);
-            bool throwCapsule = Input::IsKeyDown(GLFW_KEY_2) || Input::IsKeyDown(GLFW_KEY_KP_2);
-            bool throwBox = Input::IsKeyDown(GLFW_KEY_3) || Input::IsKeyDown(GLFW_KEY_KP_3);
-
-            if (throwSphere || throwCapsule || throwBox)
-            {
-                throwCooldown -= dt;
-                if (throwCooldown <= 0.0f)
-                {
-                    if (throwSphere) ThrowShape(Shape::sphere);
-                    if (throwCapsule) ThrowShape(Shape::capsule);
-                    if (throwBox) ThrowShape(Shape::box);
-                    throwCooldown = g_throwInterval;
-                }
-            }
-            else
-            {
-                throwCooldown = 0.0f;
-            }
-        }
-        else
-        {
-            throwCooldown = 0.0f;
-            if (Input::IsKeyPressed(GLFW_KEY_1) || Input::IsKeyPressed(GLFW_KEY_KP_1)) ThrowShape(Shape::sphere);
-            if (Input::IsKeyPressed(GLFW_KEY_2) || Input::IsKeyPressed(GLFW_KEY_KP_2)) ThrowShape(Shape::capsule);
-            if (Input::IsKeyPressed(GLFW_KEY_3) || Input::IsKeyPressed(GLFW_KEY_KP_3)) ThrowShape(Shape::box);
-        }
-    }
-    else
-    {
-        throwCooldown = 0.0f;
-    }
-}
-
-void Game::EnableKeyboardShortcut()
-{
-    if (ImGui::GetIO().WantCaptureKeyboard || Window::Get()->GetCursorHidden())
-    {
-        return;
-    }
-
-    if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
-    if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_outlined = !options.draw_outlined;
-    if (Input::IsKeyPressed(GLFW_KEY_L)) options.colorize_island = !options.colorize_island;
-    if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
-    if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
-    if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
-    if (Input::IsKeyPressed(GLFW_KEY_N)) options.show_contact_normal = !options.show_contact_normal;
-    if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
-    if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
-    if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
-
-    WorldSettings& settings = demo->GetWorldSettings();
-    if (Input::IsKeyPressed(GLFW_KEY_G)) settings.apply_gravity = !settings.apply_gravity;
-    if (Input::IsKeyPressed(GLFW_KEY_H)) settings.apply_gyroscopic_force = !settings.apply_gyroscopic_force;
-}
-
-void Game::ThrowShape(Shape::Type type)
-{
-    Camera& camera = demo->GetCamera();
-    Vec3 forward = camera.GetForward();
-    Vec3 position = camera.GetPosition() + forward * 1.4f;
-    Transform transform{ position, Quat::FromEuler(camera.rotation) };
-    RigidBody* body = nullptr;
-
-    switch (type)
-    {
-    case Shape::sphere:
-        body = demo->GetWorld().CreateSphere(0.25f, transform);
-        break;
-    case Shape::capsule:
-        body = demo->GetWorld().CreateCapsule(0.65f, 0.18f, transform);
-        break;
-    case Shape::box:
-        body = demo->GetWorld().CreateBox(0.45f, transform);
-        break;
-    default:
-        break;
-    }
-
-    if (body)
-    {
-        body->SetLinearVelocity(forward * 18.0f);
-        // body->SetAngularVelocity(camera.GetUp() * 6.0f + camera.GetRight() * 4.0f);
-    }
+    demo->UpdateInput();
 }
 
 void Game::UpdateUI()
@@ -334,6 +211,24 @@ void Game::UpdateUI()
         collapsed = false;
     }
 
+    ImGui::End();
+
+    ImGui::SetNextWindowPos({ 0.0f, Window::Get()->GetWindowSize().y }, ImGuiCond_Always, { 0.0f, 1.0f });
+    ImGui::Begin(
+        "Body info", NULL,
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoBackground
+    );
+    RigidBody* targetBody = demo->GetTargetBody();
+    if (targetBody)
+    {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{ 12 / 255.0f, 11 / 255.0f, 14 / 255.0f, 1.0f });
+        ImGui::Text("Mass: %.4f", targetBody->GetMass());
+        ImGui::Text(
+            "Pos: %.4f, %.4f, %.4f", targetBody->GetPosition().x, targetBody->GetPosition().y, targetBody->GetPosition().z
+        );
+        ImGui::PopStyleColor();
+    }
     ImGui::End();
 
     demo->UpdateUI();

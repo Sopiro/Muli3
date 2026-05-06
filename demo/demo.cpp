@@ -1,4 +1,5 @@
 #include "game.h"
+#include "window.h"
 
 namespace muli3
 {
@@ -8,6 +9,7 @@ Demo::Demo(Game& game)
     , renderer{ game.GetRenderer() }
     , options{ game.GetDebugOptions() }
 {
+    screenBounds = Window::Get()->GetWindowSize();
     settings.world_bounds.min.y = -30;
     world = new World(settings);
 
@@ -19,17 +21,282 @@ Demo::Demo(Game& game)
 
 Demo::~Demo()
 {
+    cursorJoint = nullptr;
     delete world;
 }
 
-void Demo::Update(float dt, bool captureMouse)
+void Demo::UpdateInput()
 {
-    camera.Update(dt, captureMouse);
+    FindTargetBody();
+    EnableKeyboardShortcut();
+    EnableBodyCreate();
+
+    bool handledGrab = EnableBodyGrab();
+    if (!handledGrab)
+    {
+        EnableCameraControl();
+    }
 }
 
 void Demo::Step()
 {
-    world->Step(dt);
+    if (options.pause)
+    {
+        if (options.step)
+        {
+            options.step = false;
+            world->Step(dt);
+        }
+    }
+    else
+    {
+        world->Step(dt);
+    }
+}
+
+void Demo::FindTargetBody()
+{
+    targetBody = nullptr;
+    targetPoint = Vec3::zero;
+    cursorPos = Input::GetMousePosition();
+    screenBounds = Window::Get()->GetWindowSize();
+
+    if (Window::Get()->GetCursorHidden() || ImGui::GetIO().WantCaptureMouse)
+    {
+        return;
+    }
+
+    Ray ray = GetMouseRay();
+    world->RayCastClosest(ray.o, ray.o + ray.d * 500.0f, 0.0f, [&](RigidBody* body, Vec3 point, Vec3 normal, float fraction) {
+        MuliNotUsed(normal);
+        MuliNotUsed(fraction);
+
+        targetBody = body;
+        targetPoint = point;
+    });
+}
+
+void Demo::EnableKeyboardShortcut()
+{
+    if (ImGui::GetIO().WantCaptureKeyboard || Window::Get()->GetCursorHidden())
+    {
+        return;
+    }
+
+    if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
+    if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_outlined = !options.draw_outlined;
+    if (Input::IsKeyPressed(GLFW_KEY_L)) options.colorize_island = !options.colorize_island;
+    if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
+    if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
+    if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
+    if (Input::IsKeyPressed(GLFW_KEY_N)) options.show_contact_normal = !options.show_contact_normal;
+    if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
+    if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
+    if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
+
+    if (Input::IsKeyPressed(GLFW_KEY_G))
+    {
+        settings.apply_gravity = !settings.apply_gravity;
+        world->Awake();
+    }
+    if (Input::IsKeyPressed(GLFW_KEY_H))
+    {
+        settings.apply_gyroscopic_force = !settings.apply_gyroscopic_force;
+        world->Awake();
+    }
+}
+
+void Demo::EnableBodyCreate()
+{
+    if (ImGui::GetIO().WantCaptureKeyboard)
+    {
+        throwCooldown = 0.0f;
+        return;
+    }
+
+    bool shift = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || Input::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
+    bool createSphere = Input::IsKeyDown(GLFW_KEY_1) || Input::IsKeyDown(GLFW_KEY_KP_1);
+    bool createCapsule = Input::IsKeyDown(GLFW_KEY_2) || Input::IsKeyDown(GLFW_KEY_KP_2);
+    bool createBox = Input::IsKeyDown(GLFW_KEY_3) || Input::IsKeyDown(GLFW_KEY_KP_3);
+
+    if (!createSphere && !createCapsule && !createBox)
+    {
+        throwCooldown = 0.0f;
+        return;
+    }
+
+    if (shift)
+    {
+        throwCooldown -= dt;
+        if (throwCooldown > 0.0f)
+        {
+            return;
+        }
+    }
+    else if (!Input::IsKeyPressed(GLFW_KEY_1) && !Input::IsKeyPressed(GLFW_KEY_KP_1) && !Input::IsKeyPressed(GLFW_KEY_2) &&
+             !Input::IsKeyPressed(GLFW_KEY_KP_2) && !Input::IsKeyPressed(GLFW_KEY_3) && !Input::IsKeyPressed(GLFW_KEY_KP_3))
+    {
+        return;
+    }
+
+    Camera& cam = GetCamera();
+    Vec3 forward = cam.GetForward();
+    Vec3 position = cam.GetPosition() + forward * 1.4f;
+    Transform transform{ position, Quat::FromEuler(cam.rotation) };
+    RigidBody* body = nullptr;
+
+    if (createSphere)
+    {
+        body = world->CreateSphere(0.25f, transform);
+    }
+    else if (createCapsule)
+    {
+        body = world->CreateCapsule(0.65f, 0.18f, transform);
+    }
+    else if (createBox)
+    {
+        body = world->CreateBox(0.45f, transform);
+    }
+
+    if (body)
+    {
+        body->SetLinearVelocity(forward * 18.0f);
+    }
+
+    throwCooldown = 0.05f;
+}
+
+bool Demo::EnableBodyGrab()
+{
+    if (Window::Get()->GetCursorHidden() || ImGui::GetIO().WantCaptureMouse)
+    {
+        if (cursorJoint && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_LEFT))
+        {
+            world->Destroy(cursorJoint);
+            cursorJoint = nullptr;
+        }
+
+        return false;
+    }
+
+    if (!IsGrabJointActive())
+    {
+        cursorJoint = nullptr;
+    }
+
+    if (targetBody && Input::IsMousePressed(GLFW_MOUSE_BUTTON_LEFT))
+    {
+        if (targetBody->GetType() == RigidBody::dynamic_body)
+        {
+            targetBody->Awake();
+            cursorJoint = world->CreateGrabJoint(targetBody, targetPoint, targetPoint, 4.0f, 0.5f, targetBody->GetMass());
+            grabDepth = Dot(targetPoint - camera.GetPosition(), camera.GetForward());
+        }
+    }
+
+    if (cursorJoint)
+    {
+        Vec3 target;
+        if (GetMouseWorldPointOnGrabPlane(&target))
+        {
+            cursorJoint->GetBodyA()->Awake();
+            cursorJoint->SetTarget(target);
+        }
+
+        if (Input::IsMouseReleased(GLFW_MOUSE_BUTTON_LEFT))
+        {
+            world->Destroy(cursorJoint);
+            cursorJoint = nullptr;
+        }
+        else if (Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
+        {
+            cursorJoint = nullptr;
+            return true;
+        }
+    }
+
+    return cursorJoint != nullptr;
+}
+
+void Demo::EnableCameraControl()
+{
+    Window* window = Window::Get();
+
+    if (!window->GetCursorHidden() && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
+    {
+        window->SetCursorHidden(true);
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+    }
+    else if (window->GetCursorHidden() && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT))
+    {
+        window->SetCursorHidden(false);
+        ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+    }
+
+    camera.Update(dt, window->GetCursorHidden());
+}
+
+bool Demo::IsGrabJointActive() const
+{
+    if (cursorJoint == nullptr)
+    {
+        return false;
+    }
+
+    for (const Joint* joint = world->GetJoints(); joint; joint = joint->GetNext())
+    {
+        if (joint == cursorJoint)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+Ray Demo::GetMouseRay() const
+{
+    Vec2 windowSize = Window::Get()->GetWindowSize();
+    Vec2 mouse = Input::GetMousePosition();
+
+    float x = 2.0f * mouse.x / windowSize.x - 1.0f;
+    float y = 1.0f - 2.0f * mouse.y / windowSize.y;
+
+    Vec4 clipNear{ x, y, -1.0f, 1.0f };
+    Vec4 clipFar{ x, y, 1.0f, 1.0f };
+
+    float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
+    Mat4 invViewProjection = (camera.GetProjectionMatrix(aspectRatio) * camera.GetViewMatrix()).GetInverse();
+
+    Vec4 worldNear4 = invViewProjection * clipNear;
+    Vec4 worldFar4 = invViewProjection * clipFar;
+
+    Vec3 worldNear = Vec3{ worldNear4.x, worldNear4.y, worldNear4.z } / worldNear4.w;
+    Vec3 worldFar = Vec3{ worldFar4.x, worldFar4.y, worldFar4.z } / worldFar4.w;
+
+    return Ray{ worldNear, Normalize(worldFar - worldNear) };
+}
+
+bool Demo::GetMouseWorldPointOnGrabPlane(Vec3* point) const
+{
+    Ray ray = GetMouseRay();
+
+    Vec3 planeNormal = camera.GetForward();
+    float denominator = Dot(ray.d, planeNormal);
+    if (Abs(denominator) <= epsilon)
+    {
+        return false;
+    }
+
+    Vec3 planePoint = camera.GetPosition() + planeNormal * grabDepth;
+    float t = Dot(planePoint - ray.o, planeNormal) / denominator;
+    if (t < 0.0f)
+    {
+        return false;
+    }
+
+    *point = ray.o + ray.d * t;
+    return true;
 }
 
 } // namespace muli3

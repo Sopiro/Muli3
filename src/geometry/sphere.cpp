@@ -60,4 +60,9 @@ Vec3 Sphere::GetClosestPoint(const Transform& transform, const Vec3& q) const
     return Mul(transform, center + d * radius);
 }
 
+bool Sphere::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
+{
+    return RayCastSphere(Mul(transform, center), radius, input, output);
+}
+
 } // namespace muli3

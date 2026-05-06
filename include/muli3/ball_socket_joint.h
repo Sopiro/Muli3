@@ -1,0 +1,46 @@
+#pragma once
+
+#include "joint.h"
+
+namespace muli3
+{
+
+// 3D equivalent of muli's RevoluteJoint
+// Point-to-point constraint: constrains two anchor points to coincide
+// 3 DOF constraint (constrains 3 translational DOFs)
+class BallSocketJoint : public Joint
+{
+public:
+    BallSocketJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio, float jointMass);
+
+    virtual void Prepare(const Timestep& step) override;
+    virtual void SolveVelocityConstraints(const Timestep& step) override;
+
+    const Vec3& GetLocalAnchorA() const;
+    const Vec3& GetLocalAnchorB() const;
+
+private:
+    Vec3 localAnchorA;
+    Vec3 localAnchorB;
+
+    Vec3 ra;
+    Vec3 rb;
+    Mat3 m;
+
+    Vec3 bias;
+    Vec3 impulseSum;
+
+    void ApplyImpulse(const Vec3& lambda);
+};
+
+inline const Vec3& BallSocketJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+inline const Vec3& BallSocketJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+} // namespace muli3

@@ -2,6 +2,7 @@
 
 #include "bounding_box.h"
 #include "primitives.h"
+#include "raycast.h"
 
 namespace muli3
 {
@@ -44,6 +45,7 @@ public:
 
     virtual bool TestPoint(const Transform& transform, const Vec3& q) const = 0;
     virtual Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const = 0;
+    virtual bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const = 0;
 
 protected:
     friend class ContactGraph;

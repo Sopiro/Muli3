@@ -327,6 +327,11 @@ constexpr inline Mat2 operator+(const Mat2& a, const Mat2& b)
     return Mat2(a.ex + b.ex, a.ey + b.ey);
 }
 
+constexpr inline Mat2 operator-(const Mat2& a, const Mat2& b)
+{
+    return Mat2(a.ex - b.ex, a.ey - b.ey);
+}
+
 // M * V
 constexpr inline Vec2 Mul(const Mat2& m, const Vec2& v)
 {
@@ -356,6 +361,16 @@ constexpr inline Mat2 MulT(const Mat2& a, const Mat2& b)
 // Mat2 functions end
 
 // Mat3 functions begin
+
+constexpr inline Mat3 operator+(const Mat3& a, const Mat3& b)
+{
+    return Mat3(a.ex + b.ex, a.ey + b.ey, a.ez + b.ez);
+}
+
+constexpr inline Mat3 operator-(const Mat3& a, const Mat3& b)
+{
+    return Mat3(a.ex - b.ex, a.ey - b.ey, a.ez - b.ez);
+}
 
 // M * V
 constexpr inline Vec3 Mul(const Mat3& m, const Vec3& v)
@@ -462,6 +477,16 @@ inline Mat3 Mat3::Translate(const Vec2& translation) const
 // Mat3 functions end
 
 // Mat4 functions begin
+
+constexpr inline Mat4 operator+(const Mat4& a, const Mat4& b)
+{
+    return Mat4(a.ex + b.ex, a.ey + b.ey, a.ez + b.ez, a.ew + b.ew);
+}
+
+constexpr inline Mat4 operator-(const Mat4& a, const Mat4& b)
+{
+    return Mat4(a.ex - b.ex, a.ey - b.ey, a.ez - b.ez, a.ew - b.ew);
+}
 
 // M * V
 constexpr inline Vec4 Mul(const Mat4& m, const Vec4& v)

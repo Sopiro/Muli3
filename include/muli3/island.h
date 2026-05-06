@@ -10,11 +10,12 @@ class Island
 private:
     friend class World;
 
-    Island(World* world, int32 bodyCapacity, int32 contactCapacity);
+    Island(World* world, int32 bodyCapacity, int32 contactCapacity, int32 jointCapacity);
     ~Island();
 
     void Add(RigidBody* body);
     void Add(Contact* contact);
+    void Add(Joint* joint);
 
     void Solve();
     void Clear();
@@ -23,11 +24,14 @@ private:
 
     RigidBody** bodies;
     Contact** contacts;
+    Joint** joints;
 
     int32 bodyCapacity;
     int32 contactCapacity;
+    int32 jointCapacity;
     int32 bodyCount;
     int32 contactCount;
+    int32 jointCount;
 
     bool sleeping;
 };
@@ -45,12 +49,18 @@ inline void Island::Add(Contact* contact)
     contacts[contactCount++] = contact;
 }
 
+inline void Island::Add(Joint* joint)
+{
+    MuliAssert(jointCount < jointCapacity);
+    joints[jointCount++] = joint;
+}
+
 inline void Island::Clear()
 {
     bodyCount = 0;
     contactCount = 0;
+    jointCount = 0;
     sleeping = false;
 }
 
 } // namespace muli3
-

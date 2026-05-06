@@ -20,6 +20,14 @@ public:
     static constexpr inline Vec4 default_white{ 1.0f, 1.0f, 1.0f, 0.8f };
     static constexpr inline Vec4 default_black{ 0.0f, 0.0f, 0.0f, 0.9f };
 
+    struct DrawMode
+    {
+        int32 colorIndex = -1;
+        bool rounded = false;
+        bool outline = false;
+        bool fill = true;
+    };
+
     ~Renderer();
 
     bool Initialize();
@@ -40,7 +48,8 @@ public:
     void DrawLine(const Vertex& v1, const Vertex& v2);
     void DrawLine(const Vec3& p1, const Vec3& p2, const Vec4& color = default_black);
     void DrawAABB(const AABB& aabb);
-    void DrawShape(const Shape* shape, const Transform& transform, const Vec4& color = default_white);
+    void DrawShape(const Shape* shape, const Transform& transform);
+    void DrawShape(const Shape* shape, const Transform& transform, const DrawMode& mode);
 
     void FlushAll();
     void FlushPoints();
@@ -61,12 +70,13 @@ private:
     void DestroyPrimitiveResources();
     void DestroyShapeResources();
 
-    void DrawBody(const RigidBody& body, const Vec4& color, const Shader& shader);
-    void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader);
+    void DrawBody(const RigidBody& body, const Vec4& color, bool wireframe, const Shader& shader);
+    void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
-    void FlushSpheres(const Shader& shader);
-    void FlushCapsules(const Shader& shader);
-    void FlushBoxes(const Shader& shader);
+    void FlushQueuedShapes(const Shader& shader, bool wireframe);
+    void FlushSpheres(const Shader& shader, bool wireframe);
+    void FlushCapsules(const Shader& shader, bool wireframe);
+    void FlushBoxes(const Shader& shader, bool wireframe);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
@@ -78,7 +88,11 @@ private:
     GLuint shadowDepthTexture;
 
     GLuint primVAO, primVBO, shapeInstanceVBO;
-    std::vector<ShapeInstance> sphereInstances, capsuleTopInstances, capsuleBottomInstances, capsuleMidInstances, boxInstances;
+    std::vector<ShapeInstance> sphereInstances[2];
+    std::vector<ShapeInstance> capsuleTopInstances[2];
+    std::vector<ShapeInstance> capsuleBottomInstances[2];
+    std::vector<ShapeInstance> capsuleMidInstances[2];
+    std::vector<ShapeInstance> boxInstances[2];
 
     int32 pointCount = 0;
     std::vector<Vertex> points;
@@ -160,11 +174,15 @@ inline void Renderer::DrawAABB(const AABB& aabb)
     DrawAABB(aabb, default_black);
 }
 
+inline void Renderer::DrawShape(const Shape* shape, const Transform& transform)
+{
+    DrawShape(shape, transform, DrawMode{});
+}
+
 inline void Renderer::FlushAll()
 {
-    if (!sphereInstances.empty()) FlushSpheres(shapeShader);
-    if (!capsuleTopInstances.empty()) FlushCapsules(shapeShader);
-    if (!boxInstances.empty()) FlushBoxes(shapeShader);
+    FlushQueuedShapes(shapeShader, false);
+    FlushQueuedShapes(shapeShader, true);
     if (lineCount > 0) FlushLines();
     if (pointCount > 0) FlushPoints();
 }

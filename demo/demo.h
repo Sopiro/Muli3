@@ -16,7 +16,7 @@ public:
     Demo(Game& game);
     virtual ~Demo();
 
-    virtual void Update(float dt, bool captureMouse);
+    virtual void UpdateInput();
     virtual void Step();
     virtual void UpdateUI() {}
     virtual void Render() {}
@@ -24,9 +24,20 @@ public:
     World& GetWorld();
     WorldSettings& GetWorldSettings();
     Camera& GetCamera();
+    RigidBody* GetTargetBody();
 
 protected:
     friend class Game;
+
+    void FindTargetBody();
+    void EnableKeyboardShortcut();
+    void EnableBodyCreate();
+    bool EnableBodyGrab();
+    void EnableCameraControl();
+
+    Ray GetMouseRay() const;
+    bool GetMouseWorldPointOnGrabPlane(Vec3* point) const;
+    bool IsGrabJointActive() const;
 
     Game& game;
     Renderer& renderer;
@@ -36,6 +47,14 @@ protected:
     WorldSettings settings;
     World* world = nullptr;
     float dt = 0.0f;
+    Vec2 cursorPos{ 0.0f, 0.0f };
+    Vec2 screenBounds{ 0.0f, 0.0f };
+    RigidBody* targetBody = nullptr;
+    Vec3 targetPoint = Vec3::zero;
+
+    GrabJoint* cursorJoint = nullptr;
+    float grabDepth = 0.0f;
+    float throwCooldown = 0.0f;
 };
 
 inline World& Demo::GetWorld()
@@ -51,6 +70,11 @@ inline WorldSettings& Demo::GetWorldSettings()
 inline Camera& Demo::GetCamera()
 {
     return camera;
+}
+
+inline RigidBody* Demo::GetTargetBody()
+{
+    return targetBody;
 }
 
 typedef Demo* DemoCreateFunction(Game& game);

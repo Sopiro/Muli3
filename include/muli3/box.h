@@ -24,6 +24,7 @@ public:
 
     bool TestPoint(const Transform& transform, const Vec3& q) const override;
     Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const override;
+    bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const override;
 
     const Vec3& GetHalfExtents() const;
 

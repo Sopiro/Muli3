@@ -33,6 +33,7 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , shape{ nullptr }
     , shapeDensity{ default_density }
     , contactList{ nullptr }
+    , jointList{ nullptr }
     , node{ -1 }
     , resting{ 0.0f }
 {

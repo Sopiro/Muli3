@@ -365,6 +365,21 @@ void AABBTree::Query(const AABB& aabb, std::function<bool(NodeIndex, Data*)> cal
     Query(aabb, &tempCallback);
 }
 
+void AABBTree::AABBCast(const AABBCastInput& input, std::function<float(const AABBCastInput& input, Data* data)> callback) const
+{
+    struct TempCallback
+    {
+        decltype(callback)& callback;
+
+        float AABBCastCallback(const AABBCastInput& input, Data* data)
+        {
+            return callback(input, data);
+        }
+    } tempCallback{ callback };
+
+    AABBCast(input, &tempCallback);
+}
+
 void AABBTree::Reset()
 {
     root = nullNode;

@@ -132,18 +132,11 @@ public:
         float prevSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
 
-        Vec4 color = Renderer::default_white;
-        if (options.draw_outlined)
-        {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            color = Renderer::default_black;
-        }
-        else
-        {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        }
-        renderer.DrawShape(shape1.get(), tf1, color);
-        renderer.DrawShape(shape2.get(), tf2, color);
+        Renderer::DrawMode mode;
+        mode.fill = !options.draw_outlined;
+        mode.outline = options.draw_outlined;
+        renderer.DrawShape(shape1.get(), tf1, mode);
+        renderer.DrawShape(shape2.get(), tf2, mode);
 
         if (collide)
         {

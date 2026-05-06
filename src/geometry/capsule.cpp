@@ -161,4 +161,19 @@ Vec3 Capsule::GetClosestPoint(const Transform& transform, const Vec3& q) const
     return Mul(transform, closest + delta * radius);
 }
 
+bool Capsule::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
+{
+    RayCastInput localInput = input;
+    localInput.from = MulT(transform, input.from);
+    localInput.to = MulT(transform, input.to);
+
+    if (RayCastCapsule(va, vb, radius, localInput, output) == false)
+    {
+        return false;
+    }
+
+    output->normal = transform.q.Rotate(output->normal);
+    return true;
+}
+
 } // namespace muli3

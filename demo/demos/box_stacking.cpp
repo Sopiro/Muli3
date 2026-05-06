@@ -14,11 +14,11 @@ public:
     BoxStacking(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
+        RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, 0.0f, 0.0f } }, RigidBody::static_body);
 
         float size = 1.0f;
         float gap = 0.1f;
-        float start = 0.5f + gap;
+        float start = 0.5f + gap + 0.25f;
 
         for (int32 i = 0; i < count; ++i)
         {

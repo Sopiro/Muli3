@@ -29,8 +29,6 @@ public:
 private:
     void UpdateUI();
     void UpdateInput();
-    void EnableKeyboardShortcut();
-    void ThrowShape(Shape::Type type);
     void InitDemo(size_t index);
 
     Renderer renderer;
@@ -40,7 +38,6 @@ private:
     float fixedDeltaTime = 1.0f / 60.0f;
     float time = 0.0f;
     float dt = 0.0f;
-    float throwCooldown = 0.1f;
     size_t demoCount = 0;
     size_t demoIndex = 0;
     size_t newIndex = 0;

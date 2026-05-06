@@ -7,6 +7,8 @@ constexpr int g_shadowMapSize = 2048;
 constexpr size_t g_maxShapeBatchCount = 4096;
 constexpr int32 g_maxVertexCount = 1024 * 3;
 constexpr int32 g_colorCount = 10;
+constexpr int32 g_fillPass = 0;
+constexpr int32 g_outlinePass = 1;
 
 Vec4 g_colors[g_colorCount];
 bool g_colorsInitialized = false;
@@ -272,6 +274,16 @@ Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
     return g_colors[colorIndex % g_colorCount];
 }
 
+Vec4 GetModeColor(const Renderer::DrawMode& mode)
+{
+    if (mode.colorIndex < 0)
+    {
+        return Renderer::default_white;
+    }
+
+    return g_colors[mode.colorIndex % g_colorCount];
+}
+
 Renderer::~Renderer()
 {
     Shutdown();
@@ -448,11 +460,16 @@ bool Renderer::Initialize()
         return false;
     }
 
-    sphereInstances.reserve(g_maxShapeBatchCount);
-    capsuleTopInstances.reserve(g_maxShapeBatchCount);
-    capsuleBottomInstances.reserve(g_maxShapeBatchCount);
-    capsuleMidInstances.reserve(g_maxShapeBatchCount);
-    boxInstances.reserve(g_maxShapeBatchCount);
+    sphereInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    sphereInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    capsuleTopInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    capsuleTopInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    capsuleBottomInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    capsuleBottomInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    capsuleMidInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    capsuleMidInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    boxInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    boxInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
     points.resize(g_maxVertexCount);
     lines.resize(g_maxVertexCount);
     initialized = true;
@@ -480,22 +497,39 @@ void Renderer::Shutdown()
     initialized = false;
 }
 
-void Renderer::DrawBody(const RigidBody& body, const Vec4& color, const Shader& shader)
+void Renderer::DrawBody(const RigidBody& body, const Vec4& color, bool wireframe, const Shader& shader)
 {
-    QueueShape(body.GetShape(), body.GetTransform(), color, shader);
+    QueueShape(body.GetShape(), body.GetTransform(), color, wireframe, shader);
 }
 
-void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color)
+void Renderer::DrawShape(const Shape* shape, const Transform& transform, const DrawMode& mode)
 {
-    QueueShape(shape, transform, color, shapeShader);
+    if (mode.fill == false && mode.outline == false)
+    {
+        return;
+    }
+
+    Vec4 color = GetModeColor(mode);
+
+    if (mode.fill)
+    {
+        QueueShape(shape, transform, color, false, shapeShader);
+    }
+
+    if (mode.outline)
+    {
+        QueueShape(shape, transform, default_black, true, shapeShader);
+    }
 }
 
-void Renderer::QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, const Shader& shader)
+void Renderer::QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader)
 {
     if (!shape)
     {
         return;
     }
+
+    int32 pass = wireframe ? g_outlinePass : g_fillPass;
 
     if (shape->GetType() == Shape::sphere)
     {
@@ -503,11 +537,11 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, sphere->GetCenter());
         renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-        sphereInstances.emplace_back(Mat4(renderTransform), color);
+        sphereInstances[pass].emplace_back(Mat4(renderTransform), color);
 
-        if (sphereInstances.size() == g_maxShapeBatchCount)
+        if (sphereInstances[pass].size() == g_maxShapeBatchCount)
         {
-            FlushSpheres(shader);
+            FlushSpheres(shader, wireframe);
         }
     }
     else if (shape->GetType() == Shape::capsule)
@@ -570,13 +604,13 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
             Vec4{ center, 1.0f },
         };
 
-        capsuleTopInstances.emplace_back(topModel, color);
-        capsuleBottomInstances.emplace_back(bottomModel, color);
-        capsuleMidInstances.emplace_back(midModel, color);
+        capsuleTopInstances[pass].emplace_back(topModel, color);
+        capsuleBottomInstances[pass].emplace_back(bottomModel, color);
+        capsuleMidInstances[pass].emplace_back(midModel, color);
 
-        if (capsuleTopInstances.size() == g_maxShapeBatchCount)
+        if (capsuleTopInstances[pass].size() == g_maxShapeBatchCount)
         {
-            FlushCapsules(shader);
+            FlushCapsules(shader, wireframe);
         }
     }
     else if (shape->GetType() == Shape::box)
@@ -585,11 +619,11 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, box->GetCenter());
         renderTransform.s = renderTransform.s * box->GetHalfExtents();
-        boxInstances.emplace_back(Mat4(renderTransform), color);
+        boxInstances[pass].emplace_back(Mat4(renderTransform), color);
 
-        if (boxInstances.size() == g_maxShapeBatchCount)
+        if (boxInstances[pass].size() == g_maxShapeBatchCount)
         {
-            FlushBoxes(shader);
+            FlushBoxes(shader, wireframe);
         }
     }
 }
@@ -619,61 +653,145 @@ void Renderer::DrawAABB(const AABB& aabb, const Vec4& color)
     DrawLine(v011, v111, color);
 }
 
-void Renderer::FlushSpheres(const Shader& shader)
+void Renderer::FlushQueuedShapes(const Shader& shader, bool wireframe)
 {
-    if (sphereInstances.empty())
+    FlushSpheres(shader, wireframe);
+    FlushCapsules(shader, wireframe);
+    FlushBoxes(shader, wireframe);
+}
+
+void Renderer::FlushSpheres(const Shader& shader, bool wireframe)
+{
+    std::vector<ShapeInstance>& instances = sphereInstances[wireframe ? g_outlinePass : g_fillPass];
+    if (instances.empty())
     {
         return;
     }
 
-    shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(sphereInstances.size() * sizeof(ShapeInstance)), sphereInstances.data());
-    sphereMesh.DrawInstanced((GLsizei)sphereInstances.size());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    sphereInstances.clear();
-}
-
-void Renderer::FlushCapsules(const Shader& shader)
-{
-    shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleTopInstances.size() * sizeof(ShapeInstance)), capsuleTopInstances.data()
-    );
-    capsuleTopMesh.DrawInstanced((GLsizei)capsuleTopInstances.size());
-
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleBottomInstances.size() * sizeof(ShapeInstance)), capsuleBottomInstances.data()
-    );
-    capsuleBottomMesh.DrawInstanced((GLsizei)capsuleBottomInstances.size());
-
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleMidInstances.size() * sizeof(ShapeInstance)), capsuleMidInstances.data()
-    );
-    capsuleMidMesh.DrawInstanced((GLsizei)capsuleMidInstances.size());
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    capsuleTopInstances.clear();
-    capsuleBottomInstances.clear();
-    capsuleMidInstances.clear();
-}
-
-void Renderer::FlushBoxes(const Shader& shader)
-{
-    if (boxInstances.empty())
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
     {
-        return;
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
     }
 
     shader.Use();
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(boxInstances.size() * sizeof(ShapeInstance)), boxInstances.data());
-    boxMesh.DrawInstanced((GLsizei)boxInstances.size());
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
+    sphereMesh.DrawInstanced((GLsizei)instances.size());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    boxInstances.clear();
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    instances.clear();
+}
+
+void Renderer::FlushCapsules(const Shader& shader, bool wireframe)
+{
+    int32 pass = wireframe ? g_outlinePass : g_fillPass;
+    if (capsuleTopInstances[pass].empty())
+    {
+        return;
+    }
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleTopInstances[pass].size() * sizeof(ShapeInstance)),
+        capsuleTopInstances[pass].data()
+    );
+    capsuleTopMesh.DrawInstanced((GLsizei)capsuleTopInstances[pass].size());
+
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleBottomInstances[pass].size() * sizeof(ShapeInstance)),
+        capsuleBottomInstances[pass].data()
+    );
+    capsuleBottomMesh.DrawInstanced((GLsizei)capsuleBottomInstances[pass].size());
+
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(
+        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleMidInstances[pass].size() * sizeof(ShapeInstance)),
+        capsuleMidInstances[pass].data()
+    );
+    capsuleMidMesh.DrawInstanced((GLsizei)capsuleMidInstances[pass].size());
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    capsuleTopInstances[pass].clear();
+    capsuleBottomInstances[pass].clear();
+    capsuleMidInstances[pass].clear();
+}
+
+void Renderer::FlushBoxes(const Shader& shader, bool wireframe)
+{
+    std::vector<ShapeInstance>& instances = boxInstances[wireframe ? g_outlinePass : g_fillPass];
+    if (instances.empty())
+    {
+        return;
+    }
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
+    boxMesh.DrawInstanced((GLsizei)instances.size());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    instances.clear();
 }
 
 void Renderer::FlushPoints()
@@ -756,11 +874,9 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     {
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*body, default_white, shadowShader);
+            DrawBody(*body, default_white, false, shadowShader);
         }
-        FlushSpheres(shadowShader);
-        FlushCapsules(shadowShader);
-        FlushBoxes(shadowShader);
+        FlushQueuedShapes(shadowShader, false);
     }
 
     glDisable(GL_POLYGON_OFFSET_FILL);
@@ -783,34 +899,136 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         {
             for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
             {
-                DrawBody(*body, GetBodyColor(*body, options), shapeShader);
+                DrawBody(*body, GetBodyColor(*body, options), false, shapeShader);
             }
-            FlushSpheres(shapeShader);
-            FlushCapsules(shapeShader);
-            FlushBoxes(shapeShader);
+            FlushQueuedShapes(shapeShader, false);
         }
     }
 
     if (options.draw_body && options.draw_outlined)
     {
-        GLint previousDepthFunc = GL_LESS;
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
         for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(*body, default_black, shapeShader);
+            DrawBody(*body, default_black, true, shapeShader);
         }
-        FlushSpheres(shapeShader);
-        FlushCapsules(shapeShader);
-        FlushBoxes(shapeShader);
-        glEnable(GL_CULL_FACE);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
+        FlushQueuedShapes(shapeShader, true);
     }
 
-    // Overlays
+    for (const Joint* joint = world.GetJoints(); joint; joint = joint->GetNext())
+    {
+        switch (joint->GetType())
+        {
+        case Joint::grab_joint:
+        {
+            const RigidBody* body = joint->GetBodyA();
+            const GrabJoint* grabJoint = (const GrabJoint*)joint;
+            Vec3 anchor = Mul(body->GetTransform(), grabJoint->GetLocalAnchor());
+            DrawPoint(anchor);
+            DrawPoint(grabJoint->GetTarget());
+            DrawLine(anchor, grabJoint->GetTarget());
+        }
+        break;
+        case Joint::ball_socket_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(anchorB);
+            DrawLine(anchorA, bodyA->GetPosition());
+            DrawLine(anchorB, bodyB->GetPosition());
+        }
+        break;
+        case Joint::distance_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const DistanceJoint* distanceJoint = (const DistanceJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), distanceJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), distanceJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(anchorB);
+
+            Vec3 d = anchorB - anchorA;
+            if (d.Normalize() > 0.0f)
+            {
+                DrawPoint(anchorA + d * distanceJoint->GetJointMinLength());
+                DrawPoint(anchorA + d * distanceJoint->GetJointMaxLength());
+            }
+
+            DrawLine(anchorA, anchorB);
+        }
+        break;
+        case Joint::weld_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const WeldJoint* weldJoint = (const WeldJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), weldJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), weldJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(anchorB);
+            DrawLine(anchorA, bodyA->GetPosition());
+            DrawLine(anchorB, bodyB->GetPosition());
+        }
+        break;
+        case Joint::line_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const LineJoint* lineJoint = (const LineJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), lineJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), lineJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(anchorB);
+            DrawLine(anchorA, anchorB);
+        }
+        break;
+        case Joint::prismatic_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const PrismaticJoint* prismaticJoint = (const PrismaticJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), prismaticJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), prismaticJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(anchorB);
+            DrawLine(anchorA, anchorB);
+        }
+        break;
+        case Joint::pulley_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const PulleyJoint* pulleyJoint = (const PulleyJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), pulleyJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), pulleyJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(pulleyJoint->GetGroundAnchorA());
+            DrawPoint(anchorB);
+            DrawPoint(pulleyJoint->GetGroundAnchorB());
+            DrawLine(anchorA, pulleyJoint->GetGroundAnchorA());
+            DrawLine(anchorB, pulleyJoint->GetGroundAnchorB());
+            DrawLine(pulleyJoint->GetGroundAnchorA(), pulleyJoint->GetGroundAnchorB());
+        }
+        break;
+        case Joint::motor_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const MotorJoint* motorJoint = (const MotorJoint*)joint;
+            Vec3 anchorA = Mul(bodyA->GetTransform(), motorJoint->GetLocalAnchorA());
+            Vec3 anchorB = Mul(bodyB->GetTransform(), motorJoint->GetLocalAnchorB());
+            DrawPoint(anchorA);
+            DrawPoint(anchorB);
+        }
+        break;
+        default:
+            break;
+        }
+    }
 
     if (options.show_bvh || options.show_aabb)
     {
