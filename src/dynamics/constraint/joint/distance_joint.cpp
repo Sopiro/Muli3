@@ -135,13 +135,10 @@ void DistanceJoint::ApplyImpulse(float lambda)
 
     Vec3 p = d * lambda;
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
-
     bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * Cross(ra, p);
+    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * Cross(ra, p);
     bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += invIB * Cross(rb, p);
+    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * Cross(rb, p);
 }
 
 } // namespace muli3

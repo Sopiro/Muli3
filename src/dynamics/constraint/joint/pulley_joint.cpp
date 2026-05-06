@@ -96,13 +96,10 @@ void PulleyJoint::ApplyImpulse(float lambda)
     Vec3 pa = -lambda * ua;
     Vec3 pb = -ratio * lambda * ub;
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
-
     bodyA->linearVelocity += pa * bodyA->invMass;
-    bodyA->angularVelocity += invIA * Cross(ra, pa);
+    bodyA->angularVelocity += bodyA->GetWorldInverseInertiaTensor() * Cross(ra, pa);
     bodyB->linearVelocity += pb * bodyB->invMass;
-    bodyB->angularVelocity += invIB * Cross(rb, pb);
+    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * Cross(rb, pb);
 }
 
 } // namespace muli3

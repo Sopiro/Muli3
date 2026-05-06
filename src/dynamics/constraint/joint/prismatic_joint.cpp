@@ -114,13 +114,10 @@ void PrismaticJoint::ApplyImpulse(const Vec2& linearLambda, const Vec3& angularL
 {
     Vec3 p = t1 * linearLambda.x + t2 * linearLambda.y;
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
-
     bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
+    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
     bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += invIB * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
+    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
 }
 
 } // namespace muli3

@@ -1,8 +1,8 @@
 #include "muli3/rigidbody.h"
 #include "muli3/box.h"
+#include "muli3/callbacks.h"
 #include "muli3/capsule.h"
 #include "muli3/collider.h"
-#include "muli3/callbacks.h"
 #include "muli3/shape.h"
 #include "muli3/sphere.h"
 #include "muli3/world.h"
@@ -84,6 +84,40 @@ void RigidBody::SetRotation(const Quat& rotation)
     SynchronizeColliders();
 }
 
+void RigidBody::Translate(const Vec3& delta)
+{
+    Translate(delta.x, delta.y, delta.z);
+}
+
+void RigidBody::Translate(float dx, float dy, float dz)
+{
+    transform.p += Vec3{ dx, dy, dz };
+    motion.c = Mul(transform, motion.localCenter);
+    motion.c0 = motion.c;
+    motion.alpha0 = 0.0f;
+
+    SynchronizeColliders();
+}
+
+void RigidBody::Rotate(const Quat& delta)
+{
+    transform.q = delta * transform.q;
+    transform.q.Normalize();
+
+    motion.q = transform.q;
+    motion.q0 = motion.q;
+    motion.c = Mul(transform, motion.localCenter);
+    motion.c0 = motion.c;
+    motion.alpha0 = 0.0f;
+
+    SynchronizeColliders();
+}
+
+void RigidBody::Rotate(const Vec3& eulerAngles)
+{
+    Rotate(Quat::FromEuler(eulerAngles));
+}
+
 Collider* RigidBody::CreateCollider(Shape* shape, const Transform& transform, float density, const Material& material)
 {
     MuliAssert(world != nullptr);
@@ -153,14 +187,22 @@ Collider* RigidBody::CreateSphereCollider(float radius, const Transform& transfo
     return CreateCollider(&sphere, transform, density, material);
 }
 
-Collider* RigidBody::CreateCapsuleCollider(float height, float radius, const Transform& transform, float density, const Material& material)
+Collider* RigidBody::CreateCapsuleCollider(
+    float height, float radius, const Transform& transform, float density, const Material& material
+)
 {
     Capsule capsule{ height, radius };
     return CreateCollider(&capsule, transform, density, material);
 }
 
 Collider* RigidBody::CreateCapsuleCollider(
-    const Vec3& p1, const Vec3& p2, float radius, bool resetPosition, const Transform& transform, float density, const Material& material
+    const Vec3& p1,
+    const Vec3& p2,
+    float radius,
+    bool resetPosition,
+    const Transform& transform,
+    float density,
+    const Material& material
 )
 {
     Capsule capsule{ p1, p2, radius, resetPosition };
@@ -182,7 +224,9 @@ Collider* RigidBody::CreateBoxCollider(
     return CreateBoxCollider(size.x, size.y, size.z, transform, radius, density, material);
 }
 
-Collider* RigidBody::CreateBoxCollider(float size, const Transform& transform, float radius, float density, const Material& material)
+Collider* RigidBody::CreateBoxCollider(
+    float size, const Transform& transform, float radius, float density, const Material& material
+)
 {
     return CreateBoxCollider(size, size, size, transform, radius, density, material);
 }
@@ -482,35 +526,60 @@ void RigidBody::SetSurfaceSpeed(float surfaceSpeed) const
     }
 }
 
-void RigidBody::ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse)
+void RigidBody::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
         return;
     }
 
-    ApplyLinearImpulse(impulse);
-    ApplyAngularImpulse(Cross(impulsePoint - motion.c, impulse));
+    if (awake && IsSleeping())
+    {
+        Awake();
+    }
+
+    if (IsSleeping() == false)
+    {
+        linearVelocity += impulse * invMass;
+        angularVelocity += GetWorldInverseInertiaTensor() * Cross(impulsePoint - motion.c, impulse);
+    }
 }
 
-void RigidBody::ApplyLinearImpulse(const Vec3& impulse)
+void RigidBody::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
         return;
     }
 
-    linearVelocity += impulse * invMass;
+    if (awake && IsSleeping())
+    {
+        Awake();
+    }
+
+    if (IsSleeping() == false)
+    {
+        linearVelocity += impulse * invMass;
+        angularVelocity += GetWorldInverseInertiaTensor() * Cross(localPoint - motion.localCenter, impulse);
+    }
 }
 
-void RigidBody::ApplyAngularImpulse(const Vec3& impulse)
+void RigidBody::ApplyAngularImpulse(const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
         return;
     }
 
-    angularVelocity += GetWorldInverseInertiaTensor() * impulse;
+    if (awake && IsSleeping())
+    {
+        Awake();
+    }
+
+    if (IsSleeping() == false)
+    {
+        angularVelocity += GetWorldInverseInertiaTensor() * impulse;
+    }
 }
 
 Vec3 RigidBody::GetVelocityAtWorldPoint(const Vec3& point) const

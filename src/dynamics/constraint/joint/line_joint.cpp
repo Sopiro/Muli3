@@ -89,13 +89,10 @@ void LineJoint::ApplyImpulse(const Vec2& lambda)
 {
     Vec3 p = t1 * lambda.x + t2 * lambda.y;
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
-
     bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * (sa1 * lambda.x + sa2 * lambda.y);
+    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * (sa1 * lambda.x + sa2 * lambda.y);
     bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += invIB * (sb1 * lambda.x + sb2 * lambda.y);
+    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * (sb1 * lambda.x + sb2 * lambda.y);
 }
 
 } // namespace muli3

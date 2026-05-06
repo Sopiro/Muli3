@@ -67,11 +67,17 @@ public:
     void SetAngularVelocity(float vx, float vy, float vz);
 
     void ApplyForce(const Vec3& worldPoint, const Vec3& force, bool awake);
+    void ApplyForceLocal(const Vec3& localPoint, const Vec3& force, bool awake);
     void ApplyTorque(const Vec3& torque, bool awake);
 
-    void ApplyImpulse(const Vec3& impulsePoint, const Vec3& impulse);
-    void ApplyLinearImpulse(const Vec3& impulse);
-    void ApplyAngularImpulse(const Vec3& impulse);
+    void ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, bool awake);
+    void ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, bool awake);
+    void ApplyAngularImpulse(const Vec3& impulse, bool awake);
+
+    void Translate(const Vec3& delta);
+    void Translate(float dx, float dy, float dz);
+    void Rotate(const Quat& delta);
+    void Rotate(const Vec3& eulerAngles);
 
     RigidBody::Type GetType() const;
     void SetType(RigidBody::Type type);
@@ -79,6 +85,7 @@ public:
     void SetEnabled(bool enabled);
     bool IsEnabled() const;
     bool IsStatic() const;
+    void SetSleeping(bool sleeping);
     bool IsSleeping() const;
     void Awake();
     void Sleep();
@@ -118,7 +125,10 @@ public:
     ) const;
 
     Collider* CreateCollider(
-        Shape* shape, const Transform& transform = identity, float density = default_density, const Material& material = default_material
+        Shape* shape,
+        const Transform& transform = identity,
+        float density = default_density,
+        const Material& material = default_material
     );
     void DestroyCollider(Collider* collider);
 
@@ -127,10 +137,17 @@ public:
     const Collider* GetColliderList() const;
 
     Collider* CreateSphereCollider(
-        float radius, const Transform& transform = identity, float density = default_density, const Material& material = default_material
+        float radius,
+        const Transform& transform = identity,
+        float density = default_density,
+        const Material& material = default_material
     );
     Collider* CreateCapsuleCollider(
-        float height, float radius, const Transform& transform = identity, float density = default_density, const Material& material = default_material
+        float height,
+        float radius,
+        const Transform& transform = identity,
+        float density = default_density,
+        const Material& material = default_material
     );
     Collider* CreateCapsuleCollider(
         const Vec3& p1,
@@ -408,6 +425,25 @@ inline void RigidBody::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, b
     }
 }
 
+inline void RigidBody::ApplyForceLocal(const Vec3& localPoint, const Vec3& inForce, bool awake)
+{
+    if (type != dynamic_body)
+    {
+        return;
+    }
+
+    if (awake && IsSleeping())
+    {
+        Awake();
+    }
+
+    if (IsSleeping() == false)
+    {
+        force += inForce;
+        torque += Cross(localPoint - motion.localCenter, inForce);
+    }
+}
+
 inline void RigidBody::ApplyTorque(const Vec3& inTorque, bool awake)
 {
     if (type != dynamic_body)
@@ -439,6 +475,18 @@ inline bool RigidBody::IsEnabled() const
 inline bool RigidBody::IsStatic() const
 {
     return type == static_body;
+}
+
+inline void RigidBody::SetSleeping(bool sleeping)
+{
+    if (sleeping)
+    {
+        Sleep();
+    }
+    else
+    {
+        Awake();
+    }
 }
 
 inline int32 RigidBody::GetIslandID() const
