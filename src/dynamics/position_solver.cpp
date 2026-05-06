@@ -35,15 +35,12 @@ bool PositionSolver::Solve(Contact* contact)
     Vec3 ran = Cross(ra, normal);
     Vec3 rbn = Cross(rb, normal);
 
-    Mat3 iiA = contact->b1->GetWorldInverseInertiaTensor();
-    Mat3 iiB = contact->b2->GetWorldInverseInertiaTensor();
-
     // clang-format off
     // effective mass = 1 / k
     float k = contact->b1->invMass
-            + Dot(ran, iiA * ran)
+            + Dot(ran, contact->invIA * ran)
             + contact->b2->invMass
-            + Dot(rbn, iiB * rbn);
+            + Dot(rbn, contact->invIB * rbn);
     // clang-format on
 
     // Constraint (bias)

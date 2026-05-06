@@ -10,7 +10,7 @@ extern void SetUpdateRate(muli3::int32 newUpdateRate);
 namespace muli3
 {
 
-constexpr float g_throwInterval = 0.1f;
+constexpr float g_throwInterval = 0.05f;
 
 Game::Game()
 {

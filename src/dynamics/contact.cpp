@@ -79,6 +79,9 @@ void Contact::Prepare(const Timestep& step)
     restitutionThreshold = restitution_slop;
     surfaceSpeed = 0.0f;
 
+    invIA = b1->GetWorldInverseInertiaTensor();
+    invIB = b2->GetWorldInverseInertiaTensor();
+
     Vec3 tangent1, tangent2;
     CoordinateSystem(manifold.contactNormal, &tangent1, &tangent2);
 
@@ -119,6 +122,9 @@ bool Contact::SolvePositionConstraints(const Timestep& step)
     cLinearImpulseB.SetZero();
     cAngularImpulseA.SetZero();
     cAngularImpulseB.SetZero();
+
+    invIA = b1->GetWorldInverseInertiaTensor();
+    invIB = b2->GetWorldInverseInertiaTensor();
 
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {

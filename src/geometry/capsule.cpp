@@ -120,11 +120,7 @@ void Capsule::ComputeAABB(const Transform& transform, AABB* outAABB) const
 
 Face Capsule::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
-    Vec3 axis = NormalizeSafe(vb - va);
-    if (Length2(axis) <= epsilon)
-    {
-        axis = y_axis;
-    }
+    Vec3 axis = Normalize(vb - va);
 
     Vec3 localDir = transform.q.RotateInv(dir);
     Vec3 normal = GramSchmidt(localDir, axis);

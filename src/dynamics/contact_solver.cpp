@@ -15,9 +15,6 @@ void ContactSolverNormal::Prepare(Contact* c, int32 index, const Timestep& step)
     Vec3 ra = point - c->b1->motion.c;
     Vec3 rb = point - c->b2->motion.c;
 
-    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
-    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
-
     // Setup jacobian
     j.va = -normal;
     j.wa = -Cross(ra, normal);
@@ -40,9 +37,9 @@ void ContactSolverNormal::Prepare(Contact* c, int32 index, const Timestep& step)
 
     // clang-format off
     float k = c->b1->invMass
-            + Dot(j.wa, iiA * j.wa)
+            + Dot(j.wa, c->invIA * j.wa)
             + c->b2->invMass
-            + Dot(j.wb, iiB * j.wb);
+            + Dot(j.wb, c->invIB * j.wb);
     // clang-format on
 
     m = k > 0.0f ? 1.0f / k : 0.0f;
@@ -51,9 +48,9 @@ void ContactSolverNormal::Prepare(Contact* c, int32 index, const Timestep& step)
     {
         // Warm start
         c->b1->linearVelocity += j.va * (c->b1->invMass * impulse);
-        c->b1->angularVelocity += iiA * j.wa * impulse;
+        c->b1->angularVelocity += c->invIA * j.wa * impulse;
         c->b2->linearVelocity += j.vb * (c->b2->invMass * impulse);
-        c->b2->angularVelocity += iiB * j.wb * impulse;
+        c->b2->angularVelocity += c->invIB * j.wb * impulse;
     }
 }
 
@@ -62,9 +59,6 @@ void ContactSolverNormal::Solve(Contact* c)
     // Compute corrective impulse: Pc
     // Pc = J^t * λ (λ: lagrangian multiplier)
     // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
-
-    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
-    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
 
     // clang-format off
     // Velocity constraint: C' = jv
@@ -86,9 +80,9 @@ void ContactSolverNormal::Solve(Contact* c)
     // Pc = J^t ⋅ λ
 
     c->b1->linearVelocity += j.va * (c->b1->invMass * lambda);
-    c->b1->angularVelocity += iiA * j.wa * lambda;
+    c->b1->angularVelocity += c->invIA * j.wa * lambda;
     c->b2->linearVelocity += j.vb * (c->b2->invMass * lambda);
-    c->b2->angularVelocity += iiB * j.wb * lambda;
+    c->b2->angularVelocity += c->invIB * j.wb * lambda;
 }
 
 void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index, const Timestep& step)
@@ -101,9 +95,6 @@ void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index,
     Vec3 ra = point - c->b1->motion.c;
     Vec3 rb = point - c->b2->motion.c;
 
-    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
-    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
-
     // Setup jacobian
     j.va = -tangent;
     j.wa = -Cross(ra, tangent);
@@ -114,9 +105,9 @@ void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index,
 
     // clang-format off
     float k = c->b1->invMass
-            + Dot(j.wa, iiA * j.wa)
+            + Dot(j.wa, c->invIA * j.wa)
             + c->b2->invMass
-            + Dot(j.wb, iiB * j.wb);
+            + Dot(j.wb, c->invIB * j.wb);
     // clang-format on
 
     m = k > 0.0f ? 1.0f / k : 0.0f;
@@ -125,9 +116,9 @@ void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index,
     {
         // Warm start
         c->b1->linearVelocity += j.va * (c->b1->invMass * impulse);
-        c->b1->angularVelocity += iiA * j.wa * impulse;
+        c->b1->angularVelocity += c->invIA * j.wa * impulse;
         c->b2->linearVelocity += j.vb * (c->b2->invMass * impulse);
-        c->b2->angularVelocity += iiB * j.wb * impulse;
+        c->b2->angularVelocity += c->invIB * j.wb * impulse;
     }
 }
 
@@ -136,9 +127,6 @@ void ContactSolverTangent::Solve(Contact* c, const ContactSolverNormal* normalSo
     // Compute corrective impulse: Pc
     // Pc = J^t * λ (λ: lagrangian multiplier)
     // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
-
-    Mat3 iiA = c->b1->GetWorldInverseInertiaTensor();
-    Mat3 iiB = c->b2->GetWorldInverseInertiaTensor();
 
     // clang-format off
     // Velocity constraint: C' = jv
@@ -161,9 +149,9 @@ void ContactSolverTangent::Solve(Contact* c, const ContactSolverNormal* normalSo
     // Pc = J^t ⋅ λ
 
     c->b1->linearVelocity += j.va * (c->b1->invMass * lambda);
-    c->b1->angularVelocity += iiA * j.wa * lambda;
+    c->b1->angularVelocity += c->invIA * j.wa * lambda;
     c->b2->linearVelocity += j.vb * (c->b2->invMass * lambda);
-    c->b2->angularVelocity += iiB * j.wb * lambda;
+    c->b2->angularVelocity += c->invIB * j.wb * lambda;
 }
 
 } // namespace muli3

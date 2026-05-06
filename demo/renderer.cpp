@@ -734,7 +734,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 {
     const Mat4 view = camera.GetViewMatrix();
     const Mat4 projection = camera.GetProjectionMatrix(aspectRatio);
-    const Vec3 lightDirection = Normalize(Vec3{ 0.45f, -1.0f, 0.35f });
+    const Vec3 lightDirection = Normalize(Vec3{ 0.45f, -1.0f, -0.35f });
     const Mat4 lightViewProjection = ComputeLightViewProjection(lightDirection);
     SetViewMatrix(view);
     SetProjectionMatrix(projection);

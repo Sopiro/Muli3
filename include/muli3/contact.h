@@ -91,6 +91,8 @@ private:
     Vec3 cLinearImpulseA, cLinearImpulseB;
     Vec3 cAngularImpulseA, cAngularImpulseB;
 
+    Mat3 invIA, invIB;
+
     float friction = 0.0f;
     float restitution = 0.0f;
     float restitutionThreshold = 0.0f;
@@ -104,6 +106,7 @@ inline Contact::Contact(RigidBody* bodyA, RigidBody* bodyB)
     , b1{ bodyA }
     , b2{ bodyB }
 {
+    manifold.contactCount = 0;
 }
 
 inline RigidBody* Contact::GetBodyA() const
