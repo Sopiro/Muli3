@@ -36,19 +36,19 @@ public:
 
         body->SetPosition(0.0f, 4.0f, 0.0f);
 
-        for (int32 y = 0; y < 8; ++y)
-        {
-            for (int32 x = 0; x < 6; ++x)
-            {
-                float size = 0.16f + 0.02f * (x % 3);
-                float px = -2.5f + x * 1.0f;
-                float py = 8.0f + y * 0.9f;
-                float pz = ((x + y) & 1) == 0 ? -0.35f : 0.35f;
+        // for (int32 y = 0; y < 8; ++y)
+        // {
+        //     for (int32 x = 0; x < 6; ++x)
+        //     {
+        //         float size = 0.16f + 0.02f * (x % 3);
+        //         float px = -2.5f + x * 1.0f;
+        //         float py = 8.0f + y * 0.9f;
+        //         float pz = ((x + y) & 1) == 0 ? -0.35f : 0.35f;
 
-                RigidBody* debris = world->CreateSphere(size, Transform{ Vec3{ px, py, pz } });
-                debris->SetAngularVelocity(1.5f + 0.2f * y, 0.8f + 0.15f * x, -1.0f - 0.1f * (x + y));
-            }
-        }
+        //         RigidBody* debris = world->CreateSphere(size, Transform{ Vec3{ px, py, pz } });
+        //         debris->SetAngularVelocity(1.5f + 0.2f * y, 0.8f + 0.15f * x, -1.0f - 0.1f * (x + y));
+        //     }
+        // }
 
         camera.SetPosition(Vec3{ 0.0f, 1.0f, 6.0f });
         camera.SetRotation(-90.0f, 0.0f);
@@ -60,6 +60,6 @@ static Demo* CreateLogo(Game& game)
     return new Logo(game);
 }
 
-static int32 logo = register_demo("Logo", CreateLogo, 13);
+static int32 logo = register_demo("Logo", CreateLogo, 11);
 
 } // namespace muli3

@@ -105,26 +105,28 @@ public:
         float prevPointSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
 
-        world->ShapeCastAny(shape.get(), tf, translation, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) -> float {
-            MuliNotUsed(collider);
+        world->ShapeCastAny(
+            shape.get(), tf, translation, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) -> float {
+                MuliNotUsed(collider);
 
-            hit = true;
+                hit = true;
 
-            if (closest == false)
-            {
-                renderer.DrawPoint(point);
-                renderer.DrawLine(point, point + normal * 0.25f);
-                ++dm.colorIndex;
-                renderer.DrawShape(shape.get(), Transform{ from + translation * fraction, tf.q }, dm);
+                if (closest == false)
+                {
+                    renderer.DrawPoint(point);
+                    renderer.DrawLine(point, point + normal * 0.25f);
+                    ++dm.colorIndex;
+                    renderer.DrawShape(shape.get(), Transform{ from + translation * fraction, tf.q }, dm);
 
-                return 1.0f;
+                    return 1.0f;
+                }
+
+                closestPoint = point;
+                closestNormal = normal;
+                closestFraction = fraction;
+                return fraction;
             }
-
-            closestPoint = point;
-            closestNormal = normal;
-            closestFraction = fraction;
-            return fraction;
-        });
+        );
 
         renderer.DrawLine(from, to);
         renderer.DrawPoint(from, Vec4{ 1.0f, 0.0f, 0.0f, 1.0f });
@@ -186,6 +188,6 @@ static Demo* CreateShapeCastWorld(Game& game)
     return new ShapeCastWorld(game);
 }
 
-static int32 shape_cast_world = register_demo("Shape cast world", CreateShapeCastWorld, 52);
+static int32 shape_cast_world = register_demo("Shape cast world", CreateShapeCastWorld, 10);
 
 } // namespace muli3

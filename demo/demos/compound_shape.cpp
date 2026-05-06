@@ -31,6 +31,6 @@ static Demo* CreateCompoundShape(Game& game)
     return new CompoundShape(game);
 }
 
-static int32 compound_shape = register_demo("Compound shape", CreateCompoundShape, 12);
+static int32 compound_shape = register_demo("Compound shape", CreateCompoundShape, 10);
 
 } // namespace muli3
