@@ -148,15 +148,15 @@ void Game::UpdateUI()
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
                 if (ImGui::CollapsingHeader("Simulation settings"))
                 {
-                    // if (ImGui::Checkbox("Apply gravity", &settings.apply_gravity))
-                    // {
-                    //     world.Awake();
-                    // }
+                    if (ImGui::Checkbox("Apply gravity", &settings.apply_gravity))
+                    {
+                        world.Awake();
+                    }
 
-                    // if (ImGui::Checkbox("Apply gyroscopic force", &settings.apply_gyroscopic_force))
-                    // {
-                    //     world.Awake();
-                    // }
+                    if (ImGui::Checkbox("Apply gyroscopic force", &settings.apply_gyroscopic_force))
+                    {
+                        world.Awake();
+                    }
 
                     ImGui::Text("Constraint solve iterations");
                     ImGui::SetNextItemWidth(120);
@@ -216,8 +216,8 @@ void Game::UpdateUI()
     ImGui::SetNextWindowPos({ 0.0f, Window::Get()->GetWindowSize().y }, ImGuiCond_Always, { 0.0f, 1.0f });
     ImGui::Begin(
         "Body info", NULL,
-        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar |
-            ImGuiWindowFlags_NoBackground
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
+            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground
     );
     RigidBody* targetBody = demo->GetTargetBody();
     if (targetBody)

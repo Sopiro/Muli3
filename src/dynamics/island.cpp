@@ -3,6 +3,7 @@
 namespace muli3
 {
 
+// https://box2d.org/files/ErinCatto_NumericalMethods_GDC2015.pdf
 // Erin Catto's numerical method for stable gyroscopic force integration
 static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, float h)
 {
