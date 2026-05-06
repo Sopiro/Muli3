@@ -261,6 +261,77 @@ void World::BufferDestroy(std::span<Joint*> joints)
     }
 }
 
+void World::Query(const Vec3& point, WorldQueryCallback* callback) const
+{
+    struct TempCallback
+    {
+        Vec3 point;
+        WorldQueryCallback* callback;
+
+        bool QueryCallback(NodeIndex node, Collider* collider)
+        {
+            MuliNotUsed(node);
+
+            if (collider->body == nullptr)
+            {
+                return true;
+            }
+
+            if (collider->TestPoint(point))
+            {
+                return callback->OnQuery(collider);
+            }
+
+            return true;
+        }
+    } tempCallback;
+
+    tempCallback.point = point;
+    tempCallback.callback = callback;
+
+    contactGraph.broadPhase.tree.Query(point, &tempCallback);
+}
+
+void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
+{
+    Box region{ aabb.GetExtents(), 0.0f };
+    Transform transform{ aabb.GetCenter() };
+
+    struct TempCallback
+    {
+        Box region;
+        Transform transform;
+        WorldQueryCallback* callback;
+
+        TempCallback(const Box& region, const Transform& transform)
+            : region{ region }
+            , transform{ transform }
+        {
+        }
+
+        bool QueryCallback(NodeIndex node, Collider* collider)
+        {
+            MuliNotUsed(node);
+
+            if (collider->body == nullptr)
+            {
+                return true;
+            }
+
+            if (Collide(collider->shape, collider->body->transform, &region, transform))
+            {
+                return callback->OnQuery(collider);
+            }
+
+            return true;
+        }
+    } tempCallback(region, transform);
+
+    tempCallback.callback = callback;
+
+    contactGraph.broadPhase.tree.Query(aabb, &tempCallback);
+}
+
 void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
 {
     AABBCastInput input;
@@ -411,6 +482,79 @@ bool World::ShapeCastClosest(const Shape* shape, const Transform& tf, const Vec3
     }
 
     return false;
+}
+
+void World::Query(const Vec3& point, std::function<bool(Collider* collider)> callback) const
+{
+    struct TempCallback
+    {
+        Vec3 point;
+        decltype(callback)& callbackFcn;
+
+        TempCallback(Vec3 point, decltype(callback)& callback)
+            : point{ point }
+            , callbackFcn{ callback }
+        {
+        }
+
+        bool QueryCallback(NodeIndex node, Collider* collider)
+        {
+            MuliNotUsed(node);
+
+            if (collider->body == nullptr)
+            {
+                return true;
+            }
+
+            if (collider->TestPoint(point))
+            {
+                return callbackFcn(collider);
+            }
+
+            return true;
+        }
+    } tempCallback(point, callback);
+
+    contactGraph.broadPhase.tree.Query(point, &tempCallback);
+}
+
+void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> callback) const
+{
+    Box region{ aabb.GetExtents(), 0.0f };
+    Transform transform{ aabb.GetCenter() };
+
+    struct TempCallback
+    {
+        Box region;
+        Transform transform;
+        decltype(callback)& callbackFcn;
+
+        TempCallback(const Box& region, const Transform& transform, decltype(callback)& callback)
+            : region{ region }
+            , transform{ transform }
+            , callbackFcn{ callback }
+        {
+        }
+
+        bool QueryCallback(NodeIndex node, Collider* collider)
+        {
+            MuliNotUsed(node);
+
+            if (collider->body == nullptr)
+            {
+                return true;
+            }
+
+            if (Collide(collider->shape, collider->body->transform, &region, transform))
+            {
+                return callbackFcn(collider);
+            }
+
+            return true;
+        }
+    } tempCallback(region, transform, callback);
+
+    contactGraph.broadPhase.tree.Query(aabb, &tempCallback);
 }
 
 void World::RayCastAny(

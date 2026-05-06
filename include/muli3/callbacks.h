@@ -72,6 +72,13 @@ public:
     }
 };
 
+class WorldQueryCallback
+{
+public:
+    virtual ~WorldQueryCallback() {}
+    virtual bool OnQuery(Collider* collider) = 0;
+};
+
 class RayCastAnyCallback
 {
 public:
