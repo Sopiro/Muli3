@@ -11,10 +11,6 @@ public:
         : Demo(game)
     {
         settings.apply_gravity = false;
-        settings.apply_gyroscopic_force = true;
-        settings.sleeping = false;
-
-        options.draw_outlined = false;
 
         world->CreateBox(24.0f, 0.5f, 24.0f, Vec3{ 0.0f, -3.25f, 0.0f }, RigidBody::static_body);
 
@@ -22,6 +18,7 @@ public:
         spinner->CreateBoxCollider(0.5f, 2.5f, 0.5f, Transform{ Vec3{ 0.0f, 0.0f, 0.0f } });
         spinner->CreateBoxCollider(1.0f, 0.5f, 0.5f, Transform{ Vec3{ 0.75f, 0.0f, 0.0f } });
 
+        spinner->SetGyroscopicTorqueEnabled(true);
         spinner->SetAngularVelocity(8.0f, 0.05f, 0.15f);
 
         spinner->SetLinearDamping(0.0f);
@@ -50,12 +47,19 @@ public:
                 ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar
             ))
         {
+
             ImGui::Text("Angular momentum");
             ImGui::Separator();
             ImGui::Text("Lx: %.4f", L.x);
             ImGui::Text("Ly: %.4f", L.y);
             ImGui::Text("Lz: %.4f", L.z);
             ImGui::Text("|L|: %.4f", magnitude);
+            ImGui::Separator();
+            bool applyGyroscopicForce = spinner->GetGyroscopicTorqueEnabled();
+            if (ImGui::Checkbox("Enable gyroscopic torque", &applyGyroscopicForce))
+            {
+                spinner->SetGyroscopicTorqueEnabled(applyGyroscopicForce);
+            }
         }
         ImGui::End();
     }

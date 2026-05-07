@@ -590,22 +590,6 @@ Vec3 RigidBody::GetVelocityAtWorldPoint(const Vec3& point) const
     return linearVelocity + Cross(angularVelocity, point - motion.c);
 }
 
-void RigidBody::Integrate(float dt)
-{
-    if (type == static_body)
-    {
-        return;
-    }
-
-    motion.c += linearVelocity * dt;
-
-    Quat w{ angularVelocity, 0.0f };
-    motion.q = motion.q + (w * motion.q) * dt * 0.5f;
-    motion.q.Normalize();
-
-    SynchronizeTransform();
-}
-
 void RigidBody::ResetMassData()
 {
     mass = 0.0f;

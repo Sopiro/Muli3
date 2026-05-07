@@ -84,14 +84,17 @@ void Island::Solve()
                 b->linearVelocity += settings.gravity * step.dt;
             }
 
+            // Integrate velocites
             b->linearVelocity += b->force * b->invMass * step.dt;
             b->angularVelocity += b->GetWorldInverseInertiaTensor() * b->torque * step.dt;
 
-            if (settings.apply_gyroscopic_force)
+            // Apply the w x (I * w) term
+            if (b->GetGyroscopicTorqueEnabled())
             {
                 b->angularVelocity = SolveGyroscopic(b->motion.q, b->inertia, b->angularVelocity, step.dt);
             }
 
+            // Apply damping
             b->linearVelocity *= 1.0f / (1.0f + b->linearDamping * step.dt);
             b->angularVelocity *= 1.0f / (1.0f + b->angularDamping * step.dt);
         }
@@ -134,7 +137,12 @@ void Island::Solve()
         b->force = Vec3::zero;
         b->torque = Vec3::zero;
 
-        b->Integrate(step.dt);
+        // Integrate position and orientation
+        b->motion.c += b->linearVelocity * step.dt;
+
+        Quat w{ b->angularVelocity, 0.0f };
+        b->motion.q = b->motion.q + (w * b->motion.q) * step.dt * 0.5f;
+        b->motion.q.Normalize();
 
         if (settings.world_bounds.TestPoint(b->transform.p) == false)
         {

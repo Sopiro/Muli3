@@ -153,11 +153,6 @@ void Game::UpdateUI()
                         world.Awake();
                     }
 
-                    if (ImGui::Checkbox("Apply gyroscopic force", &settings.apply_gyroscopic_force))
-                    {
-                        world.Awake();
-                    }
-
                     ImGui::Text("Constraint solve iterations");
                     ImGui::SetNextItemWidth(120);
                     ImGui::SliderInt("Velocity", &settings.step.velocity_iterations, 0, 50);

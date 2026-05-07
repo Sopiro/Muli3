@@ -99,11 +99,6 @@ void Demo::EnableKeyboardShortcut()
         settings.apply_gravity = !settings.apply_gravity;
         world->Awake();
     }
-    if (Input::IsKeyPressed(GLFW_KEY_H))
-    {
-        settings.apply_gyroscopic_force = !settings.apply_gyroscopic_force;
-        world->Awake();
-    }
 }
 
 void Demo::EnableBodyCreate()
@@ -114,7 +109,9 @@ void Demo::EnableBodyCreate()
         return;
     }
 
-    bool shift = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT) || Input::IsKeyDown(GLFW_KEY_RIGHT_SHIFT);
+    bool shift = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT);
+    bool alt = Input::IsKeyDown(GLFW_KEY_LEFT_ALT);
+    bool ctrl = Input::IsKeyDown(GLFW_KEY_LEFT_CONTROL);
     bool createSphere = Input::IsKeyDown(GLFW_KEY_1) || Input::IsKeyDown(GLFW_KEY_KP_1);
     bool createCapsule = Input::IsKeyDown(GLFW_KEY_2) || Input::IsKeyDown(GLFW_KEY_KP_2);
     bool createBox = Input::IsKeyDown(GLFW_KEY_3) || Input::IsKeyDown(GLFW_KEY_KP_3);
@@ -161,6 +158,7 @@ void Demo::EnableBodyCreate()
     if (body)
     {
         body->SetLinearVelocity(forward * 18.0f);
+        body->SetGyroscopicTorqueEnabled(alt);
     }
 
     throwCooldown = 0.05f;

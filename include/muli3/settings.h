@@ -46,7 +46,6 @@ struct Timestep
 struct WorldSettings
 {
     bool apply_gravity = true;
-    bool apply_gyroscopic_force = false;
 
     bool sleeping = true;
     Vec3 gravity{ 0.0f, -10.0f, 0.0f };

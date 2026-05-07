@@ -54,6 +54,9 @@ public:
     float GetAngularDamping() const;
     void SetAngularDamping(float angularDamping);
 
+    void SetGyroscopicTorqueEnabled(bool enabled);
+    bool GetGyroscopicTorqueEnabled() const;
+
     const Vec3& GetForce() const;
     void SetForce(const Vec3& force);
     const Vec3& GetTorque() const;
@@ -194,7 +197,6 @@ public:
     Mat3 GetWorldInertiaTensor() const;
     Mat3 GetWorldInverseInertiaTensor() const;
     Vec3 GetVelocityAtWorldPoint(const Vec3& point) const;
-    void Integrate(float dt);
 
 protected:
     friend class World;
@@ -227,6 +229,7 @@ protected:
         flag_enabled = 1 << 0,
         flag_island = 1 << 1,
         flag_sleeping = 1 << 2,
+        flag_gyroscopic_torque = 1 << 3,
     };
 
     Type type;
@@ -340,6 +343,28 @@ inline float RigidBody::GetAngularDamping() const
 inline void RigidBody::SetAngularDamping(float newAngularDamping)
 {
     angularDamping = newAngularDamping;
+}
+
+inline void RigidBody::SetGyroscopicTorqueEnabled(bool enabled)
+{
+    if (enabled)
+    {
+        flag |= flag_gyroscopic_torque;
+    }
+    else
+    {
+        flag &= ~flag_gyroscopic_torque;
+    }
+
+    if (type != static_body)
+    {
+        Awake();
+    }
+}
+
+inline bool RigidBody::GetGyroscopicTorqueEnabled() const
+{
+    return (flag & flag_gyroscopic_torque) == flag_gyroscopic_torque;
 }
 
 inline const Vec3& RigidBody::GetForce() const
