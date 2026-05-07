@@ -284,6 +284,13 @@ Vec4 GetModeColor(const Renderer::DrawMode& mode)
     return g_colors[mode.colorIndex % g_colorCount];
 }
 
+void DrawBasis(Renderer& renderer, const Vec3& origin, const Quat& rotation, float scale, float alpha)
+{
+    renderer.DrawLine(origin, origin + rotation.Rotate(x_axis) * scale, Vec4{ 0.95f, 0.2f, 0.2f, alpha });
+    renderer.DrawLine(origin, origin + rotation.Rotate(y_axis) * scale, Vec4{ 0.2f, 0.85f, 0.2f, alpha });
+    renderer.DrawLine(origin, origin + rotation.Rotate(z_axis) * scale, Vec4{ 0.2f, 0.45f, 1.0f, alpha });
+}
+
 Renderer::~Renderer()
 {
     Shutdown();
@@ -1005,6 +1012,16 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             DrawPoint(anchor);
             DrawPoint(grabJoint->GetTarget());
             DrawLine(anchor, grabJoint->GetTarget());
+        }
+        break;
+        case Joint::fixed_rotation_joint:
+        {
+            const RigidBody* body = joint->GetBodyA();
+            const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
+            Vec3 position = body->GetPosition();
+            DrawPoint(position);
+            DrawBasis(*this, position, body->GetRotation(), 0.8f, 0.95f);
+            DrawBasis(*this, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.45f);
         }
         break;
         case Joint::ball_socket_joint:

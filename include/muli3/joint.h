@@ -57,6 +57,7 @@ public:
     enum Type : uint8
     {
         grab_joint,
+        fixed_rotation_joint,
         ball_socket_joint,
         distance_joint,
         weld_joint,

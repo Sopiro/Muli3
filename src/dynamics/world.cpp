@@ -938,6 +938,22 @@ GrabJoint* World::CreateGrabJoint(
     return gj;
 }
 
+FixedRotationJoint* World::CreateFixedRotationJoint(
+    RigidBody* body, float jointFrequency, float jointDampingRatio, float jointMass
+)
+{
+    if (body->world != this)
+    {
+        return nullptr;
+    }
+
+    void* mem = blockAllocator.Allocate(sizeof(FixedRotationJoint));
+    FixedRotationJoint* frj = new (mem) FixedRotationJoint(body, jointFrequency, jointDampingRatio, jointMass);
+
+    AddJoint(frj);
+    return frj;
+}
+
 BallSocketJoint* World::CreateBallSocketJoint(
     RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
 )
@@ -1201,6 +1217,9 @@ void World::FreeJoint(Joint* joint)
     {
     case Joint::Type::grab_joint:
         blockAllocator.Free(joint, sizeof(GrabJoint));
+        break;
+    case Joint::Type::fixed_rotation_joint:
+        blockAllocator.Free(joint, sizeof(FixedRotationJoint));
         break;
     case Joint::Type::ball_socket_joint:
         blockAllocator.Free(joint, sizeof(BallSocketJoint));

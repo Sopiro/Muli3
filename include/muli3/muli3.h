@@ -22,6 +22,7 @@
 #include "ball_socket_joint.h" // IWYU pragma: export
 #include "constraint.h"        // IWYU pragma: export
 #include "distance_joint.h"    // IWYU pragma: export
+#include "fixed_rotation_joint.h" // IWYU pragma: export
 #include "grab_joint.h"        // IWYU pragma: export
 #include "joint.h"             // IWYU pragma: export
 #include "line_joint.h"        // IWYU pragma: export

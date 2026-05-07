@@ -4,6 +4,7 @@
 
 #include "ball_socket_joint.h"
 #include "distance_joint.h"
+#include "fixed_rotation_joint.h"
 #include "grab_joint.h"
 #include "joint.h"
 #include "line_joint.h"
@@ -95,6 +96,12 @@ public:
         const Vec3& anchor,
         const Vec3& target,
         float frequency = 1.0f,
+        float dampingRatio = 1.0f,
+        float jointMass = 1.0f
+    );
+    FixedRotationJoint* CreateFixedRotationJoint(
+        RigidBody* body,
+        float frequency = -1.0f,
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
     );
