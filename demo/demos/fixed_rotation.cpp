@@ -58,7 +58,7 @@ public:
             return;
         }
 
-        if (Input::IsKeyPressed(GLFW_KEY_F))
+        if (Input::IsKeyPressed(GLFW_KEY_T))
         {
             FixedRotationJoint* joint = FindFixedRotationJoint(targetBody);
             if (joint)
@@ -98,7 +98,7 @@ public:
             ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
                 ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground
         );
-        ImGui::TextColored(ImColor{ 12, 11, 14 }, "Press F on body to toggle fixed");
+        ImGui::TextColored(ImColor{ 12, 11, 14 }, "Press T on body to toggle fixed");
         ImGui::End();
     }
 

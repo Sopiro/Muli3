@@ -292,6 +292,11 @@ void DrawBasis(Renderer& renderer, const Vec3& origin, const Quat& rotation, flo
     renderer.DrawLine(origin, origin + rotation.Rotate(z_axis) * scale, Vec4{ 0.2f, 0.45f, 1.0f, alpha });
 }
 
+void DrawAxis(Renderer& renderer, const Vec3& origin, const Vec3& axis, float halfLength, const Vec4& color)
+{
+    renderer.DrawLine(origin - axis * halfLength, origin + axis * halfLength, color);
+}
+
 void DrawConeLimit(Renderer& renderer, const Vec3& origin, const Vec3& axis, float angle, float length, const Vec4& color)
 {
     if (angle <= 0.0f)
@@ -1060,8 +1065,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
             Vec3 position = body->GetPosition();
             DrawPoint(position);
-            DrawBasis(*this, position, body->GetRotation(), 0.8f, 0.95f);
-            DrawBasis(*this, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.45f);
+            DrawBasis(*this, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.55f);
         }
         break;
         case Joint::cone_swing_joint:
@@ -1074,7 +1078,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             Vec3 positionB = bodyB->GetPosition();
             Vec3 axisA = bodyA->GetRotation().Rotate(coneSwingJoint->GetLocalAxisA());
             Vec3 axisB = bodyB->GetRotation().Rotate(coneSwingJoint->GetLocalAxisB());
-            DrawConeLimit(*this, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 1.0f, Vec4{ 0.9f, 0.2f, 0.2f, 0.65f });
+            DrawAxis(*this, positionB, axisB, 0.7f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+            DrawConeLimit(*this, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f });
         }
         break;
         case Joint::ball_socket_joint:
@@ -1160,7 +1165,6 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             DrawPoint(pulleyJoint->GetGroundAnchorB());
             DrawLine(anchorA, pulleyJoint->GetGroundAnchorA());
             DrawLine(anchorB, pulleyJoint->GetGroundAnchorB());
-            DrawLine(pulleyJoint->GetGroundAnchorA(), pulleyJoint->GetGroundAnchorB());
         }
         break;
         case Joint::motor_joint:

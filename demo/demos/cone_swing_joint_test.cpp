@@ -6,7 +6,7 @@ namespace muli3
 {
 
 static float coneSwingAngle = 35.0f;
-static float coneSwingFrequency = -1.0f;
+static float coneSwingFrequency = 20.0f;
 static float coneSwingDampingRatio = 1.0f;
 
 class ConeSwingJointDemo : public Demo
@@ -15,8 +15,6 @@ public:
     ConeSwingJointDemo(Game& game)
         : Demo(game)
     {
-        options.draw_outlined = false;
-
         RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
 
         RigidBody* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, RigidBody::static_body);
