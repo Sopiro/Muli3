@@ -245,6 +245,6 @@ static Demo* CreateCollisionDetection(Game& game)
     return new CollisionDetection(game);
 }
 
-static int32 collision_detection = register_demo("Collision detection", CreateCollisionDetection, 7);
+static int32 collision_detection = register_demo("Collision", "Collision detection", CreateCollisionDetection, 7);
 
 } // namespace muli3

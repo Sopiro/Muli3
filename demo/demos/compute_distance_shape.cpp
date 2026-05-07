@@ -241,6 +241,6 @@ static Demo* CreateComputeDistanceShape(Game& game)
     return new ComputeDistanceShape(game);
 }
 
-static int32 compute_distance_shape = register_demo("Distance between shapes", CreateComputeDistanceShape, 8);
+static int32 compute_distance_shape = register_demo("Collision", "Distance between shapes", CreateComputeDistanceShape, 8);
 
 } // namespace muli3

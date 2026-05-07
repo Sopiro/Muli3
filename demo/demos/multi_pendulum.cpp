@@ -98,6 +98,6 @@ static Demo* CreateMultiPendulum(Game& game)
     return new MultiPendulum(game);
 }
 
-static int32 multi_pendulum = register_demo("Multi pendulum", CreateMultiPendulum, 6);
+static int32 multi_pendulum = register_demo("Joints", "Multi pendulum", CreateMultiPendulum, 6);
 
 } // namespace muli3

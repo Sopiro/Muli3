@@ -54,6 +54,6 @@ static Demo* CreateSinglePendulum(Game& game)
     return new SinglePendulum(game);
 }
 
-static int32 single_pendulum = register_demo("Single pendulum", CreateSinglePendulum, 5);
+static int32 single_pendulum = register_demo("Joints", "Single pendulum", CreateSinglePendulum, 5);
 
 } // namespace muli3

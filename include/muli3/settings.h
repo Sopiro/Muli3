@@ -52,8 +52,8 @@ struct WorldSettings
 
     AABB world_bounds{ Vec3{ -1e6f }, Vec3{ 1e6f } };
     float sleeping_time = 0.5f;
-    float rest_linear_tolerance = 0.01f * 0.01f;
-    float rest_angular_tolerance = (0.5f * pi / 180.0f) * (0.5f * pi / 180.0f);
+    float rest_linear_tolerance = 0.03f * 0.03f;
+    float rest_angular_tolerance = (1.0f * pi / 180.0f) * (1.0f * pi / 180.0f);
 
     mutable Timestep step;
 };

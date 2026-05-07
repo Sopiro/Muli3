@@ -58,6 +58,6 @@ static Demo* CreatePyramid(Game& game)
     return new Pyramid(game);
 }
 
-static int32 pyramid = register_demo("Pyramid", CreatePyramid, 3);
+static int32 pyramid = register_demo("Stacking", "Pyramid", CreatePyramid, 3);
 
 } // namespace muli3

@@ -146,11 +146,11 @@ void Demo::EnableBodyCreate()
     {
         body = world->CreateSphere(0.25f, transform);
     }
-    else if (createCapsule)
+    if (createCapsule)
     {
-        body = world->CreateCapsule(0.65f, 0.18f, transform);
+        body = world->CreateCapsule(0.6f, 0.2f, transform);
     }
-    else if (createBox)
+    if (createBox)
     {
         body = world->CreateBox(0.45f, transform);
     }

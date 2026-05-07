@@ -81,6 +81,7 @@ typedef Demo* DemoCreateFunction(Game& game);
 
 struct DemoFrame
 {
+    const char* category;
     const char* name;
     DemoCreateFunction* createFunction;
     int32 index;
@@ -92,10 +93,10 @@ inline std::vector<DemoFrame>& GetDemoFrames()
     return demoFrames;
 }
 
-inline int32 register_demo(const char* name, DemoCreateFunction* createFunction, int32 index = 0)
+inline int32 register_demo(const char* category, const char* name, DemoCreateFunction* createFunction, int32 index = 0)
 {
     std::vector<DemoFrame>& demoFrames = GetDemoFrames();
-    demoFrames.push_back(DemoFrame{ name, createFunction, index });
+    demoFrames.push_back(DemoFrame{ category, name, createFunction, index });
     return (int32)demoFrames.size();
 }
 
@@ -103,7 +104,18 @@ inline void sort_demos()
 {
     std::vector<DemoFrame>& demoFrames = GetDemoFrames();
     std::sort(demoFrames.begin(), demoFrames.end(), [](const DemoFrame& lhs, const DemoFrame& rhs) {
-        return lhs.index < rhs.index;
+        int categoryCompare = std::strcmp(lhs.category, rhs.category);
+        if (categoryCompare != 0)
+        {
+            return categoryCompare < 0;
+        }
+
+        if (lhs.index != rhs.index)
+        {
+            return lhs.index < rhs.index;
+        }
+
+        return std::strcmp(lhs.name, rhs.name) < 0;
     });
 }
 

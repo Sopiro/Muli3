@@ -77,6 +77,8 @@ void Game::UpdateUI()
     World& world = demo->GetWorld();
     WorldSettings& settings = demo->GetWorldSettings();
 
+    // ImGui::ShowDemoWindow();
+
     ImGui::SetNextWindowPos({ 2, 2 }, ImGuiCond_Once, { 0.0f, 0.0f });
     ImGui::SetNextWindowSize({ 240, 470 }, ImGuiCond_Once);
 
@@ -163,7 +165,7 @@ void Game::UpdateUI()
                 }
 
                 ImGui::Separator();
-                ImGui::Text("%s", demoFrames[demoIndex].name);
+                ImGui::Text("%s / %s", demoFrames[demoIndex].category, demoFrames[demoIndex].name);
                 ImGui::Text("Bodies: %d", world.GetBodyCount());
                 ImGui::Text("Sleeping dynamic bodies: %d", world.GetSleepingBodyCount());
                 ImGui::Text("Broad phase contacts: %d", world.GetContactCount());
@@ -172,23 +174,59 @@ void Game::UpdateUI()
 
             if (ImGui::BeginTabItem("Demos"))
             {
-                if (ImGui::BeginListBox("##listbox 2", ImVec2{ -FLT_MIN, 24 * ImGui::GetTextLineHeightWithSpacing() }))
+                if (ImGui::BeginChild("##demos", ImVec2{ -FLT_MIN, 24 * ImGui::GetTextLineHeightWithSpacing() }, false))
                 {
+                    const char* currentCategory = nullptr;
+                    bool categoryOpen = false;
+
                     for (int32 i = 0; i < (int32)demoCount; ++i)
                     {
+                        if (currentCategory == nullptr || std::strcmp(currentCategory, demoFrames[i].category) != 0)
+                        {
+                            currentCategory = demoFrames[i].category;
+
+                            bool hasSelectedDemo = false;
+                            for (int32 j = i; j < (int32)demoCount; ++j)
+                            {
+                                if (std::strcmp(currentCategory, demoFrames[j].category) != 0)
+                                {
+                                    break;
+                                }
+
+                                if (demoIndex == (size_t)j)
+                                {
+                                    hasSelectedDemo = true;
+                                    break;
+                                }
+                            }
+
+                            if (hasSelectedDemo)
+                            {
+                                ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+                            }
+
+                            ImGui::PushID(currentCategory);
+                            categoryOpen = ImGui::CollapsingHeader(currentCategory, ImGuiTreeNodeFlags_SpanAvailWidth);
+                            ImGui::PopID();
+                        }
+
+                        if (!categoryOpen)
+                        {
+                            continue;
+                        }
+
                         bool selected = demoIndex == (size_t)i;
+                        ImGui::PushID(i);
+                        ImGui::Bullet();
+                        ImGui::SameLine();
                         if (ImGui::Selectable(demoFrames[i].name, selected))
                         {
                             InitDemo((size_t)i);
                         }
-
-                        if (selected)
-                        {
-                            ImGui::SetItemDefaultFocus();
-                        }
+                        ImGui::PopID();
                     }
 
-                    ImGui::EndListBox();
+                    ImGui::EndChild();
                 }
                 ImGui::EndTabItem();
             }
