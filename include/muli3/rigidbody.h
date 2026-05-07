@@ -216,6 +216,7 @@ protected:
     friend class Joint;
     friend class Constraint;
     friend class FixedRotationJoint;
+    friend class ConeSwingJoint;
     friend class BallSocketJoint;
     friend class DistanceJoint;
     friend class GrabJoint;

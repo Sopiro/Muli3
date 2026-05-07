@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "muli3/frame.h"
 
 namespace muli3
 {
@@ -289,6 +290,45 @@ void DrawBasis(Renderer& renderer, const Vec3& origin, const Quat& rotation, flo
     renderer.DrawLine(origin, origin + rotation.Rotate(x_axis) * scale, Vec4{ 0.95f, 0.2f, 0.2f, alpha });
     renderer.DrawLine(origin, origin + rotation.Rotate(y_axis) * scale, Vec4{ 0.2f, 0.85f, 0.2f, alpha });
     renderer.DrawLine(origin, origin + rotation.Rotate(z_axis) * scale, Vec4{ 0.2f, 0.45f, 1.0f, alpha });
+}
+
+void DrawConeLimit(Renderer& renderer, const Vec3& origin, const Vec3& axis, float angle, float length, const Vec4& color)
+{
+    if (angle <= 0.0f)
+    {
+        return;
+    }
+
+    Frame frame = Frame::FromZ(axis);
+    float radius = std::tan(angle) * length;
+    Vec3 tip = origin + axis * length;
+    constexpr int32 segmentCount = 24;
+
+    Vec3 firstPoint = Vec3::zero;
+    Vec3 prevPoint = Vec3::zero;
+    for (int32 i = 0; i <= segmentCount; ++i)
+    {
+        float t = two_pi * (float)i / (float)segmentCount;
+        Vec3 point = tip + frame.x * std::cos(t) * radius + frame.y * std::sin(t) * radius;
+
+        if (i == 0)
+        {
+            firstPoint = point;
+        }
+        else
+        {
+            renderer.DrawLine(prevPoint, point, color);
+        }
+
+        if (i < segmentCount && (i % 6) == 0)
+        {
+            renderer.DrawLine(origin, point, color);
+        }
+
+        prevPoint = point;
+    }
+
+    renderer.DrawLine(prevPoint, firstPoint, color);
 }
 
 Renderer::~Renderer()
@@ -1022,6 +1062,19 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             DrawPoint(position);
             DrawBasis(*this, position, body->GetRotation(), 0.8f, 0.95f);
             DrawBasis(*this, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.45f);
+        }
+        break;
+        case Joint::cone_swing_joint:
+        {
+            const RigidBody* bodyA = joint->GetBodyA();
+            const RigidBody* bodyB = joint->GetBodyB();
+            const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
+
+            Vec3 positionA = bodyA->GetPosition();
+            Vec3 positionB = bodyB->GetPosition();
+            Vec3 axisA = bodyA->GetRotation().Rotate(coneSwingJoint->GetLocalAxisA());
+            Vec3 axisB = bodyB->GetRotation().Rotate(coneSwingJoint->GetLocalAxisB());
+            DrawConeLimit(*this, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 1.0f, Vec4{ 0.9f, 0.2f, 0.2f, 0.65f });
         }
         break;
         case Joint::ball_socket_joint:

@@ -954,6 +954,28 @@ FixedRotationJoint* World::CreateFixedRotationJoint(
     return frj;
 }
 
+ConeSwingJoint* World::CreateConeSwingJoint(
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& axis,
+    float maxAngle,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
+)
+{
+    if (bodyA->world != this || bodyB->world != this)
+    {
+        return nullptr;
+    }
+
+    void* mem = blockAllocator.Allocate(sizeof(ConeSwingJoint));
+    ConeSwingJoint* csj = new (mem) ConeSwingJoint(bodyA, bodyB, axis, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+
+    AddJoint(csj);
+    return csj;
+}
+
 BallSocketJoint* World::CreateBallSocketJoint(
     RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
 )
@@ -1220,6 +1242,9 @@ void World::FreeJoint(Joint* joint)
         break;
     case Joint::Type::fixed_rotation_joint:
         blockAllocator.Free(joint, sizeof(FixedRotationJoint));
+        break;
+    case Joint::Type::cone_swing_joint:
+        blockAllocator.Free(joint, sizeof(ConeSwingJoint));
         break;
     case Joint::Type::ball_socket_joint:
         blockAllocator.Free(joint, sizeof(BallSocketJoint));

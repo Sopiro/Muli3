@@ -3,6 +3,7 @@
 #include "rigidbody.h"
 
 #include "ball_socket_joint.h"
+#include "cone_swing_joint.h"
 #include "distance_joint.h"
 #include "fixed_rotation_joint.h"
 #include "grab_joint.h"
@@ -101,6 +102,15 @@ public:
     );
     FixedRotationJoint* CreateFixedRotationJoint(
         RigidBody* body,
+        float frequency = -1.0f,
+        float dampingRatio = 1.0f,
+        float jointMass = 1.0f
+    );
+    ConeSwingJoint* CreateConeSwingJoint(
+        RigidBody* bodyA,
+        RigidBody* bodyB,
+        const Vec3& axis,
+        float maxAngle,
         float frequency = -1.0f,
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
