@@ -256,6 +256,7 @@ void Game::InitDemo(size_t index)
 
     delete demo;
     demo = nullptr;
+    renderer.ClearMeshCache();
 
     time = 0.0f;
     demoIndex = index;

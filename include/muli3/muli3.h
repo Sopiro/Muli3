@@ -5,6 +5,7 @@
 #include "collision.h"        // IWYU pragma: export
 #include "collision_filter.h" // IWYU pragma: export
 #include "distance.h"         // IWYU pragma: export
+#include "geometry.h"         // IWYU pragma: export
 #include "callbacks.h"        // IWYU pragma: export
 #include "raycast.h"          // IWYU pragma: export
 #include "collider.h"         // IWYU pragma: export
@@ -14,6 +15,7 @@
 
 #include "box.h"              // IWYU pragma: export
 #include "capsule.h"          // IWYU pragma: export
+#include "convex_shape.h"     // IWYU pragma: export
 #include "shape.h"            // IWYU pragma: export
 #include "sphere.h"           // IWYU pragma: export
 

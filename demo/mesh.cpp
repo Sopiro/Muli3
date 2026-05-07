@@ -442,4 +442,33 @@ void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indi
     *indices = { 0, 2, 1, 0, 3, 2 };
 }
 
+void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const ConvexShape& shape)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+
+    std::span<const ConvexFace> faces = shape.GetFaces();
+    std::span<const Vec3> normals = shape.GetFaceNormals();
+
+    vertices->reserve(faces.size() * 3);
+    indices->reserve(faces.size() * 3);
+
+    for (int32 i = 0; i < int32(faces.size()); ++i)
+    {
+        const ConvexFace& face = faces[i];
+        const Vec3 normal = normals[i];
+
+        for (int32 j = 0; j < face.count; ++j)
+        {
+            Vec3 position = shape.GetVertex(face.indices[j]);
+            Vec2 uv{ position.x, position.z };
+            vertices->push_back(MeshVertex{ position, normal, uv });
+            indices->push_back(uint32(indices->size()));
+        }
+    }
+}
+
 } // namespace muli3

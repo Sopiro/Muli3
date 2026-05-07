@@ -50,6 +50,7 @@ public:
     void DrawAABB(const AABB& aabb);
     void DrawShape(const Shape* shape, const Transform& transform);
     void DrawShape(const Shape* shape, const Transform& transform, const DrawMode& mode);
+    void ClearMeshCache();
 
     void FlushAll();
     void FlushPoints();
@@ -77,6 +78,10 @@ private:
     void FlushSpheres(const Shader& shader, bool wireframe);
     void FlushCapsules(const Shader& shader, bool wireframe);
     void FlushBoxes(const Shader& shader, bool wireframe);
+    void DrawConvex(
+        const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
+    );
+    Mesh& GetConvexMesh(const ConvexShape* shape);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
@@ -93,6 +98,7 @@ private:
     std::vector<ShapeInstance> capsuleBottomInstances[2];
     std::vector<ShapeInstance> capsuleMidInstances[2];
     std::vector<ShapeInstance> boxInstances[2];
+    std::unordered_map<const ConvexShape*, Mesh> convexMeshes;
 
     int32 pointCount = 0;
     std::vector<Vertex> points;

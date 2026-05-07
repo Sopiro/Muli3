@@ -153,7 +153,6 @@ public:
         const Vec3& p1,
         const Vec3& p2,
         float radius,
-        bool resetPosition = false,
         const Transform& transform = identity,
         float density = default_density,
         const Material& material = default_material
@@ -176,6 +175,13 @@ public:
     );
     Collider* CreateBoxCollider(
         float size,
+        const Transform& transform = identity,
+        float radius = default_radius,
+        float density = default_density,
+        const Material& material = default_material
+    );
+    Collider* CreateConvexCollider(
+        std::span<const Vec3> vertices,
         const Transform& transform = identity,
         float radius = default_radius,
         float density = default_density,

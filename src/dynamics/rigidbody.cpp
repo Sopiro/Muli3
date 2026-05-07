@@ -3,6 +3,7 @@
 #include "muli3/callbacks.h"
 #include "muli3/capsule.h"
 #include "muli3/collider.h"
+#include "muli3/convex_shape.h"
 #include "muli3/shape.h"
 #include "muli3/sphere.h"
 #include "muli3/world.h"
@@ -199,13 +200,12 @@ Collider* RigidBody::CreateCapsuleCollider(
     const Vec3& p1,
     const Vec3& p2,
     float radius,
-    bool resetPosition,
     const Transform& transform,
     float density,
     const Material& material
 )
 {
-    Capsule capsule{ p1, p2, radius, resetPosition };
+    Capsule capsule{ p1, p2, radius };
     return CreateCollider(&capsule, transform, density, material);
 }
 
@@ -229,6 +229,18 @@ Collider* RigidBody::CreateBoxCollider(
 )
 {
     return CreateBoxCollider(size, size, size, transform, radius, density, material);
+}
+
+Collider* RigidBody::CreateConvexCollider(
+    std::span<const Vec3> vertices,
+    const Transform& transform,
+    float radius,
+    float density,
+    const Material& material
+)
+{
+    ConvexShape convex{ vertices, radius };
+    return CreateCollider(&convex, transform, density, material);
 }
 
 bool RigidBody::TestPoint(const Vec3& q) const

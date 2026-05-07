@@ -23,6 +23,7 @@ public:
         sphere = 0,
         capsule,
         box,
+        convex,
         shape_count,
     };
 

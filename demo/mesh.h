@@ -5,6 +5,8 @@
 namespace muli3
 {
 
+class ConvexShape;
+
 struct MeshVertex
 {
     Vec3 position;
@@ -42,5 +44,6 @@ void BuildCapsuleMidMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>*
 void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
 void BuildGridMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 halfExtent, float spacing);
 void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
+void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const ConvexShape& shape);
 
 } // namespace muli3

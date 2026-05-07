@@ -2,6 +2,7 @@
 #include "muli3/box.h"
 #include "muli3/capsule.h"
 #include "muli3/collider.h"
+#include "muli3/convex_shape.h"
 #include "muli3/island.h"
 #include "muli3/raycast.h"
 #include "muli3/sphere.h"
@@ -99,6 +100,19 @@ RigidBody* World::CreateBox(const Vec3& size, const Transform& transform, RigidB
 RigidBody* World::CreateBox(float size, const Transform& transform, RigidBody::Type type, float radius, float density)
 {
     return CreateBox(size, size, size, transform, type, radius, density);
+}
+
+RigidBody* World::CreateConvex(
+    std::span<const Vec3> vertices,
+    const Transform& transform,
+    RigidBody::Type type,
+    float radius,
+    float density
+)
+{
+    RigidBody* b = CreateEmptyBody(transform, type);
+    b->CreateConvexCollider(vertices, identity, radius, density);
+    return b;
 }
 
 float World::Step(float dt)
@@ -1206,6 +1220,11 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
         void* mem = blockAllocator.Allocate(sizeof(Box));
         return new (mem) Box(*(const Box*)shape, transform);
     }
+    case Shape::convex:
+    {
+        void* mem = blockAllocator.Allocate(sizeof(ConvexShape));
+        return new (mem) ConvexShape(*(const ConvexShape*)shape, transform);
+    }
     default:
         MuliAssert(false);
         break;
@@ -1229,6 +1248,10 @@ void World::FreeShape(Shape* shape)
     case Shape::box:
         ((Box*)shape)->~Box();
         blockAllocator.Free(shape, sizeof(Box));
+        break;
+    case Shape::convex:
+        ((ConvexShape*)shape)->~ConvexShape();
+        blockAllocator.Free(shape, sizeof(ConvexShape));
         break;
     default:
         MuliAssert(false);

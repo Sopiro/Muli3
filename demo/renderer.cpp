@@ -484,6 +484,7 @@ void Renderer::Shutdown()
     }
 
     DestroyShapeResources();
+    ClearMeshCache();
     sphereMesh.Destroy();
     capsuleTopMesh.Destroy();
     capsuleBottomMesh.Destroy();
@@ -495,6 +496,17 @@ void Renderer::Shutdown()
     primitiveShader.Destroy();
     DestroyPrimitiveResources();
     initialized = false;
+}
+
+void Renderer::ClearMeshCache()
+{
+    for (auto& [shape, mesh] : convexMeshes)
+    {
+        MuliNotUsed(shape);
+        mesh.Destroy();
+    }
+
+    convexMeshes.clear();
 }
 
 void Renderer::DrawBody(const RigidBody& body, const Vec4& color, bool wireframe, const Shader& shader)
@@ -629,6 +641,69 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         {
             FlushBoxes(shader, wireframe);
         }
+    }
+    else if (shape->GetType() == Shape::convex)
+    {
+        DrawConvex((const ConvexShape*)shape, transform, color, wireframe, shader);
+    }
+}
+
+Mesh& Renderer::GetConvexMesh(const ConvexShape* shape)
+{
+    auto it = convexMeshes.find(shape);
+    if (it != convexMeshes.end())
+    {
+        return it->second;
+    }
+
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32> indices;
+    BuildConvexMesh(&vertices, &indices, *shape);
+
+    Mesh& mesh = convexMeshes[shape];
+    mesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    glBindVertexArray(mesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    return mesh;
+}
+
+void Renderer::DrawConvex(
+    const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
+)
+{
+    ShapeInstance instance{ Mat4(transform), color };
+    Mesh& mesh = GetConvexMesh(shape);
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(ShapeInstance), &instance);
+    mesh.DrawInstanced(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
     }
 }
 

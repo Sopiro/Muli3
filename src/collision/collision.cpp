@@ -1,6 +1,7 @@
 #include "muli3/collision.h"
 #include "muli3/box.h"
 #include "muli3/capsule.h"
+#include "muli3/convex_shape.h"
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
@@ -677,6 +678,67 @@ bool CapsuleVsSphere(
     return true;
 }
 
+bool ConvexVsSphere(
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+)
+{
+    const ConvexShape* convex = (const ConvexShape*)a;
+
+    Vec3 centerB = Mul(transformB, b->GetCenter());
+    Vec3 closest = a->GetClosestPoint(transformA, centerB);
+    Vec3 normal = centerB - closest;
+    float distance = normal.Normalize();
+
+    float rb = b->GetRadius();
+    if (distance > rb)
+    {
+        return false;
+    }
+
+    Vec3 localCenterB = MulT(transformA, centerB);
+    int32 faceIndex = 0;
+    float maxSeparation = Dot(convex->GetFaceNormals()[0], localCenterB - convex->GetVertex(convex->GetFaces()[0].indices[0]));
+
+    for (int32 i = 1; i < int32(convex->GetFaces().size()); ++i)
+    {
+        float separation = Dot(convex->GetFaceNormals()[i], localCenterB - convex->GetVertex(convex->GetFaces()[i].indices[0]));
+        if (separation > maxSeparation)
+        {
+            maxSeparation = separation;
+            faceIndex = i;
+        }
+    }
+
+    float penetrationDepth;
+    if (distance <= epsilon)
+    {
+        normal = transformA.q.Rotate(convex->GetFaceNormals()[faceIndex]);
+        distance = convex->GetRadius() - maxSeparation;
+        closest = centerB - normal * distance;
+        penetrationDepth = rb + distance;
+    }
+    else
+    {
+        penetrationDepth = rb - distance;
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    manifold->contactNormal = normal;
+    manifold->contactPoints[0].id = 0;
+    manifold->contactPoints[0].p = centerB - normal * rb;
+    manifold->referencePoint.id = convex->GetFaces()[faceIndex].indices[0];
+    manifold->referencePoint.p = closest;
+    manifold->contactCount = 1;
+    manifold->penetrationDepth = penetrationDepth;
+    manifold->featureFlipped = false;
+
+    return true;
+}
+
 bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
     GJKResult gjkResult;
@@ -829,6 +891,11 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
     collide_function_map[Shape::box][Shape::capsule] = ConvexVsConvex;
     collide_function_map[Shape::box][Shape::box] = ConvexVsConvex;
+
+    collide_function_map[Shape::convex][Shape::sphere] = ConvexVsSphere;
+    collide_function_map[Shape::convex][Shape::capsule] = ConvexVsConvex;
+    collide_function_map[Shape::convex][Shape::box] = ConvexVsConvex;
+    collide_function_map[Shape::convex][Shape::convex] = ConvexVsConvex;
 
     detection_function_initialized = true;
 }

@@ -82,6 +82,13 @@ public:
         float radius = default_radius,
         float density = default_density
     );
+    RigidBody* CreateConvex(
+        std::span<const Vec3> vertices,
+        const Transform& transform = identity,
+        RigidBody::Type type = RigidBody::dynamic_body,
+        float radius = default_radius,
+        float density = default_density
+    );
 
     GrabJoint* CreateGrabJoint(
         RigidBody* body,

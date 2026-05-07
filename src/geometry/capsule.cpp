@@ -42,19 +42,12 @@ Capsule::Capsule(float height, float inRadius, const Transform& transform)
     volume = pi * radius * radius * length + 4.0f / 3.0f * pi * radius * radius * radius;
 }
 
-Capsule::Capsule(const Vec3& p1, const Vec3& p2, float inRadius, bool resetPosition, const Transform& transform)
+Capsule::Capsule(const Vec3& p1, const Vec3& p2, float inRadius, const Transform& transform)
     : Shape{ Shape::capsule, inRadius * Max(Abs(transform.s.x), Abs(transform.s.z)) }
 {
     va = p1;
     vb = p2;
     center = (p1 + p2) * 0.5f;
-
-    if (resetPosition)
-    {
-        va -= center;
-        vb -= center;
-        center = Vec3::zero;
-    }
 
     va = Mul(transform, va);
     vb = Mul(transform, vb);

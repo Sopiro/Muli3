@@ -9,7 +9,7 @@ class Capsule : public Shape
 {
 public:
     Capsule(float height, float radius, const Transform& transform = identity);
-    Capsule(const Vec3& p1, const Vec3& p2, float radius, bool resetPosition = false, const Transform& transform = identity);
+    Capsule(const Vec3& p1, const Vec3& p2, float radius, const Transform& transform = identity);
     Capsule(const Capsule& other, const Transform& transform);
 
     void ComputeMass(float density, MassData* outMassData) const override;
@@ -33,7 +33,7 @@ private:
 };
 
 inline Capsule::Capsule(const Capsule& other, const Transform& transform)
-    : Capsule(other.va, other.vb, other.radius, false, transform)
+    : Capsule(other.va, other.vb, other.radius, transform)
 {
 }
 
