@@ -25,6 +25,7 @@ public:
     WorldSettings& GetWorldSettings();
     Camera& GetCamera();
     RigidBody* GetTargetBody();
+    Collider* GetTargetCollider();
 
 protected:
     friend class Game;
@@ -50,6 +51,7 @@ protected:
     Vec2 cursorPos{ 0.0f, 0.0f };
     Vec2 screenBounds{ 0.0f, 0.0f };
     RigidBody* targetBody = nullptr;
+    Collider* targetCollider = nullptr;
     Vec3 targetPoint = Vec3::zero;
 
     GrabJoint* cursorJoint = nullptr;
@@ -75,6 +77,11 @@ inline Camera& Demo::GetCamera()
 inline RigidBody* Demo::GetTargetBody()
 {
     return targetBody;
+}
+
+inline Collider* Demo::GetTargetCollider()
+{
+    return targetCollider;
 }
 
 typedef Demo* DemoCreateFunction(Game& game);

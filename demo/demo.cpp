@@ -57,6 +57,7 @@ void Demo::Step()
 void Demo::FindTargetBody()
 {
     targetBody = nullptr;
+    targetCollider = nullptr;
     targetPoint = Vec3::zero;
     cursorPos = Input::GetMousePosition();
     screenBounds = Window::Get()->GetWindowSize();
@@ -71,6 +72,7 @@ void Demo::FindTargetBody()
         MuliNotUsed(normal);
         MuliNotUsed(fraction);
 
+        targetCollider = collider;
         targetBody = collider->GetBody();
         targetPoint = point;
     });
@@ -189,6 +191,14 @@ bool Demo::EnableBodyGrab()
             targetBody->Awake();
             cursorJoint = world->CreateGrabJoint(targetBody, targetPoint, targetPoint, 4.0f, 0.5f, targetBody->GetMass());
             grabDepth = Dot(targetPoint - camera.GetPosition(), camera.GetForward());
+        }
+    }
+    if (targetBody && (Input::IsMousePressed(GLFW_MOUSE_BUTTON_MIDDLE) || Input::IsKeyPressed(GLFW_KEY_F)))
+    {
+        targetBody->DestroyCollider(targetCollider);
+        if (targetBody->GetColliderCount() == 0)
+        {
+            world->Destroy(targetBody);
         }
     }
 
