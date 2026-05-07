@@ -13,7 +13,7 @@ public:
     Pyramid(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
 
         float size = 1.0f;
         float gap = 0.05f;

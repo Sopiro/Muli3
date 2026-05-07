@@ -9,7 +9,7 @@ public:
     CompoundShape(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
 
         for (int32 i = 0; i < 10; ++i)
         {

@@ -10,7 +10,7 @@ public:
     Pulley(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
 
         groundAnchorA = Vec3{ -1.0f, 5.0f, 0.0f };
         groundAnchorB = Vec3{ 1.0f, 5.0f, 0.0f };

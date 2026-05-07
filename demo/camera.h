@@ -26,7 +26,7 @@ public:
     Vec3 rotation{ DegToRad(-18.0f), 0.0f, 0.0f };
     Vec3 scale{ 1.0f, 1.0f, 1.0f };
 
-    Vec3 velocity{ 0.0f, 0.0f, 0.0f };
+    Vec3 velocity{ 0.0f };
     float speed = 1.0f;
     float sensitivity = 18.0f;
     float damping = 12.0f;

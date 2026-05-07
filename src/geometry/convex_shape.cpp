@@ -203,8 +203,31 @@ ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const
     ComputeMassProperties(vertices, faces, &volume, &center, &inertia);
 }
 
+ConvexShape::ConvexShape(
+    std::span<const Vec3> inVertices, std::span<const ConvexFace> inFaces, float inRadius, const Transform& transform
+)
+    : Shape{ Shape::convex, inRadius }
+    , vertices{ inVertices.begin(), inVertices.end() }
+    , faces{ inFaces.begin(), inFaces.end() }
+    , inertia{ 0.0f }
+{
+    // Behavior is undefined if vertices/faces do not describe a valid closed convex hull.
+
+    MuliAssert(vertices.size() >= 4);
+    MuliAssert(faces.size() > 0);
+
+    for (Vec3& vertex : vertices)
+    {
+        vertex = Mul(transform, vertex);
+    }
+
+    FixFaceWinding(vertices, &faces);
+    ComputeFaceNormals(vertices, faces, &normals);
+    ComputeMassProperties(vertices, faces, &volume, &center, &inertia);
+}
+
 ConvexShape::ConvexShape(const ConvexShape& other, const Transform& transform)
-    : ConvexShape(other.vertices, other.radius, transform)
+    : ConvexShape(other.vertices, other.faces, other.radius, transform)
 {
 }
 

@@ -9,25 +9,29 @@ public:
     SphereStacking(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
 
-        constexpr int width = 4;
-        constexpr int height = 4;
-        constexpr int depth = 4;
+        constexpr int size = 10;
+        constexpr float radius = 0.5f;
+        constexpr float xzStep = 1.25f;
+        constexpr float yStep = 1.2f;
+        float xStart = -(size - 1.0f) * xzStep * 0.5f;
+        float zStart = -(size - 1.0f) * xzStep * 0.5f;
+        float yStart = 1.5f;
 
-        for (int y = 0; y < height; ++y)
+        for (int x = 0; x < size; ++x)
         {
-            for (int z = 0; z < depth; ++z)
+            for (int y = 0; y < x; ++y)
             {
-                for (int x = 0; x < width; ++x)
+                for (int z = 0; z < y; ++z)
                 {
-                    RigidBody* body = world->CreateSphere(
-                        0.5f,
+                    world->CreateSphere(
+                        radius,
                         Transform{
                             Vec3{
-                                ((float)x - 1.5f) * 1.25f,
-                                1.5f + (float)y * 1.2f,
-                                ((float)z - 1.5f) * 1.25f,
+                                xStart + (float)x * xzStep,
+                                yStart + (float)y * yStep,
+                                zStart + (float)z * xzStep,
                             },
                         },
                         RigidBody::dynamic_body

@@ -23,7 +23,7 @@ bool Camera::UpdateInput(float dt)
     bool captureMouse = Window::Get()->GetCursorHidden();
     bool moved = false;
 
-    Vec3 accel{ 0.0f, 0.0f, 0.0f };
+    Vec3 accel = Vec3::zero;
 
     if (Input::IsKeyDown(GLFW_KEY_W)) accel.z -= 1.0f;
     if (Input::IsKeyDown(GLFW_KEY_S)) accel.z += 1.0f;

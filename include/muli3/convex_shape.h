@@ -11,6 +11,12 @@ class ConvexShape : public Shape
 {
 public:
     ConvexShape(std::span<const Vec3> vertices, float radius = default_radius, const Transform& transform = identity);
+    ConvexShape(
+        std::span<const Vec3> vertices,
+        std::span<const ConvexFace> faces,
+        float radius = default_radius,
+        const Transform& transform = identity
+    );
     ConvexShape(const ConvexShape& other, const Transform& transform);
 
     void ComputeMass(float density, MassData* outMassData) const override;

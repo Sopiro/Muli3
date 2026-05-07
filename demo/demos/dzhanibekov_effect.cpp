@@ -16,7 +16,7 @@ public:
 
         options.draw_outlined = false;
 
-        world->CreateBox(24.0f, 0.5f, 24.0f, Transform{ Vec3{ 0.0f, -3.25f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, Vec3{ 0.0f, -3.25f, 0.0f }, RigidBody::static_body);
 
         spinner = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 1.2f, 0.0f } });
         spinner->CreateBoxCollider(0.5f, 2.5f, 0.5f, Transform{ Vec3{ 0.0f, 0.0f, 0.0f } });

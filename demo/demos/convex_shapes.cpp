@@ -11,7 +11,7 @@ public:
     {
         options.draw_outlined = false;
 
-        world->CreateBox(28.0f, 0.5f, 28.0f, Transform{ Vec3{ 0.0f, -0.25f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(28.0f, 0.5f, 28.0f, identity, RigidBody::static_body);
 
         const std::array<Vec3, 8> hullA = {
             Vec3{ -0.45f, -0.40f, -0.30f }, Vec3{ 0.42f, -0.35f, -0.26f }, Vec3{ 0.36f, -0.38f, 0.32f },
