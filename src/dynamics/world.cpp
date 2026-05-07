@@ -1,11 +1,11 @@
 #include "muli3/world.h"
-#include "muli3/box.h"
-#include "muli3/capsule.h"
+#include "muli3/box_shape.h"
+#include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
 #include "muli3/convex_shape.h"
 #include "muli3/island.h"
 #include "muli3/raycast.h"
-#include "muli3/sphere.h"
+#include "muli3/sphere_shape.h"
 
 namespace muli3
 {
@@ -103,11 +103,7 @@ RigidBody* World::CreateBox(float size, const Transform& transform, RigidBody::T
 }
 
 RigidBody* World::CreateConvex(
-    std::span<const Vec3> vertices,
-    const Transform& transform,
-    RigidBody::Type type,
-    float radius,
-    float density
+    std::span<const Vec3> vertices, const Transform& transform, RigidBody::Type type, float radius, float density
 )
 {
     RigidBody* b = CreateEmptyBody(transform, type);
@@ -438,7 +434,8 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
             ShapeCastOutput output;
 
             bool hit = ShapeCast(
-                shape, tf, collider->GetShape(), collider->GetBody()->GetTransform(), translation * input.maxFraction, Vec3::zero, &output
+                shape, tf, collider->GetShape(), collider->GetBody()->GetTransform(), translation * input.maxFraction, Vec3::zero,
+                &output
             );
             if (hit)
             {
@@ -463,7 +460,9 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
     contactGraph.broadPhase.tree.AABBCast(input, &tempCallback);
 }
 
-bool World::ShapeCastClosest(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback) const
+bool World::ShapeCastClosest(
+    const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback
+) const
 {
     struct TempCallback : ShapeCastAnyCallback
     {
@@ -949,16 +948,21 @@ BallSocketJoint* World::CreateBallSocketJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(BallSocketJoint));
-    BallSocketJoint* bsj =
-        new (mem) BallSocketJoint(bodyA, bodyB, anchor, jointFrequency, jointDampingRatio, jointMass);
+    BallSocketJoint* bsj = new (mem) BallSocketJoint(bodyA, bodyB, anchor, jointFrequency, jointDampingRatio, jointMass);
 
     AddJoint(bsj);
     return bsj;
 }
 
 DistanceJoint* World::CreateDistanceJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchorA, const Vec3& anchorB,
-    float length, float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchorA,
+    const Vec3& anchorB,
+    float length,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -984,8 +988,15 @@ DistanceJoint* World::CreateDistanceJoint(
 }
 
 DistanceJoint* World::CreateLimitedDistanceJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchorA, const Vec3& anchorB,
-    float minLength, float maxLength, float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchorA,
+    const Vec3& anchorB,
+    float minLength,
+    float maxLength,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1018,8 +1029,13 @@ WeldJoint* World::CreateWeldJoint(
 }
 
 LineJoint* World::CreateLineJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir,
-    float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchor,
+    const Vec3& dir,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1045,8 +1061,13 @@ LineJoint* World::CreateLineJoint(
 }
 
 PrismaticJoint* World::CreatePrismaticJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir,
-    float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchor,
+    const Vec3& dir,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1072,9 +1093,16 @@ PrismaticJoint* World::CreatePrismaticJoint(
 }
 
 PulleyJoint* World::CreatePulleyJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchorA, const Vec3& anchorB,
-    const Vec3& groundAnchorA, const Vec3& groundAnchorB, float ratio,
-    float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchorA,
+    const Vec3& anchorB,
+    const Vec3& groundAnchorA,
+    const Vec3& groundAnchorB,
+    float ratio,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1092,9 +1120,14 @@ PulleyJoint* World::CreatePulleyJoint(
 }
 
 MotorJoint* World::CreateMotorJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor,
-    float maxForce, float maxTorque,
-    float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchor,
+    float maxForce,
+    float maxTorque,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
 {
     if (bodyA->world != this || bodyB->world != this)

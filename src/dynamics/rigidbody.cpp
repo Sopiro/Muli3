@@ -1,11 +1,11 @@
 #include "muli3/rigidbody.h"
-#include "muli3/box.h"
+#include "muli3/box_shape.h"
 #include "muli3/callbacks.h"
-#include "muli3/capsule.h"
+#include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
 #include "muli3/convex_shape.h"
 #include "muli3/shape.h"
-#include "muli3/sphere.h"
+#include "muli3/sphere_shape.h"
 #include "muli3/world.h"
 
 namespace muli3
@@ -197,12 +197,7 @@ Collider* RigidBody::CreateCapsuleCollider(
 }
 
 Collider* RigidBody::CreateCapsuleCollider(
-    const Vec3& p1,
-    const Vec3& p2,
-    float radius,
-    const Transform& transform,
-    float density,
-    const Material& material
+    const Vec3& p1, const Vec3& p2, float radius, const Transform& transform, float density, const Material& material
 )
 {
     Capsule capsule{ p1, p2, radius };
@@ -232,11 +227,7 @@ Collider* RigidBody::CreateBoxCollider(
 }
 
 Collider* RigidBody::CreateConvexCollider(
-    std::span<const Vec3> vertices,
-    const Transform& transform,
-    float radius,
-    float density,
-    const Material& material
+    std::span<const Vec3> vertices, const Transform& transform, float radius, float density, const Material& material
 )
 {
     ConvexShape convex{ vertices, radius };

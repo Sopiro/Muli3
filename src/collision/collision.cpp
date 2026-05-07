@@ -1,6 +1,6 @@
 #include "muli3/collision.h"
-#include "muli3/box.h"
-#include "muli3/capsule.h"
+#include "muli3/box_shape.h"
+#include "muli3/capsule_shape.h"
 #include "muli3/convex_shape.h"
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
