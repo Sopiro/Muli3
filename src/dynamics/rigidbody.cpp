@@ -128,6 +128,10 @@ Collider* RigidBody::CreateCollider(Shape* shape, const Transform& transform, fl
     }
 
     void* mem = world->blockAllocator.Allocate(sizeof(Collider));
+
+    // Shape radius(skin) must be greater than or equal to linear_slop * 2.0 for stable CCD
+    MuliAssert(shape->GetRadius() >= minimum_radius);
+
     Collider* collider = new (mem) Collider;
     collider->Create(this, shape, transform, density, material);
 
@@ -135,13 +139,9 @@ Collider* RigidBody::CreateCollider(Shape* shape, const Transform& transform, fl
     colliderList = collider;
     ++colliderCount;
 
-    if (IsEnabled())
-    {
-        world->contactGraph.AddCollider(collider);
-    }
+    world->contactGraph.AddCollider(collider);
 
     ResetMassData();
-    Awake();
 
     return collider;
 }
@@ -169,17 +169,13 @@ void RigidBody::DestroyCollider(Collider* collider)
     }
 
     world->contactGraph.RemoveCollider(collider);
-    collider->Destroy(world);
     collider->~Collider();
+    collider->Destroy(world);
     world->blockAllocator.Free(collider, sizeof(Collider));
 
     --colliderCount;
 
     ResetMassData();
-
-    islandID = 0;
-    islandIndex = 0;
-    Awake();
 }
 
 Collider* RigidBody::CreateSphereCollider(float radius, const Transform& transform, float density, const Material& material)
@@ -236,6 +232,8 @@ Collider* RigidBody::CreateConvexCollider(
 
 bool RigidBody::TestPoint(const Vec3& q) const
 {
+    MuliAssert(colliderCount > 0);
+
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
         if (collider->TestPoint(q))

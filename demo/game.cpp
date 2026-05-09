@@ -256,10 +256,11 @@ void Game::UpdateUI()
     if (targetBody)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{ 12 / 255.0f, 11 / 255.0f, 14 / 255.0f, 1.0f });
-        ImGui::Text("Mass: %.4f", targetBody->GetMass());
-        ImGui::Text(
-            "Pos: %.4f, %.4f, %.4f", targetBody->GetPosition().x, targetBody->GetPosition().y, targetBody->GetPosition().z
-        );
+        ImGui::Text("Mass: %.2f", targetBody->GetMass());
+        Vec3 pos = targetBody->GetPosition();
+        Vec3 rot = targetBody->GetRotation().ToEuler() * Vec3(inv_pi * 180);
+        ImGui::Text("Pos: %.2f, %.2f, %.2f", pos.x, pos.y, pos.z);
+        ImGui::Text("Rot: %.2f, %.2f, %.2f", rot.x, rot.y, rot.z);
         ImGui::PopStyleColor();
     }
     ImGui::End();

@@ -32,6 +32,9 @@ public:
     RigidBody(const Transform& tf, RigidBody::Type type);
     ~RigidBody();
 
+    RigidBody(const RigidBody&) = delete;
+    RigidBody& operator=(const RigidBody&) = delete;
+
     const Transform& GetTransform() const;
     void SetTransform(const Transform& transform);
 

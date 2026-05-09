@@ -101,10 +101,7 @@ public:
         float jointMass = 1.0f
     );
     FixedRotationJoint* CreateFixedRotationJoint(
-        RigidBody* body,
-        float frequency = -1.0f,
-        float dampingRatio = 1.0f,
-        float jointMass = 1.0f
+        RigidBody* body, float frequency = -1.0f, float dampingRatio = 1.0f, float jointMass = 1.0f
     );
     ConeSwingJoint* CreateConeSwingJoint(
         RigidBody* bodyA,
@@ -170,11 +167,7 @@ public:
         float jointMass = 1.0f
     );
     LineJoint* CreateLineJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f,
-        float jointMass = 1.0f
+        RigidBody* bodyA, RigidBody* bodyB, float frequency = 10.0f, float dampingRatio = 1.0f, float jointMass = 1.0f
     );
     PrismaticJoint* CreatePrismaticJoint(
         RigidBody* bodyA,
@@ -186,11 +179,7 @@ public:
         float jointMass = 1.0f
     );
     PrismaticJoint* CreatePrismaticJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        float frequency = -1.0f,
-        float dampingRatio = 1.0f,
-        float jointMass = 1.0f
+        RigidBody* bodyA, RigidBody* bodyB, float frequency = -1.0f, float dampingRatio = 1.0f, float jointMass = 1.0f
     );
     PulleyJoint* CreatePulleyJoint(
         RigidBody* bodyA,
@@ -220,8 +209,9 @@ public:
     void RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const;
     bool RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const;
     void ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastAnyCallback* callback) const;
-    bool ShapeCastClosest(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback)
-        const;
+    bool ShapeCastClosest(
+        const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback
+    ) const;
 
     void Query(const Vec3& point, std::function<bool(Collider* collider)> callback) const;
     void Query(const AABB& aabb, std::function<bool(Collider* collider)> callback) const;
