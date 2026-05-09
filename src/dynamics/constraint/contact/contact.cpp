@@ -6,6 +6,31 @@
 namespace muli3
 {
 
+extern CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
+
+Contact::Contact(Collider* colliderA, Collider* colliderB)
+    : collideFunction{ nullptr }
+    , colliderA{ colliderA }
+    , colliderB{ colliderB }
+    , bodyA{ colliderA->GetBody() }
+    , bodyB{ colliderB->GetBody() }
+    , b1{ colliderA->GetBody() }
+    , b2{ colliderB->GetBody() }
+    , flag{ 0 }
+{
+    MuliAssert(colliderA->GetType() >= colliderB->GetType());
+
+    manifold.contactCount = 0;
+
+    friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
+    restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
+    restitutionThreshold = MixRestitutionTreshold(colliderA->GetRestitutionTreshold(), colliderB->GetRestitutionTreshold());
+    surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
+
+    collideFunction = collide_function_map[colliderA->GetType()][colliderB->GetType()];
+    MuliAssert(collideFunction != nullptr);
+}
+
 void Contact::Update()
 {
     flag |= flag_enabled;
@@ -22,7 +47,7 @@ void Contact::Update()
     }
 
     bool wasTouching = (flag & flag_touching) == flag_touching;
-    bool touching = Collide(colliderA->shape, bodyA->transform, colliderB->shape, bodyB->transform, &manifold);
+    bool touching = collideFunction(colliderA->shape, bodyA->transform, colliderB->shape, bodyB->transform, &manifold);
 
     if (touching)
     {
@@ -91,11 +116,6 @@ void Contact::Update()
 
 void Contact::Prepare(const Timestep& step)
 {
-    friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
-    restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
-    restitutionThreshold = MixRestitutionTreshold(colliderA->GetRestitutionTreshold(), colliderB->GetRestitutionTreshold());
-    surfaceSpeed = colliderA->GetSurfaceSpeed() + colliderB->GetSurfaceSpeed();
-
     invIA = b1->GetWorldInverseInertiaTensor();
     invIB = b2->GetWorldInverseInertiaTensor();
 

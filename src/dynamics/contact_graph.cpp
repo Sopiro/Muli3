@@ -4,12 +4,15 @@
 namespace muli3
 {
 
+extern void InitializeDetectionFunctionMap();
+
 ContactGraph::ContactGraph(World* world)
     : world{ world }
     , broadPhase{ this }
     , contactList{ nullptr }
     , contactCount{ 0 }
 {
+    InitializeDetectionFunctionMap();
 }
 
 ContactGraph::~ContactGraph()

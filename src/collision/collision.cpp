@@ -372,7 +372,14 @@ static void FindContactPoints(
     float aParallelness = AbsDot(faceA.normal, n);
     float bParallelness = AbsDot(faceB.normal, n);
 
-    if (bParallelness > aParallelness)
+    if (std::min(faceA.count, faceB.count) < 3 && (faceB.count < faceA.count))
+    {
+        ref = faceA;
+        inc = faceB;
+        manifold->featureFlipped = false;
+        manifold->contactNormal = n;
+    }
+    else if (bParallelness > aParallelness)
     {
         ref = faceB;
         inc = faceA;
@@ -910,10 +917,12 @@ bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transfo
         InitializeDetectionFunctionMap();
     }
 
-    if (manifold)
+    static ContactManifold defaultManifold;
+    if (manifold == nullptr)
     {
-        *manifold = ContactManifold{};
+        manifold = &defaultManifold;
     }
+    *manifold = ContactManifold{};
 
     Shape::Type shapeA = a->GetType();
     Shape::Type shapeB = b->GetType();

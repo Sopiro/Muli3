@@ -1,9 +1,9 @@
 #pragma once
 
+#include "collider.h"
 #include "collision.h"
 #include "contact_solver.h"
 #include "position_solver.h"
-#include "collider.h"
 #include "rigidbody.h"
 #include "settings.h"
 
@@ -71,6 +71,8 @@ private:
 
     void Update();
 
+    CollideFunction* collideFunction;
+
     Collider* colliderA;
     Collider* colliderB;
     RigidBody* bodyA;
@@ -102,19 +104,8 @@ private:
     float restitution = 0.0f;
     float restitutionThreshold = 0.0f;
     float surfaceSpeed = 0.0f;
-    uint16 flag = flag_enabled;
+    uint16 flag;
 };
-
-inline Contact::Contact(Collider* colliderA, Collider* colliderB)
-    : colliderA{ colliderA }
-    , colliderB{ colliderB }
-    , bodyA{ colliderA->GetBody() }
-    , bodyB{ colliderB->GetBody() }
-    , b1{ colliderA->GetBody() }
-    , b2{ colliderB->GetBody() }
-{
-    manifold.contactCount = 0;
-}
 
 inline Collider* Contact::GetColliderA() const
 {
