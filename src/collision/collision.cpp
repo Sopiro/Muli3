@@ -685,6 +685,141 @@ bool CapsuleVsSphere(
     return true;
 }
 
+static void ClosestSegmentVsSegment(float* outS, float* outT, const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1)
+{
+    // Compute the closest points on two segments.
+    // s and t are the interpolation parameters on segment A and B.
+    Vec3 da = a1 - a0;
+    Vec3 db = b1 - b0;
+    Vec3 r = a0 - b0;
+
+    float a = Dot(da, da);
+    float e = Dot(db, db);
+    float f = Dot(db, r);
+
+    float s = 0.0f;
+    float t = 0.0f;
+
+    if (a <= epsilon && e <= epsilon)
+    {
+        *outS = 0.0f;
+        *outT = 0.0f;
+        return;
+    }
+
+    if (a <= epsilon)
+    {
+        t = Clamp(f / e, 0.0f, 1.0f);
+    }
+    else
+    {
+        float c = Dot(da, r);
+        if (e <= epsilon)
+        {
+            s = Clamp(-c / a, 0.0f, 1.0f);
+        }
+        else
+        {
+            float b = Dot(da, db);
+            float denom = a * e - b * b;
+
+            // If denom is zero, the segments are parallel.
+            // Keep s at zero first, then clamp t and recompute s if needed.
+            if (denom > epsilon)
+            {
+                s = Clamp((b * f - c * e) / denom, 0.0f, 1.0f);
+            }
+
+            t = (b * s + f) / e;
+
+            if (t < 0.0f)
+            {
+                t = 0.0f;
+                s = Clamp(-c / a, 0.0f, 1.0f);
+            }
+            else if (t > 1.0f)
+            {
+                t = 1.0f;
+                s = Clamp((b - c) / a, 0.0f, 1.0f);
+            }
+        }
+    }
+
+    *outS = s;
+    *outT = t;
+}
+
+bool CapsuleVsCapsule(
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+)
+{
+    const Capsule* capsuleA = (const Capsule*)a;
+    const Capsule* capsuleB = (const Capsule*)b;
+
+    Vec3 a0 = Mul(transformA, capsuleA->GetVertexA());
+    Vec3 a1 = Mul(transformA, capsuleA->GetVertexB());
+    Vec3 b0 = Mul(transformB, capsuleB->GetVertexA());
+    Vec3 b1 = Mul(transformB, capsuleB->GetVertexB());
+
+    float s, t;
+    ClosestSegmentVsSegment(&s, &t, a0, a1, b0, b1);
+
+    Vec3 pa = a0 + (a1 - a0) * s;
+    Vec3 pb = b0 + (b1 - b0) * t;
+    Vec3 normal = pb - pa;
+    float distance = normal.Normalize();
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    float radii = ra + rb;
+
+    if (distance > radii)
+    {
+        return false;
+    }
+
+    if (distance <= epsilon)
+    {
+        // The closest segment points coincide. Pick a stable normal from crossed axes,
+        // then fall back to the center delta projected off the capsule axis.
+        Vec3 axisA = NormalizeSafe(a1 - a0);
+        Vec3 axisB = NormalizeSafe(b1 - b0);
+        normal = Cross(axisA, axisB);
+
+        Vec3 deltaCenter = ((b0 + b1) - (a0 + a1)) * 0.5f;
+
+        if (normal.Normalize() == 0.0f)
+        {
+            Vec3 axis = Length2(axisA) > epsilon ? axisA : (Length2(axisB) > epsilon ? axisB : y_axis);
+            normal = GramSchmidt(deltaCenter, axis);
+            if (normal.Normalize() == 0.0f)
+            {
+                CoordinateSystem(axis, &normal);
+            }
+        }
+
+        if (Dot(normal, deltaCenter) < 0.0f)
+        {
+            normal = -normal;
+        }
+    }
+
+    // End points use their vertex id. Interior points use id 2.
+    int32 idA = s <= epsilon ? 0 : (s >= 1.0f - epsilon ? 1 : 2);
+    int32 idB = t <= epsilon ? 0 : (t >= 1.0f - epsilon ? 1 : 2);
+
+    manifold->contactNormal = normal;
+    manifold->contactPoints[0].id = idA | (idB << 2);
+    manifold->contactPoints[0].p = pb - normal * rb;
+    manifold->referencePoint.id = idA;
+    manifold->referencePoint.p = pa + normal * ra;
+    manifold->contactCount = 1;
+    manifold->penetrationDepth = radii - distance;
+    manifold->featureFlipped = false;
+
+    return true;
+}
+
 bool ConvexVsSphere(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
@@ -893,7 +1028,7 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::sphere][Shape::sphere] = SphereVsSphere;
 
     collide_function_map[Shape::capsule][Shape::sphere] = CapsuleVsSphere;
-    collide_function_map[Shape::capsule][Shape::capsule] = ConvexVsConvex;
+    collide_function_map[Shape::capsule][Shape::capsule] = CapsuleVsCapsule;
 
     collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
     collide_function_map[Shape::box][Shape::capsule] = ConvexVsConvex;
