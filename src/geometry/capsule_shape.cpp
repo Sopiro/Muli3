@@ -113,14 +113,7 @@ void Capsule::ComputeAABB(const Transform& transform, AABB* outAABB) const
 
 Face Capsule::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
-    Vec3 axis = Normalize(vb - va);
-
-    Vec3 localDir = transform.q.RotateInv(dir);
-    Vec3 normal = GramSchmidt(localDir, axis);
-    if (normal.Normalize() == 0.0f)
-    {
-        CoordinateSystem(axis, &normal);
-    }
+    MuliNotUsed(dir);
 
     Face face;
     face.count = 2;
@@ -128,7 +121,7 @@ Face Capsule::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
     face.points[0].p = Mul(transform, va);
     face.points[1].id = 1;
     face.points[1].p = Mul(transform, vb);
-    face.normal = transform.q.Rotate(normal);
+    face.normal = dir;
     return face;
 }
 

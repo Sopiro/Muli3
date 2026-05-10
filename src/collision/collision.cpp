@@ -260,100 +260,165 @@ static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
     return a + t * (b - a);
 }
 
-static int32 ClipFace(const Face& f, const Vec3& p, const Vec3& dir, Vec3* result, int32* clipBegin, int32* clipEnd)
+struct ClippedFace
 {
-    const int32 count = f.count;
+    int32 count = 0;
+    Point points[2 * max_face_vertices];
+};
 
-    float d[max_face_vertices];
-    bool outside[max_face_vertices];
-    int32 active[max_face_vertices];
+static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, const Vec3& dir)
+{
+    out->count = 0;
 
-    int32 activeCount = 0;
-    int32 outsideCount = 0;
-
-    for (int32 i = 0; i < count; ++i)
+    if (in.count == 0)
     {
-        if (f.points[i].id < 0)
-        {
-            continue;
-        }
-
-        d[i] = Dot(f.points[i].p - p, dir);
-
-        // Dot(x - p, dir) >= 0 : inside
-        // Dot(x - p, dir) <  0 : outside / clipped
-        outside[i] = d[i] < -epsilon;
-
-        active[activeCount++] = i;
-
-        if (outside[i])
-        {
-            ++outsideCount;
-        }
+        return;
     }
 
-    MuliAssert(activeCount >= 2);
+    Point p0 = in.points[in.count - 1];
+    float d0 = Dot(p0.p - p, dir);
+    bool inside0 = d0 >= -epsilon;
 
-    // No clips.
-    if (outsideCount == 0)
+    for (int32 i = 0; i < in.count; ++i)
     {
-        *clipBegin = -1;
-        *clipEnd = -1;
-        return 0;
-    }
+        Point p1 = in.points[i];
+        float d1 = Dot(p1.p - p, dir);
+        bool inside1 = d1 >= -epsilon;
 
-    // The entire active face is outside the clipping plane.
-    // No intersection points can be generated in this case.
-    if (outsideCount == activeCount)
-    {
-        *clipBegin = active[0];
-        *clipEnd = active[activeCount - 1];
-        return outsideCount;
-    }
-
-    int32 begin = -1;
-    int32 end = -1;
-
-    int32 beforeBegin = -1;
-    int32 afterEnd = -1;
-
-    for (int32 k0 = activeCount - 1, k1 = 0; k1 < activeCount; k0 = k1, ++k1)
-    {
-        const int32 i0 = active[k0];
-        const int32 i1 = active[k1];
-
-        const bool outside0 = outside[i0];
-        const bool outside1 = outside[i1];
-
-        // Active edge: i0 -> i1
-
-        // inside -> outside
-        // First vertex of the clipped range.
-        if (!outside0 && outside1)
+        if (inside0 && inside1)
         {
-            beforeBegin = i0;
-            begin = i1;
+            out->points[out->count++] = p1;
+        }
+        else if (inside0 && !inside1)
+        {
+            Vec3 intersection = IntersectPlaneEdge(p0.p, p1.p, d0, d1);
+            out->points[out->count++] = Point{ intersection, p0.id };
+        }
+        else if (!inside0 && inside1)
+        {
+            Vec3 intersection = IntersectPlaneEdge(p0.p, p1.p, d0, d1);
+            out->points[out->count++] = Point{ intersection, p0.id };
+            out->points[out->count++] = p1;
         }
 
-        // outside -> inside
-        // Last vertex of the clipped range.
-        if (outside0 && !outside1)
+        p0 = p1;
+        d0 = d1;
+        inside0 = inside1;
+    }
+}
+
+static void ReduceContacts(const ClippedFace& face, const Vec3& normal, const Vec3& planePoint, int32* indices, int32* count)
+{
+    *count = 0;
+
+    int32 maxIndex = 0;
+    int32 minIndex = 0;
+    float maxSeparation = Dot(face.points[0].p - planePoint, normal);
+    float minSeparation = maxSeparation;
+
+    for (int32 i = 1; i < face.count; ++i)
+    {
+        float separation = Dot(face.points[i].p - planePoint, normal);
+        if (separation > maxSeparation)
         {
-            end = i0;
-            afterEnd = i1;
+            minIndex = i;
+            maxSeparation = separation;
+        }
+        if (separation < minSeparation)
+        {
+            maxIndex = i;
+            minSeparation = separation;
         }
     }
 
-    MuliAssert(begin >= 0 && end >= 0);
-    MuliAssert(beforeBegin >= 0 && afterEnd >= 0);
+    uint16 selectedMask = 0;
+    if (minIndex == maxIndex)
+    {
+        indices[(*count)++] = minIndex;
+        selectedMask |= (uint16(1) << minIndex);
+    }
+    else
+    {
+        indices[(*count)++] = minIndex;
+        indices[(*count)++] = maxIndex;
+        selectedMask |= (uint16(1) << minIndex);
+        selectedMask |= (uint16(1) << maxIndex);
+    }
 
-    result[0] = IntersectPlaneEdge(f.points[beforeBegin].p, f.points[begin].p, d[beforeBegin], d[begin]);
-    result[1] = IntersectPlaneEdge(f.points[end].p, f.points[afterEnd].p, d[end], d[afterEnd]);
+    Vec3 tangent = Cross(normal, face.points[maxIndex].p - face.points[minIndex].p);
+    if (tangent.Normalize() == 0.0f)
+    {
+        CoordinateSystem(normal, &tangent);
+    }
 
-    *clipBegin = begin;
-    *clipEnd = end;
+    int32 maxSpanIndex = 0;
+    int32 minSpanIndex = 0;
+    float maxSpan = Dot(face.points[0].p, tangent);
+    float minSpan = maxSpan;
 
-    return outsideCount;
+    for (int32 i = 1; i < face.count; ++i)
+    {
+        float span = Dot(face.points[i].p, tangent);
+
+        if (span > maxSpan)
+        {
+            maxSpanIndex = i;
+            maxSpan = span;
+        }
+        if (span < minSpan)
+        {
+            minSpanIndex = i;
+            minSpan = span;
+        }
+    }
+
+    if ((selectedMask & (uint16(1) << minSpanIndex)) == 0)
+    {
+        indices[(*count)++] = minSpanIndex;
+        selectedMask |= (uint16(1) << minSpanIndex);
+    }
+    if ((selectedMask & (uint16(1) << maxSpanIndex)) == 0)
+    {
+        indices[(*count)++] = maxSpanIndex;
+        selectedMask |= (uint16(1) << maxSpanIndex);
+    }
+
+    // Add the farthest vertices until the maximum face vertex count is reached
+    while (*count < max_contact_point_count)
+    {
+        int32 bestIndex = 0;
+        float bestDistance = -1.0f;
+
+        for (int32 i = 0; i < face.count; ++i)
+        {
+            // Skip points that have already been selected
+            if (selectedMask & (uint16(1) << i))
+            {
+                continue;
+            }
+
+            float minDistance = max_float;
+
+            for (int32 j = 0; j < *count; ++j)
+            {
+                minDistance = std::min(minDistance, Dist2(face.points[i].p, face.points[indices[j]].p));
+
+                // This candidate can no longer beat the current best one, so stop evaluating it early
+                if (minDistance <= bestDistance)
+                {
+                    break;
+                }
+            }
+
+            if (minDistance > bestDistance)
+            {
+                bestIndex = i;
+                bestDistance = minDistance;
+            }
+        }
+
+        indices[(*count)++] = bestIndex;
+    }
 }
 
 static void FindContactPoints(
@@ -363,8 +428,8 @@ static void FindContactPoints(
     Face faceA = a->GetFeaturedFace(tfA, n);
     Face faceB = b->GetFeaturedFace(tfB, -n);
 
-    TranslateFace(&faceA, n * a->GetRadius());
-    TranslateFace(&faceB, -n * b->GetRadius());
+    TranslateFace(&faceA, faceA.normal * a->GetRadius());
+    TranslateFace(&faceB, faceB.normal * b->GetRadius());
 
     Face ref; // Reference face
     Face inc; // Incident face
@@ -399,59 +464,68 @@ static void FindContactPoints(
     Vec3 planeNormal = ref.normal;
     Vec3 planePoint = ref.points[0].p;
 
+    ClippedFace faces[2];
+    faces[0].count = inc.count;
+    std::memcpy(faces[0].points, inc.points, inc.count * sizeof(Point));
+    int32 input = 0;
+    int32 output = 1;
+
     for (int32 i0 = ref.count - 1, i1 = 0; i1 < ref.count; i0 = i1, ++i1)
     {
         Vec3 edge = ref.points[i1].p - ref.points[i0].p;
         Vec3 inward = Normalize(Cross(planeNormal, edge));
 
-        Vec3 clipped[2];
-        int32 clipBegin, clipEnd;
-        if (!ClipFace(inc, ref.points[i0].p, inward, clipped, &clipBegin, &clipEnd))
+        ClipFace(&faces[output], faces[input], ref.points[i0].p, inward);
+
+        if (faces[output].count == 0)
         {
-            continue;
+            manifold->contactCount = 0;
+            return;
         }
 
-        if (clipBegin == clipEnd)
-        {
-            inc.points[clipBegin].p = clipped[0];
-        }
-        else
-        {
-            inc.points[clipBegin].p = clipped[0];
-            inc.points[clipEnd].p = clipped[1];
+        std::swap(input, output);
+    }
 
-            // Invalidate vertices between clipBegin and clipEnd
-            for (int32 i = (clipBegin + 1 == inc.count) ? 0 : clipBegin + 1; i != clipEnd; i = (i + 1 == inc.count) ? 0 : i + 1)
-            {
-                inc.points[i].id = -1;
-            }
+    // Keep only points that under the reference plane.
+    faces[output].count = 0;
+    for (int32 i = 0; i < faces[input].count; ++i)
+    {
+        float separation = Dot(faces[input].points[i].p - planePoint, planeNormal);
+        if (separation < 0.0f)
+        {
+            faces[output].points[faces[output].count++] = faces[input].points[i];
         }
     }
 
-    // Invalidate vertices that lie above the reference plane
-    for (int32 i = 0; i < inc.count; ++i)
+    if (faces[output].count == 0)
     {
-        float penetration = Dot(inc.points[i].p - planePoint, planeNormal);
-        if (penetration > 0)
-        {
-            inc.points[i].id = -1;
-        }
+        manifold->contactCount = 0;
+        return;
     }
 
     Face* major = faceA.count > faceB.count ? &faceA : &faceB;
 
-    int32 contactCount = 0;
-    for (int32 i = 0; i < inc.count; ++i)
+    if (faces[output].count <= max_contact_point_count)
     {
-        if (inc.points[i].id == -1)
+        for (int32 i = 0; i < faces[output].count; ++i)
         {
-            continue;
+            manifold->contactPoints[i].p = faces[output].points[i].p;
+            manifold->contactPoints[i].id = major->points[i].id;
         }
+        manifold->contactCount = faces[output].count;
+        return;
+    }
 
-        // To ensure consistent warm starting, the contact point id is always set based on the face with more vertices
-        manifold->contactPoints[contactCount].p = inc.points[i].p;
-        manifold->contactPoints[contactCount].id = major->points[i].id;
-        ++contactCount;
+    int32 indices[max_contact_point_count];
+    int32 contactCount;
+    ReduceContacts(faces[output], planeNormal, planePoint, indices, &contactCount);
+
+    for (int32 i = 0; i < contactCount; ++i)
+    {
+        manifold->contactPoints[i] = faces[output].points[indices[i]];
+
+        // To ensure consistent warm starting, the contact point id is always set based on the face with more vertices.
+        manifold->contactPoints[i].id = major->points[i].id;
     }
 
     manifold->contactCount = contactCount;

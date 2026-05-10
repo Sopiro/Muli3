@@ -163,7 +163,7 @@ void Demo::EnableBodyCreate()
         body->SetGyroscopicTorqueEnabled(!alt);
     }
 
-    throwCooldown = 0.05f;
+    throwCooldown = 0.03f;
 }
 
 bool Demo::EnableBodyGrab()

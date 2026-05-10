@@ -17,7 +17,7 @@ inline constexpr float epa_tolerance = epsilon;
 inline constexpr float contact_merge_threshold = linear_slop * 0.001f;
 
 inline constexpr float position_correction = 0.2f;
-inline constexpr float max_position_correction = 0.1f;
+inline constexpr float max_position_correction = linear_slop * 2;
 inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 
 inline constexpr float aabb_margin = 0.1f;
@@ -35,7 +35,7 @@ inline constexpr float default_angular_damping = 0.05f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 3;
+    int32 velocity_iterations = 5;
     int32 position_iterations = 2;
 
     bool warm_starting = true;
