@@ -878,14 +878,10 @@ bool CapsuleVsCapsule(
         }
     }
 
-    // End points use their vertex id. Interior points use id 2.
-    int32 idA = s <= epsilon ? 0 : (s >= 1.0f - epsilon ? 1 : 2);
-    int32 idB = t <= epsilon ? 0 : (t >= 1.0f - epsilon ? 1 : 2);
-
     manifold->contactNormal = normal;
-    manifold->contactPoints[0].id = idA | (idB << 2);
+    manifold->contactPoints[0].id = 0;
     manifold->contactPoints[0].p = pb - normal * rb;
-    manifold->referencePoint.id = idA;
+    manifold->referencePoint.id = 0;
     manifold->referencePoint.p = pa + normal * ra;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
@@ -953,6 +949,230 @@ bool ConvexVsSphere(
     manifold->featureFlipped = false;
 
     return true;
+}
+
+bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const Box* boxA = (const Box*)a;
+    const Box* boxB = (const Box*)b;
+
+    Vec3 centerA = Mul(tfA, boxA->GetCenter());
+    Vec3 centerB = Mul(tfB, boxB->GetCenter());
+
+    Quat qA = tfA.q * boxA->GetRotation();
+    Vec3 axesA[3] = { qA.Rotate(x_axis), qA.Rotate(y_axis), qA.Rotate(z_axis) };
+
+    Quat qB = tfB.q * boxB->GetRotation();
+    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
+
+    Vec3 extentsA = boxA->GetHalfExtents();
+    Vec3 extentsB = boxB->GetHalfExtents();
+
+    // A 중심에서 B 중심으로 향하는 벡터
+    Vec3 dir = centerB - centerA;
+
+    float radii = boxA->GetRadius() + boxB->GetRadius();
+
+    // Track the axis with the minimum penetration
+    float minPenetration = max_float;
+    Vec3 normal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        // Ignore degenerate axes
+        // This can happen when two tested edges are nearly parallel
+        if (n.Normalize() == 0)
+        {
+            return true;
+        }
+
+        // Project each box onto test axis
+        float pa = extentsA.x * AbsDot(axesA[0], n) + extentsA.y * AbsDot(axesA[1], n) + extentsA.z * AbsDot(axesA[2], n);
+        float pb = extentsB.x * AbsDot(axesB[0], n) + extentsB.y * AbsDot(axesB[1], n) + extentsB.z * AbsDot(axesB[2], n);
+
+        // Distance between box centers projected onto axis n
+        float d = AbsDot(dir, n);
+
+        float separation = pa + pb + radii - d;
+
+        // Found separation axis
+        if (separation < 0)
+        {
+            return false;
+        }
+
+        // Keep the axis with the minimum overlap
+        if (separation < minPenetration)
+        {
+            minPenetration = separation;
+            normal = n;
+
+            if (Dot(dir, n) < 0)
+            {
+                normal = -normal;
+            }
+        }
+
+        return true;
+    };
+
+    // Test the 3 face normals of box A
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesA[i]))
+        {
+            return false;
+        }
+    }
+
+    // Test the 3 face normals of box B
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesB[i]))
+        {
+            return false;
+        }
+    }
+
+    // Test the 9 edge-edge axes formed by cross products
+    // These axes are candidates for edge-edge separation
+    for (int32 i = 0; i < 3; ++i)
+    {
+        for (int32 j = 0; j < 3; ++j)
+        {
+            if (!TestAxis(Cross(axesA[i], axesB[j])))
+            {
+                return false;
+            }
+        }
+    }
+
+    // Found overlap
+
+    manifold->contactNormal = normal;
+    manifold->penetrationDepth = minPenetration;
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+
+    return manifold->contactCount > 0;
+}
+
+bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const Box* boxA = (const Box*)a;
+    const Capsule* capsuleB = (const Capsule*)b;
+
+    Transform tfBox = Mul(tfA, Transform{ boxA->GetCenter(), boxA->GetRotation() });
+
+    Vec3 extentsA = boxA->GetHalfExtents();
+
+    // Transform the capsule into the box's local space
+    Vec3 p1 = MulT(tfBox, Mul(tfB, capsuleB->GetVertexA()));
+    Vec3 p2 = MulT(tfBox, Mul(tfB, capsuleB->GetVertexB()));
+    Vec3 d = p2 - p1;
+
+    const Mat3 axesA = identity;
+
+    float radii = boxA->GetRadius() + capsuleB->GetRadius();
+
+    float minPenetration = max_float;
+    Vec3 normal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        // Project the box onto test axis
+        float pA = extentsA.x * Abs(n.x) + extentsA.y * Abs(n.y) + extentsA.z * Abs(n.z);
+
+        float proj1 = Dot(p1, n);
+        float proj2 = Dot(p2, n);
+
+        // Project capsule segment onto test axis
+        float minB, maxB;
+        if (proj1 < proj2)
+        {
+            minB = proj1;
+            maxB = proj2;
+        }
+        else
+        {
+            minB = proj2;
+            maxB = proj1;
+        }
+
+        // The box projection interval is [-pA, pA],
+        // The capsule segment projection interval is [minB, maxB].
+        //
+        // Max(-maxB, minB) represents the signed separation between the two projected intervals.
+        float separation = pA + radii - Max(-maxB, minB);
+
+        // Found separation axis
+        if (separation < 0.0f)
+        {
+            return false;
+        }
+
+        // Keep the axis with the minimum overlap
+        if (separation < minPenetration)
+        {
+            minPenetration = separation;
+            normal = n;
+
+            // Ensure the normal point from the box toward the capsule
+            if ((minB + maxB) * 0.5f < 0.0f)
+            {
+                normal = -normal;
+            }
+        }
+
+        return true;
+    };
+
+    // Test the 3 face normals of the box
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesA[i]))
+        {
+            return false;
+        }
+    }
+
+    // Test 3 edge-edge separating axis candidates
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(Cross(axesA[i], d)))
+        {
+            return false;
+        }
+    }
+
+    // Test the closest-point axis from the first capsule endpoint to the box.
+    // Clamp p1 to the box AABB to get the closest point on the box.
+    Vec3 qa = Clamp(p1, -extentsA, extentsA);
+
+    // Use the direction from Qa to p1 as a separating-axis candidate
+    if (!TestAxis(p1 - qa))
+    {
+        return false;
+    }
+
+    // Test the closest-point axis from the second capsule endpoint
+    Vec3 qb = Clamp(p2, -extentsA, extentsA);
+    if (!TestAxis(p2 - qb))
+    {
+        return false;
+    }
+
+    // Found overlap
+
+    manifold->contactNormal = tfBox.q.Rotate(normal);
+    manifold->penetrationDepth = minPenetration;
+
+    FindContactPoints(manifold->contactNormal, a, tfA, b, tfB, manifold);
+
+    return manifold->contactCount > 0;
 }
 
 bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
@@ -1105,8 +1325,8 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::capsule][Shape::capsule] = CapsuleVsCapsule;
 
     collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
-    collide_function_map[Shape::box][Shape::capsule] = ConvexVsConvex;
-    collide_function_map[Shape::box][Shape::box] = ConvexVsConvex;
+    collide_function_map[Shape::box][Shape::capsule] = BoxVsCapsule;
+    collide_function_map[Shape::box][Shape::box] = BoxVsBox;
 
     collide_function_map[Shape::convex][Shape::sphere] = ConvexVsSphere;
     collide_function_map[Shape::convex][Shape::capsule] = ConvexVsConvex;
