@@ -337,32 +337,72 @@ void AABBTree::Traverse(std::function<void(const Node*)> callback) const
 
 void AABBTree::Query(const Vec3& point, std::function<bool(NodeIndex, Data*)> callback) const
 {
-    struct TempCallback
+    if (root == nullNode)
     {
-        decltype(callback)& callback;
+        return;
+    }
 
-        bool QueryCallback(NodeIndex node, Data* data)
+    GrowableArray<NodeIndex, 64> stack;
+    stack.EmplaceBack(root);
+
+    while (stack.Count() != 0)
+    {
+        NodeIndex current = stack.PopBack();
+
+        if (nodes[current].aabb.TestPoint(point) == false)
         {
-            return callback(node, data);
+            continue;
         }
-    } tempCallback{ callback };
 
-    Query(point, &tempCallback);
+        if (nodes[current].IsLeaf())
+        {
+            bool proceed = callback(current, nodes[current].data);
+            if (proceed == false)
+            {
+                return;
+            }
+        }
+        else
+        {
+            stack.EmplaceBack(nodes[current].child1);
+            stack.EmplaceBack(nodes[current].child2);
+        }
+    }
 }
 
 void AABBTree::Query(const AABB& aabb, std::function<bool(NodeIndex, Data*)> callback) const
 {
-    struct TempCallback
+    if (root == nullNode)
     {
-        decltype(callback)& callback;
+        return;
+    }
 
-        bool QueryCallback(NodeIndex node, Data* data)
+    GrowableArray<NodeIndex, 64> stack;
+    stack.EmplaceBack(root);
+
+    while (stack.Count() != 0)
+    {
+        NodeIndex current = stack.PopBack();
+
+        if (nodes[current].aabb.TestOverlap(aabb) == false)
         {
-            return callback(node, data);
+            continue;
         }
-    } tempCallback{ callback };
 
-    Query(aabb, &tempCallback);
+        if (nodes[current].IsLeaf())
+        {
+            bool proceed = callback(current, nodes[current].data);
+            if (proceed == false)
+            {
+                return;
+            }
+        }
+        else
+        {
+            stack.EmplaceBack(nodes[current].child1);
+            stack.EmplaceBack(nodes[current].child2);
+        }
+    }
 }
 
 void AABBTree::AABBCast(const AABBCastInput& input, std::function<float(const AABBCastInput& input, Data* data)> callback) const
