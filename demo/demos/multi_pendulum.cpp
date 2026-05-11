@@ -18,7 +18,6 @@ public:
         : Demo(game)
     {
         RigidBody* ground = world->CreateBox(40.0f, 0.5f, 40.0f, identity, RigidBody::static_body);
-        settings.sleeping = false;
 
         float xStart = 0.0f;
         float yStart = 5.0f;
