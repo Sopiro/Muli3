@@ -407,17 +407,101 @@ void AABBTree::Query(const AABB& aabb, std::function<bool(NodeIndex, Data*)> cal
 
 void AABBTree::AABBCast(const AABBCastInput& input, std::function<float(const AABBCastInput& input, Data* data)> callback) const
 {
-    struct TempCallback
+    if (root == nullNode)
     {
-        decltype(callback)& callback;
+        return;
+    }
 
-        float AABBCastCallback(const AABBCastInput& input, Data* data)
+    const Vec3 p1 = input.from;
+    const Vec3 p2 = input.to;
+    const Vec3 halfExtents = input.halfExtents;
+
+    float maxFraction = input.maxFraction;
+    Vec3 d = p2 - p1;
+
+    if (Length2(d) == 0.0f)
+    {
+        return;
+    }
+
+    Ray ray{ p1, d };
+
+    GrowableArray<NodeIndex, 64> stack;
+    stack.EmplaceBack(root);
+
+    while (stack.Count() > 0)
+    {
+        NodeIndex current = stack.PopBack();
+        if (current == nullNode)
         {
-            return callback(input, data);
+            continue;
         }
-    } tempCallback{ callback };
 
-    AABBCast(input, &tempCallback);
+        const Node* node = nodes + current;
+
+        if (node->IsLeaf())
+        {
+            AABBCastInput subInput;
+            subInput.from = p1;
+            subInput.to = p2;
+            subInput.maxFraction = maxFraction;
+            subInput.halfExtents = halfExtents;
+
+            float newFraction = callback(subInput, node->data);
+            if (newFraction == 0.0f)
+            {
+                return;
+            }
+
+            if (newFraction > 0.0f)
+            {
+                maxFraction = newFraction;
+            }
+        }
+        else
+        {
+            NodeIndex child1 = node->child1;
+            NodeIndex child2 = node->child2;
+
+            AABB aabb1{
+                nodes[child1].aabb.min - halfExtents,
+                nodes[child1].aabb.max + halfExtents,
+            };
+            AABB aabb2{
+                nodes[child2].aabb.min - halfExtents,
+                nodes[child2].aabb.max + halfExtents,
+            };
+
+            float dist1 = max_float;
+            float dist2 = max_float;
+
+            if (!aabb1.Intersect(ray, 0.0f, maxFraction, &dist1))
+            {
+                dist1 = max_float;
+            }
+            if (!aabb2.Intersect(ray, 0.0f, maxFraction, &dist2))
+            {
+                dist2 = max_float;
+            }
+
+            if (dist2 < dist1)
+            {
+                std::swap(dist1, dist2);
+                std::swap(child1, child2);
+            }
+
+            if (dist1 == max_float)
+            {
+                continue;
+            }
+
+            if (dist2 != max_float)
+            {
+                stack.EmplaceBack(child2);
+            }
+            stack.EmplaceBack(child1);
+        }
+    }
 }
 
 void AABBTree::Reset()
