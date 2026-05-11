@@ -531,6 +531,70 @@ static void FindContactPoints(
     manifold->contactCount = contactCount;
 }
 
+static void ClosestSegmentVsSegment(float* outS, float* outT, const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1)
+{
+    // Compute the closest points on two segments.
+    // s and t are the interpolation parameters on segment A and B.
+    Vec3 da = a1 - a0;
+    Vec3 db = b1 - b0;
+    Vec3 r = a0 - b0;
+
+    float a = Dot(da, da);
+    float e = Dot(db, db);
+    float f = Dot(db, r);
+
+    float s = 0.0f;
+    float t = 0.0f;
+
+    if (a <= epsilon && e <= epsilon)
+    {
+        *outS = 0.0f;
+        *outT = 0.0f;
+        return;
+    }
+
+    if (a <= epsilon)
+    {
+        t = Clamp(f / e, 0.0f, 1.0f);
+    }
+    else
+    {
+        float c = Dot(da, r);
+        if (e <= epsilon)
+        {
+            s = Clamp(-c / a, 0.0f, 1.0f);
+        }
+        else
+        {
+            float b = Dot(da, db);
+            float denom = a * e - b * b;
+
+            // If denom is zero, the segments are parallel.
+            // Keep s at zero first, then clamp t and recompute s if needed.
+            if (denom > epsilon)
+            {
+                s = Clamp((b * f - c * e) / denom, 0.0f, 1.0f);
+            }
+
+            t = (b * s + f) / e;
+
+            if (t < 0.0f)
+            {
+                t = 0.0f;
+                s = Clamp(-c / a, 0.0f, 1.0f);
+            }
+            else if (t > 1.0f)
+            {
+                t = 1.0f;
+                s = Clamp((b - c) / a, 0.0f, 1.0f);
+            }
+        }
+    }
+
+    *outS = s;
+    *outT = t;
+}
+
 bool SphereVsSphere(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
@@ -559,6 +623,142 @@ bool SphereVsSphere(
     if (distance <= epsilon)
     {
         distance = radii;
+    }
+
+    manifold->contactNormal = normal;
+    manifold->contactPoints[0].id = 0;
+    manifold->contactPoints[0].p = pb - normal * rb;
+    manifold->referencePoint.id = 0;
+    manifold->referencePoint.p = pa + normal * ra;
+    manifold->contactCount = 1;
+    manifold->penetrationDepth = radii - distance;
+    manifold->featureFlipped = false;
+
+    return true;
+}
+
+bool CapsuleVsSphere(
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+)
+{
+    const Capsule* capsule = (const Capsule*)a;
+
+    Vec3 pa = capsule->GetVertexA();
+    Vec3 pb = capsule->GetVertexB();
+    Vec3 ab = pb - pa;
+
+    Vec3 centerB = Mul(transformB, b->GetCenter());
+    Vec3 localP = MulT(transformA, centerB);
+
+    float ab2 = Dot(ab, ab);
+    float t = 0.0f;
+    if (ab2 > epsilon)
+    {
+        t = Clamp(Dot(localP - pa, ab) / ab2, 0.0f, 1.0f);
+    }
+
+    Vec3 closest = pa + ab * t;
+    Vec3 normal = localP - closest;
+    float distance = normal.Normalize();
+
+    if (distance <= epsilon)
+    {
+        Vec3 axis = NormalizeSafe(ab);
+        if (Length2(axis) <= epsilon)
+        {
+            axis = y_axis;
+        }
+
+        normal = GramSchmidt(localP - capsule->GetCenter(), axis);
+        if (normal.Normalize() == 0.0f)
+        {
+            CoordinateSystem(axis, &normal);
+        }
+    }
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    float radii = ra + rb;
+
+    if (distance > radii)
+    {
+        return false;
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    normal = transformA.q.Rotate(normal);
+    Point supportA;
+    supportA.id = t <= linear_slop ? 0 : (t >= 1.0f - linear_slop ? 1 : 0);
+    supportA.p = Mul(transformA, closest) + normal * ra;
+
+    manifold->contactNormal = normal;
+    manifold->contactPoints[0].id = 0;
+    manifold->contactPoints[0].p = centerB - normal * rb;
+    manifold->referencePoint = supportA;
+    manifold->contactCount = 1;
+    manifold->penetrationDepth = radii - distance;
+    manifold->featureFlipped = false;
+
+    return true;
+}
+
+bool CapsuleVsCapsule(
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+)
+{
+    const Capsule* capsuleA = (const Capsule*)a;
+    const Capsule* capsuleB = (const Capsule*)b;
+
+    Vec3 a0 = Mul(transformA, capsuleA->GetVertexA());
+    Vec3 a1 = Mul(transformA, capsuleA->GetVertexB());
+    Vec3 b0 = Mul(transformB, capsuleB->GetVertexA());
+    Vec3 b1 = Mul(transformB, capsuleB->GetVertexB());
+
+    float s, t;
+    ClosestSegmentVsSegment(&s, &t, a0, a1, b0, b1);
+
+    Vec3 pa = a0 + (a1 - a0) * s;
+    Vec3 pb = b0 + (b1 - b0) * t;
+    Vec3 normal = pb - pa;
+    float distance = normal.Normalize();
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    float radii = ra + rb;
+
+    if (distance > radii)
+    {
+        return false;
+    }
+
+    if (distance <= epsilon)
+    {
+        // The closest segment points coincide. Pick a stable normal from crossed axes,
+        // then fall back to the center delta projected off the capsule axis.
+        Vec3 axisA = NormalizeSafe(a1 - a0);
+        Vec3 axisB = NormalizeSafe(b1 - b0);
+        normal = Cross(axisA, axisB);
+
+        Vec3 deltaCenter = ((b0 + b1) - (a0 + a1)) * 0.5f;
+
+        if (normal.Normalize() == 0.0f)
+        {
+            Vec3 axis = Length2(axisA) > epsilon ? axisA : (Length2(axisB) > epsilon ? axisB : y_axis);
+            normal = GramSchmidt(deltaCenter, axis);
+            if (normal.Normalize() == 0.0f)
+            {
+                CoordinateSystem(axis, &normal);
+            }
+        }
+
+        if (Dot(normal, deltaCenter) < 0.0f)
+        {
+            normal = -normal;
+        }
     }
 
     manifold->contactNormal = normal;
@@ -690,372 +890,6 @@ bool BoxVsSphere(
     return true;
 }
 
-bool CapsuleVsSphere(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
-{
-    const Capsule* capsule = (const Capsule*)a;
-
-    Vec3 pa = capsule->GetVertexA();
-    Vec3 pb = capsule->GetVertexB();
-    Vec3 ab = pb - pa;
-
-    Vec3 centerB = Mul(transformB, b->GetCenter());
-    Vec3 localP = MulT(transformA, centerB);
-
-    float ab2 = Dot(ab, ab);
-    float t = 0.0f;
-    if (ab2 > epsilon)
-    {
-        t = Clamp(Dot(localP - pa, ab) / ab2, 0.0f, 1.0f);
-    }
-
-    Vec3 closest = pa + ab * t;
-    Vec3 normal = localP - closest;
-    float distance = normal.Normalize();
-
-    if (distance <= epsilon)
-    {
-        Vec3 axis = NormalizeSafe(ab);
-        if (Length2(axis) <= epsilon)
-        {
-            axis = y_axis;
-        }
-
-        normal = GramSchmidt(localP - capsule->GetCenter(), axis);
-        if (normal.Normalize() == 0.0f)
-        {
-            CoordinateSystem(axis, &normal);
-        }
-    }
-
-    float ra = a->GetRadius();
-    float rb = b->GetRadius();
-    float radii = ra + rb;
-
-    if (distance > radii)
-    {
-        return false;
-    }
-
-    if (!manifold)
-    {
-        return true;
-    }
-
-    normal = transformA.q.Rotate(normal);
-    Point supportA;
-    supportA.id = t <= linear_slop ? 0 : (t >= 1.0f - linear_slop ? 1 : 0);
-    supportA.p = Mul(transformA, closest) + normal * ra;
-
-    manifold->contactNormal = normal;
-    manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = centerB - normal * rb;
-    manifold->referencePoint = supportA;
-    manifold->contactCount = 1;
-    manifold->penetrationDepth = radii - distance;
-    manifold->featureFlipped = false;
-
-    return true;
-}
-
-static void ClosestSegmentVsSegment(float* outS, float* outT, const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1)
-{
-    // Compute the closest points on two segments.
-    // s and t are the interpolation parameters on segment A and B.
-    Vec3 da = a1 - a0;
-    Vec3 db = b1 - b0;
-    Vec3 r = a0 - b0;
-
-    float a = Dot(da, da);
-    float e = Dot(db, db);
-    float f = Dot(db, r);
-
-    float s = 0.0f;
-    float t = 0.0f;
-
-    if (a <= epsilon && e <= epsilon)
-    {
-        *outS = 0.0f;
-        *outT = 0.0f;
-        return;
-    }
-
-    if (a <= epsilon)
-    {
-        t = Clamp(f / e, 0.0f, 1.0f);
-    }
-    else
-    {
-        float c = Dot(da, r);
-        if (e <= epsilon)
-        {
-            s = Clamp(-c / a, 0.0f, 1.0f);
-        }
-        else
-        {
-            float b = Dot(da, db);
-            float denom = a * e - b * b;
-
-            // If denom is zero, the segments are parallel.
-            // Keep s at zero first, then clamp t and recompute s if needed.
-            if (denom > epsilon)
-            {
-                s = Clamp((b * f - c * e) / denom, 0.0f, 1.0f);
-            }
-
-            t = (b * s + f) / e;
-
-            if (t < 0.0f)
-            {
-                t = 0.0f;
-                s = Clamp(-c / a, 0.0f, 1.0f);
-            }
-            else if (t > 1.0f)
-            {
-                t = 1.0f;
-                s = Clamp((b - c) / a, 0.0f, 1.0f);
-            }
-        }
-    }
-
-    *outS = s;
-    *outT = t;
-}
-
-bool CapsuleVsCapsule(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
-{
-    const Capsule* capsuleA = (const Capsule*)a;
-    const Capsule* capsuleB = (const Capsule*)b;
-
-    Vec3 a0 = Mul(transformA, capsuleA->GetVertexA());
-    Vec3 a1 = Mul(transformA, capsuleA->GetVertexB());
-    Vec3 b0 = Mul(transformB, capsuleB->GetVertexA());
-    Vec3 b1 = Mul(transformB, capsuleB->GetVertexB());
-
-    float s, t;
-    ClosestSegmentVsSegment(&s, &t, a0, a1, b0, b1);
-
-    Vec3 pa = a0 + (a1 - a0) * s;
-    Vec3 pb = b0 + (b1 - b0) * t;
-    Vec3 normal = pb - pa;
-    float distance = normal.Normalize();
-
-    float ra = a->GetRadius();
-    float rb = b->GetRadius();
-    float radii = ra + rb;
-
-    if (distance > radii)
-    {
-        return false;
-    }
-
-    if (distance <= epsilon)
-    {
-        // The closest segment points coincide. Pick a stable normal from crossed axes,
-        // then fall back to the center delta projected off the capsule axis.
-        Vec3 axisA = NormalizeSafe(a1 - a0);
-        Vec3 axisB = NormalizeSafe(b1 - b0);
-        normal = Cross(axisA, axisB);
-
-        Vec3 deltaCenter = ((b0 + b1) - (a0 + a1)) * 0.5f;
-
-        if (normal.Normalize() == 0.0f)
-        {
-            Vec3 axis = Length2(axisA) > epsilon ? axisA : (Length2(axisB) > epsilon ? axisB : y_axis);
-            normal = GramSchmidt(deltaCenter, axis);
-            if (normal.Normalize() == 0.0f)
-            {
-                CoordinateSystem(axis, &normal);
-            }
-        }
-
-        if (Dot(normal, deltaCenter) < 0.0f)
-        {
-            normal = -normal;
-        }
-    }
-
-    manifold->contactNormal = normal;
-    manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = pb - normal * rb;
-    manifold->referencePoint.id = 0;
-    manifold->referencePoint.p = pa + normal * ra;
-    manifold->contactCount = 1;
-    manifold->penetrationDepth = radii - distance;
-    manifold->featureFlipped = false;
-
-    return true;
-}
-
-bool ConvexVsSphere(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
-{
-    const ConvexShape* convex = (const ConvexShape*)a;
-
-    Vec3 centerB = Mul(transformB, b->GetCenter());
-    Vec3 closest = a->GetClosestPoint(transformA, centerB);
-    Vec3 normal = centerB - closest;
-    float distance = normal.Normalize();
-
-    float rb = b->GetRadius();
-    if (distance > rb)
-    {
-        return false;
-    }
-
-    Vec3 localCenterB = MulT(transformA, centerB);
-    int32 faceIndex = 0;
-    float maxSeparation = Dot(convex->GetFaceNormals()[0], localCenterB - convex->GetVertex(convex->GetFaces()[0].indices[0]));
-
-    for (int32 i = 1; i < int32(convex->GetFaces().size()); ++i)
-    {
-        float separation = Dot(convex->GetFaceNormals()[i], localCenterB - convex->GetVertex(convex->GetFaces()[i].indices[0]));
-        if (separation > maxSeparation)
-        {
-            maxSeparation = separation;
-            faceIndex = i;
-        }
-    }
-
-    float penetrationDepth;
-    if (distance <= epsilon)
-    {
-        normal = transformA.q.Rotate(convex->GetFaceNormals()[faceIndex]);
-        distance = convex->GetRadius() - maxSeparation;
-        closest = centerB - normal * distance;
-        penetrationDepth = rb + distance;
-    }
-    else
-    {
-        penetrationDepth = rb - distance;
-    }
-
-    if (!manifold)
-    {
-        return true;
-    }
-
-    manifold->contactNormal = normal;
-    manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = centerB - normal * rb;
-    manifold->referencePoint.id = convex->GetFaces()[faceIndex].indices[0];
-    manifold->referencePoint.p = closest;
-    manifold->contactCount = 1;
-    manifold->penetrationDepth = penetrationDepth;
-    manifold->featureFlipped = false;
-
-    return true;
-}
-
-bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const Box* boxA = (const Box*)a;
-    const Box* boxB = (const Box*)b;
-
-    Vec3 centerA = Mul(tfA, boxA->GetCenter());
-    Vec3 centerB = Mul(tfB, boxB->GetCenter());
-
-    Quat qA = tfA.q * boxA->GetRotation();
-    Vec3 axesA[3] = { qA.Rotate(x_axis), qA.Rotate(y_axis), qA.Rotate(z_axis) };
-
-    Quat qB = tfB.q * boxB->GetRotation();
-    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
-
-    Vec3 extentsA = boxA->GetHalfExtents();
-    Vec3 extentsB = boxB->GetHalfExtents();
-
-    // A 중심에서 B 중심으로 향하는 벡터
-    Vec3 dir = centerB - centerA;
-
-    float radii = boxA->GetRadius() + boxB->GetRadius();
-
-    // Track the axis with the minimum penetration
-    float minPenetration = max_float;
-    Vec3 normal;
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        // Ignore degenerate axes
-        // This can happen when two tested edges are nearly parallel
-        if (n.Normalize() == 0)
-        {
-            return true;
-        }
-
-        // Project each box onto test axis
-        float pa = extentsA.x * AbsDot(axesA[0], n) + extentsA.y * AbsDot(axesA[1], n) + extentsA.z * AbsDot(axesA[2], n);
-        float pb = extentsB.x * AbsDot(axesB[0], n) + extentsB.y * AbsDot(axesB[1], n) + extentsB.z * AbsDot(axesB[2], n);
-
-        // Distance between box centers projected onto axis n
-        float d = AbsDot(dir, n);
-
-        float separation = pa + pb + radii - d;
-
-        // Found separation axis
-        if (separation < 0)
-        {
-            return false;
-        }
-
-        // Keep the axis with the minimum overlap
-        if (separation < minPenetration)
-        {
-            minPenetration = separation;
-            normal = n;
-
-            if (Dot(dir, n) < 0)
-            {
-                normal = -normal;
-            }
-        }
-
-        return true;
-    };
-
-    // Test the 3 face normals of box A
-    for (int32 i = 0; i < 3; ++i)
-    {
-        if (!TestAxis(axesA[i]))
-        {
-            return false;
-        }
-    }
-
-    // Test the 3 face normals of box B
-    for (int32 i = 0; i < 3; ++i)
-    {
-        if (!TestAxis(axesB[i]))
-        {
-            return false;
-        }
-    }
-
-    // Test the 9 edge-edge axes formed by cross products
-    // These axes are candidates for edge-edge separation
-    for (int32 i = 0; i < 3; ++i)
-    {
-        for (int32 j = 0; j < 3; ++j)
-        {
-            if (!TestAxis(Cross(axesA[i], axesB[j])))
-            {
-                return false;
-            }
-        }
-    }
-
-    // Found overlap
-
-    manifold->contactNormal = normal;
-    manifold->penetrationDepth = minPenetration;
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-
-    return manifold->contactCount > 0;
-}
-
 bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
     const Box* boxA = (const Box*)a;
@@ -1173,6 +1007,172 @@ bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     FindContactPoints(manifold->contactNormal, a, tfA, b, tfB, manifold);
 
     return manifold->contactCount > 0;
+}
+
+bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const Box* boxA = (const Box*)a;
+    const Box* boxB = (const Box*)b;
+
+    Vec3 centerA = Mul(tfA, boxA->GetCenter());
+    Vec3 centerB = Mul(tfB, boxB->GetCenter());
+
+    Quat qA = tfA.q * boxA->GetRotation();
+    Vec3 axesA[3] = { qA.Rotate(x_axis), qA.Rotate(y_axis), qA.Rotate(z_axis) };
+
+    Quat qB = tfB.q * boxB->GetRotation();
+    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
+
+    Vec3 extentsA = boxA->GetHalfExtents();
+    Vec3 extentsB = boxB->GetHalfExtents();
+
+    // A 중심에서 B 중심으로 향하는 벡터
+    Vec3 dir = centerB - centerA;
+
+    float radii = boxA->GetRadius() + boxB->GetRadius();
+
+    // Track the axis with the minimum penetration
+    float minPenetration = max_float;
+    Vec3 normal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        // Ignore degenerate axes
+        // This can happen when two tested edges are nearly parallel
+        if (n.Normalize() == 0)
+        {
+            return true;
+        }
+
+        // Project each box onto test axis
+        float pa = extentsA.x * AbsDot(axesA[0], n) + extentsA.y * AbsDot(axesA[1], n) + extentsA.z * AbsDot(axesA[2], n);
+        float pb = extentsB.x * AbsDot(axesB[0], n) + extentsB.y * AbsDot(axesB[1], n) + extentsB.z * AbsDot(axesB[2], n);
+
+        // Distance between box centers projected onto axis n
+        float d = AbsDot(dir, n);
+
+        float separation = pa + pb + radii - d;
+
+        // Found separation axis
+        if (separation < 0)
+        {
+            return false;
+        }
+
+        // Keep the axis with the minimum overlap
+        if (separation < minPenetration)
+        {
+            minPenetration = separation;
+            normal = n;
+
+            if (Dot(dir, n) < 0)
+            {
+                normal = -normal;
+            }
+        }
+
+        return true;
+    };
+
+    // Test the 3 face normals of box A
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesA[i]))
+        {
+            return false;
+        }
+    }
+
+    // Test the 3 face normals of box B
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesB[i]))
+        {
+            return false;
+        }
+    }
+
+    // Test the 9 edge-edge axes formed by cross products
+    // These axes are candidates for edge-edge separation
+    for (int32 i = 0; i < 3; ++i)
+    {
+        for (int32 j = 0; j < 3; ++j)
+        {
+            if (!TestAxis(Cross(axesA[i], axesB[j])))
+            {
+                return false;
+            }
+        }
+    }
+
+    // Found overlap
+
+    manifold->contactNormal = normal;
+    manifold->penetrationDepth = minPenetration;
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+
+    return manifold->contactCount > 0;
+}
+
+bool ConvexVsSphere(
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+)
+{
+    const ConvexShape* convex = (const ConvexShape*)a;
+
+    Vec3 centerB = Mul(transformB, b->GetCenter());
+    Vec3 closest = a->GetClosestPoint(transformA, centerB);
+    Vec3 normal = centerB - closest;
+    float distance = normal.Normalize();
+
+    float rb = b->GetRadius();
+    if (distance > rb)
+    {
+        return false;
+    }
+
+    Vec3 localCenterB = MulT(transformA, centerB);
+    int32 faceIndex = 0;
+    float maxSeparation = Dot(convex->GetFaceNormals()[0], localCenterB - convex->GetVertex(convex->GetFaces()[0].indices[0]));
+
+    for (int32 i = 1; i < int32(convex->GetFaces().size()); ++i)
+    {
+        float separation = Dot(convex->GetFaceNormals()[i], localCenterB - convex->GetVertex(convex->GetFaces()[i].indices[0]));
+        if (separation > maxSeparation)
+        {
+            maxSeparation = separation;
+            faceIndex = i;
+        }
+    }
+
+    float penetrationDepth;
+    if (distance <= epsilon)
+    {
+        normal = transformA.q.Rotate(convex->GetFaceNormals()[faceIndex]);
+        distance = convex->GetRadius() - maxSeparation;
+        closest = centerB - normal * distance;
+        penetrationDepth = rb + distance;
+    }
+    else
+    {
+        penetrationDepth = rb - distance;
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    manifold->contactNormal = normal;
+    manifold->contactPoints[0].id = 0;
+    manifold->contactPoints[0].p = centerB - normal * rb;
+    manifold->referencePoint.id = convex->GetFaces()[faceIndex].indices[0];
+    manifold->referencePoint.p = closest;
+    manifold->contactCount = 1;
+    manifold->penetrationDepth = penetrationDepth;
+    manifold->featureFlipped = false;
+
+    return true;
 }
 
 bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
