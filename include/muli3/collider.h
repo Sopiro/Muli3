@@ -41,8 +41,8 @@ public:
     void SetRestitution(float restitution);
     float GetRestitutionTreshold() const;
     void SetRestitutionTreshold(float treshold);
-    float GetSurfaceSpeed() const;
-    void SetSurfaceSpeed(float surfaceSpeed);
+    Vec2 GetSurfaceSpeed() const;
+    void SetSurfaceSpeed(const Vec2& surfaceSpeed);
 
     const CollisionFilter& GetFilter() const;
     void SetFilter(const CollisionFilter& filter);
@@ -182,12 +182,12 @@ inline void Collider::SetRestitutionTreshold(float newRestitutionTreshold)
     material.restitutionTreshold = newRestitutionTreshold;
 }
 
-inline float Collider::GetSurfaceSpeed() const
+inline Vec2 Collider::GetSurfaceSpeed() const
 {
     return material.surfaceSpeed;
 }
 
-inline void Collider::SetSurfaceSpeed(float newSurfaceSpeed)
+inline void Collider::SetSurfaceSpeed(const Vec2& newSurfaceSpeed)
 {
     material.surfaceSpeed = newSurfaceSpeed;
 }

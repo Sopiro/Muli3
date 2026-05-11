@@ -85,7 +85,7 @@ void ContactSolverNormal::Solve(Contact* c)
     c->b2->angularVelocity += c->invIB * j.wb * lambda;
 }
 
-void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index, const Timestep& step)
+void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, uint8 tangentIndex, int32 index, const Timestep& step)
 {
     // Compute Jacobian J and effective mass W
     // J = [-t, -ra × t, t, rb × t]
@@ -101,7 +101,7 @@ void ContactSolverTangent::Prepare(Contact* c, const Vec3& tangent, int32 index,
     j.vb = tangent;
     j.wb = Cross(rb, tangent);
 
-    bias = -c->surfaceSpeed;
+    bias = -c->surfaceSpeed[tangentIndex];
 
     // clang-format off
     float k = c->b1->invMass

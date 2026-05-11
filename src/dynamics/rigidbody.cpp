@@ -519,7 +519,7 @@ void RigidBody::SetRestitutionThreshold(float threshold) const
     }
 }
 
-void RigidBody::SetSurfaceSpeed(float surfaceSpeed) const
+void RigidBody::SetSurfaceSpeed(const Vec2& surfaceSpeed) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {

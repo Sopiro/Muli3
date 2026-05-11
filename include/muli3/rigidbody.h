@@ -110,7 +110,7 @@ public:
     void SetFriction(float friction) const;
     void SetRestitution(float restitution) const;
     void SetRestitutionThreshold(float threshold) const;
-    void SetSurfaceSpeed(float surfaceSpeed) const;
+    void SetSurfaceSpeed(const Vec2& surfaceSpeed) const;
 
     bool TestPoint(const Vec3& q) const;
     Vec3 GetClosestPoint(const Vec3& q) const;

@@ -11,10 +11,10 @@ struct Material
     float friction = default_friction;
     float restitution = default_restitution;
     float restitutionTreshold = default_restitution_treshold;
-    float surfaceSpeed = default_surface_speed;
+    Vec2 surfaceSpeed = default_surface_speed;
 };
 
-constexpr Material default_material{};
+constexpr inline Material default_material{};
 
 inline float MixFriction(float frictionA, float frictionB)
 {

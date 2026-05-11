@@ -54,7 +54,7 @@ public:
     float GetFriction() const;
     float GetRestitution() const;
     float GetRestitutionTreshold() const;
-    float GetSurfaceSpeed() const;
+    Vec2 GetSurfaceSpeed() const;
 
 private:
     friend class World;
@@ -100,10 +100,10 @@ private:
 
     Mat3 invIA, invIB;
 
-    float friction = 0.0f;
-    float restitution = 0.0f;
-    float restitutionThreshold = 0.0f;
-    float surfaceSpeed = 0.0f;
+    float friction;
+    float restitution;
+    float restitutionThreshold;
+    Vec2 surfaceSpeed;
     uint16 flag;
 };
 
@@ -206,7 +206,7 @@ inline float Contact::GetRestitutionTreshold() const
     return restitutionThreshold;
 }
 
-inline float Contact::GetSurfaceSpeed() const
+inline Vec2 Contact::GetSurfaceSpeed() const
 {
     return surfaceSpeed;
 }

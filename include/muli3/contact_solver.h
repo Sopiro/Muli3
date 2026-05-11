@@ -38,7 +38,7 @@ private:
 class ContactSolverTangent
 {
 public:
-    void Prepare(Contact* contact, const Vec3& tangent, int32 index, const Timestep& step);
+    void Prepare(Contact* contact, const Vec3& tangent, uint8 tangentIndex, int32 index, const Timestep& step);
     void Solve(Contact* contact, const ContactSolverNormal* normalSolver);
 
 private:

@@ -119,14 +119,18 @@ void Contact::Prepare(const Timestep& step)
     invIA = b1->GetWorldInverseInertiaTensor();
     invIB = b2->GetWorldInverseInertiaTensor();
 
-    Vec3 tangent1, tangent2;
-    CoordinateSystem(manifold.contactNormal, &tangent1, &tangent2);
+    Vec3 tangent1 = GramSchmidt(x_axis, manifold.contactNormal);
+    if (tangent1.Normalize() == 0)
+    {
+        tangent1 = Normalize(GramSchmidt(z_axis, manifold.contactNormal));
+    }
+    Vec3 tangent2 = Cross(manifold.contactNormal, tangent1);
 
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
         normalSolvers[i].Prepare(this, i, step);
-        tangent1Solvers[i].Prepare(this, tangent1, i, step);
-        tangent2Solvers[i].Prepare(this, tangent2, i, step);
+        tangent1Solvers[i].Prepare(this, tangent1, 0, i, step);
+        tangent2Solvers[i].Prepare(this, tangent2, 1, i, step);
         positionSolvers[i].Prepare(this, i);
     }
 }
