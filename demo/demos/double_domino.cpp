@@ -17,7 +17,7 @@ public:
         float boxWidth = 1.0f;
         float boxHeight = boxWidth * 4.0f;
         float boxDepth = 0.8f;
-        float xGap = boxHeight - boxWidth * 0.97f;
+        float xGap = boxHeight - boxWidth * 0.95f;
         float xStart = -(rows - 1.0f) * (boxWidth + xGap) / 2.0f;
         float yStart = l + boxHeight / 2.0f;
 
