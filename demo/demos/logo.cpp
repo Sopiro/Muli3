@@ -1,4 +1,5 @@
 #include "demo.h"
+#include "muli3/random.h"
 
 namespace muli3
 {
@@ -11,44 +12,58 @@ public:
     {
         world->CreateBox(40.0f, 0.5f, 12.0f, identity, RigidBody::static_body);
 
-        RigidBody* body = world->CreateEmptyBody();
+        RigidBody* b = world->CreateEmptyBody();
 
         float offset = 0.5f;
         float radius = 0.1f;
 
-        body->CreateCapsuleCollider(Vec3{ -4.0f + offset, 0.0f, 0.0f }, Vec3{ -4.0f + offset, 2.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -4.0f + offset, 2.0f, 0.0f }, Vec3{ -3.5f + offset, 1.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -3.5f + offset, 1.0f, 0.0f }, Vec3{ -3.0f + offset, 2.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -3.0f + offset, 2.0f, 0.0f }, Vec3{ -3.0f + offset, 0.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -4.0f + offset, 0.0f, 0.0f }, Vec3{ -4.0f + offset, 2.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -4.0f + offset, 2.0f, 0.0f }, Vec3{ -3.5f + offset, 1.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -3.5f + offset, 1.0f, 0.0f }, Vec3{ -3.0f + offset, 2.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -3.0f + offset, 2.0f, 0.0f }, Vec3{ -3.0f + offset, 0.0f, 0.0f }, radius);
 
-        body->CreateCapsuleCollider(Vec3{ -2.0f + offset, 2.0f, 0.0f }, Vec3{ -2.0f + offset, 0.2f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -1.0f + offset, 0.2f, 0.0f }, Vec3{ -1.0f + offset, 2.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -2.0f + offset, 0.2f, 0.0f }, Vec3{ -1.8f + offset, 0.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -1.2f + offset, 0.0f, 0.0f }, Vec3{ -1.0f + offset, 0.2f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ -1.8f + offset, 0.0f, 0.0f }, Vec3{ -1.2f + offset, 0.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -2.0f + offset, 2.0f, 0.0f }, Vec3{ -2.0f + offset, 0.2f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -1.0f + offset, 0.2f, 0.0f }, Vec3{ -1.0f + offset, 2.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -2.0f + offset, 0.2f, 0.0f }, Vec3{ -1.8f + offset, 0.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -1.2f + offset, 0.0f, 0.0f }, Vec3{ -1.0f + offset, 0.2f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ -1.8f + offset, 0.0f, 0.0f }, Vec3{ -1.2f + offset, 0.0f, 0.0f }, radius);
 
-        body->CreateCapsuleCollider(Vec3{ 0.0f + offset, 0.0f, 0.0f }, Vec3{ 0.0f + offset, 2.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ 0.0f + offset, 0.0f, 0.0f }, Vec3{ 1.0f + offset, 0.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ 0.0f + offset, 0.0f, 0.0f }, Vec3{ 0.0f + offset, 2.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ 0.0f + offset, 0.0f, 0.0f }, Vec3{ 1.0f + offset, 0.0f, 0.0f }, radius);
 
-        body->CreateCapsuleCollider(Vec3{ 2.0f + offset, 2.0f, 0.0f }, Vec3{ 3.0f + offset, 2.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ 2.0f + offset, 0.0f, 0.0f }, Vec3{ 3.0f + offset, 0.0f, 0.0f }, radius);
-        body->CreateCapsuleCollider(Vec3{ 2.5f + offset, 0.0f, 0.0f }, Vec3{ 2.5f + offset, 2.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ 2.0f + offset, 2.0f, 0.0f }, Vec3{ 3.0f + offset, 2.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ 2.0f + offset, 0.0f, 0.0f }, Vec3{ 3.0f + offset, 0.0f, 0.0f }, radius);
+        b->CreateCapsuleCollider(Vec3{ 2.5f + offset, 0.0f, 0.0f }, Vec3{ 2.5f + offset, 2.0f, 0.0f }, radius);
 
-        body->SetPosition(0.0f, 4.0f, 0.0f);
+        b->SetPosition(0.0f, 4.0f, 0.0f);
 
-        // for (int32 y = 0; y < 8; ++y)
-        // {
-        //     for (int32 x = 0; x < 6; ++x)
-        //     {
-        //         float size = 0.16f + 0.02f * (x % 3);
-        //         float px = -2.5f + x * 1.0f;
-        //         float py = 8.0f + y * 0.9f;
-        //         float pz = ((x + y) & 1) == 0 ? -0.35f : 0.35f;
+        // Srand(123);
 
-        //         RigidBody* debris = world->CreateSphere(size, Transform{ Vec3{ px, py, pz } });
-        //         debris->SetAngularVelocity(1.5f + 0.2f * y, 0.8f + 0.15f * x, -1.0f - 0.1f * (x + y));
-        //     }
-        // }
+        for (int32 i = 0; i < 100; ++i)
+        {
+            float size = Rand(0.2f, 0.5f);
+            // float r = Rand(default_radius, 0.06f);
+
+            Vec3 pos = RandVec3(Vec3(-5, 0, 0), Vec3(5, 5, 0));
+            pos.y += 30.0f;
+
+            float r = Rand();
+            if (r < 0.3)
+            {
+                b = world->CreateSphere(size / 2, identity, RigidBody::dynamic_body);
+            }
+            else if (r < 0.6)
+            {
+                b = world->CreateCapsule(size, size / 4, identity, RigidBody::dynamic_body);
+            }
+            else
+            {
+                b = world->CreateBox(size, identity, RigidBody::dynamic_body, 0);
+            }
+            b->SetPosition(pos);
+            b->SetRotation(Quat::FromEuler(RandVec3()));
+            b->SetGyroscopicTorqueEnabled(true);
+        }
 
         camera.SetPosition(Vec3{ 0.0f, 1.0f, 6.0f });
         camera.SetRotation(-90.0f, 0.0f);

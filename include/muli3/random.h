@@ -131,12 +131,12 @@ inline void Srand(uint32 new_seed)
     g_rng.Seed(new_seed);
 }
 
-inline Float Rand()
+inline float Rand()
 {
     return g_rng.NextFloat();
 }
 
-inline Float Rand(Float min, Float max)
+inline float Rand(float min, float max)
 {
     return min + (max - min) * Rand();
 }
@@ -146,9 +146,9 @@ inline Vec2 RandVec2()
     return Vec2(Rand(), Rand());
 }
 
-inline Vec2 RandVec2(Float min, Float max)
+inline Vec2 RandVec2(Vec2 min, Vec2 max)
 {
-    return Vec2(Rand(min, max), Rand(min, max));
+    return Vec2{ Rand(min.x, max.x), Rand(min.y, max.y) };
 }
 
 inline Vec3 RandVec3()
@@ -156,9 +156,19 @@ inline Vec3 RandVec3()
     return Vec3(Rand(), Rand(), Rand());
 }
 
-inline Vec3 RandVec3(Float min, Float max)
+inline Vec3 RandVec3(Vec3 min, Vec3 max)
 {
-    return Vec3(Rand(min, max), Rand(min, max), Rand(min, max));
+    return Vec3{ Rand(min.x, max.x), Rand(min.y, max.y), Rand(min.z, max.z) };
+}
+
+inline Vec4 RandVec4()
+{
+    return Vec4(Rand(), Rand(), Rand(), Rand());
+}
+
+inline Vec4 RandVec4(Vec4 min, Vec4 max)
+{
+    return Vec4{ Rand(min.x, max.x), Rand(min.y, max.y), Rand(min.z, max.z), Rand(min.w, max.w) };
 }
 
 } // namespace muli3
