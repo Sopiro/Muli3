@@ -18,6 +18,7 @@ Same architecture, collision detection, and solver as [Muli](https://github.com/
   - Dynamic, static, and kinematic bodies
   - Collision filtering
   - Dynamic AABB tree broadphase
+  - One-shot contact manifold generation
   - Accelerated raycast, shapecast, and area queries
   - Easy-to-use collision detection and distance functions
 

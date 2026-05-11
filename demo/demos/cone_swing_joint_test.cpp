@@ -65,6 +65,6 @@ static Demo* CreateConeSwingJointDemo(Game& game)
     return new ConeSwingJointDemo(game);
 }
 
-static int32 cone_swing_joint = register_demo("Joints", "Cone swing joint", CreateConeSwingJointDemo, 15);
+static int32 cone_swing_joint = register_demo("Joints", "Cone swing joint", CreateConeSwingJointDemo, 4);
 
 } // namespace muli3

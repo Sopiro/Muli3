@@ -29,6 +29,6 @@ static Demo* CreatePrismaticJointTest(Game& game)
     return new PrismaticJointTest(game);
 }
 
-static int32 prismatic_joint_test = register_demo("Joints", "Prismatic joint", CreatePrismaticJointTest, 11);
+static int32 prismatic_joint_test = register_demo("Joints", "Prismatic joint", CreatePrismaticJointTest, 3);
 
 } // namespace muli3

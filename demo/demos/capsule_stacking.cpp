@@ -56,6 +56,6 @@ static Demo* CreateCapsuleStacking(Game& game)
     return new CapsuleStacking(game);
 }
 
-static int32 capsule_stacking = register_demo("Stacking", "Capsule stacking", CreateCapsuleStacking, 5);
+static int32 capsule_stacking = register_demo("Stacking", "Capsule stacking", CreateCapsuleStacking, 2);
 
 } // namespace muli3

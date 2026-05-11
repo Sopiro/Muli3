@@ -92,6 +92,6 @@ static Demo* CreateRestitutionTest(Game& game)
     return new RestitutionTest(game);
 }
 
-static int32 restitution_test = register_demo("Dynamics", "Restitution test", CreateRestitutionTest, 9);
+static int32 restitution_test = register_demo("Dynamics", "Restitution test", CreateRestitutionTest, 1);
 
 } // namespace muli3

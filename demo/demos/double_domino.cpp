@@ -16,7 +16,7 @@ public:
         float l = 0.25f + linear_slop;
         float boxWidth = 1.0f;
         float boxHeight = boxWidth * 4.0f;
-        float boxDepth = 0.8f;
+        float boxDepth = 2.4f;
         float xGap = boxHeight - boxWidth * 0.95f;
         float xStart = -(rows - 1.0f) * (boxWidth + xGap) / 2.0f;
         float yStart = l + boxHeight / 2.0f;
@@ -30,7 +30,9 @@ public:
 
             if (x == 0)
             {
-                b->ApplyLinearImpulseLocal({ boxWidth / 2.0f, boxHeight / 2.0f, 0.0f }, Vec3{ 5.0f, 0.0f, 0.0f }, true);
+                b->ApplyLinearImpulseLocal(
+                    { boxWidth / 2.0f, boxHeight / 2.0f, 0.0f }, Vec3{ 1.0f, 0.0f, 0.0f } * b->GetMass(), true
+                );
             }
         }
 
@@ -58,6 +60,6 @@ static Demo* CreateDoubleDomino(Game& game)
     return new DoubleDomino(game);
 }
 
-static int32 double_domino = register_demo("Dynamics", "Double domino", CreateDoubleDomino, 15);
+static int32 double_domino = register_demo("Dynamics", "Double domino", CreateDoubleDomino, 2);
 
 } // namespace muli3

@@ -51,6 +51,6 @@ static Demo* CreatePulley(Game& game)
     return new Pulley(game);
 }
 
-static int32 pulley = register_demo("Joints", "Pulley", CreatePulley, 12);
+static int32 pulley = register_demo("Joints", "Pulley", CreatePulley, 5);
 
 } // namespace muli3

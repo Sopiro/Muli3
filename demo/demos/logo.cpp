@@ -75,6 +75,6 @@ static Demo* CreateLogo(Game& game)
     return new Logo(game);
 }
 
-static int32 logo = register_demo("Shapes", "Logo", CreateLogo, 11);
+static int32 logo = register_demo("Shapes", "Logo", CreateLogo, 0);
 
 } // namespace muli3

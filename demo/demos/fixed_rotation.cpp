@@ -122,6 +122,6 @@ static Demo* CreateFixedRotation(Game& game)
     return new FixedRotation(game);
 }
 
-static int32 fixed_rotations = register_demo("Joints", "Fixed rotation", CreateFixedRotation, 13);
+static int32 fixed_rotations = register_demo("Joints", "Fixed rotation", CreateFixedRotation, 2);
 
 } // namespace muli3

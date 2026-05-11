@@ -24,6 +24,6 @@ static Demo* CreateSingleBox(Game& game)
     return new SingleBox(game);
 }
 
-static int32 single_box = register_demo("Basics", "Single box", CreateSingleBox, 1);
+static int32 single_box = register_demo("Basics", "Single box", CreateSingleBox, 0);
 
 } // namespace muli3

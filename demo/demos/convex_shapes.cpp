@@ -57,6 +57,6 @@ static Demo* CreateConvexShapes(Game& game)
     return new ConvexShapes(game);
 }
 
-static int32 convex_shapes = register_demo("Shapes", "Convex shape", CreateConvexShapes, 11);
+static int32 convex_shapes = register_demo("Shapes", "Convex shape", CreateConvexShapes, 1);
 
 } // namespace muli3

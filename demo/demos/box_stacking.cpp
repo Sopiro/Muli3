@@ -51,6 +51,6 @@ static Demo* CreateBoxStacking(Game& game)
     return new BoxStacking(game);
 }
 
-static int32 box_stacking = register_demo("Stacking", "Box stacking", CreateBoxStacking, 2);
+static int32 box_stacking = register_demo("Stacking", "Box stacking", CreateBoxStacking, 0);
 
 } // namespace muli3

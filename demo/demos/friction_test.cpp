@@ -61,6 +61,6 @@ static Demo* CreateFrictionTest(Game& game)
     return new FrictionTest(game);
 }
 
-static int32 friction_test = register_demo("Dynamics", "Friction test", CreateFrictionTest, 8);
+static int32 friction_test = register_demo("Dynamics", "Friction test", CreateFrictionTest, 0);
 
 } // namespace muli3
