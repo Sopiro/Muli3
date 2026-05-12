@@ -7,12 +7,21 @@ namespace muli3
 // Erin Catto's numerical method for stable gyroscopic force integration
 static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, float h)
 {
+    // Convert to body coordinates
     Vec3 localW = q.RotateInv(w);
     Vec3 localL = inertia * localW;
+
+    // Residual vector
     Vec3 f = h * Cross(localW, localL);
     Mat3 gyro = Skew(localW) * inertia - Skew(localL);
+
+    // Jacobian
     Mat3 j = inertia + Mat3{ gyro.ex * h, gyro.ey * h, gyro.ez * h };
+
+    // Single Newton-Raphson update
     localW -= j.GetInverse() * f;
+
+    // Back to world coordinates
     return q.Rotate(localW);
 }
 

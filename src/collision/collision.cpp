@@ -5,6 +5,7 @@
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
+#include "muli3/shape.h"
 
 namespace muli3
 {

@@ -1,4 +1,5 @@
 #include "muli3/distance.h"
+#include "muli3/shape.h"
 
 namespace muli3
 {

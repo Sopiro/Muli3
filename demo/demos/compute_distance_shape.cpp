@@ -176,7 +176,7 @@ private:
         size2 = Vec3{ 0.7f, 0.5f, 0.6f };
         convexRadius1 = default_radius;
         convexRadius2 = default_radius;
-        item1 = 1;
+        item1 = 2;
         item2 = 1;
         UpdateShape1();
         UpdateShape2();
@@ -218,8 +218,8 @@ private:
         }
     }
 
-    int32 item1 = 1;
-    int32 item2 = 1;
+    int32 item1;
+    int32 item2;
 
     Transform tf1;
     Transform tf2;

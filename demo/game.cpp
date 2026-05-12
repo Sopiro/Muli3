@@ -86,8 +86,8 @@ void Game::UpdateUI()
     if (Input::IsKeyPressed(GLFW_KEY_GRAVE_ACCENT))
     {
         collapsed = !collapsed;
+        ImGui::SetNextWindowCollapsed(collapsed, ImGuiCond_None);
     }
-    ImGui::SetNextWindowCollapsed(collapsed, ImGuiCond_None);
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
     if (ImGui::Begin("Muli Engine", NULL, flags))
@@ -235,14 +235,8 @@ void Game::UpdateUI()
         }
     }
 
-    if (!collapsed && ImGui::IsWindowCollapsed())
-    {
-        collapsed = true;
-    }
-    if (collapsed && !ImGui::IsWindowCollapsed())
-    {
-        collapsed = false;
-    }
+    if (!collapsed && ImGui::IsWindowCollapsed()) collapsed = true;
+    if (collapsed && !ImGui::IsWindowCollapsed()) collapsed = false;
 
     ImGui::End();
 
