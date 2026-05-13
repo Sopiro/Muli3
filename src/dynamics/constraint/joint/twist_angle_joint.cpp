@@ -42,9 +42,33 @@ static float ClampImpulse(float impulse, int32 limitState)
     }
 }
 
-static float GetAngle(const Vec3& frameX, const Vec3& frameY, const Vec3& frameZ, const Vec3& refAxisB)
+// Rotate v by the shortest rotation that takes from to to.
+// This is Rodrigues' formula written directly to avoid building a temporary quaternion.
+static Vec3 RotateBetweenUnitVectors(const Vec3& from, const Vec3& to, const Vec3& v)
 {
-    Vec3 projected = GramSchmidt(refAxisB, frameZ);
+    float c = Clamp(Dot(from, to), -1.0f, 1.0f);
+
+    if (c > 1.0f - epsilon)
+    {
+        return v;
+    }
+
+    Vec3 axis = Cross(from, to);
+    float s = axis.Normalize();
+
+    if (s == 0.0f)
+    {
+        CoordinateSystem(from, &axis);
+        return -v + axis * (2.0f * Dot(axis, v));
+    }
+
+    return v * c + Cross(axis, v) * s + axis * (Dot(axis, v) * (1.0f - c));
+}
+
+static float GetTwistAngle(const Vec3& frameX, const Vec3& frameY, const Vec3& frameZ, const Vec3& axisB, const Vec3& refAxisB)
+{
+    Vec3 alignedRefAxisB = RotateBetweenUnitVectors(axisB, frameZ, refAxisB);
+    Vec3 projected = GramSchmidt(alignedRefAxisB, frameZ);
     if (projected.Normalize() == 0.0f)
     {
         projected = frameX;
@@ -119,7 +143,7 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     float angleK = Dot(twistAxis, invIA * twistAxis) + Dot(twistAxis, invIB * twistAxis) + gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
-    currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
+    currentAngle = GetTwistAngle(refAxisA, binormalA, axisA, axisB, refAxisB) - angleOffset;
 
     if (minAngle == maxAngle)
     {
