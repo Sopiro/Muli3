@@ -5,6 +5,8 @@
 namespace muli3
 {
 
+// Pulley constraint: constrains the combined rope length between two body anchors and two ground anchors
+// 1 DOF constraint (constrains the scalar pulley length)
 class PulleyJoint : public Joint
 {
 public:

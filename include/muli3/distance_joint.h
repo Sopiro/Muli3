@@ -5,6 +5,8 @@
 namespace muli3
 {
 
+// Distance constraint: constrains the separation between two anchor points
+// 1 DOF constraint (equal distance or min/max distance limit)
 class DistanceJoint : public Joint
 {
 public:
@@ -44,8 +46,9 @@ private:
     Vec3 d;
     float m;
 
-    Vec2 bias;
-    Vec2 impulseSum;
+    float bias;
+    float impulseSum;
+    int32 limitState;
 
     void ApplyImpulse(float lambda);
 };

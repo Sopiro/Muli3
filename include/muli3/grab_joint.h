@@ -1,11 +1,12 @@
 #pragma once
 
-#include "common.h"
 #include "joint.h"
 
 namespace muli3
 {
 
+// Point-to-point constraint against a world-space target
+// 3 DOF constraint (constrains 3 translational DOFs)
 class GrabJoint : public Joint
 {
 public:

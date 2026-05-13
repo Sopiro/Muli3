@@ -5,6 +5,8 @@
 namespace muli3
 {
 
+// Servo constraint: drives the relative anchor positions and orientations toward target offsets
+// Up to 6 DOF motorized constraint (3 translational DOFs and 3 rotational DOFs, limited by max force/torque)
 class MotorJoint : public Joint
 {
 public:

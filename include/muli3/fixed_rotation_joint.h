@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-// Constrains a single body's orientation in world space
+// Orientation constraint against a world-space target orientation
 // 3 DOF constraint (constrains 3 rotational DOFs)
 class FixedRotationJoint : public Joint
 {

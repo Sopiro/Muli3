@@ -4,7 +4,22 @@
 namespace muli3
 {
 
-static constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
+enum
+{
+    cone_limit_inactive,
+    cone_limit_at_upper,
+};
+
+static float ClampImpulse(float impulse, int32 limitState)
+{
+    switch (limitState)
+    {
+    case cone_limit_at_upper:
+        return Min(impulse, 0.0f);
+    default:
+        return 0.0f;
+    }
+}
 
 ConeSwingJoint::ConeSwingJoint(
     RigidBody* bodyA,
@@ -21,7 +36,7 @@ ConeSwingJoint::ConeSwingJoint(
     , m{ 0.0f }
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
-    , activeLimit{ false }
+    , limitState{ cone_limit_inactive }
 {
     Vec3 axis = Length2(worldAxis) > epsilon ? Normalize(worldAxis) : y_axis;
 
@@ -42,8 +57,16 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     Vec3 axis = Cross(axisA, axisB);
     float axisLength = axis.Normalize();
 
-    activeLimit = currentAngle > maxAngle;
-    if (activeLimit == false)
+    if (currentAngle > maxAngle)
+    {
+        limitState = cone_limit_at_upper;
+    }
+    else
+    {
+        limitState = cone_limit_inactive;
+    }
+
+    if (limitState == cone_limit_inactive)
     {
         bias = 0.0f;
         impulseSum = 0.0f;
@@ -67,8 +90,10 @@ void ConeSwingJoint::Prepare(const Timestep& step)
 
     float k = Dot(swingAxis, invIA * swingAxis) + Dot(swingAxis, invIB * swingAxis) + gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;
+
     float error = Min(currentAngle - maxAngle, max_joint_angular_correction);
     bias = error * beta * step.inv_dt;
+    impulseSum = ClampImpulse(impulseSum, limitState);
 
     if (step.warm_starting)
     {
@@ -80,14 +105,15 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    if (activeLimit == false)
+    if (limitState == cone_limit_inactive)
     {
         return;
     }
 
     float jv = Dot(swingAxis, bodyB->angularVelocity - bodyA->angularVelocity);
     float lambda = m * -(jv + bias + impulseSum * gamma);
-    float newImpulseSum = Min(impulseSum + lambda, 0.0f);
+    float newImpulseSum = ClampImpulse(impulseSum + lambda, limitState);
+
     lambda = newImpulseSum - impulseSum;
     impulseSum = newImpulseSum;
 

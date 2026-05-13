@@ -20,6 +20,8 @@ inline constexpr float position_correction = 0.2f;
 inline constexpr float max_position_correction = linear_slop * 2;
 inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 
+inline constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
+
 inline constexpr float aabb_margin = 0.1f;
 inline constexpr float aabb_multiplier = 2.0f;
 
@@ -35,7 +37,7 @@ inline constexpr float default_angular_damping = 0.05f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 5;
+    int32 velocity_iterations = 4;
     int32 position_iterations = 2;
 
     bool warm_starting = true;

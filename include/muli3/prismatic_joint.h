@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-// Prismatic joint in 3D: line constraint + orientation constraint
-// Constrains 2 translational DOFs perpendicular to the axis + 3 rotational DOFs = 5 DOF constraint
+// Prismatic(Slider) constraint: line constraint + relative orientation constraint
+// 5 DOF constraint (constrains 2 translational DOFs perpendicular to the axis and 3 rotational DOFs)
 class PrismaticJoint : public Joint
 {
 public:

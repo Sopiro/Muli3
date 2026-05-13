@@ -5,7 +5,6 @@
 namespace muli3
 {
 
-// 3D equivalent of muli's RevoluteJoint
 // Point-to-point constraint: constrains two anchor points to coincide
 // 3 DOF constraint (constrains 3 translational DOFs)
 class BallSocketJoint : public Joint

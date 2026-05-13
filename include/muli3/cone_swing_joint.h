@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-// Restricts the swing between two axes to stay inside a cone.
-// This joint does not constrain twist around the axis.
+// Cone limit constraint: constrains two axes to stay within a maximum swing angle
+// 1 DOF angular limit constraint (does not constrain twist around the axis)
 class ConeSwingJoint : public Joint
 {
 public:
@@ -34,7 +34,7 @@ private:
     float m;
     float bias;
     float impulseSum;
-    bool activeLimit;
+    int32 limitState;
 
     void ApplyImpulse(float lambda);
 };

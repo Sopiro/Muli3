@@ -976,6 +976,39 @@ ConeSwingJoint* World::CreateConeSwingJoint(
     return csj;
 }
 
+RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float jointFrequency, float jointDampingRatio, float jointMass
+)
+{
+    return CreateLimitedRevoluteAngleJoint(
+        bodyA, bodyB, axis, 0.0f, 0.0f, jointFrequency, jointDampingRatio, jointMass
+    );
+}
+
+RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& axis,
+    float minAngle,
+    float maxAngle,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
+)
+{
+    if (bodyA->world != this || bodyB->world != this)
+    {
+        return nullptr;
+    }
+
+    void* mem = blockAllocator.Allocate(sizeof(RevoluteAngleJoint));
+    RevoluteAngleJoint* raj =
+        new (mem) RevoluteAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+
+    AddJoint(raj);
+    return raj;
+}
+
 BallSocketJoint* World::CreateBallSocketJoint(
     RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
 )
@@ -1245,6 +1278,9 @@ void World::FreeJoint(Joint* joint)
         break;
     case Joint::Type::cone_swing_joint:
         blockAllocator.Free(joint, sizeof(ConeSwingJoint));
+        break;
+    case Joint::Type::revolute_angle_joint:
+        blockAllocator.Free(joint, sizeof(RevoluteAngleJoint));
         break;
     case Joint::Type::ball_socket_joint:
         blockAllocator.Free(joint, sizeof(BallSocketJoint));

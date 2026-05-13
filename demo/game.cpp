@@ -140,6 +140,7 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Camera reset", &options.reset_camera);
                     ImGui::Checkbox("Colorize island", &options.colorize_island);
                     ImGui::Checkbox("Draw body", &options.draw_body);
+                    ImGui::Checkbox("Draw joint", &options.draw_joint);
                     ImGui::Checkbox("Draw outlined", &options.draw_outlined);
                     ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);

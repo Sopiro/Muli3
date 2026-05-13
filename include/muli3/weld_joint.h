@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-// Weld joint in 3D: BallSocketJoint + orientation constraint
-// Constrains both position (3 DOF) and orientation (3 DOF) = 6 DOF total
+// Rigid attachment constraint: BallSocketJoint + relative orientation constraint
+// 6 DOF constraint (constrains 3 translational DOFs and 3 rotational DOFs)
 class WeldJoint : public Joint
 {
 public:

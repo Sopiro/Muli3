@@ -1,12 +1,11 @@
 #pragma once
 
-#include "common.h"
 #include "joint.h"
 
 namespace muli3
 {
 
-// Line joint in 3D: constrains one body to slide along an axis defined on the other body
+// Line constraint: constrains one anchor point to slide along an axis
 // 2 DOF constraint (constrains 2 translational DOFs perpendicular to the axis)
 class LineJoint : public Joint
 {

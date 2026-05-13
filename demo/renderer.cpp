@@ -232,6 +232,38 @@ Vec3 HSLToRGB(const Vec3& hsl)
     return result;
 }
 
+static bool IsSameBodyPair(const Joint* joint, const RigidBody* bodyA, const RigidBody* bodyB)
+{
+    return (joint->GetBodyA() == bodyA && joint->GetBodyB() == bodyB) ||
+           (joint->GetBodyA() == bodyB && joint->GetBodyB() == bodyA);
+}
+
+static Vec3 GetAngularJointAnchor(const World& world, const Joint* joint)
+{
+    const RigidBody* bodyA = joint->GetBodyA();
+    const RigidBody* bodyB = joint->GetBodyB();
+
+    for (const Joint* other = world.GetJoints(); other; other = other->GetNext())
+    {
+        if (other == joint || other->GetType() != Joint::ball_socket_joint)
+        {
+            continue;
+        }
+
+        if (IsSameBodyPair(other, bodyA, bodyB) == false)
+        {
+            continue;
+        }
+
+        const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)other;
+        Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
+        Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+        return (anchorA + anchorB) * 0.5f;
+    }
+
+    return (bodyA->GetPosition() + bodyB->GetPosition()) * 0.5f;
+}
+
 void InitializeColors()
 {
     if (g_colorsInitialized)
@@ -334,6 +366,98 @@ void DrawConeLimit(Renderer& renderer, const Vec3& origin, const Vec3& axis, flo
     }
 
     renderer.DrawLine(prevPoint, firstPoint, color);
+}
+
+void DrawCircle(Renderer& renderer, const Vec3& origin, const Vec3& normal, float radius, const Vec4& color)
+{
+    Frame frame = Frame::FromZ(normal);
+    constexpr int32 segmentCount = 40;
+
+    Vec3 firstPoint = origin + frame.x * radius;
+    Vec3 prevPoint = firstPoint;
+    for (int32 i = 1; i <= segmentCount; ++i)
+    {
+        float t = two_pi * (float)i / (float)segmentCount;
+        Vec3 point = origin + (frame.x * std::cos(t) + frame.y * std::sin(t)) * radius;
+        renderer.DrawLine(prevPoint, point, color);
+        prevPoint = point;
+    }
+}
+
+void DrawTwistArc(
+    Renderer& renderer,
+    const Vec3& origin,
+    const Vec3& axis,
+    const Vec3& t1,
+    const Vec3& t2,
+    float radius,
+    float minAngle,
+    float maxAngle,
+    float currentAngle,
+    const Vec4& limitColor,
+    const Vec4& currentColor
+)
+{
+    constexpr int32 segmentCount = 32;
+    float span = maxAngle - minAngle;
+
+    if (span > 0.0f)
+    {
+        Vec3 prevPoint = origin + (t1 * std::cos(minAngle) + t2 * std::sin(minAngle)) * radius;
+        for (int32 i = 1; i <= segmentCount; ++i)
+        {
+            float angle = minAngle + span * (float)i / (float)segmentCount;
+            Vec3 point = origin + (t1 * std::cos(angle) + t2 * std::sin(angle)) * radius;
+            renderer.DrawLine(prevPoint, point, limitColor);
+            prevPoint = point;
+        }
+    }
+
+    Vec3 minDir = t1 * std::cos(minAngle) + t2 * std::sin(minAngle);
+    Vec3 maxDir = t1 * std::cos(maxAngle) + t2 * std::sin(maxAngle);
+    Vec3 currentDir = t1 * std::cos(currentAngle) + t2 * std::sin(currentAngle);
+
+    renderer.DrawLine(origin, origin + minDir * radius, limitColor);
+    renderer.DrawLine(origin, origin + maxDir * radius, limitColor);
+    renderer.DrawLine(origin - axis * 0.4f, origin + axis * 0.4f, Vec4{ 0.12f, 0.12f, 0.12f, 0.65f });
+    renderer.DrawLine(origin, origin + currentDir * radius, currentColor);
+}
+
+void DrawSwingArc(
+    Renderer& renderer,
+    const Vec3& origin,
+    const Vec3& axis,
+    const Vec3& tangent,
+    float radius,
+    float minAngle,
+    float maxAngle,
+    float currentAngle,
+    const Vec4& limitColor,
+    const Vec4& currentColor
+)
+{
+    constexpr int32 segmentCount = 24;
+    float span = maxAngle - minAngle;
+
+    if (span > 0.0f)
+    {
+        Vec3 prevPoint = origin + (axis * std::cos(minAngle) + tangent * std::sin(minAngle)) * radius;
+        for (int32 i = 1; i <= segmentCount; ++i)
+        {
+            float angle = minAngle + span * (float)i / (float)segmentCount;
+            Vec3 point = origin + (axis * std::cos(angle) + tangent * std::sin(angle)) * radius;
+            renderer.DrawLine(prevPoint, point, limitColor);
+            prevPoint = point;
+        }
+    }
+
+    Vec3 minDir = axis * std::cos(minAngle) + tangent * std::sin(minAngle);
+    Vec3 maxDir = axis * std::cos(maxAngle) + tangent * std::sin(maxAngle);
+    Vec3 currentDir = axis * std::cos(currentAngle) + tangent * std::sin(currentAngle);
+
+    renderer.DrawLine(origin, origin + minDir * radius, limitColor);
+    renderer.DrawLine(origin, origin + maxDir * radius, limitColor);
+    renderer.DrawLine(origin, origin + currentDir * radius, currentColor);
 }
 
 Renderer::~Renderer()
@@ -1045,141 +1169,165 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
         FlushQueuedShapes(shapeShader, true);
     }
 
-    for (const Joint* joint = world.GetJoints(); joint; joint = joint->GetNext())
+    if (options.draw_joint)
     {
-        switch (joint->GetType())
+        for (const Joint* joint = world.GetJoints(); joint; joint = joint->GetNext())
         {
-        case Joint::grab_joint:
-        {
-            const RigidBody* body = joint->GetBodyA();
-            const GrabJoint* grabJoint = (const GrabJoint*)joint;
-            Vec3 anchor = Mul(body->GetTransform(), grabJoint->GetLocalAnchor());
-            DrawPoint(anchor);
-            DrawPoint(grabJoint->GetTarget());
-            DrawLine(anchor, grabJoint->GetTarget());
-        }
-        break;
-        case Joint::fixed_rotation_joint:
-        {
-            const RigidBody* body = joint->GetBodyA();
-            const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
-            Vec3 position = body->GetPosition();
-            DrawPoint(position);
-            DrawBasis(*this, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.55f);
-        }
-        break;
-        case Joint::cone_swing_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
-
-            Vec3 positionA = bodyA->GetPosition();
-            Vec3 positionB = bodyB->GetPosition();
-            Vec3 axisA = bodyA->GetRotation().Rotate(coneSwingJoint->GetLocalAxisA());
-            Vec3 axisB = bodyB->GetRotation().Rotate(coneSwingJoint->GetLocalAxisB());
-            DrawAxis(*this, positionB, axisB, 0.7f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
-            DrawConeLimit(*this, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f });
-        }
-        break;
-        case Joint::ball_socket_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(anchorB);
-            DrawLine(anchorA, bodyA->GetPosition());
-            DrawLine(anchorB, bodyB->GetPosition());
-        }
-        break;
-        case Joint::distance_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const DistanceJoint* distanceJoint = (const DistanceJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), distanceJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), distanceJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(anchorB);
-
-            Vec3 d = anchorB - anchorA;
-            if (d.Normalize() > 0.0f)
+            switch (joint->GetType())
             {
-                DrawPoint(anchorA + d * distanceJoint->GetJointMinLength());
-                DrawPoint(anchorA + d * distanceJoint->GetJointMaxLength());
+            case Joint::grab_joint:
+            {
+                const RigidBody* body = joint->GetBodyA();
+                const GrabJoint* grabJoint = (const GrabJoint*)joint;
+                Vec3 anchor = Mul(body->GetTransform(), grabJoint->GetLocalAnchor());
+                DrawPoint(anchor);
+                DrawPoint(grabJoint->GetTarget());
+                DrawLine(anchor, grabJoint->GetTarget());
             }
-
-            DrawLine(anchorA, anchorB);
-        }
-        break;
-        case Joint::weld_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const WeldJoint* weldJoint = (const WeldJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), weldJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), weldJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(anchorB);
-            DrawLine(anchorA, bodyA->GetPosition());
-            DrawLine(anchorB, bodyB->GetPosition());
-        }
-        break;
-        case Joint::line_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const LineJoint* lineJoint = (const LineJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), lineJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), lineJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(anchorB);
-            DrawLine(anchorA, anchorB);
-        }
-        break;
-        case Joint::prismatic_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const PrismaticJoint* prismaticJoint = (const PrismaticJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), prismaticJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), prismaticJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(anchorB);
-            DrawLine(anchorA, anchorB);
-        }
-        break;
-        case Joint::pulley_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const PulleyJoint* pulleyJoint = (const PulleyJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), pulleyJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), pulleyJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(pulleyJoint->GetGroundAnchorA());
-            DrawPoint(anchorB);
-            DrawPoint(pulleyJoint->GetGroundAnchorB());
-            DrawLine(anchorA, pulleyJoint->GetGroundAnchorA());
-            DrawLine(anchorB, pulleyJoint->GetGroundAnchorB());
-        }
-        break;
-        case Joint::motor_joint:
-        {
-            const RigidBody* bodyA = joint->GetBodyA();
-            const RigidBody* bodyB = joint->GetBodyB();
-            const MotorJoint* motorJoint = (const MotorJoint*)joint;
-            Vec3 anchorA = Mul(bodyA->GetTransform(), motorJoint->GetLocalAnchorA());
-            Vec3 anchorB = Mul(bodyB->GetTransform(), motorJoint->GetLocalAnchorB());
-            DrawPoint(anchorA);
-            DrawPoint(anchorB);
-        }
-        break;
-        default:
             break;
+            case Joint::fixed_rotation_joint:
+            {
+                const RigidBody* body = joint->GetBodyA();
+                const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
+                Vec3 position = body->GetPosition();
+                DrawPoint(position);
+                DrawBasis(*this, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.55f);
+            }
+            break;
+            case Joint::cone_swing_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
+
+                Vec3 positionA = bodyA->GetPosition();
+                Vec3 positionB = bodyB->GetPosition();
+                Vec3 axisA = bodyA->GetRotation().Rotate(coneSwingJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(coneSwingJoint->GetLocalAxisB());
+                DrawAxis(*this, positionB, axisB, 0.7f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawConeLimit(*this, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f });
+            }
+            break;
+            case Joint::revolute_angle_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const RevoluteAngleJoint* revoluteAngleJoint = (const RevoluteAngleJoint*)joint;
+                Vec3 anchor = GetAngularJointAnchor(world, joint);
+                Vec3 axisA = bodyA->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisB());
+                Vec3 t1, t2;
+                CoordinateSystem(axisA, &t1, &t2);
+
+                DrawCircle(*this, anchor, axisA, 0.5f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(*this, anchor, axisA, 0.6f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(*this, anchor, axisB, 0.5f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    *this, anchor, axisA, t1, t2, 0.5f, revoluteAngleJoint->GetJointMinAngle(),
+                    revoluteAngleJoint->GetJointMaxAngle(), revoluteAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
+            case Joint::ball_socket_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+                DrawLine(anchorA, bodyA->GetPosition());
+                DrawLine(anchorB, bodyB->GetPosition());
+            }
+            break;
+            case Joint::distance_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const DistanceJoint* distanceJoint = (const DistanceJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), distanceJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), distanceJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+
+                Vec3 d = anchorB - anchorA;
+                if (d.Normalize() > 0.0f)
+                {
+                    DrawPoint(anchorA + d * distanceJoint->GetJointMinLength());
+                    DrawPoint(anchorA + d * distanceJoint->GetJointMaxLength());
+                }
+
+                DrawLine(anchorA, anchorB);
+            }
+            break;
+            case Joint::weld_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const WeldJoint* weldJoint = (const WeldJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), weldJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), weldJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+                DrawLine(anchorA, bodyA->GetPosition());
+                DrawLine(anchorB, bodyB->GetPosition());
+            }
+            break;
+            case Joint::line_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const LineJoint* lineJoint = (const LineJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), lineJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), lineJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+                DrawLine(anchorA, anchorB);
+            }
+            break;
+            case Joint::prismatic_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const PrismaticJoint* prismaticJoint = (const PrismaticJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), prismaticJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), prismaticJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+                DrawLine(anchorA, anchorB);
+            }
+            break;
+            case Joint::pulley_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const PulleyJoint* pulleyJoint = (const PulleyJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), pulleyJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), pulleyJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(pulleyJoint->GetGroundAnchorA());
+                DrawPoint(anchorB);
+                DrawPoint(pulleyJoint->GetGroundAnchorB());
+                DrawLine(anchorA, pulleyJoint->GetGroundAnchorA());
+                DrawLine(anchorB, pulleyJoint->GetGroundAnchorB());
+            }
+            break;
+            case Joint::motor_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const MotorJoint* motorJoint = (const MotorJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), motorJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), motorJoint->GetLocalAnchorB());
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+            }
+            break;
+            default:
+                break;
+            }
         }
     }
 
@@ -1230,7 +1378,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     const GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_PROGRAM_POINT_SIZE);
-    glLineWidth(1.0f);
+    glLineWidth(lineWidth);
 
     FlushAll();
 
