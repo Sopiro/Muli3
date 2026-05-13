@@ -222,6 +222,7 @@ protected:
     friend class ConeSwingJoint;
     friend class RevoluteJoint;
     friend class RevoluteAngleJoint;
+    friend class TwistAngleJoint;
     friend class BallSocketJoint;
     friend class DistanceJoint;
     friend class GrabJoint;

@@ -1259,6 +1259,27 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
                 );
             }
             break;
+            case Joint::twist_angle_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const TwistAngleJoint* twistAngleJoint = (const TwistAngleJoint*)joint;
+                Vec3 anchor = GetAngularJointAnchor(world, joint);
+                Vec3 axisA = bodyA->GetRotation().Rotate(twistAngleJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(twistAngleJoint->GetLocalAxisB());
+                Vec3 t1, t2;
+                CoordinateSystem(axisA, &t1, &t2);
+
+                DrawCircle(*this, anchor, axisA, 0.4f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(*this, anchor, axisA, 0.5f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(*this, anchor, axisB, 0.4f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    *this, anchor, axisA, t1, t2, 0.4f, twistAngleJoint->GetJointMinAngle(),
+                    twistAngleJoint->GetJointMaxAngle(), twistAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
             case Joint::ball_socket_joint:
             {
                 const RigidBody* bodyA = joint->GetBodyA();

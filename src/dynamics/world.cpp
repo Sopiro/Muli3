@@ -1018,7 +1018,7 @@ RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
     RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float jointFrequency, float jointDampingRatio, float jointMass
 )
 {
-    return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, 0.0f, 0.0f, jointFrequency, jointDampingRatio, jointMass);
+    return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, -pi, pi, jointFrequency, jointDampingRatio, jointMass);
 }
 
 RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
@@ -1043,6 +1043,30 @@ RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
 
     AddJoint(raj);
     return raj;
+}
+
+TwistAngleJoint* World::CreateTwistAngleJoint(
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& axis,
+    float minAngle,
+    float maxAngle,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
+)
+{
+    if (bodyA->world != this || bodyB->world != this)
+    {
+        return nullptr;
+    }
+
+    void* mem = blockAllocator.Allocate(sizeof(TwistAngleJoint));
+    TwistAngleJoint* taj =
+        new (mem) TwistAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+
+    AddJoint(taj);
+    return taj;
 }
 
 BallSocketJoint* World::CreateBallSocketJoint(
@@ -1320,6 +1344,9 @@ void World::FreeJoint(Joint* joint)
         break;
     case Joint::Type::revolute_angle_joint:
         blockAllocator.Free(joint, sizeof(RevoluteAngleJoint));
+        break;
+    case Joint::Type::twist_angle_joint:
+        blockAllocator.Free(joint, sizeof(TwistAngleJoint));
         break;
     case Joint::Type::ball_socket_joint:
         blockAllocator.Free(joint, sizeof(BallSocketJoint));

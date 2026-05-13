@@ -61,6 +61,7 @@ public:
         cone_swing_joint,
         revolute_joint,
         revolute_angle_joint,
+        twist_angle_joint,
         ball_socket_joint,
         distance_joint,
         weld_joint,

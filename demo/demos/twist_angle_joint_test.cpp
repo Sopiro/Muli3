@@ -5,16 +5,15 @@
 namespace muli3
 {
 
-static float revoluteFrequency = 20.0f;
-static float revoluteDampingRatio = 1.0f;
-static float revoluteJointMass = 1.0f;
-static float revoluteMinAngle = -60.0f;
-static float revoluteMaxAngle = 60.0f;
+static float twistMinAngle = -35.0f;
+static float twistMaxAngle = 35.0f;
+static float twistFrequency = 20.0f;
+static float twistDampingRatio = 1.0f;
 
-class RevoluteJointDemo : public Demo
+class TwistAngleJointDemo : public Demo
 {
 public:
-    RevoluteJointDemo(Game& game)
+    TwistAngleJointDemo(Game& game)
         : Demo(game)
     {
         options.draw_outlined = false;
@@ -32,9 +31,11 @@ public:
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->SetGyroscopicTorqueEnabled(true);
 
-        joint = world->CreateLimitedRevoluteJoint(
-            base, arm, base->GetPosition(), z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency,
-            revoluteDampingRatio, revoluteJointMass
+        world->CreateLineJoint(base, arm);
+        world->CreateBallSocketJoint(base, arm, base->GetPosition());
+        world->CreateConeSwingJoint(base, arm, -y_axis, DegToRad(30));
+        joint = world->CreateTwistAngleJoint(
+            base, arm, y_axis, DegToRad(twistMinAngle), DegToRad(twistMaxAngle), twistFrequency, twistDampingRatio, arm->GetMass()
         );
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
@@ -45,35 +46,32 @@ public:
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Once, { 1.0f, 0.0f });
 
-        if (ImGui::Begin("Revolute joint", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::Begin("Twist angle joint", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             float currentAngle = joint ? RadToDeg(joint->GetJointAngle()) : 0.0f;
             ImGui::Text("Current angle: %.2f deg", currentAngle);
-            ImGui::Text("3D hinge joint with twist limit");
+            ImGui::Text("Ball socket + twist angle");
+            ImGui::Text("Only the relative angle around");
+            ImGui::Text("the blue world axis is limited.");
 
-            if (ImGui::SliderFloat("Min angle", &revoluteMinAngle, -180.0f, 180.0f, "%.1f deg"))
+            if (ImGui::SliderFloat("Min angle", &twistMinAngle, -180.0f, 180.0f, "%.1f deg"))
             {
-                revoluteMaxAngle = Max(revoluteMinAngle, revoluteMaxAngle);
+                twistMaxAngle = Max(twistMinAngle, twistMaxAngle);
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Max angle", &revoluteMaxAngle, -180.0f, 180.0f, "%.1f deg"))
+            if (ImGui::SliderFloat("Max angle", &twistMaxAngle, -180.0f, 180.0f, "%.1f deg"))
             {
-                revoluteMinAngle = Min(revoluteMinAngle, revoluteMaxAngle);
+                twistMinAngle = Min(twistMinAngle, twistMaxAngle);
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Frequency", &revoluteFrequency, -1.0f, 20.0f, "%.2f"))
-            {
-                game.RestartDemo();
-            }
-
-            if (ImGui::SliderFloat("Damping ratio", &revoluteDampingRatio, 0.0f, 1.0f, "%.2f"))
+            if (ImGui::SliderFloat("Frequency", &twistFrequency, -1.0f, 20.0f, "%.2f"))
             {
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Joint mass", &revoluteJointMass, 0.0f, 10.0f, "%.2f"))
+            if (ImGui::SliderFloat("Damping ratio", &twistDampingRatio, 0.0f, 1.0f, "%.2f"))
             {
                 game.RestartDemo();
             }
@@ -82,14 +80,14 @@ public:
     }
 
 private:
-    RevoluteJoint* joint = nullptr;
+    TwistAngleJoint* joint = nullptr;
 };
 
-static Demo* CreateRevoluteJointDemo(Game& game)
+static Demo* CreateTwistAngleJointDemo(Game& game)
 {
-    return new RevoluteJointDemo(game);
+    return new TwistAngleJointDemo(game);
 }
 
-static int32 revolute_joint = register_demo("Joints", "Revolute joint", CreateRevoluteJointDemo, 8);
+static int32 twist_angle_joint = register_demo("Joints", "Twist angle joint", CreateTwistAngleJointDemo, 7);
 
 } // namespace muli3

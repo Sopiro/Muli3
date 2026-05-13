@@ -12,8 +12,9 @@
 #include "motor_joint.h"
 #include "prismatic_joint.h"
 #include "pulley_joint.h"
-#include "revolute_joint.h"
 #include "revolute_angle_joint.h"
+#include "revolute_joint.h"
+#include "twist_angle_joint.h"
 #include "weld_joint.h"
 
 #include "callbacks.h"
@@ -138,7 +139,7 @@ public:
         RigidBody* bodyA,
         RigidBody* bodyB,
         const Vec3& axis,
-        float frequency = -1.0f,
+        float frequency = 10.0f,
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
     );
@@ -148,7 +149,17 @@ public:
         const Vec3& axis,
         float minAngle,
         float maxAngle,
-        float frequency = -1.0f,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f,
+        float jointMass = 1.0f
+    );
+    TwistAngleJoint* CreateTwistAngleJoint(
+        RigidBody* bodyA,
+        RigidBody* bodyB,
+        const Vec3& axis,
+        float minAngle,
+        float maxAngle,
+        float frequency = 10.0f,
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
     );
@@ -239,7 +250,7 @@ public:
         const Vec3& anchor,
         float maxForce = 1000.0f,
         float maxTorque = 1000.0f,
-        float frequency = -1.0f,
+        float frequency = 10.0f,
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
     );
