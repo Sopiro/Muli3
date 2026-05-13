@@ -1219,12 +1219,42 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
                 Vec3 t1, t2;
                 CoordinateSystem(axisA, &t1, &t2);
 
-                DrawCircle(*this, anchor, axisA, 0.5f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
-                DrawAxis(*this, anchor, axisA, 0.6f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
-                DrawAxis(*this, anchor, axisB, 0.5f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawCircle(*this, anchor, axisA, 0.45f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(*this, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(*this, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
                 DrawTwistArc(
-                    *this, anchor, axisA, t1, t2, 0.5f, revoluteAngleJoint->GetJointMinAngle(),
+                    *this, anchor, axisA, t1, t2, 0.45f, revoluteAngleJoint->GetJointMinAngle(),
                     revoluteAngleJoint->GetJointMaxAngle(), revoluteAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
+            case Joint::revolute_joint:
+            {
+                const RigidBody* bodyA = joint->GetBodyA();
+                const RigidBody* bodyB = joint->GetBodyB();
+                const RevoluteJoint* revoluteJoint = (const RevoluteJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), revoluteJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), revoluteJoint->GetLocalAnchorB());
+                Vec3 anchor = (anchorA + anchorB) * 0.5f;
+                Vec3 axisA = bodyA->GetRotation().Rotate(revoluteJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(revoluteJoint->GetLocalAxisB());
+                Vec3 refAxisA = bodyA->GetRotation().Rotate(revoluteJoint->GetLocalNormalAxisA());
+                Vec3 binormalA = Cross(axisA, refAxisA);
+                binormalA.Normalize();
+
+                DrawPoint(anchorA);
+                DrawPoint(anchorB);
+                DrawLine(anchorA, bodyA->GetPosition());
+                DrawLine(anchorB, bodyB->GetPosition());
+                DrawLine(anchorA, anchorB, Vec4{ 0.12f, 0.12f, 0.12f, 0.35f });
+
+                DrawCircle(*this, anchor, axisA, 0.45f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(*this, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(*this, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    *this, anchor, axisA, refAxisA, binormalA, 0.45f, revoluteJoint->GetJointMinAngle(),
+                    revoluteJoint->GetJointMaxAngle(), revoluteJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
                     Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
                 );
             }

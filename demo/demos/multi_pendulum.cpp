@@ -43,6 +43,10 @@ public:
                 // world->CreateLimitedRevoluteAngleJoint(
                 //     bodyA, bodyB, -z_axis, DegToRad(-60), DegToRad(60), frequency, dampingRatio, jointMass
                 // );
+                // world->CreateRevoluteJoint(
+                //     bodyA, bodyB, Vec3{ xStart - (sizeW + gap) * 0.5f - (gap + sizeW) * i, yStart, 0.0f }, -z_axis, frequency,
+                //     dampingRatio, jointMass
+                // );
             }
             else
             {

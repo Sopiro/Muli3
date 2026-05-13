@@ -59,6 +59,7 @@ public:
         grab_joint,
         fixed_rotation_joint,
         cone_swing_joint,
+        revolute_joint,
         revolute_angle_joint,
         ball_socket_joint,
         distance_joint,

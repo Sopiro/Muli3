@@ -12,6 +12,7 @@
 #include "motor_joint.h"
 #include "prismatic_joint.h"
 #include "pulley_joint.h"
+#include "revolute_joint.h"
 #include "revolute_angle_joint.h"
 #include "weld_joint.h"
 
@@ -110,6 +111,26 @@ public:
         const Vec3& axis,
         float maxAngle,
         float frequency = -1.0f,
+        float dampingRatio = 1.0f,
+        float jointMass = 1.0f
+    );
+    RevoluteJoint* CreateRevoluteJoint(
+        RigidBody* bodyA,
+        RigidBody* bodyB,
+        const Vec3& anchor,
+        const Vec3& axis,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f,
+        float jointMass = 1.0f
+    );
+    RevoluteJoint* CreateLimitedRevoluteJoint(
+        RigidBody* bodyA,
+        RigidBody* bodyB,
+        const Vec3& anchor,
+        const Vec3& axis,
+        float minAngle,
+        float maxAngle,
+        float frequency = 10.0f,
         float dampingRatio = 1.0f,
         float jointMass = 1.0f
     );

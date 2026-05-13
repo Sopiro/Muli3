@@ -5,15 +5,16 @@
 namespace muli3
 {
 
-static float revoluteMinAngle = -60.0f;
-static float revoluteMaxAngle = 60.0f;
 static float revoluteFrequency = 20.0f;
 static float revoluteDampingRatio = 1.0f;
+static float revoluteJointMass = 1.0f;
+static float revoluteMinAngle = -60.0f;
+static float revoluteMaxAngle = 60.0f;
 
-class RevoluteAngleJointDemo : public Demo
+class RevoluteJointDemo : public Demo
 {
 public:
-    RevoluteAngleJointDemo(Game& game)
+    RevoluteJointDemo(Game& game)
         : Demo(game)
     {
         options.draw_outlined = false;
@@ -31,10 +32,9 @@ public:
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->SetGyroscopicTorqueEnabled(true);
 
-        world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
-        joint = world->CreateLimitedRevoluteAngleJoint(
-            base, arm, z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency, revoluteDampingRatio,
-            arm->GetMass()
+        joint = world->CreateLimitedRevoluteJoint(
+            base, arm, base->GetPosition(), z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency,
+            revoluteDampingRatio, revoluteJointMass
         );
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
@@ -45,13 +45,11 @@ public:
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Once, { 1.0f, 0.0f });
 
-        if (ImGui::Begin("Revolute angle joint", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::Begin("Revolute joint", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             float currentAngle = joint ? RadToDeg(joint->GetJointAngle()) : 0.0f;
             ImGui::Text("Current angle: %.2f deg", currentAngle);
-            ImGui::Text("Ball socket + revolute angle");
-            ImGui::Text("Only the hinge rotation around");
-            ImGui::Text("the blue axis is left free.");
+            ImGui::Text("3D hinge joint with twist limit");
 
             if (ImGui::SliderFloat("Min angle", &revoluteMinAngle, -180.0f, 180.0f, "%.1f deg"))
             {
@@ -74,19 +72,24 @@ public:
             {
                 game.RestartDemo();
             }
+
+            if (ImGui::SliderFloat("Joint mass", &revoluteJointMass, 0.0f, 10.0f, "%.2f"))
+            {
+                game.RestartDemo();
+            }
         }
         ImGui::End();
     }
 
 private:
-    RevoluteAngleJoint* joint = nullptr;
+    RevoluteJoint* joint = nullptr;
 };
 
-static Demo* CreateRevoluteAngleJointDemo(Game& game)
+static Demo* CreateRevoluteJointDemo(Game& game)
 {
-    return new RevoluteAngleJointDemo(game);
+    return new RevoluteJointDemo(game);
 }
 
-static int32 revolute_angle_joint = register_demo("Joints", "Revolute angle joint", CreateRevoluteAngleJointDemo, 6);
+static int32 revolute_joint = register_demo("Joints", "Revolute joint", CreateRevoluteJointDemo, 7);
 
 } // namespace muli3

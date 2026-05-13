@@ -30,5 +30,6 @@
 #include "motor_joint.h"          // IWYU pragma: export
 #include "prismatic_joint.h"      // IWYU pragma: export
 #include "pulley_joint.h"         // IWYU pragma: export
+#include "revolute_joint.h"       // IWYU pragma: export
 #include "revolute_angle_joint.h" // IWYU pragma: export
 #include "weld_joint.h"           // IWYU pragma: export

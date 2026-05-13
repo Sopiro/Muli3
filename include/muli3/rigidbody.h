@@ -220,6 +220,7 @@ protected:
     friend class Constraint;
     friend class FixedRotationJoint;
     friend class ConeSwingJoint;
+    friend class RevoluteJoint;
     friend class RevoluteAngleJoint;
     friend class BallSocketJoint;
     friend class DistanceJoint;

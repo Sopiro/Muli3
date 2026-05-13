@@ -1,0 +1,153 @@
+#pragma once
+
+#include "joint.h"
+
+namespace muli3
+{
+
+// Revolute(Hinge) constraint: BallSocketJoint + hinge axis alignment + optional twist limit
+// 5 DOF constraint + optional 1 DOF angular limit constraint
+class RevoluteJoint : public Joint
+{
+public:
+    RevoluteJoint(
+        RigidBody* bodyA,
+        RigidBody* bodyB,
+        const Vec3& anchor,
+        const Vec3& axis,
+        float minAngle,
+        float maxAngle,
+        float frequency,
+        float dampingRatio,
+        float jointMass
+    );
+
+    virtual void Prepare(const Timestep& step) override;
+    virtual void SolveVelocityConstraints(const Timestep& step) override;
+
+    const Vec3& GetLocalAnchorA() const;
+    const Vec3& GetLocalAnchorB() const;
+    const Vec3& GetLocalAxisA() const;
+    const Vec3& GetLocalAxisB() const;
+    const Vec3& GetLocalNormalAxisA() const;
+    const Vec3& GetLocalNormalAxisB() const;
+
+    float GetJointAngleOffset() const;
+    float GetJointAngle() const;
+    void SetJointAngle(float newAngle);
+
+    float GetJointMinAngle() const;
+    void SetJointMinAngle(float newMinAngle);
+    float GetJointMaxAngle() const;
+    void SetJointMaxAngle(float newMaxAngle);
+
+private:
+    Vec3 localAnchorA;
+    Vec3 localAnchorB;
+    Vec3 localAxisA;
+    Vec3 localAxisB;
+    Vec3 localNormalAxisA;
+    Vec3 localNormalAxisB;
+
+    float angleOffset;
+    float minAngle;
+    float maxAngle;
+    float currentAngle;
+
+    Vec3 ra;
+    Vec3 rb;
+    Mat3 linearM;
+    Vec3 linearBias;
+    Vec3 linearImpulseSum;
+
+    Vec3 swingAxis;
+    float swingM;
+    float swingBias;
+    float swingImpulseSum;
+
+    Vec3 twistAxis;
+    float angleM;
+    float angleBias;
+    float angleImpulseSum;
+    int32 limitState;
+
+    void ApplyLinearImpulse(const Vec3& lambda);
+    void ApplySwingImpulse(float lambda);
+    void ApplyAngleImpulse(float lambda);
+};
+
+inline const Vec3& RevoluteJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+inline const Vec3& RevoluteJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+inline const Vec3& RevoluteJoint::GetLocalAxisA() const
+{
+    return localAxisA;
+}
+
+inline const Vec3& RevoluteJoint::GetLocalAxisB() const
+{
+    return localAxisB;
+}
+
+inline const Vec3& RevoluteJoint::GetLocalNormalAxisA() const
+{
+    return localNormalAxisA;
+}
+
+inline const Vec3& RevoluteJoint::GetLocalNormalAxisB() const
+{
+    return localNormalAxisB;
+}
+
+inline float RevoluteJoint::GetJointAngleOffset() const
+{
+    return angleOffset;
+}
+
+inline float RevoluteJoint::GetJointAngle() const
+{
+    return currentAngle;
+}
+
+inline void RevoluteJoint::SetJointAngle(float newAngle)
+{
+    minAngle = newAngle;
+    maxAngle = newAngle;
+    bodyA->Awake();
+    bodyB->Awake();
+}
+
+inline float RevoluteJoint::GetJointMinAngle() const
+{
+    return minAngle;
+}
+
+inline void RevoluteJoint::SetJointMinAngle(float newMinAngle)
+{
+    minAngle = newMinAngle;
+    maxAngle = Max(minAngle, maxAngle);
+    bodyA->Awake();
+    bodyB->Awake();
+}
+
+inline float RevoluteJoint::GetJointMaxAngle() const
+{
+    return maxAngle;
+}
+
+inline void RevoluteJoint::SetJointMaxAngle(float newMaxAngle)
+{
+    maxAngle = newMaxAngle;
+    minAngle = Min(minAngle, maxAngle);
+    bodyA->Awake();
+    bodyB->Awake();
+}
+
+} // namespace muli3

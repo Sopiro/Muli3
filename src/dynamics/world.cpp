@@ -976,13 +976,49 @@ ConeSwingJoint* World::CreateConeSwingJoint(
     return csj;
 }
 
+RevoluteJoint* World::CreateRevoluteJoint(
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchor,
+    const Vec3& axis,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
+)
+{
+    return CreateLimitedRevoluteJoint(bodyA, bodyB, anchor, axis, -pi, pi, jointFrequency, jointDampingRatio, jointMass);
+}
+
+RevoluteJoint* World::CreateLimitedRevoluteJoint(
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchor,
+    const Vec3& axis,
+    float minAngle,
+    float maxAngle,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
+)
+{
+    if (bodyA->world != this || bodyB->world != this)
+    {
+        return nullptr;
+    }
+
+    void* mem = blockAllocator.Allocate(sizeof(RevoluteJoint));
+    RevoluteJoint* rj =
+        new (mem) RevoluteJoint(bodyA, bodyB, anchor, axis, minAngle, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+
+    AddJoint(rj);
+    return rj;
+}
+
 RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
     RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float jointFrequency, float jointDampingRatio, float jointMass
 )
 {
-    return CreateLimitedRevoluteAngleJoint(
-        bodyA, bodyB, axis, 0.0f, 0.0f, jointFrequency, jointDampingRatio, jointMass
-    );
+    return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, 0.0f, 0.0f, jointFrequency, jointDampingRatio, jointMass);
 }
 
 RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
@@ -1278,6 +1314,9 @@ void World::FreeJoint(Joint* joint)
         break;
     case Joint::Type::cone_swing_joint:
         blockAllocator.Free(joint, sizeof(ConeSwingJoint));
+        break;
+    case Joint::Type::revolute_joint:
+        blockAllocator.Free(joint, sizeof(RevoluteJoint));
         break;
     case Joint::Type::revolute_angle_joint:
         blockAllocator.Free(joint, sizeof(RevoluteAngleJoint));
