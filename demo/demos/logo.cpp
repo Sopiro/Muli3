@@ -50,15 +50,15 @@ public:
             float r = Rand();
             if (r < 0.3)
             {
-                b = world->CreateSphere(size / 2, identity, RigidBody::dynamic_body);
+                b = world->CreateSphere(size / 2);
             }
             else if (r < 0.6)
             {
-                b = world->CreateCapsule(size, size / 4, identity, RigidBody::dynamic_body);
+                b = world->CreateCapsule(size, size / 4);
             }
             else
             {
-                b = world->CreateBox(size, identity, RigidBody::dynamic_body, 0);
+                b = world->CreateBox(size);
             }
             b->SetPosition(pos);
             b->SetRotation(Quat::FromEuler(RandVec3()));

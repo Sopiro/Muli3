@@ -95,8 +95,7 @@ float ComputeShadow(vec3 normal, vec3 lightDir)
 
 void main()
 {
-    vec2 uv = vec2(fract(vTexCoord.x), clamp(vTexCoord.y, 0.0, 1.0));
-    vec2 tiledUv = uv * vec2(8.0, 6.0);
+    vec2 tiledUv = vTexCoord * vec2(8.0, 6.0);
     float checker = CheckerMask(tiledUv);
 
     vec3 colorA = vec3(0.96, 0.96, 0.96);
@@ -1274,9 +1273,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
                 DrawAxis(*this, anchor, axisA, 0.5f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
                 DrawAxis(*this, anchor, axisB, 0.4f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
                 DrawTwistArc(
-                    *this, anchor, axisA, t1, t2, 0.4f, twistAngleJoint->GetJointMinAngle(),
-                    twistAngleJoint->GetJointMaxAngle(), twistAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
-                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                    *this, anchor, axisA, t1, t2, 0.4f, twistAngleJoint->GetJointMinAngle(), twistAngleJoint->GetJointMaxAngle(),
+                    twistAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f }, Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
                 );
             }
             break;
