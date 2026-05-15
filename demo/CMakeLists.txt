@@ -52,6 +52,7 @@ set(DEMO_HEADER_FILES
     mesh.h
     renderer.h
     game.h
+    ragdoll.h
 )
 
 file(GLOB DEMO_DEMO_SOURCE_FILES CONFIGURE_DEPENDS demos/*.cpp)

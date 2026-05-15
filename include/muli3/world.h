@@ -64,6 +64,15 @@ public:
         RigidBody::Type type = RigidBody::dynamic_body,
         float density = default_density
     );
+    RigidBody* CreateCapsule(
+        const Vec3& point1,
+        const Vec3& point2,
+        float radius,
+        const Transform& tf = identity,
+        RigidBody::Type type = RigidBody::dynamic_body,
+        bool resetPosition = false,
+        float density = default_density
+    );
     RigidBody* CreateBox(
         float width,
         float height,

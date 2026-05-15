@@ -83,6 +83,30 @@ RigidBody* World::CreateCapsule(float height, float radius, const Transform& tra
     return b;
 }
 
+RigidBody* World::CreateCapsule(
+    const Vec3& point1,
+    const Vec3& point2,
+    float radius,
+    const Transform& tf,
+    RigidBody::Type type,
+    bool resetPosition,
+    float density
+)
+{
+    RigidBody* b = CreateEmptyBody(tf, type);
+
+    Vec3 center = (point1 + point2) * 0.5f;
+    Capsule capsule = Capsule{ point1 - center, point2 - center, radius };
+    b->CreateCollider(&capsule, identity, density);
+
+    if (resetPosition == false)
+    {
+        b->Translate(center);
+    }
+
+    return b;
+}
+
 RigidBody* World::CreateBox(
     float width, float height, float depth, const Transform& transform, RigidBody::Type type, float radius, float density
 )
