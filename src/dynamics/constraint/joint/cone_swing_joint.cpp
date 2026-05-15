@@ -57,7 +57,7 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     Vec3 axis = Cross(axisA, axisB);
     float axisLength = axis.Normalize();
 
-    if (currentAngle > maxAngle)
+    if (currentAngle > maxAngle + angular_slop)
     {
         limitState = cone_limit_at_upper;
     }
@@ -91,7 +91,7 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     float k = Dot(swingAxis, invIA * swingAxis) + Dot(swingAxis, invIB * swingAxis) + gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;
 
-    float error = Min(currentAngle - maxAngle, max_joint_angular_correction);
+    float error = Min(currentAngle - (maxAngle + angular_slop), max_joint_angular_correction);
     bias = error * beta * step.inv_dt;
     impulseSum = ClampImpulse(impulseSum, limitState);
 

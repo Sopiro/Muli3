@@ -5,6 +5,15 @@
 namespace muli3
 {
 
+static Vec3 SampleUniformHemisphere(Vec2 u)
+{
+    float z = u[0];
+    float r = std::sqrt(std::fmax(0.0f, 1 - z * z));
+    float phi = two_pi * u[1];
+
+    return Vec3(r * std::cos(phi), z, r * std::sin(phi));
+}
+
 class Ragdolls : public Demo
 {
 public:
@@ -18,9 +27,10 @@ public:
         camera.SetPosition(Vec3{ 0.0f, 5.0f, 8.0f });
         camera.SetRotation(-90.0f, -20.0f);
 
+        // Srand(123);
+
         RigidBody* c = world->CreateSphere(0.6f);
-        float r = Rand(0.0f, pi);
-        Vec3 p{ std::cos(r), std::sin(r), 0 };
+        Vec3 p = SampleUniformHemisphere(RandVec2());
         p *= 8.0f;
 
         c->SetLinearVelocity(-p * Rand(4.0f, 8.0f) + Vec3{ 0.0f, Rand(5.0f, 15.0f), 0.0f });

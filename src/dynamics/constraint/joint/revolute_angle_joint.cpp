@@ -182,15 +182,15 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
         float lower = minAngle + shift;
         float upper = maxAngle + shift;
 
-        if (currentAngle < lower)
+        if (currentAngle < lower - angular_slop)
         {
             limitState = revolute_limit_at_lower;
-            angleBias = Max(currentAngle - lower, -max_joint_angular_correction) * beta * step.inv_dt;
+            angleBias = Max(currentAngle - (lower - angular_slop), -max_joint_angular_correction) * beta * step.inv_dt;
         }
-        else if (currentAngle > upper)
+        else if (currentAngle > upper + angular_slop)
         {
             limitState = revolute_limit_at_upper;
-            angleBias = Min(currentAngle - upper, max_joint_angular_correction) * beta * step.inv_dt;
+            angleBias = Min(currentAngle - (upper + angular_slop), max_joint_angular_correction) * beta * step.inv_dt;
         }
         else
         {

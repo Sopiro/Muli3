@@ -332,8 +332,10 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
 
     for (int32 i = 0; i < Ragdoll::bone_count; ++i)
     {
-        ragdoll.bones[i].body->SetCollisionFilter(filter);
-        ragdoll.bones[i].body->SetAngularDamping(angularDamping);
+        RigidBody* body = ragdoll.bones[i].body;
+        body->SetCollisionFilter(filter);
+        body->SetAngularDamping(angularDamping);
+        body->SetGyroscopicTorqueEnabled(true);
     }
 
     return ragdoll;
