@@ -36,6 +36,6 @@ static Demo* CreateRagdoll(Game& game)
     return new Ragdolls(game);
 }
 
-static int32 single_box = register_demo("Ragdolls", "Ragdoll", CreateRagdoll, 0);
+static int32 single_box = register_demo("Ragdoll", "Ragdoll", CreateRagdoll, 0);
 
 } // namespace muli3
