@@ -8,11 +8,11 @@ namespace muli3
 class BlockAllocator : public Allocator
 {
 public:
-    static constexpr inline int32 max_block_size = 1024;
+    static constexpr inline int32 max_block_size = 2048;
     static constexpr inline int32 block_unit = 8;
     static constexpr inline int32 block_size_count = max_block_size / block_unit;
 
-    BlockAllocator(int32 initialChunkSize = 16 * 1024);
+    BlockAllocator(int32 initialChunkSize = 1024 * 1024);
     ~BlockAllocator();
 
     void* Allocate(int32 size) override;
@@ -45,4 +45,3 @@ inline int32 BlockAllocator::GetChunkCount() const
 }
 
 } // namespace muli3
-

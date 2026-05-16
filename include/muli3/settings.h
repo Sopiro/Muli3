@@ -23,7 +23,7 @@ inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 
 inline constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
 
-inline constexpr float aabb_margin = 0.1f;
+inline constexpr float aabb_margin = 0.03f;
 inline constexpr float aabb_multiplier = 2.0f;
 
 inline constexpr float minimum_radius = linear_slop * 2.0f;

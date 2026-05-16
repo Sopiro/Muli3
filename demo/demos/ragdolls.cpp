@@ -39,6 +39,11 @@ public:
 
         options.draw_joint = false;
     }
+
+    ~Ragdolls()
+    {
+        options.draw_joint = true;
+    }
 };
 
 static Demo* CreateRagdoll(Game& game)
