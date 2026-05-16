@@ -67,13 +67,15 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
         float headFrequency = 5.0f;
         float headDamplingRatio = 1.0f;
         float headAngle = DegToRad(30);
+        float headTwistAngle = DegToRad(45);
+
         BallSocketJoint* j1 = world->CreateBallSocketJoint(
             chest, head, chest->GetPosition() + Vec3{ 0.0f, bodyHeight / 2.0f, 0 }, ballSocketFrequency, ballSocketDampingRatio
         );
         ConeSwingJoint* j2 =
             world->CreateConeSwingJoint(chest, head, y_axis, headAngle, headFrequency, headDamplingRatio, chest->GetMass());
         TwistAngleJoint* j3 =
-            world->CreateTwistAngleJoint(chest, head, y_axis, -pi / 2, pi / 2, headFrequency, headDamplingRatio);
+            world->CreateTwistAngleJoint(chest, head, y_axis, -headTwistAngle, headTwistAngle, headFrequency, headDamplingRatio);
         ragdoll.bones[Ragdoll::index_head] = Bone{ Ragdoll::index_chest, head };
     }
 
@@ -119,7 +121,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
             float armAngleFrequency = 5.0f;
             float armAngleDampingRatio = 1.0f;
 
-            float armSwingAngle = DegToRad(80.0f);
+            float armSwingAngle = DegToRad(85.0f);
             float armTwistAngle = DegToRad(15.0f);
 
             float elbowAngle = DegToRad(80.0f);
@@ -202,7 +204,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
 
     // pelvis -> chest
     {
-        float pelvisFrequency = 5.0f;
+        float pelvisFrequency = 10.0f;
         float pelvisDampingRatio = 1.0f;
         float pelvisMinAngle = DegToRad(60.0f);
         float pelvisMaxAngle = DegToRad(80.0f);
@@ -255,14 +257,14 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
 
         // Leg joints
         {
-            float LegFrequency = 30.0f;
+            float LegFrequency = 5.0f;
             float LegDampingRatio = 1.0f;
 
-            float legAngleFrequency = 10.0f;
+            float legAngleFrequency = 5.0f;
             float legAngleDampingRatio = 1.0f;
 
             float legAngle = DegToRad(15.0f);
-            float legTwistAngle = DegToRad(7.5f);
+            float legTwistAngle = DegToRad(5.0f);
 
             float kneeAngle = DegToRad(150.0f);
 
