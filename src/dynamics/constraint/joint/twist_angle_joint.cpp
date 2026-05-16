@@ -129,8 +129,8 @@ void TwistAngleJoint::Prepare(const Timestep& step)
         CoordinateSystem(axisA, &binormalA);
     }
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Use the average of both transformed axes when possible.
     // This keeps the correction symmetric while still measuring the angle in A's frame.
@@ -220,8 +220,8 @@ void TwistAngleJoint::ApplyAngleImpulse(float lambda)
 {
     Vec3 p = twistAxis * lambda;
 
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * p;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * p;
+    bodyA->angularVelocity -= invIA * p;
+    bodyB->angularVelocity += invIB * p;
 }
 
 } // namespace muli3

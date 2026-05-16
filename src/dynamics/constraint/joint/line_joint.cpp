@@ -47,8 +47,8 @@ void LineJoint::Prepare(const Timestep& step)
     sa2 = Cross(ra0 + d, t2);
     sb2 = Cross(rb0, t2);
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     Mat2 k;
     k[0][0] = bodyA->invMass + bodyB->invMass + Dot(sa1, invIA * sa1) + Dot(sb1, invIB * sb1);
@@ -90,9 +90,9 @@ void LineJoint::ApplyImpulse(const Vec2& lambda)
     Vec3 p = t1 * lambda.x + t2 * lambda.y;
 
     bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * (sa1 * lambda.x + sa2 * lambda.y);
+    bodyA->angularVelocity -= invIA * (sa1 * lambda.x + sa2 * lambda.y);
     bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * (sb1 * lambda.x + sb2 * lambda.y);
+    bodyB->angularVelocity += invIB * (sb1 * lambda.x + sb2 * lambda.y);
 }
 
 } // namespace muli3

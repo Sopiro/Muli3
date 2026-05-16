@@ -50,8 +50,8 @@ void PrismaticJoint::Prepare(const Timestep& step)
     sa2 = Cross(ra0 + d, t2);
     sb2 = Cross(rb0, t2);
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear part (2 DOF)
     Mat2 lk;
@@ -115,9 +115,9 @@ void PrismaticJoint::ApplyImpulse(const Vec2& linearLambda, const Vec3& angularL
     Vec3 p = t1 * linearLambda.x + t2 * linearLambda.y;
 
     bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
+    bodyA->angularVelocity -= invIA * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
     bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
+    bodyB->angularVelocity += invIB * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
 }
 
 } // namespace muli3

@@ -51,8 +51,8 @@ void PulleyJoint::Prepare(const Timestep& step)
         ub = Vec3::zero;
     }
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     Vec3 rua = Cross(ra, ua);
     Vec3 rub = Cross(rb, ub);
@@ -97,9 +97,9 @@ void PulleyJoint::ApplyImpulse(float lambda)
     Vec3 pb = -ratio * lambda * ub;
 
     bodyA->linearVelocity += pa * bodyA->invMass;
-    bodyA->angularVelocity += bodyA->GetWorldInverseInertiaTensor() * Cross(ra, pa);
+    bodyA->angularVelocity += invIA * Cross(ra, pa);
     bodyB->linearVelocity += pb * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * Cross(rb, pb);
+    bodyB->angularVelocity += invIB * Cross(rb, pb);
 }
 
 } // namespace muli3

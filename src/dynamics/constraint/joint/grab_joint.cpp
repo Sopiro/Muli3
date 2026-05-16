@@ -30,7 +30,7 @@ void GrabJoint::Prepare(const Timestep& step)
     Vec3 p = bodyA->motion.c + r;
 
     Mat3 skewR = Skew(r);
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
 
     Mat3 k = Mat3(bodyA->invMass) + skewR.GetTranspose() * invIA * skewR;
 
@@ -68,7 +68,7 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 void GrabJoint::ApplyImpulse(const Vec3& lambda)
 {
     bodyA->linearVelocity += lambda * bodyA->invMass;
-    bodyA->angularVelocity += bodyA->GetWorldInverseInertiaTensor() * Cross(r, lambda);
+    bodyA->angularVelocity += invIA * Cross(r, lambda);
 }
 
 } // namespace muli3

@@ -171,13 +171,13 @@ bool Contact::SolvePositionConstraints(const Timestep& step)
     }
 
     b1->motion.c += b1->invMass * cLinearImpulseA;
-    Vec3 angularCorrectionA = b1->GetWorldInverseInertiaTensor() * cAngularImpulseA;
+    Vec3 angularCorrectionA = invIA * cAngularImpulseA;
     Quat w1{ angularCorrectionA, 0.0f };
     b1->motion.q = b1->motion.q + (w1 * b1->motion.q) * 0.5f;
     b1->motion.q.Normalize();
 
     b2->motion.c += b2->invMass * cLinearImpulseB;
-    Vec3 angularCorrectionB = b2->GetWorldInverseInertiaTensor() * cAngularImpulseB;
+    Vec3 angularCorrectionB = invIB * cAngularImpulseB;
     Quat w2{ angularCorrectionB, 0.0f };
     b2->motion.q = b2->motion.q + (w2 * b2->motion.q) * 0.5f;
     b2->motion.q.Normalize();

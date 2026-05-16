@@ -51,6 +51,9 @@ protected:
     RigidBody* bodyA;
     RigidBody* bodyB;
 
+    Mat3 invIA;
+    Mat3 invIB;
+
     float beta;
     float gamma;
 };

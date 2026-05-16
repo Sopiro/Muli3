@@ -32,8 +32,8 @@ void MotorJoint::Prepare(const Timestep& step)
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear effective mass
     // clang-format off
@@ -120,9 +120,9 @@ void MotorJoint::SolveVelocityConstraints(const Timestep& step)
 void MotorJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda)
 {
     bodyA->linearVelocity -= bodyA->invMass * linearLambda;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * (Cross(ra, linearLambda) + angularLambda);
+    bodyA->angularVelocity -= invIA * (Cross(ra, linearLambda) + angularLambda);
     bodyB->linearVelocity += bodyB->invMass * linearLambda;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * (Cross(rb, linearLambda) + angularLambda);
+    bodyB->angularVelocity += invIB * (Cross(rb, linearLambda) + angularLambda);
 }
 
 } // namespace muli3

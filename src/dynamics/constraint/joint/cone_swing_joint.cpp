@@ -85,8 +85,8 @@ void ConeSwingJoint::Prepare(const Timestep& step)
         swingAxis = axis;
     }
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     float k = Dot(swingAxis, invIA * swingAxis) + Dot(swingAxis, invIB * swingAxis) + gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;
@@ -124,8 +124,8 @@ void ConeSwingJoint::ApplyImpulse(float lambda)
 {
     Vec3 p = swingAxis * lambda;
 
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * p;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * p;
+    bodyA->angularVelocity -= invIA * p;
+    bodyB->angularVelocity += invIB * p;
 }
 
 } // namespace muli3

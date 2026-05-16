@@ -74,8 +74,8 @@ void DistanceJoint::Prepare(const Timestep& step)
         d = x_axis;
     }
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     Vec3 crossDA = Cross(d, ra);
     Vec3 crossDB = Cross(d, rb);
@@ -162,9 +162,9 @@ void DistanceJoint::ApplyImpulse(float lambda)
     Vec3 p = d * lambda;
 
     bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * Cross(ra, p);
+    bodyA->angularVelocity -= invIA * Cross(ra, p);
     bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * Cross(rb, p);
+    bodyB->angularVelocity += invIB * Cross(rb, p);
 }
 
 } // namespace muli3

@@ -107,8 +107,8 @@ void RevoluteJoint::Prepare(const Timestep& step)
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear part: keep the world anchor points together.
     // clang-format off
@@ -266,25 +266,25 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
 void RevoluteJoint::ApplyLinearImpulse(const Vec3& lambda)
 {
     bodyA->linearVelocity -= lambda * bodyA->invMass;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * Cross(ra, lambda);
+    bodyA->angularVelocity -= invIA * Cross(ra, lambda);
     bodyB->linearVelocity += lambda * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * Cross(rb, lambda);
+    bodyB->angularVelocity += invIB * Cross(rb, lambda);
 }
 
 void RevoluteJoint::ApplySwingImpulse(float lambda)
 {
     Vec3 p = swingAxis * lambda;
 
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * p;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * p;
+    bodyA->angularVelocity -= invIA * p;
+    bodyB->angularVelocity += invIB * p;
 }
 
 void RevoluteJoint::ApplyAngleImpulse(float lambda)
 {
     Vec3 p = twistAxis * lambda;
 
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * p;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * p;
+    bodyA->angularVelocity -= invIA * p;
+    bodyB->angularVelocity += invIB * p;
 }
 
 } // namespace muli3

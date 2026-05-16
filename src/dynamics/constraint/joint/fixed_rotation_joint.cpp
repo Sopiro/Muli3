@@ -14,7 +14,9 @@ void FixedRotationJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
-    Mat3 k = bodyA->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+
+    Mat3 k = invIA;
     k.ex.x += gamma;
     k.ey.y += gamma;
     k.ez.z += gamma;
@@ -48,7 +50,7 @@ void FixedRotationJoint::SolveVelocityConstraints(const Timestep& step)
 
 void FixedRotationJoint::ApplyImpulse(const Vec3& lambda)
 {
-    bodyA->angularVelocity += bodyA->GetWorldInverseInertiaTensor() * lambda;
+    bodyA->angularVelocity += invIA * lambda;
 }
 
 } // namespace muli3

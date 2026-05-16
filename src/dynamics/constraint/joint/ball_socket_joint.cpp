@@ -28,8 +28,8 @@ void BallSocketJoint::Prepare(const Timestep& step)
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // clang-format off
     Mat3 k = Mat3(bodyA->invMass + bodyB->invMass)
@@ -79,9 +79,9 @@ void BallSocketJoint::ApplyImpulse(const Vec3& lambda)
     // Pc = J^t * lambda
 
     bodyA->linearVelocity -= lambda * bodyA->invMass;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * Cross(ra, lambda);
+    bodyA->angularVelocity -= invIA * Cross(ra, lambda);
     bodyB->linearVelocity += lambda * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * Cross(rb, lambda);
+    bodyB->angularVelocity += invIB * Cross(rb, lambda);
 }
 
 } // namespace muli3

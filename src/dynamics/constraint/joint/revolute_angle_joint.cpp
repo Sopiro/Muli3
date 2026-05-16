@@ -105,8 +105,8 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     Vec3 binormalA = Cross(axisA, refAxisA);
     binormalA.Normalize();
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Swing part:
     // Keep the two hinge axes aligned, but do not constrain twist around them.
@@ -261,8 +261,8 @@ void RevoluteAngleJoint::ApplySwingImpulse(float lambda)
 
     Vec3 p = swingAxis * lambda;
 
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * p;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * p;
+    bodyA->angularVelocity -= invIA * p;
+    bodyB->angularVelocity += invIB * p;
 }
 
 void RevoluteAngleJoint::ApplyAngleImpulse(float lambda)
@@ -272,8 +272,8 @@ void RevoluteAngleJoint::ApplyAngleImpulse(float lambda)
 
     Vec3 p = twistAxis * lambda;
 
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * p;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * p;
+    bodyA->angularVelocity -= invIA * p;
+    bodyB->angularVelocity += invIB * p;
 }
 
 } // namespace muli3

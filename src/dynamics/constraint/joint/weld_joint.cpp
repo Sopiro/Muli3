@@ -33,8 +33,8 @@ void WeldJoint::Prepare(const Timestep& step)
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    Mat3 invIA = bodyA->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->GetWorldInverseInertiaTensor();
+    invIA = bodyA->GetWorldInverseInertiaTensor();
+    invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear effective mass
     // clang-format off
@@ -109,9 +109,9 @@ void WeldJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda
     // Pc = J^t ⋅ λ
 
     bodyA->linearVelocity -= linearLambda * bodyA->invMass;
-    bodyA->angularVelocity -= bodyA->GetWorldInverseInertiaTensor() * (Cross(ra, linearLambda) + angularLambda);
+    bodyA->angularVelocity -= invIA * (Cross(ra, linearLambda) + angularLambda);
     bodyB->linearVelocity += linearLambda * bodyB->invMass;
-    bodyB->angularVelocity += bodyB->GetWorldInverseInertiaTensor() * (Cross(rb, linearLambda) + angularLambda);
+    bodyB->angularVelocity += invIB * (Cross(rb, linearLambda) + angularLambda);
 }
 
 } // namespace muli3
