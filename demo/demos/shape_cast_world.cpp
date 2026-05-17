@@ -149,13 +149,13 @@ private:
         switch (item)
         {
         case 0:
-            shape.reset(new Sphere(0.2f));
+            shape.reset(new SphereShape(0.2f));
             break;
         case 1:
-            shape.reset(new Capsule(0.3f, 0.14f));
+            shape.reset(new CapsuleShape(0.3f, 0.14f));
             break;
         case 2:
-            shape.reset(new Box(0.3f));
+            shape.reset(new BoxShape(0.3f));
             break;
         default:
             break;

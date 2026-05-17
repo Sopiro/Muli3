@@ -96,7 +96,7 @@ RigidBody* World::CreateCapsule(
     RigidBody* b = CreateEmptyBody(tf, type);
 
     Vec3 center = (point1 + point2) * 0.5f;
-    Capsule capsule = Capsule{ point1 - center, point2 - center, radius };
+    CapsuleShape capsule = CapsuleShape{ point1 - center, point2 - center, radius };
     b->CreateCollider(&capsule, identity, density);
 
     if (resetPosition == false)
@@ -328,16 +328,16 @@ void World::Query(const Vec3& point, WorldQueryCallback* callback) const
 
 void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
 {
-    Box region{ aabb.GetExtents(), 0.0f };
+    BoxShape region{ aabb.GetExtents(), 0.0f };
     Transform transform{ aabb.GetCenter() };
 
     struct TempCallback
     {
-        Box region;
+        BoxShape region;
         Transform transform;
         WorldQueryCallback* callback;
 
-        TempCallback(const Box& region, const Transform& transform)
+        TempCallback(const BoxShape& region, const Transform& transform)
             : region{ region }
             , transform{ transform }
         {
@@ -557,16 +557,16 @@ void World::Query(const Vec3& point, std::function<bool(Collider* collider)> cal
 
 void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> callback) const
 {
-    Box region{ aabb.GetExtents(), 0.0f };
+    BoxShape region{ aabb.GetExtents(), 0.0f };
     Transform transform{ aabb.GetCenter() };
 
     struct TempCallback
     {
-        Box region;
+        BoxShape region;
         Transform transform;
         decltype(callback)& callbackFcn;
 
-        TempCallback(const Box& region, const Transform& transform, decltype(callback)& callback)
+        TempCallback(const BoxShape& region, const Transform& transform, decltype(callback)& callback)
             : region{ region }
             , transform{ transform }
             , callbackFcn{ callback }
@@ -1410,18 +1410,18 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
     case Shape::sphere:
     {
-        void* mem = blockAllocator.Allocate(sizeof(Sphere));
-        return new (mem) Sphere(*(const Sphere*)shape, transform);
+        void* mem = blockAllocator.Allocate(sizeof(SphereShape));
+        return new (mem) SphereShape(*(const SphereShape*)shape, transform);
     }
     case Shape::capsule:
     {
-        void* mem = blockAllocator.Allocate(sizeof(Capsule));
-        return new (mem) Capsule(*(const Capsule*)shape, transform);
+        void* mem = blockAllocator.Allocate(sizeof(CapsuleShape));
+        return new (mem) CapsuleShape(*(const CapsuleShape*)shape, transform);
     }
     case Shape::box:
     {
-        void* mem = blockAllocator.Allocate(sizeof(Box));
-        return new (mem) Box(*(const Box*)shape, transform);
+        void* mem = blockAllocator.Allocate(sizeof(BoxShape));
+        return new (mem) BoxShape(*(const BoxShape*)shape, transform);
     }
     case Shape::convex:
     {
@@ -1441,16 +1441,16 @@ void World::FreeShape(Shape* shape)
     switch (shape->GetType())
     {
     case Shape::sphere:
-        ((Sphere*)shape)->~Sphere();
-        blockAllocator.Free(shape, sizeof(Sphere));
+        ((SphereShape*)shape)->~SphereShape();
+        blockAllocator.Free(shape, sizeof(SphereShape));
         break;
     case Shape::capsule:
-        ((Capsule*)shape)->~Capsule();
-        blockAllocator.Free(shape, sizeof(Capsule));
+        ((CapsuleShape*)shape)->~CapsuleShape();
+        blockAllocator.Free(shape, sizeof(CapsuleShape));
         break;
     case Shape::box:
-        ((Box*)shape)->~Box();
-        blockAllocator.Free(shape, sizeof(Box));
+        ((BoxShape*)shape)->~BoxShape();
+        blockAllocator.Free(shape, sizeof(BoxShape));
         break;
     case Shape::convex:
         ((ConvexShape*)shape)->~ConvexShape();

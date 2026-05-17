@@ -6,13 +6,13 @@
 namespace muli3
 {
 
-class Box : public Shape
+class BoxShape : public Shape
 {
 public:
-    Box(float width, float height, float depth, float radius = default_radius, const Transform& transform = identity);
-    Box(const Vec3& size, float radius = default_radius, const Transform& transform = identity);
-    Box(float size, float radius = default_radius, const Transform& transform = identity);
-    Box(const Box& other, const Transform& transform);
+    BoxShape(float width, float height, float depth, float radius = default_radius, const Transform& transform = identity);
+    BoxShape(const Vec3& size, float radius = default_radius, const Transform& transform = identity);
+    BoxShape(float size, float radius = default_radius, const Transform& transform = identity);
+    BoxShape(const BoxShape& other, const Transform& transform);
 
     void ComputeMass(float density, MassData* outMassData) const override;
     void ComputeAABB(const Transform& transform, AABB* outAABB) const override;
@@ -34,22 +34,22 @@ private:
     Quat rotation;
 };
 
-inline Box::Box(const Vec3& size, float radius, const Transform& transform)
-    : Box(size.x, size.y, size.z, radius, transform)
+inline BoxShape::BoxShape(const Vec3& size, float radius, const Transform& transform)
+    : BoxShape(size.x, size.y, size.z, radius, transform)
 {
 }
 
-inline Box::Box(float size, float radius, const Transform& transform)
-    : Box(size, size, size, radius, transform)
+inline BoxShape::BoxShape(float size, float radius, const Transform& transform)
+    : BoxShape(size, size, size, radius, transform)
 {
 }
 
-inline int32 Box::GetVertexCount() const
+inline int32 BoxShape::GetVertexCount() const
 {
     return 8;
 }
 
-inline Vec3 Box::GetVertex(int32 id) const
+inline Vec3 BoxShape::GetVertex(int32 id) const
 {
     MuliAssert(0 <= id && id < 8);
 
@@ -62,7 +62,7 @@ inline Vec3 Box::GetVertex(int32 id) const
     return center + rotation.Rotate(localPoint);
 }
 
-inline int32 Box::GetSupport(const Vec3& localDir) const
+inline int32 BoxShape::GetSupport(const Vec3& localDir) const
 {
     Vec3 dir = rotation.RotateInv(localDir);
 
@@ -83,12 +83,12 @@ inline int32 Box::GetSupport(const Vec3& localDir) const
     return id;
 }
 
-inline const Vec3& Box::GetHalfExtents() const
+inline const Vec3& BoxShape::GetHalfExtents() const
 {
     return halfExtents;
 }
 
-inline const Quat& Box::GetRotation() const
+inline const Quat& BoxShape::GetRotation() const
 {
     return rotation;
 }

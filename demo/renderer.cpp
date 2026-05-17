@@ -723,7 +723,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
 
     if (shape->GetType() == Shape::sphere)
     {
-        const Sphere* sphere = (const Sphere*)shape;
+        const SphereShape* sphere = (const SphereShape*)shape;
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, sphere->GetCenter());
         renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
@@ -736,7 +736,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     }
     else if (shape->GetType() == Shape::capsule)
     {
-        const Capsule* capsule = (const Capsule*)shape;
+        const CapsuleShape* capsule = (const CapsuleShape*)shape;
         Vec3 a = Mul(transform, capsule->GetVertexA());
         Vec3 b = Mul(transform, capsule->GetVertexB());
         Vec3 axis = b - a;
@@ -805,7 +805,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     }
     else if (shape->GetType() == Shape::box)
     {
-        const Box* box = (const Box*)shape;
+        const BoxShape* box = (const BoxShape*)shape;
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, box->GetCenter());
         renderTransform.q = transform.q * box->GetRotation();

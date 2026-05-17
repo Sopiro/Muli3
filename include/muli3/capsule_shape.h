@@ -5,12 +5,12 @@
 namespace muli3
 {
 
-class Capsule : public Shape
+class CapsuleShape : public Shape
 {
 public:
-    Capsule(float height, float radius, const Transform& transform = identity);
-    Capsule(const Vec3& p1, const Vec3& p2, float radius, const Transform& transform = identity);
-    Capsule(const Capsule& other, const Transform& transform);
+    CapsuleShape(float height, float radius, const Transform& transform = identity);
+    CapsuleShape(const Vec3& p1, const Vec3& p2, float radius, const Transform& transform = identity);
+    CapsuleShape(const CapsuleShape& other, const Transform& transform);
 
     void ComputeMass(float density, MassData* outMassData) const override;
     void ComputeAABB(const Transform& transform, AABB* outAABB) const override;
@@ -32,39 +32,39 @@ private:
     Vec3 va, vb;
 };
 
-inline Capsule::Capsule(const Capsule& other, const Transform& transform)
-    : Capsule(other.va, other.vb, other.radius, transform)
+inline CapsuleShape::CapsuleShape(const CapsuleShape& other, const Transform& transform)
+    : CapsuleShape(other.va, other.vb, other.radius, transform)
 {
 }
 
-inline int32 Capsule::GetVertexCount() const
+inline int32 CapsuleShape::GetVertexCount() const
 {
     return 2;
 }
 
-inline Vec3 Capsule::GetVertex(int32 id) const
+inline Vec3 CapsuleShape::GetVertex(int32 id) const
 {
     MuliAssert(id == 0 || id == 1);
     return id == 0 ? va : vb;
 }
 
-inline int32 Capsule::GetSupport(const Vec3& localDir) const
+inline int32 CapsuleShape::GetSupport(const Vec3& localDir) const
 {
     Vec3 e = vb - va;
     return Dot(e, localDir) > 0.0f ? 1 : 0;
 }
 
-inline float Capsule::GetHeight() const
+inline float CapsuleShape::GetHeight() const
 {
     return Dist(va, vb);
 }
 
-inline const Vec3& Capsule::GetVertexA() const
+inline const Vec3& CapsuleShape::GetVertexA() const
 {
     return va;
 }
 
-inline const Vec3& Capsule::GetVertexB() const
+inline const Vec3& CapsuleShape::GetVertexB() const
 {
     return vb;
 }

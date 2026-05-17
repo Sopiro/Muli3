@@ -187,13 +187,13 @@ private:
         switch (item1)
         {
         case 0:
-            shape1.reset(new Sphere(size1.x));
+            shape1.reset(new SphereShape(size1.x));
             break;
         case 1:
-            shape1.reset(new Capsule(size1.x, size1.y / 2));
+            shape1.reset(new CapsuleShape(size1.x, size1.y / 2));
             break;
         case 2:
-            shape1.reset(new Box(size1, convexRadius1));
+            shape1.reset(new BoxShape(size1, convexRadius1));
             break;
         default:
             break;
@@ -205,13 +205,13 @@ private:
         switch (item2)
         {
         case 0:
-            shape2.reset(new Sphere(size2.x));
+            shape2.reset(new SphereShape(size2.x));
             break;
         case 1:
-            shape2.reset(new Capsule(size2.x, size2.y / 2));
+            shape2.reset(new CapsuleShape(size2.x, size2.y / 2));
             break;
         case 2:
-            shape2.reset(new Box(size2, convexRadius2));
+            shape2.reset(new BoxShape(size2, convexRadius2));
             break;
         default:
             break;

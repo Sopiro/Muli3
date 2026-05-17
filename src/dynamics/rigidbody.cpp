@@ -180,7 +180,7 @@ void RigidBody::DestroyCollider(Collider* collider)
 
 Collider* RigidBody::CreateSphereCollider(float radius, const Transform& transform, float density, const Material& material)
 {
-    Sphere sphere{ radius };
+    SphereShape sphere{ radius };
     return CreateCollider(&sphere, transform, density, material);
 }
 
@@ -188,7 +188,7 @@ Collider* RigidBody::CreateCapsuleCollider(
     float height, float radius, const Transform& transform, float density, const Material& material
 )
 {
-    Capsule capsule{ height, radius };
+    CapsuleShape capsule{ height, radius };
     return CreateCollider(&capsule, transform, density, material);
 }
 
@@ -196,7 +196,7 @@ Collider* RigidBody::CreateCapsuleCollider(
     const Vec3& p1, const Vec3& p2, float radius, const Transform& transform, float density, const Material& material
 )
 {
-    Capsule capsule{ p1, p2, radius };
+    CapsuleShape capsule{ p1, p2, radius };
     return CreateCollider(&capsule, transform, density, material);
 }
 
@@ -204,7 +204,7 @@ Collider* RigidBody::CreateBoxCollider(
     float width, float height, float depth, const Transform& transform, float radius, float density, const Material& material
 )
 {
-    Box box{ width, height, depth, radius };
+    BoxShape box{ width, height, depth, radius };
     return CreateCollider(&box, transform, density, material);
 }
 

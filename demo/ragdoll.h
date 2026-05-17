@@ -59,7 +59,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
 
     ragdoll.bones[Ragdoll::index_chest] = Bone{ Ragdoll::index_pelvis, chest };
 
-    float ballSocketFrequency = -1;
+    float ballSocketFrequency = 30;
     float ballSocketDampingRatio = 1.0f;
 
     // Chest

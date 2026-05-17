@@ -5,11 +5,11 @@
 namespace muli3
 {
 
-class Sphere : public Shape
+class SphereShape : public Shape
 {
 public:
-    explicit Sphere(float radius, const Transform& transform = identity);
-    Sphere(const Sphere& other, const Transform& transform);
+    explicit SphereShape(float radius, const Transform& transform = identity);
+    SphereShape(const SphereShape& other, const Transform& transform);
 
     void ComputeMass(float density, MassData* outMassData) const override;
     void ComputeAABB(const Transform& transform, AABB* outAABB) const override;
@@ -24,30 +24,30 @@ public:
     bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const override;
 };
 
-inline Sphere::Sphere(const Sphere& other, const Transform& transform)
-    : Sphere(other.radius, Transform{ Mul(transform, other.center) })
+inline SphereShape::SphereShape(const SphereShape& other, const Transform& transform)
+    : SphereShape(other.radius, Transform{ Mul(transform, other.center) })
 {
 }
 
-inline int32 Sphere::GetVertexCount() const
+inline int32 SphereShape::GetVertexCount() const
 {
     return 1;
 }
 
-inline Vec3 Sphere::GetVertex(int32 id) const
+inline Vec3 SphereShape::GetVertex(int32 id) const
 {
     MuliAssert(id == 0);
     MuliNotUsed(id);
     return center;
 }
 
-inline int32 Sphere::GetSupport(const Vec3& localDir) const
+inline int32 SphereShape::GetSupport(const Vec3& localDir) const
 {
     MuliNotUsed(localDir);
     return 0;
 }
 
-inline Face Sphere::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
+inline Face SphereShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
     MuliNotUsed(dir);
 

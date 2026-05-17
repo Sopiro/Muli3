@@ -13,8 +13,6 @@ public:
     Pyramid(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
-
         float size = 1.0f;
         float gap = 0.05f;
         float xStep = size + gap;
@@ -37,6 +35,7 @@ public:
         }
 
         float h = Max(12.0f, (float)rows * yStep);
+        world->CreateBox(h * 2, 0.5f, h * 2, identity, RigidBody::static_body);
         camera.SetPosition(Vec3{ 0.0f, h * 0.7f, h * 1.5f });
         camera.SetRotation(-90.0f, -18.0f);
     }

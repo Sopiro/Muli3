@@ -82,7 +82,7 @@ public:
         bool hit = false;
         Vec3 closestPoint = Vec3::zero;
         Vec3 closestNormal = Vec3::zero;
-        Sphere sphere{ radius };
+        SphereShape sphere{ radius };
         Renderer::DrawMode dm{};
         float prevPointSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);

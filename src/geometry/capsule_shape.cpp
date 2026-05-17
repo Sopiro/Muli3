@@ -26,7 +26,7 @@ static Vec3 ClosestPointOnSegment(const Vec3& a, const Vec3& b, const Vec3& p, f
     return a + ab * t;
 }
 
-Capsule::Capsule(float height, float inRadius, const Transform& transform)
+CapsuleShape::CapsuleShape(float height, float inRadius, const Transform& transform)
     : Shape{ Shape::capsule, inRadius * Max(Abs(transform.s.x), Abs(transform.s.z)) }
 {
     float halfHeight = height * 0.5f * Abs(transform.s.y);
@@ -42,7 +42,7 @@ Capsule::Capsule(float height, float inRadius, const Transform& transform)
     volume = pi * radius * radius * length + 4.0f / 3.0f * pi * radius * radius * radius;
 }
 
-Capsule::Capsule(const Vec3& p1, const Vec3& p2, float inRadius, const Transform& transform)
+CapsuleShape::CapsuleShape(const Vec3& p1, const Vec3& p2, float inRadius, const Transform& transform)
     : Shape{ Shape::capsule, inRadius * Max(Abs(transform.s.x), Abs(transform.s.z)) }
 {
     va = p1;
@@ -57,7 +57,7 @@ Capsule::Capsule(const Vec3& p1, const Vec3& p2, float inRadius, const Transform
     volume = pi * radius * radius * length + 4.0f / 3.0f * pi * radius * radius * radius;
 }
 
-void Capsule::ComputeMass(float density, MassData* outMassData) const
+void CapsuleShape::ComputeMass(float density, MassData* outMassData) const
 {
     MuliAssert(outMassData != nullptr);
 
@@ -99,7 +99,7 @@ void Capsule::ComputeMass(float density, MassData* outMassData) const
     );
 }
 
-void Capsule::ComputeAABB(const Transform& transform, AABB* outAABB) const
+void CapsuleShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
@@ -111,7 +111,7 @@ void Capsule::ComputeAABB(const Transform& transform, AABB* outAABB) const
     *outAABB = AABB{ Min(a, b) - r, Max(a, b) + r };
 }
 
-Face Capsule::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
+Face CapsuleShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
     MuliNotUsed(dir);
 
@@ -125,14 +125,14 @@ Face Capsule::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
     return face;
 }
 
-bool Capsule::TestPoint(const Transform& transform, const Vec3& q) const
+bool CapsuleShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
     Vec3 closest = ClosestPointOnSegment(va, vb, localQ, nullptr);
     return Dist2(localQ, closest) <= radius * radius;
 }
 
-Vec3 Capsule::GetClosestPoint(const Transform& transform, const Vec3& q) const
+Vec3 CapsuleShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
     Vec3 closest = ClosestPointOnSegment(va, vb, localQ, nullptr);
@@ -147,7 +147,7 @@ Vec3 Capsule::GetClosestPoint(const Transform& transform, const Vec3& q) const
     return Mul(transform, closest + delta * radius);
 }
 
-bool Capsule::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
+bool CapsuleShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
 {
     RayCastInput localInput = input;
     localInput.from = MulT(transform, input.from);

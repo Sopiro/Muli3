@@ -3,14 +3,14 @@
 namespace muli3
 {
 
-Sphere::Sphere(float radius, const Transform& transform)
+SphereShape::SphereShape(float radius, const Transform& transform)
     : Shape{ Shape::sphere, radius }
 {
     center = transform.p;
     volume = 4.0f / 3.0f * pi * radius * radius * radius;
 }
 
-void Sphere::ComputeMass(float density, MassData* outMassData) const
+void SphereShape::ComputeMass(float density, MassData* outMassData) const
 {
     MuliAssert(outMassData != nullptr);
 
@@ -28,7 +28,7 @@ void Sphere::ComputeMass(float density, MassData* outMassData) const
     );
 }
 
-void Sphere::ComputeAABB(const Transform& transform, AABB* outAABB) const
+void SphereShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
@@ -41,13 +41,13 @@ void Sphere::ComputeAABB(const Transform& transform, AABB* outAABB) const
     *outAABB = AABB{ transformedCenter - r, transformedCenter + r };
 }
 
-bool Sphere::TestPoint(const Transform& transform, const Vec3& q) const
+bool SphereShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     const Vec3 localQ = MulT(transform, q);
     return Length2(localQ - center) <= radius * radius;
 }
 
-Vec3 Sphere::GetClosestPoint(const Transform& transform, const Vec3& q) const
+Vec3 SphereShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     const Vec3 localQ = MulT(transform, q);
     Vec3 d = localQ - center;
@@ -60,7 +60,7 @@ Vec3 Sphere::GetClosestPoint(const Transform& transform, const Vec3& q) const
     return Mul(transform, center + d * radius);
 }
 
-bool Sphere::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
+bool SphereShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
 {
     return RayCastSphere(Mul(transform, center), radius, input, output);
 }

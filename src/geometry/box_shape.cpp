@@ -17,7 +17,7 @@ constexpr static Vec3 boxNormals[6] = {
     Vec3{ 0.0f, 1.0f, 0.0f },  Vec3{ 0.0f, 0.0f, -1.0f }, Vec3{ 0.0f, 0.0f, 1.0f },
 };
 
-Box::Box(float width, float height, float depth, float inRadius, const Transform& transform)
+BoxShape::BoxShape(float width, float height, float depth, float inRadius, const Transform& transform)
     : Shape{ Shape::box, inRadius }
     , halfExtents{
         width * 0.5f * Abs(transform.s.x),
@@ -32,7 +32,7 @@ Box::Box(float width, float height, float depth, float inRadius, const Transform
     volume = 8.0f * fullExtents.x * fullExtents.y * fullExtents.z;
 }
 
-Box::Box(const Box& other, const Transform& transform)
+BoxShape::BoxShape(const BoxShape& other, const Transform& transform)
     : Shape{ Shape::box, other.radius }
     , halfExtents{
         other.halfExtents.x * Abs(transform.s.x),
@@ -47,7 +47,7 @@ Box::Box(const Box& other, const Transform& transform)
     volume = 8.0f * fullExtents.x * fullExtents.y * fullExtents.z;
 }
 
-void Box::ComputeMass(float density, MassData* outMassData) const
+void BoxShape::ComputeMass(float density, MassData* outMassData) const
 {
     MuliAssert(outMassData != nullptr);
 
@@ -80,7 +80,7 @@ void Box::ComputeMass(float density, MassData* outMassData) const
     );
 }
 
-void Box::ComputeAABB(const Transform& transform, AABB* outAABB) const
+void BoxShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
@@ -101,7 +101,7 @@ void Box::ComputeAABB(const Transform& transform, AABB* outAABB) const
     *outAABB = AABB{ worldCenter - e - r, worldCenter + e + r };
 }
 
-Face Box::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
+Face BoxShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
     Quat worldOrientation = transform.q * rotation;
     Vec3 localDir = worldOrientation.RotateInv(dir);
@@ -133,7 +133,7 @@ Face Box::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
     return outFace;
 }
 
-bool Box::TestPoint(const Transform& transform, const Vec3& q) const
+bool BoxShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Transform boxTransform = Mul(transform, Transform{ center, rotation });
     Vec3 localQ = MulT(boxTransform, q);
@@ -147,7 +147,7 @@ bool Box::TestPoint(const Transform& transform, const Vec3& q) const
     return Length2(delta) <= radius * radius;
 }
 
-Vec3 Box::GetClosestPoint(const Transform& transform, const Vec3& q) const
+Vec3 BoxShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Transform boxTransform = Mul(transform, Transform{ center, rotation });
     Vec3 localQ = MulT(boxTransform, q);
@@ -167,7 +167,7 @@ Vec3 Box::GetClosestPoint(const Transform& transform, const Vec3& q) const
     return Mul(boxTransform, clamped + delta * radius);
 }
 
-bool Box::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
+bool BoxShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
 {
     Transform boxTransform = Mul(transform, Transform{ center, rotation });
     RayCastInput localInput = input;

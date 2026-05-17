@@ -642,7 +642,7 @@ bool CapsuleVsSphere(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
 {
-    const Capsule* capsule = (const Capsule*)a;
+    const CapsuleShape* capsule = (const CapsuleShape*)a;
 
     Vec3 pa = capsule->GetVertexA();
     Vec3 pb = capsule->GetVertexB();
@@ -711,8 +711,8 @@ bool CapsuleVsCapsule(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
 {
-    const Capsule* capsuleA = (const Capsule*)a;
-    const Capsule* capsuleB = (const Capsule*)b;
+    const CapsuleShape* capsuleA = (const CapsuleShape*)a;
+    const CapsuleShape* capsuleB = (const CapsuleShape*)b;
 
     Vec3 a0 = Mul(transformA, capsuleA->GetVertexA());
     Vec3 a1 = Mul(transformA, capsuleA->GetVertexB());
@@ -778,7 +778,7 @@ bool BoxVsSphere(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
 {
-    const Box* box = (const Box*)a;
+    const BoxShape* box = (const BoxShape*)a;
 
     Vec3 c = Mul(transformB, b->GetCenter());
     Vec3 center = Mul(transformA, box->GetCenter());
@@ -893,8 +893,8 @@ bool BoxVsSphere(
 
 bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    const Box* boxA = (const Box*)a;
-    const Capsule* capsuleB = (const Capsule*)b;
+    const BoxShape* boxA = (const BoxShape*)a;
+    const CapsuleShape* capsuleB = (const CapsuleShape*)b;
 
     Transform tfBox = Mul(tfA, Transform{ boxA->GetCenter(), boxA->GetRotation() });
 
@@ -1012,8 +1012,8 @@ bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Tr
 
 bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    const Box* boxA = (const Box*)a;
-    const Box* boxB = (const Box*)b;
+    const BoxShape* boxA = (const BoxShape*)a;
+    const BoxShape* boxB = (const BoxShape*)b;
 
     Vec3 centerA = Mul(tfA, boxA->GetCenter());
     Vec3 centerB = Mul(tfB, boxB->GetCenter());
