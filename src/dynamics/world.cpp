@@ -29,7 +29,6 @@ void World::Reset()
     }
 
     MuliAssert(bodyList == nullptr);
-    MuliAssert(bodyListTail == nullptr);
     MuliAssert(jointList == nullptr);
     MuliAssert(bodyCount == 0);
     MuliAssert(jointCount == 0);
@@ -46,8 +45,7 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     RigidBody* b = new (mem) RigidBody(transform, type);
 
     b->world = this;
-    b->prev = bodyListTail;
-    b->next = nullptr;
+    b->next = bodyList;
     b->contactList = nullptr;
     b->jointList = nullptr;
     b->colliderList = nullptr;
@@ -55,15 +53,7 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     b->flag &= ~RigidBody::flag_island;
     b->flag |= RigidBody::flag_enabled;
 
-    if (bodyListTail)
-    {
-        bodyListTail->next = b;
-    }
-    else
-    {
-        bodyList = b;
-    }
-    bodyListTail = b;
+    bodyList = b;
     ++bodyCount;
 
     return b;
@@ -203,7 +193,6 @@ void World::Destroy(RigidBody* body)
     if (body->next) body->next->prev = body->prev;
     if (body->prev) body->prev->next = body->next;
     if (body == bodyList) bodyList = body->next;
-    if (body == bodyListTail) bodyListTail = body->prev;
     --bodyCount;
 
     FreeBody(body);

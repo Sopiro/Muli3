@@ -338,7 +338,6 @@ private:
     ContactGraph contactGraph;
 
     RigidBody* bodyList = nullptr;
-    RigidBody* bodyListTail = nullptr;
     int32 bodyCount = 0;
 
     Joint* jointList = nullptr;
@@ -357,11 +356,6 @@ private:
 inline RigidBody* World::GetBodyList() const
 {
     return bodyList;
-}
-
-inline RigidBody* World::GetBodyListTail() const
-{
-    return bodyListTail;
 }
 
 inline int32 World::GetBodyCount() const
