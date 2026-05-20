@@ -45,7 +45,13 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     RigidBody* b = new (mem) RigidBody(transform, type);
 
     b->world = this;
+    b->prev = nullptr;
     b->next = bodyList;
+    if (bodyList != nullptr)
+    {
+        bodyList->prev = b;
+    }
+
     b->contactList = nullptr;
     b->jointList = nullptr;
     b->colliderList = nullptr;
