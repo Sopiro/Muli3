@@ -148,16 +148,16 @@ void AABBTree::Traverse(T* callback) const
     }
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
 
         if (nodes[current].IsLeaf() == false)
         {
-            stack.EmplaceBack(nodes[current].child1);
-            stack.EmplaceBack(nodes[current].child2);
+            stack.emplace_back(nodes[current].child1);
+            stack.emplace_back(nodes[current].child2);
         }
 
         const Node* node = nodes + current;
@@ -174,11 +174,11 @@ void AABBTree::Query(const Vec3& point, T* callback) const
     }
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
 
         if (nodes[current].aabb.TestPoint(point) == false)
         {
@@ -195,8 +195,8 @@ void AABBTree::Query(const Vec3& point, T* callback) const
         }
         else
         {
-            stack.EmplaceBack(nodes[current].child1);
-            stack.EmplaceBack(nodes[current].child2);
+            stack.emplace_back(nodes[current].child1);
+            stack.emplace_back(nodes[current].child2);
         }
     }
 }
@@ -210,11 +210,11 @@ void AABBTree::Query(const AABB& aabb, T* callback) const
     }
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
 
         if (nodes[current].aabb.TestOverlap(aabb) == false)
         {
@@ -231,8 +231,8 @@ void AABBTree::Query(const AABB& aabb, T* callback) const
         }
         else
         {
-            stack.EmplaceBack(nodes[current].child1);
-            stack.EmplaceBack(nodes[current].child2);
+            stack.emplace_back(nodes[current].child1);
+            stack.emplace_back(nodes[current].child2);
         }
     }
 }
@@ -260,11 +260,11 @@ void AABBTree::AABBCast(const AABBCastInput& input, T* callback) const
     Ray ray{ p1, d };
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() > 0)
+    while (stack.size() > 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
         if (current == nullNode)
         {
             continue;
@@ -330,9 +330,9 @@ void AABBTree::AABBCast(const AABBCastInput& input, T* callback) const
 
             if (dist2 != max_float)
             {
-                stack.EmplaceBack(child2);
+                stack.emplace_back(child2);
             }
-            stack.EmplaceBack(child1);
+            stack.emplace_back(child1);
         }
     }
 }

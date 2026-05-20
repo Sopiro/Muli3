@@ -52,13 +52,13 @@ NodeIndex AABBTree::InsertLeaf(NodeIndex leaf)
     };
 
     GrowableArray<Candidate, 256> stack;
-    stack.EmplaceBack(root, 0.0f);
+    stack.emplace_back(root, 0.0f);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.Back().node;
-        float inheritedCost = stack.Back().inheritedCost;
-        stack.PopBack();
+        NodeIndex current = stack.back().node;
+        float inheritedCost = stack.back().inheritedCost;
+        stack.pop_back();
 
         AABB combined = AABB::Union(nodes[current].aabb, aabb);
         float directCost = SurfaceArea(combined);
@@ -75,8 +75,8 @@ NodeIndex AABBTree::InsertLeaf(NodeIndex leaf)
         float lowerBoundCost = SurfaceArea(aabb) + inheritedCost;
         if (lowerBoundCost < bestCost && nodes[current].IsLeaf() == false)
         {
-            stack.EmplaceBack(nodes[current].child1, inheritedCost);
-            stack.EmplaceBack(nodes[current].child2, inheritedCost);
+            stack.emplace_back(nodes[current].child1, inheritedCost);
+            stack.emplace_back(nodes[current].child2, inheritedCost);
         }
     }
 
@@ -319,16 +319,16 @@ void AABBTree::Traverse(std::function<void(const Node*)> callback) const
     }
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
 
         if (nodes[current].IsLeaf() == false)
         {
-            stack.EmplaceBack(nodes[current].child1);
-            stack.EmplaceBack(nodes[current].child2);
+            stack.emplace_back(nodes[current].child1);
+            stack.emplace_back(nodes[current].child2);
         }
 
         callback(nodes + current);
@@ -343,11 +343,11 @@ void AABBTree::Query(const Vec3& point, std::function<bool(NodeIndex, Data*)> ca
     }
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
 
         if (nodes[current].aabb.TestPoint(point) == false)
         {
@@ -364,8 +364,8 @@ void AABBTree::Query(const Vec3& point, std::function<bool(NodeIndex, Data*)> ca
         }
         else
         {
-            stack.EmplaceBack(nodes[current].child1);
-            stack.EmplaceBack(nodes[current].child2);
+            stack.emplace_back(nodes[current].child1);
+            stack.emplace_back(nodes[current].child2);
         }
     }
 }
@@ -378,11 +378,11 @@ void AABBTree::Query(const AABB& aabb, std::function<bool(NodeIndex, Data*)> cal
     }
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() != 0)
+    while (stack.size() != 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
 
         if (nodes[current].aabb.TestOverlap(aabb) == false)
         {
@@ -399,8 +399,8 @@ void AABBTree::Query(const AABB& aabb, std::function<bool(NodeIndex, Data*)> cal
         }
         else
         {
-            stack.EmplaceBack(nodes[current].child1);
-            stack.EmplaceBack(nodes[current].child2);
+            stack.emplace_back(nodes[current].child1);
+            stack.emplace_back(nodes[current].child2);
         }
     }
 }
@@ -427,11 +427,11 @@ void AABBTree::AABBCast(const AABBCastInput& input, std::function<float(const AA
     Ray ray{ p1, d };
 
     GrowableArray<NodeIndex, 64> stack;
-    stack.EmplaceBack(root);
+    stack.emplace_back(root);
 
-    while (stack.Count() > 0)
+    while (stack.size() > 0)
     {
-        NodeIndex current = stack.PopBack();
+        NodeIndex current = stack.pop_back();
         if (current == nullNode)
         {
             continue;
@@ -497,9 +497,9 @@ void AABBTree::AABBCast(const AABBCastInput& input, std::function<float(const AA
 
             if (dist2 != max_float)
             {
-                stack.EmplaceBack(child2);
+                stack.emplace_back(child2);
             }
-            stack.EmplaceBack(child1);
+            stack.emplace_back(child1);
         }
     }
 }

@@ -127,7 +127,7 @@ public:
             // Safety break
             if (dist > capacity)
             {
-                BulbitAssert(false && "Use Contains() instead!");
+                MuliAssert(false && "Use Contains() instead!");
                 break;
             }
         }
@@ -157,7 +157,7 @@ public:
             // Safety break
             if (dist > capacity)
             {
-                BulbitAssert(false && "Use Contains() instead!");
+                MuliAssert(false && "Use Contains() instead!");
                 break;
             }
         }

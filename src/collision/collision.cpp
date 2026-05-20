@@ -67,23 +67,23 @@ static bool AddEPAFace(EPAFaces& faces, const SupportPoint* vertices, int32 a, i
         distance = -distance;
     }
 
-    faces.EmplaceBack(a, b, c, normal, distance, false);
+    faces.emplace_back(a, b, c, normal, distance, false);
     return true;
 }
 
 static void AddEPAEdge(EPAEdges& edges, int32 a, int32 b)
 {
-    for (int32 i = 0; i < edges.Count(); ++i)
+    for (int32 i = 0; i < edges.size(); ++i)
     {
         if (edges[i].a == b && edges[i].b == a)
         {
-            std::swap(edges[i], edges.Back());
-            edges.PopBack();
+            std::swap(edges[i], edges.back());
+            edges.pop_back();
             return;
         }
     }
 
-    edges.EmplaceBack(a, b);
+    edges.emplace_back(a, b);
 }
 
 bool GJK(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GJKResult* result)
@@ -161,7 +161,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
     AddEPAFace(faces, vertices, 2, 3, 0, center);
     AddEPAFace(faces, vertices, 3, 0, 1, center);
 
-    if (faces.Count() != max_simplex_vertex_count)
+    if (faces.size() != max_simplex_vertex_count)
     {
         // Degenerate tetrahedron case
         result->contactNormal = NormalizeSafe(tfB.p - tfA.p);
@@ -176,7 +176,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
         // Utilize heap for min distance query
         int32 bestIndex = -1;
         float bestDistance = max_float;
-        for (int32 i = 0; i < faces.Count(); ++i)
+        for (int32 i = 0; i < faces.size(); ++i)
         {
             if (!faces[i].removed && faces[i].distance < bestDistance)
             {
@@ -209,7 +209,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
 
         EPAEdges edges;
 
-        for (int32 i = 0; i < faces.Count(); ++i)
+        for (int32 i = 0; i < faces.size(); ++i)
         {
             EPAFace& face = faces[i];
             if (face.removed)
@@ -226,7 +226,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
             }
         }
 
-        for (int32 i = 0; i < edges.Count(); ++i)
+        for (int32 i = 0; i < edges.size(); ++i)
         {
             if (!AddEPAFace(faces, vertices, edges[i].a, edges[i].b, newIndex, center))
             {
