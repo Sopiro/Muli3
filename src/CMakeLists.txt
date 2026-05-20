@@ -20,6 +20,27 @@ set_target_properties(muli3 PROPERTIES
     CXX_EXTENSIONS NO
 )
 
+if(MULI3_PROFILE)
+    include(FetchContent)
+
+    target_compile_definitions(muli3 PUBLIC MULI3_PROFILE)
+
+    set(TRACY_DELAYED_INIT ON CACHE BOOL "Enable delayed init for Tracy" FORCE)
+    set(TRACY_MANUAL_LIFETIME ON CACHE BOOL "Enable manual lifetime for Tracy" FORCE)
+    set(TRACY_NO_SYSTEM_TRACING ON CACHE BOOL "Disable Tracy system tracing" FORCE)
+
+    FetchContent_Declare(
+        tracy
+        GIT_REPOSITORY https://github.com/wolfpld/tracy.git
+        GIT_TAG v0.13.1
+        GIT_SHALLOW TRUE
+        GIT_PROGRESS TRUE
+    )
+    FetchContent_MakeAvailable(tracy)
+
+    target_link_libraries(muli3 PUBLIC TracyClient)
+endif()
+
 if(MSVC)
     target_compile_options(muli3 PRIVATE /W4 /wd4819)
 else()

@@ -27,6 +27,8 @@ public:
     void PrevDemo();
 
 private:
+    static constexpr int32 profile_capacity = 256;
+
     void UpdateUI();
     void UpdateInput();
     void InitDemo(size_t index);
@@ -41,6 +43,9 @@ private:
     size_t demoCount = 0;
     size_t demoIndex = 0;
     size_t newIndex = 0;
+    WorldProfile profiles[profile_capacity]{};
+    uint64 profileReadIndex = 0;
+    uint64 profileWriteIndex = 0;
     DebugOptions options;
 };
 

@@ -48,6 +48,8 @@ void SetUpdateRate(int32 newUpdateRate)
 
 static bool Init()
 {
+    MuliProfileSetThreadName("muli3 demo");
+
     window = Window::Init(1600, 900, "Muli3 Demo");
 
     glEnable(GL_CULL_FACE);
@@ -102,6 +104,7 @@ static void MainLoop()
             game->Render();
         }
         window->EndFrame();
+        ProfileFrameMark();
 
         frameTime = 0;
     }
@@ -109,6 +112,8 @@ static void MainLoop()
 
 int main()
 {
+    ProfileStartup();
+
 #if defined(_WIN32) && defined(_DEBUG)
     // Enable memory-leak reports
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -116,6 +121,7 @@ int main()
 
     if (!Init())
     {
+        ProfileShutdown();
         return 1;
     }
 
@@ -125,5 +131,6 @@ int main()
     }
 
     Terminate();
+    ProfileShutdown();
     return 0;
 }

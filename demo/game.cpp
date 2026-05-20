@@ -52,6 +52,15 @@ void Game::Update(float deltaTime)
 void Game::FixedUpdate()
 {
     demo->Step();
+
+    if (profileWriteIndex == profile_capacity + profileReadIndex)
+    {
+        ++profileReadIndex;
+    }
+
+    int32 index = (int32)(profileWriteIndex & (profile_capacity - 1));
+    profiles[index] = demo->GetWorld().GetProfile();
+    ++profileWriteIndex;
 }
 
 void Game::Render()
@@ -89,7 +98,7 @@ void Game::UpdateUI()
         ImGui::SetNextWindowCollapsed(collapsed, ImGuiCond_None);
     }
 
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+    ImGuiWindowFlags flags = ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove;
     if (ImGui::Begin("Muli Engine", NULL, flags))
     {
         if (ImGui::BeginTabBar("TabBar", ImGuiTabBarFlags_AutoSelectNewTabs))
@@ -241,6 +250,153 @@ void Game::UpdateUI()
 
     ImGui::End();
 
+    if (ImGui::Begin("Profile", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    {
+        const WorldProfile& profile = world.GetProfile();
+
+        int count = (int)(profileWriteIndex - profileReadIndex);
+        float maxValue = 0.0f;
+
+        std::array<float, profile_capacity> stepTimes{};
+        std::array<float, profile_capacity> broadPhaseTimes{};
+        std::array<float, profile_capacity> narrowPhaseTimes{};
+        std::array<float, profile_capacity> solveTimes{};
+
+        for (int32 i = 0; i < count; ++i)
+        {
+            int32 index = (int32)((profileReadIndex + i) & (profile_capacity - 1));
+            const WorldProfile& p = profiles[index];
+
+            stepTimes[i] = p.step;
+            broadPhaseTimes[i] = p.broad_phase;
+            narrowPhaseTimes[i] = p.narrow_phase;
+            solveTimes[i] = p.solve;
+
+            maxValue = (std::max)(maxValue, p.step);
+        }
+
+        if (ImGui::BeginTable("profile_summary", 2, ImGuiTableFlags_SizingFixedFit))
+        {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("Step");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f ms", profile.step);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("Broad phase");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f ms", profile.broad_phase);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("Narrow phase");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f ms", profile.narrow_phase);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("Solve");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f ms", profile.solve);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::Text("Deferred destroy");
+            ImGui::TableNextColumn();
+            ImGui::Text("%.3f ms", profile.deferred_destroy);
+
+            ImGui::EndTable();
+        }
+
+        maxValue = (std::max)(maxValue, 0.1f);
+
+        ImGui::Separator();
+        if (ImGui::CollapsingHeader("History"))
+        {
+            ImGui::Text("Step (ms)");
+            ImGui::PlotLines("##step", stepTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f });
+            ImGui::Text("Broad phase (ms)");
+            ImGui::PlotLines("##broad_phase", broadPhaseTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f });
+            ImGui::Text("Narrow phase (ms)");
+            ImGui::PlotLines(
+                "##narrow_phase", narrowPhaseTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f }
+            );
+            ImGui::Text("Solve (ms)");
+            ImGui::PlotLines("##solve", solveTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f });
+        }
+
+        if (ImGui::CollapsingHeader("Solver profile"))
+        {
+            if (ImGui::BeginTable("profile_solve", 2, ImGuiTableFlags_SizingFixedFit))
+            {
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Solve world");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.solve_world);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Build islands");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.build_islands);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Solve islands");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.solve_islands);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Integrate velocities");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.integrate_velocities);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Prepare constraints");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.prepare_constraints);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Solve velocity");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.solve_velocity);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Integrate positions");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.integrate_positions);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Solve position");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.solve_position);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Update transforms");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.update_transforms);
+
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
+                ImGui::Text("Clear island flags");
+                ImGui::TableNextColumn();
+                ImGui::Text("%.3f ms", profile.clear_island_flags);
+
+                ImGui::EndTable();
+            }
+        }
+    }
+    ImGui::End();
+
     ImGui::SetNextWindowPos({ 0.0f, Window::Get()->GetWindowSize().y }, ImGuiCond_Always, { 0.0f, 1.0f });
     ImGui::Begin(
         "Body info", NULL,
@@ -290,6 +446,8 @@ void Game::InitDemo(size_t index)
     time = 0.0f;
     demoIndex = index;
     demo = demoFrames[demoIndex].createFunction(*this);
+    profileReadIndex = 0;
+    profileWriteIndex = 0;
 
     if (restoreSettings)
     {

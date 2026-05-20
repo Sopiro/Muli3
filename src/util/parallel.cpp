@@ -1,5 +1,6 @@
 #include "muli3/parallel.h"
 #include "muli3/parallel_for.h"
+#include "muli3/profile.h"
 
 namespace muli3
 {
@@ -37,6 +38,8 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::Worker()
 {
+    MuliProfileSetThreadName("Worker");
+
     std::unique_lock<std::mutex> lock(mutex);
 
     while (!shutdown)

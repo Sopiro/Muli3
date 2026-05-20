@@ -22,6 +22,8 @@ ContactGraph::~ContactGraph()
 
 void ContactGraph::EvaluateContacts()
 {
+    MuliProfileZoneNC(evaluate_contacts, "Evaluate Contacts", color::narrow_phase, true);
+
     Contact* c = contactList;
     while (c)
     {
@@ -51,6 +53,8 @@ void ContactGraph::EvaluateContacts()
         c->Update();
         c = c->next;
     }
+
+    MuliProfileZoneEnd(evaluate_contacts);
 }
 
 void ContactGraph::OnNewContact(Collider* colliderA, Collider* colliderB)

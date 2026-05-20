@@ -9,6 +9,7 @@
 #include "distance.h"             // IWYU pragma: export
 #include "geometry.h"             // IWYU pragma: export
 #include "material.h"             // IWYU pragma: export
+#include "profile.h"              // IWYU pragma: export
 #include "raycast.h"              // IWYU pragma: export
 #include "rigidbody.h"            // IWYU pragma: export
 #include "world.h"                // IWYU pragma: export

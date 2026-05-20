@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.16)
 project(muli3 LANGUAGES C CXX VERSION 0.1.0)
 
 option(MULI3_BUILD_DEMO "Build the demo project" ON)
+option(MULI3_PROFILE "Enable profiling with Tracy" OFF)
 
 include(GNUInstallDirs)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)

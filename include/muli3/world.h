@@ -20,6 +20,7 @@
 #include "callbacks.h"
 #include "contact.h"
 #include "contact_graph.h"
+#include "profile.h"
 #include "settings.h"
 
 #include "block_allocator.h"
@@ -301,7 +302,6 @@ public:
     ) const;
 
     RigidBody* GetBodyList() const;
-    RigidBody* GetBodyListTail() const;
     int32 GetBodyCount() const;
 
     Joint* GetJoints() const;
@@ -314,9 +314,9 @@ public:
     int32 GetAwakeIslandCount() const;
 
     const AABBTree& GetDynamicTree() const;
-    void RebuildDynamicTree();
 
-    const WorldSettings& GetWorldSettings() const;
+    const WorldSettings& GetSettings() const;
+    const WorldProfile& GetProfile() const;
 
     void Awake();
 
@@ -335,6 +335,8 @@ private:
     void FreeShape(Shape* shape);
 
     const WorldSettings& settings;
+    WorldProfile profile;
+
     ContactGraph contactGraph;
 
     RigidBody* bodyList = nullptr;
@@ -398,14 +400,14 @@ inline const AABBTree& World::GetDynamicTree() const
     return contactGraph.broadPhase.tree;
 }
 
-inline void World::RebuildDynamicTree()
-{
-    contactGraph.broadPhase.tree.Rebuild();
-}
-
-inline const WorldSettings& World::GetWorldSettings() const
+inline const WorldSettings& World::GetSettings() const
 {
     return settings;
+}
+
+inline const WorldProfile& World::GetProfile() const
+{
+    return profile;
 }
 
 inline void World::Awake()

@@ -2,6 +2,7 @@
 
 #include "broad_phase.h"
 #include "contact.h"
+#include "profile.h"
 
 namespace muli3
 {
@@ -43,7 +44,9 @@ private:
 
 inline void ContactGraph::UpdateContactGraph()
 {
+    MuliProfileZoneNC(update_contact_graph, "Find Pairs", color::broad_phase, true);
     broadPhase.FindNewContacts();
+    MuliProfileZoneEnd(update_contact_graph);
 }
 
 inline int32 ContactGraph::GetContactCount() const
