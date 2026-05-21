@@ -10,6 +10,244 @@ extern void SetUpdateRate(muli3::int32 newUpdateRate);
 namespace muli3
 {
 
+enum ProfileValue
+{
+    profile_broad_phase,
+    profile_narrow_phase,
+    profile_deferred_destroy,
+    profile_step_other,
+    profile_build_islands,
+    profile_integrate_velocities,
+    profile_prepare_constraints,
+    profile_solve_velocity,
+    profile_integrate_positions,
+    profile_solve_position,
+    profile_update_transforms,
+    profile_clear_island_flags,
+    profile_solve_other,
+    profile_solve_rest,
+};
+
+struct ProfileGraphEntry
+{
+    const char* name;
+    uint32 color;
+    ProfileValue value;
+};
+
+static ImU32 ToImColor(uint32 c)
+{
+    return IM_COL32((c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff, 255);
+}
+
+static float GetProfileValue(const WorldProfile& profile, ProfileValue value)
+{
+    switch (value)
+    {
+    case profile_broad_phase:
+        return profile.broad_phase;
+    case profile_narrow_phase:
+        return profile.narrow_phase;
+    case profile_deferred_destroy:
+        return profile.deferred_destroy;
+    case profile_step_other:
+        return (std::max)(0.0f,
+                          profile.step - profile.broad_phase - profile.narrow_phase - profile.solve - profile.deferred_destroy);
+    case profile_build_islands:
+        return profile.build_islands;
+    case profile_integrate_velocities:
+        return profile.integrate_velocities;
+    case profile_prepare_constraints:
+        return profile.prepare_constraints;
+    case profile_solve_velocity:
+        return profile.solve_velocity;
+    case profile_integrate_positions:
+        return profile.integrate_positions;
+    case profile_solve_position:
+        return profile.solve_position;
+    case profile_update_transforms:
+        return profile.update_transforms;
+    case profile_clear_island_flags:
+        return profile.clear_island_flags;
+    case profile_solve_other:
+        return (std::max)(0.0f, profile.solve_world - profile.build_islands - profile.integrate_velocities -
+                                    profile.prepare_constraints - profile.solve_velocity - profile.integrate_positions -
+                                    profile.solve_position - profile.update_transforms - profile.clear_island_flags);
+    case profile_solve_rest:
+        return (std::max)(0.0f, profile.solve - profile.solve_world);
+    default:
+        return 0.0f;
+    }
+}
+
+static float GetProfileTotal(const WorldProfile& profile, const ProfileGraphEntry* entries, int32 entryCount)
+{
+    float total = 0.0f;
+
+    for (int32 i = 0; i < entryCount; ++i)
+    {
+        total += GetProfileValue(profile, entries[i].value);
+    }
+
+    return total;
+}
+
+static void DrawProfileGraph(
+    const char* label,
+    const WorldProfile* profiles,
+    int32 profileCapacity,
+    uint64 profileReadIndex,
+    int32 count,
+    const ProfileGraphEntry* entries,
+    int32 entryCount,
+    float minRange,
+    bool showOverlay
+)
+{
+    if (count <= 0)
+    {
+        ImGui::TextUnformatted(label);
+        ImGui::Dummy(ImVec2{ 760.0f, 160.0f });
+        return;
+    }
+
+    float maxValue = 0.1f;
+    for (int32 i = 0; i < count; ++i)
+    {
+        int32 index = (int32)((profileReadIndex + i) & (profileCapacity - 1));
+        maxValue = (std::max)(maxValue, GetProfileTotal(profiles[index], entries, entryCount));
+    }
+
+    float minValue = 0.0f;
+    maxValue = (std::max)(maxValue, minRange);
+    maxValue = (std::max)(maxValue, 0.001f);
+
+    ImGui::Text("%s (%.3f ms max)", label, maxValue);
+
+    ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 plotSize{ 540.0f, 160.0f };
+    ImVec2 legendSize{ 220.0f, plotSize.y };
+    ImVec2 spacing{ 14.0f, 0.0f };
+    ImVec2 canvasSize{ plotSize.x + spacing.x + legendSize.x, plotSize.y };
+    ImVec2 canvasMin = ImGui::GetCursorScreenPos();
+
+    ImGui::InvisibleButton(label, canvasSize);
+
+    ImVec2 plotMin = canvasMin;
+    ImVec2 plotMax{ plotMin.x + plotSize.x, plotMin.y + plotSize.y };
+    ImVec2 legendMin{ plotMax.x + spacing.x, plotMin.y };
+    ImU32 backgroundColor = IM_COL32(14, 29, 34, 255);
+    ImU32 borderColor = IM_COL32(190, 205, 205, 255);
+    ImU32 gridColor = IM_COL32(80, 105, 110, 90);
+
+    drawList->AddRectFilled(plotMin, plotMax, backgroundColor);
+    drawList->AddRect(plotMin, plotMax, borderColor);
+
+    for (int32 i = 1; i < 4; ++i)
+    {
+        float y = plotMax.y - plotSize.y * (float)i / 4.0f;
+        drawList->AddLine(ImVec2{ plotMin.x, y }, ImVec2{ plotMax.x, y }, gridColor);
+    }
+
+    float columnStep = plotSize.x / (float)count;
+    float barWidth = (std::max)(1.0f, columnStep - 1.0f);
+    float scale = plotSize.y / (maxValue - minValue);
+
+    for (int32 i = 0; i < count; ++i)
+    {
+        int32 index = (int32)((profileReadIndex + i) & (profileCapacity - 1));
+        const WorldProfile& profile = profiles[index];
+
+        float x0 = plotMin.x + columnStep * (float)i;
+        float x1 = (std::min)(x0 + barWidth, plotMax.x);
+        float stack = 0.0f;
+
+        for (int32 j = entryCount - 1; j >= 0; --j)
+        {
+            float value = GetProfileValue(profile, entries[j].value);
+            if (value <= 0.0f)
+            {
+                continue;
+            }
+
+            float y0 = plotMax.y - ((stack + value) - minValue) * scale;
+            float y1 = plotMax.y - (stack - minValue) * scale;
+            y0 = Clamp(y0, plotMin.y, plotMax.y);
+            y1 = Clamp(y1, plotMin.y, plotMax.y);
+            drawList->AddRectFilled(ImVec2{ x0, y0 }, ImVec2{ x1, y1 }, ToImColor(entries[j].color));
+            stack += value;
+        }
+    }
+
+    int32 latestIndex = (int32)((profileReadIndex + count - 1) & (profileCapacity - 1));
+    const WorldProfile& latestProfile = profiles[latestIndex];
+    float textHeight = ImGui::GetTextLineHeight();
+    float legendStep = (std::min)(textHeight + 2.0f, plotSize.y / (float)entryCount);
+    float legendY = legendMin.y;
+
+    for (int32 i = 0; i < entryCount; ++i)
+    {
+        float stack = 0.0f;
+        for (int32 j = entryCount - 1; j > i; --j)
+        {
+            stack += GetProfileValue(latestProfile, entries[j].value);
+        }
+
+        float value = GetProfileValue(latestProfile, entries[i].value);
+        ImU32 entryColor = ToImColor(entries[i].color);
+        float lineY = legendY + textHeight * 0.5f;
+        float stackY = plotMax.y - ((stack + value * 0.5f) - minValue) * scale;
+        stackY = Clamp(stackY, plotMin.y, plotMax.y);
+
+        drawList->AddLine(ImVec2{ plotMax.x, stackY }, ImVec2{ legendMin.x - 3.0f, lineY }, entryColor, 1.0f);
+        drawList->AddRectFilled(
+            ImVec2{ legendMin.x, legendY + 3.0f }, ImVec2{ legendMin.x + 10.0f, legendY + 13.0f }, entryColor
+        );
+
+        char text[128];
+        std::snprintf(text, sizeof(text), "[%.3f ms] %s", value, entries[i].name);
+        drawList->AddText(ImVec2{ legendMin.x + 14.0f, legendY }, entryColor, text);
+
+        legendY += legendStep;
+    }
+
+    ImVec2 mousePosition = ImGui::GetIO().MousePos;
+    bool plotHovered = ImGui::IsItemHovered() && mousePosition.x >= plotMin.x && mousePosition.x < plotMax.x &&
+                       mousePosition.y >= plotMin.y && mousePosition.y < plotMax.y;
+
+    if (showOverlay && plotHovered)
+    {
+        int32 hoverOffset = (int32)((mousePosition.x - plotMin.x) / columnStep);
+        hoverOffset = Clamp(hoverOffset, 0, count - 1);
+        int32 hoverIndex = (int32)((profileReadIndex + hoverOffset) & (profileCapacity - 1));
+        const WorldProfile& hoverProfile = profiles[hoverIndex];
+
+        float lineX = plotMin.x + columnStep * ((float)hoverOffset + 0.5f);
+        drawList->AddLine(ImVec2{ lineX, plotMin.y }, ImVec2{ lineX, plotMax.y }, IM_COL32(255, 255, 255, 180), 1.0f);
+
+        ImGui::BeginTooltip();
+        ImGui::Text("-%d frames", count - hoverOffset - 1);
+        ImGui::Separator();
+        ImGui::Text("Total: %.3f ms", GetProfileTotal(hoverProfile, entries, entryCount));
+
+        for (int32 i = 0; i < entryCount; ++i)
+        {
+            float value = GetProfileValue(hoverProfile, entries[i].value);
+            ImGui::TextColored(
+                ImVec4{
+                    (float)((entries[i].color >> 16) & 0xff) / 255.0f,
+                    (float)((entries[i].color >> 8) & 0xff) / 255.0f,
+                    (float)(entries[i].color & 0xff) / 255.0f,
+                    1.0f,
+                },
+                "%.3f ms %s", value, entries[i].name
+            );
+        }
+
+        ImGui::EndTooltip();
+    }
+}
+
 Game::Game()
 {
     bool rendererInitialized = renderer.Initialize();
@@ -52,6 +290,11 @@ void Game::Update(float deltaTime)
 void Game::FixedUpdate()
 {
     demo->Step();
+
+    if (profileStopped)
+    {
+        return;
+    }
 
     if (profileWriteIndex == profile_capacity + profileReadIndex)
     {
@@ -146,6 +389,7 @@ void Game::UpdateUI()
                 ImGui::SetNextItemOpen(false, ImGuiCond_Once);
                 if (ImGui::CollapsingHeader("Debug options"))
                 {
+                    ImGui::Checkbox("Show profiler", &options.show_profiler);
                     ImGui::Checkbox("Camera reset", &options.reset_camera);
                     ImGui::Checkbox("Colorize island", &options.colorize_island);
                     ImGui::Checkbox("Draw body", &options.draw_body);
@@ -250,152 +494,49 @@ void Game::UpdateUI()
 
     ImGui::End();
 
-    if (ImGui::Begin("Profile", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+    if (options.show_profiler)
     {
-        const WorldProfile& profile = world.GetProfile();
-
-        int count = (int)(profileWriteIndex - profileReadIndex);
-        float maxValue = 0.0f;
-
-        std::array<float, profile_capacity> stepTimes{};
-        std::array<float, profile_capacity> broadPhaseTimes{};
-        std::array<float, profile_capacity> narrowPhaseTimes{};
-        std::array<float, profile_capacity> solveTimes{};
-
-        for (int32 i = 0; i < count; ++i)
+        if (ImGui::Begin("Profile", &options.show_profiler, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            int32 index = (int32)((profileReadIndex + i) & (profile_capacity - 1));
-            const WorldProfile& p = profiles[index];
+            int count = (int)(profileWriteIndex - profileReadIndex);
 
-            stepTimes[i] = p.step;
-            broadPhaseTimes[i] = p.broad_phase;
-            narrowPhaseTimes[i] = p.narrow_phase;
-            solveTimes[i] = p.solve;
+            static constexpr ProfileGraphEntry worldEntries[] = {
+                { "Broad phase", color::broad_phase, profile_broad_phase },
+                { "Narrow phase", color::narrow_phase, profile_narrow_phase },
+                { "Build islands", color::build_islands, profile_build_islands },
+                { "Integrate velocities", color::integrate_velocities, profile_integrate_velocities },
+                { "Prepare constraints", color::prepare_constraints, profile_prepare_constraints },
+                { "Solve velocity", color::solve_velocity, profile_solve_velocity },
+                { "Integrate positions", color::integrate_positions, profile_integrate_positions },
+                { "Solve position", color::solve_position, profile_solve_position },
+                { "Update transforms", color::update_transforms, profile_update_transforms },
+                { "Clear island flags", color::clear_island_flags, profile_clear_island_flags },
+                { "Solve other", color::solve, profile_solve_other },
+                { "Solve rest", color::solve, profile_solve_rest },
+                { "Deferred destroy", color::deferred_destroy, profile_deferred_destroy },
+                { "Other", color::step, profile_step_other },
+            };
 
-            maxValue = (std::max)(maxValue, p.step);
-        }
-
-        if (ImGui::BeginTable("profile_summary", 2, ImGuiTableFlags_SizingFixedFit))
-        {
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("Step");
-            ImGui::TableNextColumn();
-            ImGui::Text("%.3f ms", profile.step);
-
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("Broad phase");
-            ImGui::TableNextColumn();
-            ImGui::Text("%.3f ms", profile.broad_phase);
-
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("Narrow phase");
-            ImGui::TableNextColumn();
-            ImGui::Text("%.3f ms", profile.narrow_phase);
-
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("Solve");
-            ImGui::TableNextColumn();
-            ImGui::Text("%.3f ms", profile.solve);
-
-            ImGui::TableNextRow();
-            ImGui::TableNextColumn();
-            ImGui::Text("Deferred destroy");
-            ImGui::TableNextColumn();
-            ImGui::Text("%.3f ms", profile.deferred_destroy);
-
-            ImGui::EndTable();
-        }
-
-        maxValue = (std::max)(maxValue, 0.1f);
-
-        ImGui::Separator();
-        if (ImGui::CollapsingHeader("History"))
-        {
-            ImGui::Text("Step (ms)");
-            ImGui::PlotLines("##step", stepTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f });
-            ImGui::Text("Broad phase (ms)");
-            ImGui::PlotLines("##broad_phase", broadPhaseTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f });
-            ImGui::Text("Narrow phase (ms)");
-            ImGui::PlotLines(
-                "##narrow_phase", narrowPhaseTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f }
+            DrawProfileGraph(
+                "World Profile", profiles, profile_capacity, profileReadIndex, count, worldEntries,
+                (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMinRange, profileShowOverlay
             );
-            ImGui::Text("Solve (ms)");
-            ImGui::PlotLines("##solve", solveTimes.data(), count, 0, nullptr, 0.0f, maxValue, ImVec2{ -1.0f, 50.0f });
-        }
 
-        if (ImGui::CollapsingHeader("Solver profile"))
-        {
-            if (ImGui::BeginTable("profile_solve", 2, ImGuiTableFlags_SizingFixedFit))
+            ImGui::Checkbox("Stop", &profileStopped);
+            ImGui::SameLine();
+            ImGui::Checkbox("Overlay", &profileShowOverlay);
+            ImGui::SameLine();
+            if (ImGui::Button("Clear"))
             {
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Solve world");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.solve_world);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Build islands");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.build_islands);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Solve islands");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.solve_islands);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Integrate velocities");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.integrate_velocities);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Prepare constraints");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.prepare_constraints);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Solve velocity");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.solve_velocity);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Integrate positions");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.integrate_positions);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Solve position");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.solve_position);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Update transforms");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.update_transforms);
-
-                ImGui::TableNextRow();
-                ImGui::TableNextColumn();
-                ImGui::Text("Clear island flags");
-                ImGui::TableNextColumn();
-                ImGui::Text("%.3f ms", profile.clear_island_flags);
-
-                ImGui::EndTable();
+                profileReadIndex = 0;
+                profileWriteIndex = 0;
             }
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(120.0f);
+            ImGui::SliderFloat("Min range", &profileMinRange, 0.0f, 20.0f, "%.2f ms");
         }
+        ImGui::End();
     }
-    ImGui::End();
 
     ImGui::SetNextWindowPos({ 0.0f, Window::Get()->GetWindowSize().y }, ImGuiCond_Always, { 0.0f, 1.0f });
     ImGui::Begin(
@@ -446,8 +587,9 @@ void Game::InitDemo(size_t index)
     time = 0.0f;
     demoIndex = index;
     demo = demoFrames[demoIndex].createFunction(*this);
-    profileReadIndex = 0;
-    profileWriteIndex = 0;
+    // profileReadIndex = 0;
+    // profileWriteIndex = 0;
+    // profileStopped = false;
 
     if (restoreSettings)
     {

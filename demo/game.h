@@ -46,6 +46,9 @@ private:
     WorldProfile profiles[profile_capacity]{};
     uint64 profileReadIndex = 0;
     uint64 profileWriteIndex = 0;
+    bool profileStopped = false;
+    bool profileShowOverlay = false;
+    float profileMinRange = 0.0f;
     DebugOptions options;
 };
 

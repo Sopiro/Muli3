@@ -94,6 +94,7 @@ void Demo::EnableKeyboardShortcut()
     if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
     if (Input::IsKeyPressed(GLFW_KEY_N)) options.show_contact_normal = !options.show_contact_normal;
     if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
+    if (Input::IsKeyPressed(GLFW_KEY_F1)) options.show_profiler = !options.show_profiler;
     if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
     if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
 

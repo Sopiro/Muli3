@@ -12,6 +12,7 @@ struct DebugOptions
     bool draw_outlined = false;
     bool show_bvh = false;
     bool show_aabb = false;
+    bool show_profiler = true;
     bool show_contact_point = false;
     bool show_contact_normal = false;
     bool reset_camera = false;

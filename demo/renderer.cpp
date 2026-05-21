@@ -1,5 +1,7 @@
-#include "renderer.h"
+#include "muli3/color.h"
 #include "muli3/frame.h"
+
+#include "renderer.h"
 
 namespace muli3
 {
@@ -182,53 +184,6 @@ void SetInstanceAttribute(GLuint index, GLint size, GLsizei stride, size_t offse
     glVertexAttribPointer(index, size, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(offset));
     glEnableVertexAttribArray(index);
     glVertexAttribDivisor(index, 1);
-}
-
-float HueToRGB(float p, float q, float t)
-{
-    if (t < 0.0f)
-    {
-        t += 1.0f;
-    }
-    else if (t > 1.0f)
-    {
-        t -= 1.0f;
-    }
-
-    if (t < 1.0f / 6.0f)
-    {
-        return p + (q - p) * 6.0f * t;
-    }
-    else if (t < 1.0f / 2.0f)
-    {
-        return q;
-    }
-    else if (t < 2.0f / 3.0f)
-    {
-        return p + (q - p) * (2.0f / 3.0f - t) * 6.0f;
-    }
-
-    return p;
-}
-
-Vec3 HSLToRGB(const Vec3& hsl)
-{
-    Vec3 result;
-
-    if (hsl.y == 0.0f)
-    {
-        result.x = result.y = result.z = hsl.z;
-    }
-    else
-    {
-        float q = hsl.z < 0.5f ? hsl.z * (1.0f + hsl.y) : hsl.z + hsl.y - hsl.z * hsl.y;
-        float p = 2.0f * hsl.z - q;
-        result.x = HueToRGB(p, q, hsl.x + 1.0f / 3.0f);
-        result.y = HueToRGB(p, q, hsl.x);
-        result.z = HueToRGB(p, q, hsl.x - 1.0f / 3.0f);
-    }
-
-    return result;
 }
 
 static bool IsSameBodyPair(const Joint* joint, const RigidBody* bodyA, const RigidBody* bodyB)
