@@ -27,7 +27,7 @@ Game::Game()
 
     demoIndex = demoCount;
 
-    InitDemo(27);
+    InitDemo(23);
     Window::Get()->SetCursorHidden(false);
 
     ThreadPool::global_thread_pool.reset(new ThreadPool(std::thread::hardware_concurrency()));
@@ -280,7 +280,7 @@ void Game::UpdateUI()
             };
 
             DrawProfileGraph(
-                "World Profile", profiles, { 420, 160 }, profile_capacity, profileReadIndex, count, worldEntries,
+                "", profiles, { 420, 160 }, profile_capacity, profileReadIndex, count, worldEntries,
                 (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMaxRange, profileShowOverlay
             );
 
@@ -350,9 +350,6 @@ void Game::InitDemo(size_t index)
     time = 0.0f;
     demoIndex = index;
     demo = demoFrames[demoIndex].createFunction(*this);
-    // profileReadIndex = 0;
-    // profileWriteIndex = 0;
-    // profileStopped = false;
 
     if (restoreSettings)
     {

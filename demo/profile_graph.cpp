@@ -70,20 +70,43 @@ void DrawProfileGraph(
         return;
     }
 
-    float maxValue = 0.1f;
+    float maxTotal = 0.0f;
+    float minTotal = 0.0f;
+    float sumTotal = 0.0f;
+    float nowTotal = 0.0f;
+
     for (int32 i = 0; i < count; ++i)
     {
         int32 index = (int32)((profileReadIndex + i) & (profileCapacity - 1));
-        maxValue = (std::max)(maxValue, GetProfileTotal(profiles[index], entries, entryCount));
+        float total = GetProfileTotal(profiles[index], entries, entryCount);
+
+        if (i == 0)
+        {
+            minTotal = total;
+            maxTotal = total;
+        }
+        else
+        {
+            minTotal = (std::min)(minTotal, total);
+            maxTotal = (std::max)(maxTotal, total);
+        }
+
+        sumTotal += total;
+        nowTotal = total;
     }
 
     float minValue = 0.0f;
+    float maxValue = (std::max)(maxTotal, 0.1f);
     if (maxRange > 0)
     {
         maxValue = (std::min)(maxValue, maxRange);
     }
+    maxValue = (std::max)(maxValue, 0.001f);
 
-    ImGui::Text("%s (%.3f ms max)", label, maxValue);
+    if (strlen(label) > 0)
+    {
+        ImGui::Text("%s", label);
+    }
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImVec2 plotSize{ graphSize.x, graphSize.y };
@@ -207,6 +230,8 @@ void DrawProfileGraph(
 
         ImGui::EndTooltip();
     }
+
+    ImGui::Text("Min %.3f ms, Max %.3f ms, Avg %.3f ms, Current %.3f ms", minTotal, maxTotal, sumTotal / (float)count, nowTotal);
 }
 
 } // namespace muli3
