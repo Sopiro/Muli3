@@ -95,19 +95,19 @@ static float GetProfileTotal(const WorldProfile& profile, const ProfileGraphEntr
 static void DrawProfileGraph(
     const char* label,
     const WorldProfile* profiles,
+    Vec2 graphSize,
     int32 profileCapacity,
     uint64 profileReadIndex,
     int32 count,
     const ProfileGraphEntry* entries,
     int32 entryCount,
-    float minRange,
+    float maxRange,
     bool showOverlay
 )
 {
     if (count <= 0)
     {
         ImGui::TextUnformatted(label);
-        ImGui::Dummy(ImVec2{ 760.0f, 160.0f });
         return;
     }
 
@@ -119,14 +119,16 @@ static void DrawProfileGraph(
     }
 
     float minValue = 0.0f;
-    maxValue = (std::max)(maxValue, minRange);
-    maxValue = (std::max)(maxValue, 0.001f);
+    if (maxRange > 0)
+    {
+        maxValue = (std::min)(maxValue, maxRange);
+    }
 
     ImGui::Text("%s (%.3f ms max)", label, maxValue);
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 plotSize{ 540.0f, 160.0f };
-    ImVec2 legendSize{ 220.0f, plotSize.y };
+    ImVec2 plotSize{ graphSize.x, graphSize.y };
+    ImVec2 legendSize{ 240.0f, plotSize.y };
     ImVec2 spacing{ 14.0f, 0.0f };
     ImVec2 canvasSize{ plotSize.x + spacing.x + legendSize.x, plotSize.y };
     ImVec2 canvasMin = ImGui::GetCursorScreenPos();
@@ -518,8 +520,8 @@ void Game::UpdateUI()
             };
 
             DrawProfileGraph(
-                "World Profile", profiles, profile_capacity, profileReadIndex, count, worldEntries,
-                (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMinRange, profileShowOverlay
+                "World Profile", profiles, { 420, 160 }, profile_capacity, profileReadIndex, count, worldEntries,
+                (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMaxRange, profileShowOverlay
             );
 
             ImGui::Checkbox("Stop", &profileStopped);
@@ -533,7 +535,8 @@ void Game::UpdateUI()
             }
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.0f);
-            ImGui::SliderFloat("Min range", &profileMinRange, 0.0f, 20.0f, "%.2f ms");
+            ImGui::SameLine();
+            ImGui::SliderFloat("Max range", &profileMaxRange, 0.0f, 10.0f, "%.2f ms");
         }
         ImGui::End();
     }

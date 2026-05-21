@@ -87,8 +87,9 @@ namespace color
 {
 
 constexpr float offset = -0.1f;
+constexpr float shuffle = 1.0f;
 constexpr float saturation = 1.0f;
-constexpr float lightness = 0.63f;
+constexpr float lightness = 0.6f;
 
 constexpr float Wrap01(float v)
 {
@@ -100,7 +101,9 @@ constexpr float Wrap01(float v)
 }
 
 #define WORLD_PROFILE_COLOR(member)                                                                                              \
-    RGBToHex(HSLToRGB({ Wrap01(offset + offsetof(WorldProfile, member) / float(sizeof(WorldProfile))), saturation, lightness }))
+    RGBToHex(HSLToRGB(                                                                                                           \
+        { Wrap01(shuffle * (offset + offsetof(WorldProfile, member) / float(sizeof(WorldProfile)))), saturation, lightness }     \
+    ))
 
 inline constexpr uint32 step = WORLD_PROFILE_COLOR(step);
 inline constexpr uint32 broad_phase = WORLD_PROFILE_COLOR(broad_phase);
