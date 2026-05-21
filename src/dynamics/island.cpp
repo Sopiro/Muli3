@@ -4,10 +4,10 @@ namespace muli3
 {
 
 // https://box2d.org/files/ErinCatto_NumericalMethods_GDC2015.pdf
-// Erin Catto's numerical method for stable gyroscopic force integration
+// Erin Catto's numerical method for stable gyroscopic torque integration
 static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, float h)
 {
-    // Convert to body coordinates
+    // Convert to body frame
     Vec3 localW = q.RotateInv(w);
     Vec3 localL = inertia * localW;
 
@@ -21,7 +21,7 @@ static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, f
     // Single Newton-Raphson update
     localW -= j.GetInverse() * f;
 
-    // Back to world coordinates
+    // Back to world frame
     return q.Rotate(localW);
 }
 

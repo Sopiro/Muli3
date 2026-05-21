@@ -41,38 +41,13 @@ set_target_properties(imgui PROPERTIES
     CXX_EXTENSIONS NO
 )
 
-set(DEMO_HEADER_FILES
-    common.h
-    input.h
-    window.h
-    camera.h
-    demo.h
-    options.h
-    shader.h
-    mesh.h
-    renderer.h
-    game.h
-    ragdoll.h
-)
-
-file(GLOB DEMO_DEMO_SOURCE_FILES CONFIGURE_DEPENDS demos/*.cpp)
+file(GLOB_RECURSE DEMO_HEADER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
+file(GLOB_RECURSE DEMO_SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 set(DEMO_GLAD_FILES
     glad/include/glad/glad.h
     glad/include/KHR/khrplatform.h
     glad/src/glad.c
-)
-
-set(DEMO_SOURCE_FILES
-    main.cpp
-    window.cpp
-    camera.cpp
-    demo.cpp
-    shader.cpp
-    mesh.cpp
-    renderer.cpp
-    game.cpp
-    ${DEMO_DEMO_SOURCE_FILES}
 )
 
 source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" PREFIX "demo" FILES ${DEMO_HEADER_FILES} ${DEMO_SOURCE_FILES})
