@@ -49,7 +49,6 @@ Island::~Island()
 
 void Island::Solve()
 {
-    ProfileScope profile_solve_island{ &world->profile.solve_islands };
     MuliProfileZoneNC(solve_island, "Solve Island", color::solve, true);
 
     bool awakeIsland = false;
@@ -58,7 +57,6 @@ void Island::Solve()
     const Timestep& step = settings.step;
 
     {
-        ProfileScope profile_integrate_velocity{ &world->profile.integrate_velocities };
         MuliProfileZoneNC(integrate_velocity, "Integrate Velocities", color::integrate_velocities, true);
 
         // Integrate velocities, yield tentative velocities that possibly violate the constraint
@@ -121,7 +119,6 @@ void Island::Solve()
     }
 
     {
-        ProfileScope profile_prepare_constraints{ &world->profile.prepare_constraints };
         MuliProfileZoneNC(prepare_constraints, "Prepare Constraints", color::prepare_constraints, true);
 
         // Prepare constraints for solving step
@@ -138,7 +135,6 @@ void Island::Solve()
     }
 
     {
-        ProfileScope profile_solve_velocity{ &world->profile.solve_velocity };
         MuliProfileZoneNC(solve_velocity, "Solve Velocity", color::solve_velocity, true);
 
         // Iteratively solve the violated velocity constraints
@@ -159,7 +155,6 @@ void Island::Solve()
     }
 
     {
-        ProfileScope profile_integrate_position{ &world->profile.integrate_positions };
         MuliProfileZoneNC(integrate_position, "Integrate Positions", color::integrate_positions, true);
 
         // Update positions using corrected velocities (Semi-implicit euler integration)
@@ -192,7 +187,6 @@ void Island::Solve()
     }
 
     {
-        ProfileScope profile_solve_position{ &world->profile.solve_position };
         MuliProfileZoneNC(solve_position, "Solve Position", color::solve_position, true);
 
         // Solve position constraints

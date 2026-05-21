@@ -929,7 +929,13 @@ void World::Solve()
         }
 
         island.sleeping = settings.sleeping && (restingBodies == island.bodyCount);
-        island.Solve();
+
+        ProfileScope profile_solve_islands{ &profile.solve_islands };
+        {
+            MuliProfileZoneNC(solve_islands, "Solve Islands", color::solve, true);
+            island.Solve();
+            MuliProfileZoneEnd(solve_islands);
+        }
 
         island.Clear();
         restingBodies = 0;

@@ -1,4 +1,5 @@
 #include "game.h"
+#include "muli3/parallel.h"
 
 #include "window.h"
 
@@ -17,11 +18,7 @@ enum ProfileValue
     profile_deferred_destroy,
     profile_step_other,
     profile_build_islands,
-    profile_integrate_velocities,
-    profile_prepare_constraints,
-    profile_solve_velocity,
-    profile_integrate_positions,
-    profile_solve_position,
+    profile_solve_islands,
     profile_update_transforms,
     profile_clear_island_flags,
     profile_solve_other,
@@ -55,24 +52,15 @@ static float GetProfileValue(const WorldProfile& profile, ProfileValue value)
                           profile.step - profile.broad_phase - profile.narrow_phase - profile.solve - profile.deferred_destroy);
     case profile_build_islands:
         return profile.build_islands;
-    case profile_integrate_velocities:
-        return profile.integrate_velocities;
-    case profile_prepare_constraints:
-        return profile.prepare_constraints;
-    case profile_solve_velocity:
-        return profile.solve_velocity;
-    case profile_integrate_positions:
-        return profile.integrate_positions;
-    case profile_solve_position:
-        return profile.solve_position;
+    case profile_solve_islands:
+        return profile.solve_islands;
     case profile_update_transforms:
         return profile.update_transforms;
     case profile_clear_island_flags:
         return profile.clear_island_flags;
     case profile_solve_other:
-        return (std::max)(0.0f, profile.solve_world - profile.build_islands - profile.integrate_velocities -
-                                    profile.prepare_constraints - profile.solve_velocity - profile.integrate_positions -
-                                    profile.solve_position - profile.update_transforms - profile.clear_island_flags);
+        return (std::max)(0.0f, profile.solve_world - profile.build_islands - profile.solve_islands - profile.update_transforms -
+                                    profile.clear_island_flags);
     case profile_solve_rest:
         return (std::max)(0.0f, profile.solve - profile.solve_world);
     default:
@@ -265,8 +253,10 @@ Game::Game()
 
     demoIndex = demoCount;
 
-    InitDemo(0);
+    InitDemo(27);
     Window::Get()->SetCursorHidden(false);
+
+    ThreadPool::global_thread_pool.reset(new ThreadPool(std::thread::hardware_concurrency()));
 }
 
 Game::~Game()
@@ -506,11 +496,7 @@ void Game::UpdateUI()
                 { "Broad phase", color::broad_phase, profile_broad_phase },
                 { "Narrow phase", color::narrow_phase, profile_narrow_phase },
                 { "Build islands", color::build_islands, profile_build_islands },
-                { "Integrate velocities", color::integrate_velocities, profile_integrate_velocities },
-                { "Prepare constraints", color::prepare_constraints, profile_prepare_constraints },
-                { "Solve velocity", color::solve_velocity, profile_solve_velocity },
-                { "Integrate positions", color::integrate_positions, profile_integrate_positions },
-                { "Solve position", color::solve_position, profile_solve_position },
+                { "Solve islands", color::solve, profile_solve_islands },
                 { "Update transforms", color::update_transforms, profile_update_transforms },
                 { "Clear island flags", color::clear_island_flags, profile_clear_island_flags },
                 { "Solve other", color::solve, profile_solve_other },

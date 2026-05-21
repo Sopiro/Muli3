@@ -2,8 +2,6 @@
     #include <crtdbg.h>
 #endif
 
-#include <chrono>
-
 #include "game.h"
 #include "window.h"
 
@@ -38,12 +36,9 @@ int32 GetUpdateRate()
 void SetUpdateRate(int32 newUpdateRate)
 {
     updateRate = Clamp(newUpdateRate, 30, 300);
-    targetUpdateTime = 1.0f / (float)updateRate;
+    targetUpdateTime = 1.0f / updateRate;
 
-    if (game)
-    {
-        game->SetFixedDeltaTime(targetUpdateTime);
-    }
+    game->SetFixedDeltaTime(targetUpdateTime);
 }
 
 static bool Init()
@@ -78,21 +73,23 @@ static void Terminate()
 
 static void MainLoop()
 {
-    static float frameTime = 0.0f;
-    static float updateTime = 0.0f;
+    static float frameTime = 0;
+    static float updateTime = 0;
     static auto lastTime = std::chrono::steady_clock::now();
 
     auto currentTime = std::chrono::steady_clock::now();
+
     std::chrono::duration<float> duration = currentTime - lastTime;
-    float elapsed = Clamp(duration.count(), 0.0f, 0.1f);
+    float elapsed = duration.count();
     lastTime = currentTime;
 
     updateTime += elapsed;
     frameTime += elapsed;
 
-    while (updateTime >= targetUpdateTime)
+    if (updateTime > targetUpdateTime)
     {
         game->FixedUpdate();
+
         updateTime -= targetUpdateTime;
     }
 
@@ -104,9 +101,8 @@ static void MainLoop()
             game->Render();
         }
         window->EndFrame();
-        ProfileFrameMark();
 
-        frameTime = 0;
+        frameTime -= targetFrameTime;
     }
 }
 

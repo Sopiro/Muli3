@@ -7,9 +7,7 @@ namespace muli3
 
 class Island
 {
-private:
-    friend class World;
-
+public:
     Island(World* world, int32 bodyCapacity, int32 contactCapacity, int32 jointCapacity);
     ~Island();
 
