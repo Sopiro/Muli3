@@ -281,7 +281,7 @@ void Game::UpdateUI()
 
             DrawProfileGraph(
                 "", profiles, { 420, 160 }, profile_capacity, profileReadIndex, count, worldEntries,
-                (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMaxRange, profileShowOverlay
+                (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMaxRange, profileShowOverlay, profileShowAverage
             );
 
             ImGui::Checkbox("Stop", &profileStopped);
@@ -297,6 +297,8 @@ void Game::UpdateUI()
             ImGui::SetNextItemWidth(120.0f);
             ImGui::SameLine();
             ImGui::SliderFloat("Max range", &profileMaxRange, 0.0f, 10.0f, "%.2f ms");
+            ImGui::SameLine();
+            ImGui::Checkbox("Average", &profileShowAverage);
         }
         ImGui::End();
     }

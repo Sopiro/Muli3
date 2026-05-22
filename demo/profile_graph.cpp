@@ -61,7 +61,8 @@ void DrawProfileGraph(
     const ProfileGraphEntry* entries,
     int32 entryCount,
     float maxRange,
-    bool showOverlay
+    bool showOverlay,
+    bool showAverage
 )
 {
     if (count <= 0)
@@ -174,10 +175,33 @@ void DrawProfileGraph(
         float stack = 0.0f;
         for (int32 j = entryCount - 1; j > i; --j)
         {
-            stack += GetProfileValue(latestProfile, entries[j].value);
+            float stackValue = GetProfileValue(latestProfile, entries[j].value);
+            if (showAverage)
+            {
+                stackValue = 0.0f;
+                for (int32 k = 0; k < count; ++k)
+                {
+                    int32 index = (int32)((profileReadIndex + k) & (profileCapacity - 1));
+                    stackValue += GetProfileValue(profiles[index], entries[j].value);
+                }
+                stackValue /= (float)count;
+            }
+
+            stack += stackValue;
         }
 
         float value = GetProfileValue(latestProfile, entries[i].value);
+        if (showAverage)
+        {
+            value = 0.0f;
+            for (int32 j = 0; j < count; ++j)
+            {
+                int32 index = (int32)((profileReadIndex + j) & (profileCapacity - 1));
+                value += GetProfileValue(profiles[index], entries[i].value);
+            }
+            value /= (float)count;
+        }
+
         ImU32 entryColor = ToImColor(entries[i].color);
         float lineY = legendY + textHeight * 0.5f;
         float stackY = plotMax.y - ((stack + value * 0.5f) - minValue) * scale;

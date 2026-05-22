@@ -48,6 +48,7 @@ private:
     uint64 profileWriteIndex = 0;
     bool profileStopped = false;
     bool profileShowOverlay = false;
+    bool profileShowAverage = true;
     float profileMaxRange = 0.0f;
     DebugOptions options;
 };

@@ -32,7 +32,8 @@ void DrawProfileGraph(
     const ProfileGraphEntry* entries,
     int32 entryCount,
     float maxRange,
-    bool showOverlay
+    bool showOverlay,
+    bool showAverage
 );
 
 } // namespace muli3
