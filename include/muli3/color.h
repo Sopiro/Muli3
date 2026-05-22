@@ -54,9 +54,9 @@ constexpr inline Vec3 HSLToRGB(const Vec3& hsl)
 
 constexpr inline uint32 RGBToHex(const Vec3& rgb)
 {
-    uint8 r = std::min<uint32>(uint32(rgb.x * 256), 255);
-    uint8 g = std::min<uint32>(uint32(rgb.y * 256), 255);
-    uint8 b = std::min<uint32>(uint32(rgb.z * 256), 255);
+    uint32 r = std::min<uint32>(uint32(rgb.x * 256), 255);
+    uint32 g = std::min<uint32>(uint32(rgb.y * 256), 255);
+    uint32 b = std::min<uint32>(uint32(rgb.z * 256), 255);
 
     return (uint32(r) << 16) | (uint32(g) << 8) | uint32(b);
 }
