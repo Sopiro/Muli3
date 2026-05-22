@@ -12,8 +12,6 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     : collideFunction{ nullptr }
     , colliderA{ colliderA }
     , colliderB{ colliderB }
-    , bodyA{ colliderA->GetBody() }
-    , bodyB{ colliderB->GetBody() }
     , b1{ colliderA->GetBody() }
     , b2{ colliderB->GetBody() }
     , flag{ 0 }
@@ -33,6 +31,8 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
 
 void Contact::Update()
 {
+    // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.
+    // Writes are strictly isolated to this contact instance, and read accesses to rigidbody transforms are read-only.
     flag |= flag_enabled;
 
     ContactManifold oldManifold = manifold;
@@ -47,6 +47,18 @@ void Contact::Update()
     }
 
     bool wasTouching = (flag & flag_touching) == flag_touching;
+    if (wasTouching)
+    {
+        flag |= flag_was_touching;
+    }
+    else
+    {
+        flag &= ~flag_was_touching;
+    }
+
+    RigidBody* bodyA = colliderA->GetBody();
+    RigidBody* bodyB = colliderB->GetBody();
+
     bool touching = collideFunction(colliderA->shape, bodyA->transform, colliderB->shape, bodyB->transform, &manifold);
 
     if (touching)
@@ -60,12 +72,6 @@ void Contact::Update()
 
     if (touching == false)
     {
-        if (wasTouching)
-        {
-            if (colliderA->ContactListener) colliderA->ContactListener->OnContactEnd(colliderA, colliderB, this);
-            if (colliderB->ContactListener) colliderB->ContactListener->OnContactEnd(colliderB, colliderA, this);
-        }
-
         return;
     }
 
@@ -92,6 +98,24 @@ void Contact::Update()
                 break;
             }
         }
+    }
+}
+
+void Contact::TriggerCallbacks()
+{
+    // Safely execute all user contact listener callbacks sequentially on the main thread during serial state integration.
+    bool wasTouching = (flag & flag_was_touching) == flag_was_touching;
+    bool touching = (flag & flag_touching) == flag_touching;
+
+    if (touching == false)
+    {
+        if (wasTouching)
+        {
+            if (colliderA->ContactListener) colliderA->ContactListener->OnContactEnd(colliderA, colliderB, this);
+            if (colliderB->ContactListener) colliderB->ContactListener->OnContactEnd(colliderB, colliderA, this);
+        }
+
+        return;
     }
 
     if (wasTouching == false)

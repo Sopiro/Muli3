@@ -121,6 +121,22 @@ inline constexpr uint32 clear_island_flags = WORLD_PROFILE_COLOR(clear_island_fl
 
 #undef WORLD_PROFILE_COLOR
 
+inline constexpr uint32 random(uint32 seed)
+{
+    uint32 h = seed + 0x9E3779B9u;
+    h ^= h >> 16;
+    h *= 0x7FEB352Du;
+    h ^= h >> 15;
+    h *= 0x846CA68Bu;
+    h ^= h >> 16;
+
+    uint32 r = 80u + (h & 0x7Fu);
+    uint32 g = 80u + ((h >> 8) & 0x7Fu);
+    uint32 b = 80u + ((h >> 16) & 0x7Fu);
+
+    return (r << 16) | (g << 8) | b;
+}
+
 } // namespace color
 
 } // namespace muli3

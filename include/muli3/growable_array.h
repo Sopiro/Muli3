@@ -81,6 +81,13 @@ public:
         count = 0;
     }
 
+    void reset()
+    {
+        array = stackArray;
+        count = 0;
+        capacity = N;
+    }
+
     void reserve(int32 newCapacity)
     {
         if (newCapacity <= capacity)

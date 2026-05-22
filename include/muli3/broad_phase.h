@@ -20,27 +20,21 @@ public:
     void Update(Collider* collider, const AABB& aabb, const Vec3& displacement);
     void Refresh(Collider* collider);
 
-    bool QueryCallback(NodeIndex node, Collider* collider);
-
-protected:
+private:
     friend class World;
     friend class ContactGraph;
 
     ContactGraph* contactGraph;
     AABBTree tree;
 
-private:
     NodeIndex* moveBuffer;
     int32 moveCapacity;
     int32 moveCount;
 
-    NodeIndex nodeA;
-    Collider* colliderA;
-    RigidBody* bodyA;
-    Shape::Type typeA;
-
     void BufferMove(NodeIndex node);
     void UnBufferMove(NodeIndex node);
+
+    struct TreeCallback;
 };
 
 inline bool BroadPhase::TestOverlap(Collider* inColliderA, Collider* inColliderB) const

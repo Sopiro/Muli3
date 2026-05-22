@@ -1,5 +1,6 @@
 #include "muli3/broad_phase.h"
 #include "muli3/contact_graph.h"
+#include "muli3/parallel_for.h"
 #include "muli3/world.h"
 
 namespace muli3
@@ -7,7 +8,7 @@ namespace muli3
 
 BroadPhase::BroadPhase(ContactGraph* contactGraph)
     : contactGraph{ contactGraph }
-    , moveCapacity{ 16 }
+    , moveCapacity{ 64 }
     , moveCount{ 0 }
 {
     moveBuffer = (NodeIndex*)muli3::Alloc(moveCapacity * sizeof(NodeIndex));
@@ -23,7 +24,7 @@ void BroadPhase::BufferMove(NodeIndex node)
     if (moveCount == moveCapacity)
     {
         NodeIndex* old = moveBuffer;
-        moveCapacity *= 2;
+        moveCapacity = int32(1.5f * moveCapacity);
         moveBuffer = (NodeIndex*)muli3::Alloc(moveCapacity * sizeof(NodeIndex));
         memcpy(moveBuffer, old, moveCount * sizeof(NodeIndex));
         muli3::Free(old);
@@ -44,33 +45,123 @@ void BroadPhase::UnBufferMove(NodeIndex node)
     }
 }
 
-void BroadPhase::FindNewContacts()
+struct ColliderPair
 {
-    for (int32 i = 0; i < moveCount; ++i)
+    Collider* colliderA;
+    Collider* colliderB;
+};
+
+struct MoveResult
+{
+    GrowableArray<ColliderPair, 8> pairs;
+};
+
+struct BroadPhase::TreeCallback
+{
+    const AABBTree* tree;
+
+    NodeIndex nodeA;
+    Collider* colliderA;
+    RigidBody* bodyA;
+    Shape::Type typeA;
+
+    MoveResult* moveResult;
+
+    bool QueryCallback(NodeIndex nodeB, Collider* colliderB)
     {
-        nodeA = moveBuffer[i];
-        if (nodeA == AABBTree::nullNode)
+        if (nodeA == nodeB)
         {
-            continue;
+            return true;
         }
 
-        colliderA = tree.GetData(nodeA);
-        bodyA = colliderA->body;
-        typeA = colliderA->GetType();
+        RigidBody* bodyB = colliderB->body;
+        if (bodyA == bodyB)
+        {
+            return true;
+        }
 
-        const AABB& treeAABB = tree.GetAABB(colliderA->node);
-        tree.Query(treeAABB, this);
+        if (tree->WasMoved(nodeB) && nodeA < nodeB)
+        {
+            return true;
+        }
+
+        Shape::Type typeB = colliderB->GetType();
+
+        if (typeA <= typeB)
+        {
+            moveResult->pairs.emplace_back(colliderB, colliderA);
+        }
+        else
+        {
+            moveResult->pairs.emplace_back(colliderA, colliderB);
+        }
+
+        return true;
+    }
+};
+
+void BroadPhase::FindNewContacts()
+{
+    if (moveCount == 0)
+    {
+        return;
     }
 
-    for (int32 i = 0; i < moveCount; ++i)
-    {
+    LinearAllocator& allocator = contactGraph->world->linearAllocator;
+
+    // Allocate moveResults array for thread-isolated results
+    int32 size = moveCount * sizeof(MoveResult);
+    MoveResult* moveResults = (MoveResult*)allocator.Allocate(size);
+
+    // Parallel Stage: Query tree for each moved proxy in parallel
+    // The AABB tree query is read-only and fully thread-safe
+    ParallelFor(0, moveCount, [this, moveResults](int32 i) {
+        MuliProfileZoneNC(broad_phase_tree_query, "TreeQuery", color::random(123), true);
+
         NodeIndex node = moveBuffer[i];
+
+        MoveResult* moveResult = moveResults + i;
+        moveResult->pairs.reset();
+
+        if (node == AABBTree::nullNode)
+        {
+            MuliProfileZoneEnd(broad_phase_tree_query);
+            return;
+        }
+
+        Collider* colliderA = tree.GetData(node);
+        RigidBody* bodyA = colliderA->body;
+        Shape::Type tfA = colliderA->GetType();
+
+        const AABB& treeAABB = tree.GetAABB(node);
+
+        TreeCallback callback{ &tree, node, colliderA, bodyA, tfA, moveResult };
+        tree.Query(treeAABB, &callback);
+
+        // Reset move flags
         if (node != AABBTree::nullNode)
         {
             tree.ClearMoved(node);
         }
+
+        MuliProfileZoneEnd(broad_phase_tree_query);
+    });
+
+    // Serial Stage: Deterministic contact creation
+    // Sequential iteration guarantees deterministic contact ordering
+    for (int32 i = 0; i < moveCount; ++i)
+    {
+        const MoveResult& result = moveResults[i];
+        for (int32 j = 0; j < result.pairs.size(); ++j)
+        {
+            const ColliderPair& pair = result.pairs[j];
+            contactGraph->OnNewContact(pair.colliderA, pair.colliderB);
+        }
+
+        result.pairs.~GrowableArray();
     }
 
+    allocator.Free(moveResults, size);
     moveCount = 0;
 }
 
@@ -111,37 +202,6 @@ void BroadPhase::Refresh(Collider* collider)
 
     tree.MoveNode(node, aabb, Vec3::zero, true);
     BufferMove(node);
-}
-
-bool BroadPhase::QueryCallback(NodeIndex nodeB, Collider* colliderB)
-{
-    if (nodeA == nodeB)
-    {
-        return true;
-    }
-
-    RigidBody* bodyB = colliderB->body;
-    if (bodyA == bodyB)
-    {
-        return true;
-    }
-
-    if (tree.WasMoved(nodeB) && nodeA < nodeB)
-    {
-        return true;
-    }
-
-    Shape::Type typeB = colliderB->GetType();
-    if (typeA <= typeB)
-    {
-        contactGraph->OnNewContact(colliderB, colliderA);
-    }
-    else
-    {
-        contactGraph->OnNewContact(colliderA, colliderB);
-    }
-
-    return true;
 }
 
 } // namespace muli3

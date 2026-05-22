@@ -115,7 +115,7 @@ void DrawProfileGraph(
     ImVec2 canvasSize{ plotSize.x + spacing.x + legendSize.x, plotSize.y };
     ImVec2 canvasMin = ImGui::GetCursorScreenPos();
 
-    ImGui::InvisibleButton(label, canvasSize);
+    ImGui::InvisibleButton("ProfileGraph", canvasSize);
 
     ImVec2 plotMin = canvasMin;
     ImVec2 plotMax{ plotMin.x + plotSize.x, plotMin.y + plotSize.y };

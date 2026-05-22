@@ -88,9 +88,10 @@ static void MainLoop()
 
     if (updateTime > targetUpdateTime)
     {
+        ProfileFrameMark();
         game->FixedUpdate();
 
-        updateTime -= targetUpdateTime;
+        updateTime = 0;
     }
 
     if (frameTime > targetFrameTime)
@@ -102,7 +103,7 @@ static void MainLoop()
         }
         window->EndFrame();
 
-        frameTime -= targetFrameTime;
+        frameTime = 0;
     }
 }
 

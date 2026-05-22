@@ -27,7 +27,9 @@ public:
     {
         flag_enabled = 1,
         flag_touching = 1 << 1,
-        flag_island = 1 << 2,
+        flag_was_touching = 1 << 2,
+        flag_island = 1 << 3,
+        flag_disjoint = 1 << 4,
     };
 
     Contact(Collider* colliderA, Collider* colliderB);
@@ -70,13 +72,12 @@ private:
     bool SolvePositionConstraints(const Timestep& step);
 
     void Update();
+    void TriggerCallbacks();
 
     CollideFunction* collideFunction;
 
     Collider* colliderA;
     Collider* colliderB;
-    RigidBody* bodyA;
-    RigidBody* bodyB;
     RigidBody* b1;
     RigidBody* b2;
 
@@ -104,6 +105,7 @@ private:
     float restitution;
     float restitutionThreshold;
     Vec2 surfaceSpeed;
+
     uint16 flag;
 };
 
@@ -119,12 +121,12 @@ inline Collider* Contact::GetColliderB() const
 
 inline RigidBody* Contact::GetBodyA() const
 {
-    return bodyA;
+    return colliderA->GetBody();
 }
 
 inline RigidBody* Contact::GetBodyB() const
 {
-    return bodyB;
+    return colliderB->GetBody();
 }
 
 inline RigidBody* Contact::GetReferenceBody() const
