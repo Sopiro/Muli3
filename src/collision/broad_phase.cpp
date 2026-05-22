@@ -138,14 +138,10 @@ void BroadPhase::FindNewContacts()
         TreeCallback callback{ &tree, node, colliderA, bodyA, tfA, moveResult };
         tree.Query(treeAABB, &callback);
 
-        // Reset move flags
-        if (node != AABBTree::nullNode)
-        {
-            tree.ClearMoved(node);
-        }
-
         MuliProfileZoneEnd(broad_phase_tree_query);
     });
+
+    MuliProfileZoneNC(contact_creation, "NewContact", color::random(123), true);
 
     // Serial Stage: Deterministic contact creation
     // Sequential iteration guarantees deterministic contact ordering
@@ -160,6 +156,17 @@ void BroadPhase::FindNewContacts()
 
         result.pairs.~GrowableArray();
     }
+
+    MuliProfileZoneEnd(contact_creation);
+
+    // Reset move flags
+    ParallelFor(0, moveCount, [this](int32 i) {
+        NodeIndex node = moveBuffer[i];
+        if (node != AABBTree::nullNode)
+        {
+            tree.ClearMoved(node);
+        }
+    });
 
     allocator.Free(moveResults, size);
     moveCount = 0;
