@@ -288,11 +288,7 @@ void Game::UpdateUI()
             ImGui::SameLine();
             ImGui::Checkbox("Overlay", &profileShowOverlay);
             ImGui::SameLine();
-            if (ImGui::Button("Clear"))
-            {
-                profileReadIndex = 0;
-                profileWriteIndex = 0;
-            }
+            if (ImGui::Button("Clear")) ClearProfiles();
             ImGui::SameLine();
             ImGui::SetNextItemWidth(120.0f);
             ImGui::SameLine();
@@ -365,6 +361,13 @@ void Game::InitDemo(size_t index)
 
     demo->dt = fixedDeltaTime;
     options.step = false;
+}
+
+void Game::ClearProfiles()
+{
+    std::memset(profiles, 0, profile_capacity * sizeof(WorldProfile));
+    profileReadIndex = 0;
+    profileWriteIndex = profile_capacity - 1;
 }
 
 } // namespace muli3
