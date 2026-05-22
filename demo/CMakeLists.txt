@@ -16,6 +16,7 @@ FetchContent_Populate(
     imgui
     GIT_REPOSITORY https://github.com/ocornut/imgui.git
     GIT_TAG v1.92.4
+    GIT_SHALLOW TRUE
 )
 
 file(GLOB IMGUI_HEADER_FILES ${imgui_SOURCE_DIR}/*.h)

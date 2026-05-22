@@ -11,7 +11,6 @@
 Same architecture, collision detection, and solver as [Muli](https://github.com/Sopiro/Muli), with only the dynamics expanded to 3D.
 
 ### Collision
-
   - Shapes: sphere, capsule, box and convex polyhedron
   - Support for rounded shapes
   - Multiple colliders attached to a single body
@@ -23,7 +22,6 @@ Same architecture, collision detection, and solver as [Muli](https://github.com/
   - Easy-to-use collision detection and distance functions
 
  ### Physics Simulation
-
   - PGS solver with a separate position solver
   - Efficient and persistent contact management from Box2D
   - Constraint islanding and sleeping
