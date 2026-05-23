@@ -14,7 +14,7 @@ public:
         : Demo(game)
     {
         float size = 1.0f;
-        float gap = 0.05f;
+        float gap = 0.03f;
         float xStep = size + gap;
         float yStep = size + gap;
         float xStart = -(rows - 1.0f) * xStep * 0.5f;

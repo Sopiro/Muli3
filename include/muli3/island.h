@@ -1,64 +1,60 @@
 #pragma once
 
-#include "world.h"
+#include "common.h"
 
 namespace muli3
 {
 
+class World;
+class Contact;
+class RigidBody;
+class Joint;
+
 class Island
 {
 public:
-    Island(World* world, int32 bodyCapacity, int32 contactCapacity, int32 jointCapacity);
-    ~Island();
+    Island() = default;
 
-    void Add(RigidBody* body);
-    void Add(Contact* contact);
-    void Add(Joint* joint);
+    void Prepare(
+        bool sleeping,
+        Contact** contacts,
+        RigidBody** bodies,
+        Joint** joints,
+        int32 contactCount,
+        int32 bodyCount,
+        int32 jointCount
+    );
+    void Solve(World* world);
 
-    void Solve();
-    void Clear();
-
-    World* world;
-
-    RigidBody** bodies;
     Contact** contacts;
+    RigidBody** bodies;
     Joint** joints;
 
-    int32 bodyCapacity;
-    int32 contactCapacity;
-    int32 jointCapacity;
-    int32 bodyCount;
     int32 contactCount;
+    int32 bodyCount;
     int32 jointCount;
 
     bool sleeping;
 };
 
-inline void Island::Add(RigidBody* body)
+inline void Island::Prepare(
+    bool inSleeping,
+    Contact** inContacts,
+    RigidBody** inBodies,
+    Joint** inJoints,
+    int32 inContactCount,
+    int32 inBodyCount,
+    int32 inJointCount
+)
 {
-    MuliAssert(bodyCount < bodyCapacity);
-    body->islandIndex = bodyCount;
-    bodies[bodyCount++] = body;
-}
+    sleeping = inSleeping;
 
-inline void Island::Add(Contact* contact)
-{
-    MuliAssert(contactCount < contactCapacity);
-    contacts[contactCount++] = contact;
-}
-
-inline void Island::Add(Joint* joint)
-{
-    MuliAssert(jointCount < jointCapacity);
-    joints[jointCount++] = joint;
-}
-
-inline void Island::Clear()
-{
-    bodyCount = 0;
-    contactCount = 0;
-    jointCount = 0;
-    sleeping = false;
+    contacts = inContacts;
+    bodies = inBodies;
+    joints = inJoints;
+    contactCount = inContactCount;
+    bodyCount = inBodyCount;
+    jointCount = inJointCount;
 }
 
 } // namespace muli3

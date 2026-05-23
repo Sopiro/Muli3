@@ -271,10 +271,8 @@ void Game::UpdateUI()
                 { "Narrow phase", color::narrow_phase, profile_narrow_phase },
                 { "Build islands", color::build_islands, profile_build_islands },
                 { "Solve islands", color::solve, profile_solve_islands },
-                { "Update transforms", color::update_transforms, profile_update_transforms },
+                { "Sync transforms", color::sync_transforms, profile_sync_transforms },
                 { "Clear island flags", color::clear_island_flags, profile_clear_island_flags },
-                { "Solve other", color::solve, profile_solve_other },
-                { "Solve rest", color::solve, profile_solve_rest },
                 { "Deferred destroy", color::deferred_destroy, profile_deferred_destroy },
                 { "Other", color::step, profile_step_other },
             };
@@ -348,6 +346,7 @@ void Game::InitDemo(size_t index)
     time = 0.0f;
     demoIndex = index;
     demo = demoFrames[demoIndex].createFunction(*this);
+    // ClearProfiles();
 
     if (restoreSettings)
     {

@@ -135,7 +135,7 @@ float World::Step(float dt)
 {
     profile = {};
     ProfileScope profile_step{ &profile.step };
-    MuliProfileZoneNC(world_step, "Step", color::step, true);
+    MuliProfileZoneNC(world_step, "World::Step", color::step, true);
 
     settings.step.dt = dt;
     settings.step.inv_dt = dt > 0.0f ? 1.0f / dt : 0.0f;
@@ -788,8 +788,7 @@ bool World::ShapeCastClosest(
 
 void World::Solve()
 {
-    ProfileScope profile_solve_world{ &profile.solve_world };
-    MuliProfileZoneNC(solve_world, "Solve World", color::solve, true);
+    MuliProfileZoneNC(solve_world, "World::Solve", color::solve, true);
 
     int32 bodyCount = GetBodyCount();
     if (bodyCount == 0)
@@ -798,14 +797,19 @@ void World::Solve()
         return;
     }
 
-    Island island{ this, bodyCount, contactGraph.contactCount, jointCount };
+    Island island;
 
     int32 restingBodies = 0;
     int32 islandID = 0;
     sleepingBodyCount = 0;
 
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
-    int32 stackPointer;
+
+    int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
+    int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
+    Contact** islandContacts = (Contact**)linearAllocator.Allocate(contactGraph.contactCount * sizeof(Contact*));
+    RigidBody** islandBodies = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
+    Joint** islandJoints = (Joint**)linearAllocator.Allocate(jointCount * sizeof(Joint*));
 
     for (RigidBody* b = bodyList; b; b = b->next)
     {
@@ -834,7 +838,7 @@ void World::Solve()
             ProfileScope profile_build_islands{ &profile.build_islands };
             MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
 
-            stackPointer = 0;
+            int32 stackPointer = 0;
             stack[stackPointer++] = b;
             b->flag |= RigidBody::flag_island;
 
@@ -843,7 +847,7 @@ void World::Solve()
             {
                 RigidBody* t = stack[--stackPointer];
 
-                island.Add(t);
+                islandBodies[bodyIndex++] = t;
                 t->islandID = islandID;
 
                 for (ContactEdge* ce = t->contactList; ce; ce = ce->next)
@@ -865,7 +869,7 @@ void World::Solve()
                         continue;
                     }
 
-                    island.Add(c);
+                    islandContacts[contactIndex++] = c;
                     c->flag |= Contact::flag_island;
 
                     RigidBody* other = ce->other;
@@ -901,7 +905,7 @@ void World::Solve()
                         continue;
                     }
 
-                    island.Add(j);
+                    islandJoints[jointIndex++] = j;
                     j->flagIsland = true;
 
                     if (other->flag & RigidBody::flag_island)
@@ -928,25 +932,35 @@ void World::Solve()
             MuliProfileZoneEnd(build_islands);
         }
 
-        island.sleeping = settings.sleeping && (restingBodies == island.bodyCount);
+        int32 islandContactCount = contactIndex - contactIndex0;
+        int32 islandBodyCount = bodyIndex - bodyIndex0;
+        int32 islandJointCount = jointIndex - jointIndex0;
+        bool sleeping = settings.sleeping && (restingBodies == islandBodyCount);
+        island.Prepare(
+            sleeping, islandContacts + contactIndex0, islandBodies + bodyIndex0, islandJoints + jointIndex0, islandContactCount,
+            islandBodyCount, islandJointCount
+        );
+        contactIndex0 = contactIndex;
+        bodyIndex0 = bodyIndex;
+        jointIndex0 = jointIndex;
 
-        ProfileScope profile_solve_islands{ &profile.solve_islands };
         {
-            MuliProfileZoneNC(solve_islands, "Solve Islands", color::solve, true);
-            island.Solve();
-            MuliProfileZoneEnd(solve_islands);
+            ProfileScope profile_solve_islands{ &profile.solve_islands };
+            island.Solve(this);
         }
 
-        island.Clear();
         restingBodies = 0;
     }
 
+    linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
+    linearAllocator.Free(islandBodies, bodyCount * sizeof(RigidBody*));
+    linearAllocator.Free(islandContacts, contactGraph.contactCount * sizeof(Contact*));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
     islandCount = islandID;
 
     {
-        ProfileScope profile_update_transforms{ &profile.update_transforms };
-        MuliProfileZoneNC(update_transforms, "Update Transforms", color::update_transforms, true);
+        ProfileScope profile_sync_transforms{ &profile.sync_transforms };
+        MuliProfileZoneNC(sync_transforms, "Sync Transforms", color::sync_transforms, true);
 
         for (RigidBody* body = bodyList; body; body = body->next)
         {
@@ -967,7 +981,7 @@ void World::Solve()
             }
         }
 
-        MuliProfileZoneEnd(update_transforms);
+        MuliProfileZoneEnd(sync_transforms);
     }
 
     {
@@ -987,7 +1001,6 @@ void World::Solve()
         MuliProfileZoneEnd(clear_flags);
     }
 
-    MuliNotUsed(islandID);
     MuliProfileZoneEnd(solve_world);
 }
 

@@ -9,10 +9,8 @@ enum ProfileValue
     profile_step_other,
     profile_build_islands,
     profile_solve_islands,
-    profile_update_transforms,
+    profile_sync_transforms,
     profile_clear_island_flags,
-    profile_solve_other,
-    profile_solve_rest,
 };
 
 struct ProfileGraphEntry

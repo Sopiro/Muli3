@@ -47,7 +47,6 @@ struct WorldProfile
     float broad_phase = 0.0f;
     float narrow_phase = 0.0f;
     float solve = 0.0f;
-    float solve_world = 0.0f;
     float build_islands = 0.0f;
     float solve_islands = 0.0f;
     float integrate_velocities = 0.0f;
@@ -55,7 +54,7 @@ struct WorldProfile
     float solve_velocity = 0.0f;
     float integrate_positions = 0.0f;
     float solve_position = 0.0f;
-    float update_transforms = 0.0f;
+    float sync_transforms = 0.0f;
     float clear_island_flags = 0.0f;
     float deferred_destroy = 0.0f;
 };
@@ -116,7 +115,7 @@ inline constexpr uint32 prepare_constraints = WORLD_PROFILE_COLOR(prepare_constr
 inline constexpr uint32 solve_velocity = WORLD_PROFILE_COLOR(solve_velocity);
 inline constexpr uint32 integrate_positions = WORLD_PROFILE_COLOR(integrate_positions);
 inline constexpr uint32 solve_position = WORLD_PROFILE_COLOR(solve_position);
-inline constexpr uint32 update_transforms = WORLD_PROFILE_COLOR(update_transforms);
+inline constexpr uint32 sync_transforms = WORLD_PROFILE_COLOR(sync_transforms);
 inline constexpr uint32 clear_island_flags = WORLD_PROFILE_COLOR(clear_island_flags);
 
 #undef WORLD_PROFILE_COLOR

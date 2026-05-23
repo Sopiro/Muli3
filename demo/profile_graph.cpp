@@ -18,22 +18,17 @@ static float GetProfileValue(const WorldProfile& profile, ProfileValue value)
         return profile.narrow_phase;
     case profile_deferred_destroy:
         return profile.deferred_destroy;
-    case profile_step_other:
-        return (std::max)(0.0f,
-                          profile.step - profile.broad_phase - profile.narrow_phase - profile.solve - profile.deferred_destroy);
     case profile_build_islands:
         return profile.build_islands;
     case profile_solve_islands:
         return profile.solve_islands;
-    case profile_update_transforms:
-        return profile.update_transforms;
+    case profile_sync_transforms:
+        return profile.sync_transforms;
     case profile_clear_island_flags:
         return profile.clear_island_flags;
-    case profile_solve_other:
-        return (std::max)(0.0f, profile.solve_world - profile.build_islands - profile.solve_islands - profile.update_transforms -
-                                    profile.clear_island_flags);
-    case profile_solve_rest:
-        return (std::max)(0.0f, profile.solve - profile.solve_world);
+    case profile_step_other:
+        return (std::max)(0.0f,
+                          profile.step - profile.broad_phase - profile.narrow_phase - profile.solve - profile.deferred_destroy);
     default:
         return 0.0f;
     }

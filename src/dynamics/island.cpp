@@ -1,4 +1,5 @@
 #include "muli3/island.h"
+#include "muli3/world.h"
 
 namespace muli3
 {
@@ -25,31 +26,9 @@ static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, f
     return q.Rotate(localW);
 }
 
-Island::Island(World* world, int32 bodyCapacity, int32 contactCapacity, int32 jointCapacity)
-    : world{ world }
-    , bodyCapacity{ bodyCapacity }
-    , contactCapacity{ contactCapacity }
-    , jointCapacity{ jointCapacity }
-    , bodyCount{ 0 }
-    , contactCount{ 0 }
-    , jointCount{ 0 }
-    , sleeping{ false }
+void Island::Solve(World* world)
 {
-    bodies = (RigidBody**)world->linearAllocator.Allocate(bodyCapacity * sizeof(RigidBody*));
-    contacts = (Contact**)world->linearAllocator.Allocate(contactCapacity * sizeof(Contact*));
-    joints = (Joint**)world->linearAllocator.Allocate(jointCapacity * sizeof(Joint*));
-}
-
-Island::~Island()
-{
-    world->linearAllocator.Free(joints, jointCapacity * sizeof(Joint*));
-    world->linearAllocator.Free(contacts, contactCapacity * sizeof(Contact*));
-    world->linearAllocator.Free(bodies, bodyCapacity * sizeof(RigidBody*));
-}
-
-void Island::Solve()
-{
-    MuliProfileZoneNC(solve_island, "Solve Island", color::solve, true);
+    MuliProfileZoneNC(solve_island, "Island::Solve", color::solve, true);
 
     bool awakeIsland = false;
 
