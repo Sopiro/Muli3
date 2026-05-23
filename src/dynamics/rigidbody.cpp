@@ -28,7 +28,6 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , force{ 0.0f, 0.0f, 0.0f }
     , torque{ 0.0f, 0.0f, 0.0f }
     , islandIndex{ 0 }
-    , islandID{ 0 }
     , flag{ flag_enabled }
     , world{ nullptr }
     , prev{ nullptr }
@@ -442,7 +441,6 @@ void RigidBody::SetType(RigidBody::Type newType)
         world->contactGraph.broadPhase.Refresh(collider);
     }
 
-    islandID = 0;
     islandIndex = 0;
 }
 
@@ -480,7 +478,6 @@ void RigidBody::SetEnabled(bool enabled)
             world->contactGraph.RemoveCollider(collider);
         }
 
-        islandID = 0;
         islandIndex = 0;
     }
 }

@@ -96,7 +96,6 @@ public:
     void Awake();
     void Sleep();
 
-    int32 GetIslandID() const;
     int32 GetIslandIndex() const;
 
     RigidBody* GetPrev();
@@ -260,8 +259,6 @@ protected:
     Vec3 torque;
 
     int32 islandIndex;
-    int32 islandID;
-
     uint16 flag;
 
     void ResetMassData();
@@ -526,11 +523,6 @@ inline void RigidBody::SetSleeping(bool sleeping)
     {
         Awake();
     }
-}
-
-inline int32 RigidBody::GetIslandID() const
-{
-    return islandID;
 }
 
 inline int32 RigidBody::GetIslandIndex() const

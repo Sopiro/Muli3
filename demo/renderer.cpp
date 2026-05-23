@@ -252,7 +252,7 @@ Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
         return Renderer::default_white;
     }
 
-    int32 colorIndex = body.GetIslandID() - 1;
+    int32 colorIndex = body.GetIslandIndex() - 1;
     if (colorIndex < 0)
     {
         return Renderer::default_white;

@@ -340,6 +340,7 @@ private:
     ContactGraph contactGraph;
 
     RigidBody* bodyList = nullptr;
+    RigidBody* bodyListTail = nullptr;
     int32 bodyCount = 0;
 
     Joint* jointList = nullptr;

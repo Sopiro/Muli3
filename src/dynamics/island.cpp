@@ -48,7 +48,6 @@ void Island::Solve(World* world)
 
             if (sleeping)
             {
-                b->islandID = 0;
                 b->islandIndex = 0;
                 b->linearVelocity = Vec3::zero;
                 b->angularVelocity = Vec3::zero;
@@ -155,11 +154,6 @@ void Island::Solve(World* world)
             Quat w{ b->angularVelocity, 0.0f };
             b->motion.q = b->motion.q + (w * b->motion.q) * step.dt * 0.5f;
             b->motion.q.Normalize();
-
-            if (settings.world_bounds.TestPoint(b->transform.p) == false)
-            {
-                world->BufferDestroy(b);
-            }
         }
 
         MuliProfileZoneEnd(integrate_position);

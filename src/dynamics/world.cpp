@@ -29,6 +29,7 @@ void World::Reset()
     }
 
     MuliAssert(bodyList == nullptr);
+    MuliAssert(bodyListTail == nullptr);
     MuliAssert(jointList == nullptr);
     MuliAssert(bodyCount == 0);
     MuliAssert(jointCount == 0);
@@ -45,13 +46,8 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     RigidBody* b = new (mem) RigidBody(transform, type);
 
     b->world = this;
-    b->prev = nullptr;
-    b->next = bodyList;
-    if (bodyList != nullptr)
-    {
-        bodyList->prev = b;
-    }
-
+    b->prev = bodyListTail;
+    b->next = nullptr;
     b->contactList = nullptr;
     b->jointList = nullptr;
     b->colliderList = nullptr;
@@ -59,7 +55,15 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     b->flag &= ~RigidBody::flag_island;
     b->flag |= RigidBody::flag_enabled;
 
-    bodyList = b;
+    if (bodyListTail)
+    {
+        bodyListTail->next = b;
+    }
+    else
+    {
+        bodyList = b;
+    }
+    bodyListTail = b;
     ++bodyCount;
 
     return b;
@@ -219,6 +223,7 @@ void World::Destroy(RigidBody* body)
     if (body->next) body->next->prev = body->prev;
     if (body->prev) body->prev->next = body->next;
     if (body == bodyList) bodyList = body->next;
+    if (body == bodyListTail) bodyListTail = body->prev;
     --bodyCount;
 
     FreeBody(body);
@@ -800,9 +805,10 @@ void World::Solve()
     Island island;
 
     int32 restingBodies = 0;
-    int32 islandID = 0;
+    int32 islandCount = 0;
     sleepingBodyCount = 0;
 
+    int32 stackPointer = 0;
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
 
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
@@ -838,17 +844,16 @@ void World::Solve()
             ProfileScope profile_build_islands{ &profile.build_islands };
             MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
 
-            int32 stackPointer = 0;
             stack[stackPointer++] = b;
             b->flag |= RigidBody::flag_island;
 
-            ++islandID;
+            ++islandCount;
             while (stackPointer > 0)
             {
                 RigidBody* t = stack[--stackPointer];
 
                 islandBodies[bodyIndex++] = t;
-                t->islandID = islandID;
+                t->islandIndex = islandCount;
 
                 for (ContactEdge* ce = t->contactList; ce; ce = ce->next)
                 {
@@ -936,10 +941,12 @@ void World::Solve()
         int32 islandBodyCount = bodyIndex - bodyIndex0;
         int32 islandJointCount = jointIndex - jointIndex0;
         bool sleeping = settings.sleeping && (restingBodies == islandBodyCount);
+
         island.Prepare(
             sleeping, islandContacts + contactIndex0, islandBodies + bodyIndex0, islandJoints + jointIndex0, islandContactCount,
             islandBodyCount, islandJointCount
         );
+
         contactIndex0 = contactIndex;
         bodyIndex0 = bodyIndex;
         jointIndex0 = jointIndex;
@@ -956,7 +963,6 @@ void World::Solve()
     linearAllocator.Free(islandBodies, bodyCount * sizeof(RigidBody*));
     linearAllocator.Free(islandContacts, contactGraph.contactCount * sizeof(Contact*));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
-    islandCount = islandID;
 
     {
         ProfileScope profile_sync_transforms{ &profile.sync_transforms };
@@ -975,9 +981,17 @@ void World::Solve()
             Transform transform0;
             body->motion.GetTransform(0.0f, &transform0);
             body->SynchronizeTransform();
-            for (Collider* collider = body->colliderList; collider; collider = collider->next)
+
+            if (settings.world_bounds.TestPoint(body->transform.p) == false)
             {
-                contactGraph.UpdateCollider(collider, transform0, body->transform);
+                BufferDestroy(body);
+            }
+            else
+            {
+                for (Collider* collider = body->colliderList; collider; collider = collider->next)
+                {
+                    contactGraph.UpdateCollider(collider, transform0, body->transform);
+                }
             }
         }
 
