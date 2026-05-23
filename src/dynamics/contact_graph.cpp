@@ -23,7 +23,7 @@ ContactGraph::~ContactGraph()
 
 void ContactGraph::EvaluateContacts()
 {
-    MuliProfileZoneNC(gather_active_contacts, "GatherActive", color::random(109817), true);
+    MuliProfileZoneNC(gather_active_contacts, "Gather Active", color::random(109817), true);
 
     // 1. Gather all active contacts to a flat buffer sequentially to preserve deterministic sequence.
     // Active contacts are those where at least one rigid body is awake and not static.
@@ -71,7 +71,7 @@ void ContactGraph::EvaluateContacts()
         MuliProfileZoneEnd(narrow_phase_collision);
     });
 
-    MuliProfileZoneNC(post_narrow_phase, "PostNarrowPhase", color::random(94378), true);
+    MuliProfileZoneNC(post_narrow_phase, "Post Narrow Phase", color::random(945378), true);
 
     // 3. Serial Stage: Integrate states, execute user callbacks, and destroy disjoint contacts.
     // Sequential execution on the main thread guarantees deterministic order of events.

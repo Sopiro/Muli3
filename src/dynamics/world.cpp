@@ -4,6 +4,7 @@
 #include "muli3/collider.h"
 #include "muli3/convex_shape.h"
 #include "muli3/island.h"
+#include "muli3/parallel_for.h"
 #include "muli3/raycast.h"
 #include "muli3/sphere_shape.h"
 
@@ -177,10 +178,7 @@ float World::Step(float dt)
     MuliProfileZoneNC(destroy_buffer, "Deferred Destroy", color::deferred_destroy, true);
     for (RigidBody* body : destroyBodyBuffer)
     {
-        if (body && body->world == this)
-        {
-            Destroy(body);
-        }
+        Destroy(body);
     }
     for (Joint* j : destroyJointBuffer)
     {
@@ -795,21 +793,20 @@ void World::Solve()
 {
     MuliProfileZoneNC(solve_world, "World::Solve", color::solve, true);
 
-    int32 bodyCount = GetBodyCount();
     if (bodyCount == 0)
     {
         MuliProfileZoneEnd(solve_world);
         return;
     }
 
-    Island island;
-
     int32 restingBodies = 0;
-    int32 islandCount = 0;
     sleepingBodyCount = 0;
 
     int32 stackPointer = 0;
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
+
+    int32 islandCount = 0;
+    Island* islands = (Island*)linearAllocator.Allocate(bodyCount * sizeof(Island));
 
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
@@ -817,6 +814,8 @@ void World::Solve()
     RigidBody** islandBodies = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
     Joint** islandJoints = (Joint**)linearAllocator.Allocate(jointCount * sizeof(Joint*));
 
+    MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
+    ProfileScope profile_build_islands{ &profile.build_islands };
     for (RigidBody* b = bodyList; b; b = b->next)
     {
         if (b->flag & RigidBody::flag_island)
@@ -840,101 +839,94 @@ void World::Solve()
             continue;
         }
 
+        MuliProfileZoneNC(build_island, "Build Island", color::random(31928), true);
+        stack[stackPointer++] = b;
+        b->flag |= RigidBody::flag_island;
+
+        while (stackPointer > 0)
         {
-            ProfileScope profile_build_islands{ &profile.build_islands };
-            MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
+            RigidBody* t = stack[--stackPointer];
 
-            stack[stackPointer++] = b;
-            b->flag |= RigidBody::flag_island;
+            islandBodies[bodyIndex++] = t;
+            t->islandIndex = islandCount;
 
-            ++islandCount;
-            while (stackPointer > 0)
+            for (ContactEdge* ce = t->contactList; ce; ce = ce->next)
             {
-                RigidBody* t = stack[--stackPointer];
+                Contact* c = ce->contact;
 
-                islandBodies[bodyIndex++] = t;
-                t->islandIndex = islandCount;
-
-                for (ContactEdge* ce = t->contactList; ce; ce = ce->next)
+                if (c->flag & Contact::flag_island)
                 {
-                    Contact* c = ce->contact;
-
-                    if (c->flag & Contact::flag_island)
-                    {
-                        continue;
-                    }
-
-                    if ((c->flag & Contact::flag_touching) == 0)
-                    {
-                        continue;
-                    }
-
-                    if ((c->flag & Contact::flag_enabled) == 0)
-                    {
-                        continue;
-                    }
-
-                    islandContacts[contactIndex++] = c;
-                    c->flag |= Contact::flag_island;
-
-                    RigidBody* other = ce->other;
-
-                    if (other->flag & RigidBody::flag_island)
-                    {
-                        continue;
-                    }
-
-                    if (other->IsStatic())
-                    {
-                        continue;
-                    }
-
-                    MuliAssert(stackPointer < bodyCount);
-                    stack[stackPointer++] = other;
-                    other->flag |= RigidBody::flag_island;
+                    continue;
                 }
 
-                for (JointEdge* je = t->jointList; je; je = je->next)
+                if ((c->flag & Contact::flag_touching) == 0)
                 {
-                    Joint* j = je->joint;
-
-                    if (j->flagIsland == true)
-                    {
-                        continue;
-                    }
-
-                    RigidBody* other = je->other;
-
-                    if (other->IsEnabled() == false)
-                    {
-                        continue;
-                    }
-
-                    islandJoints[jointIndex++] = j;
-                    j->flagIsland = true;
-
-                    if (other->flag & RigidBody::flag_island)
-                    {
-                        continue;
-                    }
-
-                    if (other->IsStatic())
-                    {
-                        continue;
-                    }
-
-                    MuliAssert(stackPointer < bodyCount);
-                    stack[stackPointer++] = other;
-                    other->flag |= RigidBody::flag_island;
+                    continue;
                 }
 
-                if (t->resting > settings.sleeping_time)
+                if ((c->flag & Contact::flag_enabled) == 0)
                 {
-                    ++restingBodies;
+                    continue;
                 }
+
+                islandContacts[contactIndex++] = c;
+                c->flag |= Contact::flag_island;
+
+                RigidBody* other = ce->other;
+
+                if (other->flag & RigidBody::flag_island)
+                {
+                    continue;
+                }
+
+                if (other->IsStatic())
+                {
+                    continue;
+                }
+
+                MuliAssert(stackPointer < bodyCount);
+                stack[stackPointer++] = other;
+                other->flag |= RigidBody::flag_island;
             }
 
-            MuliProfileZoneEnd(build_islands);
+            for (JointEdge* je = t->jointList; je; je = je->next)
+            {
+                Joint* j = je->joint;
+
+                if (j->flagIsland == true)
+                {
+                    continue;
+                }
+
+                RigidBody* other = je->other;
+
+                if (other->IsEnabled() == false)
+                {
+                    continue;
+                }
+
+                islandJoints[jointIndex++] = j;
+                j->flagIsland = true;
+
+                if (other->flag & RigidBody::flag_island)
+                {
+                    continue;
+                }
+
+                if (other->IsStatic())
+                {
+                    continue;
+                }
+
+                MuliAssert(stackPointer < bodyCount);
+                stack[stackPointer++] = other;
+                other->flag |= RigidBody::flag_island;
+            }
+
+            if (t->resting > settings.sleeping_time)
+            {
+                ++restingBodies;
+            }
         }
 
         int32 islandContactCount = contactIndex - contactIndex0;
@@ -942,7 +934,9 @@ void World::Solve()
         int32 islandJointCount = jointIndex - jointIndex0;
         bool sleeping = settings.sleeping && (restingBodies == islandBodyCount);
 
-        island.Prepare(
+        Island* island = &islands[islandCount++];
+
+        island->Prepare(
             sleeping, islandContacts + contactIndex0, islandBodies + bodyIndex0, islandJoints + jointIndex0, islandContactCount,
             islandBodyCount, islandJointCount
         );
@@ -951,17 +945,26 @@ void World::Solve()
         bodyIndex0 = bodyIndex;
         jointIndex0 = jointIndex;
 
-        {
-            ProfileScope profile_solve_islands{ &profile.solve_islands };
-            island.Solve(this);
-        }
-
         restingBodies = 0;
+        MuliProfileZoneEnd(build_island);
+    }
+    profile_build_islands.Stop();
+    MuliProfileZoneEnd(build_islands);
+
+    {
+        ProfileScope profile_solve_islands{ &profile.solve_islands };
+        MuliProfileZoneNC(solve_islands, "Solve Islands", color::solve_islands, true);
+        ParallelFor(0, islandCount, [&](int32 i) {
+            Island* island = islands + i;
+            island->Solve(this);
+        });
+        MuliProfileZoneEnd(solve_islands);
     }
 
     linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
     linearAllocator.Free(islandBodies, bodyCount * sizeof(RigidBody*));
     linearAllocator.Free(islandContacts, contactGraph.contactCount * sizeof(Contact*));
+    linearAllocator.Free(islands, bodyCount * sizeof(Island));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
 
     {
