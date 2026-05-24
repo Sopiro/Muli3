@@ -1,12 +1,13 @@
 #pragma once
 
 #include "common.h"
-#include "constraint.h"
+#include "rigidbody.h"
 
 namespace muli3
 {
 
 class Joint;
+class JointDestroyCallback;
 
 struct JointEdge
 {
@@ -16,7 +17,7 @@ struct JointEdge
     JointEdge* next;
 };
 
-class Joint : public Constraint
+class Joint
 {
     /*
      * Equation of motion for the damped harmonic oscillator
@@ -83,11 +84,16 @@ public:
     // clang-format on
     virtual ~Joint();
 
-    virtual bool SolvePositionConstraints(const Timestep& step) override
+    virtual void Prepare(const Timestep& step) = 0;
+    virtual void SolveVelocityConstraints(const Timestep& step) = 0;
+    virtual bool SolvePositionConstraints(const Timestep& step)
     {
         MuliNotUsed(step);
         return true;
     }
+
+    RigidBody* GetBodyA() const;
+    RigidBody* GetBodyB() const;
 
     float GetJointFrequency() const;
     void SetJointFrequency(float jointFrequency);
@@ -108,11 +114,17 @@ public:
 
     bool IsEnabled() const;
 
+    JointDestroyCallback* OnDestroy;
     void* UserData;
 
 protected:
+    RigidBody* bodyA;
+    RigidBody* bodyB;
+
     Joint::Type type;
 
+    JointState* GetJointState();
+    const JointState* GetJointState() const;
     void ComputeBetaAndGamma(const Timestep& step);
 
 private:
@@ -130,6 +142,9 @@ private:
 
     JointEdge nodeA;
     JointEdge nodeB;
+
+    int32 setIndex;
+    int32 localIndex;
 
     bool flagIsland;
 };
@@ -197,6 +212,16 @@ inline const Joint* Joint::GetNext() const
 inline bool Joint::IsEnabled() const
 {
     return bodyA->IsEnabled() || bodyB->IsEnabled();
+}
+
+inline RigidBody* Joint::GetBodyA() const
+{
+    return bodyA;
+}
+
+inline RigidBody* Joint::GetBodyB() const
+{
+    return bodyB;
 }
 
 } // namespace muli3

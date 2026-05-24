@@ -6,11 +6,9 @@
 namespace muli3
 {
 
-ContactListener defaultListener;
-
 Collider::Collider()
     : OnDestroy{ nullptr }
-    , ContactListener{ &defaultListener }
+    , ContactListener{ nullptr }
     , UserData{ nullptr }
     , body{ nullptr }
     , next{ nullptr }

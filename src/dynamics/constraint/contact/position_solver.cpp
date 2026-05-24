@@ -4,24 +4,30 @@
 namespace muli3
 {
 
-void PositionSolver::Prepare(Contact* contact, int32 index)
+void PositionSolver::Prepare(ContactState* cs, int32 index)
 {
-    Vec3 comA = contact->b1->motion.c;
-    Vec3 comB = contact->b2->motion.c;
-    Quat qA = contact->b1->motion.q;
-    Quat qB = contact->b2->motion.q;
+    BodyState* sA = cs->s1;
+    BodyState* sB = cs->s2;
 
-    localPlanePoint = qA.RotateInv(contact->manifold.referencePoint.p - comA);
-    localClipPoint = qB.RotateInv(contact->manifold.contactPoints[index].p - comB);
-    localNormal = qA.RotateInv(contact->manifold.contactNormal);
+    Vec3 comA = sA->motion.c;
+    Vec3 comB = sB->motion.c;
+    Quat qA = sA->motion.q;
+    Quat qB = sB->motion.q;
+
+    localPlanePoint = qA.RotateInv(cs->manifold.referencePoint.p - comA);
+    localClipPoint = qB.RotateInv(cs->manifold.contactPoints[index].p - comB);
+    localNormal = qA.RotateInv(cs->manifold.contactNormal);
 }
 
-bool PositionSolver::Solve(Contact* contact)
+bool PositionSolver::Solve(ContactState* cs)
 {
-    Vec3 comA = contact->b1->motion.c;
-    Vec3 comB = contact->b2->motion.c;
-    Quat qA = contact->b1->motion.q;
-    Quat qB = contact->b2->motion.q;
+    BodyState* sA = cs->s1;
+    BodyState* sB = cs->s2;
+
+    Vec3 comA = sA->motion.c;
+    Vec3 comB = sB->motion.c;
+    Quat qA = sA->motion.q;
+    Quat qB = sB->motion.q;
 
     Vec3 planePoint = qA.Rotate(localPlanePoint) + comA;
     Vec3 clipPoint = qB.Rotate(localClipPoint) + comB;
@@ -37,10 +43,10 @@ bool PositionSolver::Solve(Contact* contact)
 
     // clang-format off
     // effective mass = 1 / k
-    float k = contact->b1->invMass
-            + Dot(ran, contact->invIA * ran)
-            + contact->b2->invMass
-            + Dot(rbn, contact->invIB * rbn);
+    float k = sA->invMass
+            + Dot(ran, cs->invIA * ran)
+            + sB->invMass
+            + Dot(rbn, cs->invIB * rbn);
     // clang-format on
 
     // Constraint (bias)
@@ -50,10 +56,10 @@ bool PositionSolver::Solve(Contact* contact)
     float lambda = k > 0.0f ? -c / k : 0.0f;
     Vec3 impulse = normal * lambda;
 
-    contact->cLinearImpulseA -= impulse;
-    contact->cAngularImpulseA -= Cross(ra, impulse);
-    contact->cLinearImpulseB += impulse;
-    contact->cAngularImpulseB += Cross(rb, impulse);
+    cs->cLinearImpulseA -= impulse;
+    cs->cAngularImpulseA -= Cross(ra, impulse);
+    cs->cLinearImpulseB += impulse;
+    cs->cAngularImpulseB += Cross(rb, impulse);
 
     // We can't expect separation >= -linear_slop
     // because we don't push the separation above -linear_slop

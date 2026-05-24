@@ -41,55 +41,41 @@ void Island::Solve(World* world)
         // Integrate velocities, yield tentative velocities that possibly violate the constraint
         for (int32 i = 0; i < bodyCount; ++i)
         {
-            RigidBody* b = bodies[i];
-            b->motion.c0 = b->motion.c;
-            b->motion.q0 = b->motion.q;
-            b->motion.alpha0 = 0.0f;
+            BodyState* s = bodies[i];
+            RigidBody* b = s->body;
+            s->motion.c0 = s->motion.c;
+            s->motion.q0 = s->motion.q;
+            s->motion.alpha0 = 0.0f;
 
-            if (sleeping)
-            {
-                b->islandIndex = 0;
-                b->linearVelocity = Vec3::zero;
-                b->angularVelocity = Vec3::zero;
-                b->flag |= RigidBody::flag_sleeping;
-            }
-            else
-            {
-                b->flag &= ~RigidBody::flag_sleeping;
-            }
+            b->flag &= ~RigidBody::flag_sleeping;
 
-            if (Length2(b->angularVelocity) > settings.rest_angular_tolerance ||
-                Length2(b->linearVelocity) > settings.rest_linear_tolerance || Length2(b->torque) > 0.0f ||
-                Length2(b->force) > 0.0f)
+            if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+                Length2(s->linearVelocity) > settings.rest_linear_tolerance || Length2(s->torque) > 0.0f ||
+                Length2(s->force) > 0.0f)
             {
-                MuliAssert(sleeping == false);
                 awakeIsland = true;
-            }
-            else
-            {
-                b->resting += step.dt;
             }
 
             if (b->GetType() == RigidBody::dynamic_body)
             {
                 if (settings.apply_gravity)
                 {
-                    b->linearVelocity += settings.gravity * step.dt;
+                    s->linearVelocity += settings.gravity * step.dt;
                 }
 
                 // Integrate velocites
-                b->linearVelocity += b->force * b->invMass * step.dt;
-                b->angularVelocity += b->GetWorldInverseInertiaTensor() * b->torque * step.dt;
+                s->linearVelocity += s->force * s->invMass * step.dt;
+                s->angularVelocity += b->GetWorldInverseInertiaTensor() * s->torque * step.dt;
 
                 // Apply the w x (I * w) term
                 if (b->GetGyroscopicTorqueEnabled())
                 {
-                    b->angularVelocity = SolveGyroscopic(b->motion.q, b->inertia, b->angularVelocity, step.dt);
+                    s->angularVelocity = SolveGyroscopic(s->motion.q, s->inertia, s->angularVelocity, step.dt);
                 }
 
                 // Apply damping
-                b->linearVelocity *= 1.0f / (1.0f + b->linearDamping * step.dt);
-                b->angularVelocity *= 1.0f / (1.0f + b->angularDamping * step.dt);
+                s->linearVelocity *= 1.0f / (1.0f + s->linearDamping * step.dt);
+                s->angularVelocity *= 1.0f / (1.0f + s->angularDamping * step.dt);
             }
         }
 
@@ -102,7 +88,8 @@ void Island::Solve(World* world)
         // Prepare constraints for solving step
         for (int32 i = 0; i < contactCount; ++i)
         {
-            contacts[i]->Prepare(step);
+            ContactState* s = contacts[i];
+            s->Prepare(step);
         }
         for (int32 i = 0; i < jointCount; ++i)
         {
@@ -121,7 +108,8 @@ void Island::Solve(World* world)
         {
             for (int32 j = contactCount; j > 0; --j)
             {
-                contacts[j - 1]->SolveVelocityConstraints(step);
+                ContactState* s = contacts[j - 1];
+                s->SolveVelocityConstraints(step);
             }
             for (int32 j = jointCount; j > 0; --j)
             {
@@ -138,22 +126,17 @@ void Island::Solve(World* world)
         // Update positions using corrected velocities (Semi-implicit euler integration)
         for (int32 i = 0; i < bodyCount; ++i)
         {
-            RigidBody* b = bodies[i];
+            BodyState* s = bodies[i];
 
-            if (awakeIsland)
-            {
-                b->Awake();
-            }
-
-            b->force = Vec3::zero;
-            b->torque = Vec3::zero;
+            s->force = Vec3::zero;
+            s->torque = Vec3::zero;
 
             // Integrate position and orientation
-            b->motion.c += b->linearVelocity * step.dt;
+            s->motion.c += s->linearVelocity * step.dt;
 
-            Quat w{ b->angularVelocity, 0.0f };
-            b->motion.q = b->motion.q + (w * b->motion.q) * step.dt * 0.5f;
-            b->motion.q.Normalize();
+            Quat w{ s->angularVelocity, 0.0f };
+            s->motion.q = s->motion.q + (w * s->motion.q) * step.dt * 0.5f;
+            s->motion.q.Normalize();
         }
 
         MuliProfileZoneEnd(integrate_position);
@@ -170,13 +153,13 @@ void Island::Solve(World* world)
 
             for (int32 j = contactCount; j > 0; j--)
             {
-                Contact* c = contacts[j - 1];
+                ContactState* s = contacts[j - 1];
 
-                bool solved = c->SolvePositionConstraints(step);
+                bool solved = s->SolvePositionConstraints(step);
                 if (solved == false)
                 {
-                    c->b1->Awake();
-                    c->b2->Awake();
+                    s->s1->resting = 0.0f;
+                    s->s2->resting = 0.0f;
                 }
 
                 contactSolved &= solved;
@@ -184,7 +167,16 @@ void Island::Solve(World* world)
 
             for (int32 j = jointCount; j > 0; j--)
             {
-                jointSolved &= joints[j - 1]->SolvePositionConstraints(step);
+                JointState* s = joints[j - 1];
+                bool solved = s->SolvePositionConstraints(step);
+                if (solved == false)
+                {
+                    Joint* joint = s->joint;
+                    joint->GetBodyA()->GetBodyState()->resting = 0.0f;
+                    joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                }
+
+                jointSolved &= solved;
             }
 
             if (contactSolved && jointSolved)
@@ -194,6 +186,60 @@ void Island::Solve(World* world)
         }
 
         MuliProfileZoneEnd(solve_position);
+    }
+
+    for (int32 i = 0; i < bodyCount; ++i)
+    {
+        BodyState* s = bodies[i];
+        if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+            Length2(s->linearVelocity) > settings.rest_linear_tolerance)
+        {
+            awakeIsland = true;
+        }
+    }
+
+    bool sleeping = false;
+
+    if (awakeIsland)
+    {
+        for (int32 i = 0; i < bodyCount; ++i)
+        {
+            bodies[i]->resting = 0.0f;
+        }
+    }
+    else
+    {
+        sleeping = settings.sleeping;
+
+        for (int32 i = 0; i < bodyCount; ++i)
+        {
+            BodyState* s = bodies[i];
+            s->resting += step.dt;
+            sleeping &= s->resting > settings.sleeping_time;
+        }
+    }
+
+    if (sleeping == false)
+    {
+        for (int32 i = 0; i < bodyCount; ++i)
+        {
+            bodies[i]->body->flag &= ~RigidBody::flag_sleeping;
+        }
+    }
+    else
+    {
+        for (int32 j = 0; j < bodyCount; ++j)
+        {
+            BodyState* s = bodies[j];
+            RigidBody* body = s->body;
+
+            s->force = Vec3::zero;
+            s->torque = Vec3::zero;
+            s->linearVelocity = Vec3::zero;
+            s->angularVelocity = Vec3::zero;
+            s->resting = max_float;
+            body->flag |= RigidBody::flag_sleeping;
+        }
     }
 
     MuliProfileZoneEnd(solve_island);

@@ -27,46 +27,50 @@ void WeldJoint::Prepare(const Timestep& step)
     // Linear part: J = [-I, -skew(ra), I, skew(rb)]
     // Angular part: J = [0, -I, 0, I]
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     ra = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     rb = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
 
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear effective mass
     // clang-format off
-    Mat3 linearK = Mat3(bodyA->invMass + bodyB->invMass)
-                 + skewRA.GetTranspose() * invIA * skewRA
-                 + skewRB.GetTranspose() * invIB * skewRB;
+    Mat3 linearK = Mat3(sA->invMass + sB->invMass)
+                 + skewRA.GetTranspose() * s->invIA * skewRA
+                 + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    linearK.ex.x += gamma;
-    linearK.ey.y += gamma;
-    linearK.ez.z += gamma;
+    linearK.ex.x += s->gamma;
+    linearK.ey.y += s->gamma;
+    linearK.ez.z += s->gamma;
 
     linearM = linearK.GetInverse();
 
     // Angular effective mass
-    Mat3 angularK = invIA + invIB;
+    Mat3 angularK = s->invIA + s->invIB;
 
-    angularK.ex.x += gamma;
-    angularK.ey.y += gamma;
-    angularK.ez.z += gamma;
+    angularK.ex.x += s->gamma;
+    angularK.ey.y += s->gamma;
+    angularK.ez.z += s->gamma;
 
     angularM = angularK.GetInverse();
 
     // Position error
-    Vec3 pa = bodyA->motion.c + ra;
-    Vec3 pb = bodyB->motion.c + rb;
-    linearBias = (pb - pa) * beta * step.inv_dt;
+    Vec3 pa = sA->motion.c + ra;
+    Vec3 pb = sB->motion.c + rb;
+    linearBias = (pb - pa) * s->beta * step.inv_dt;
 
     // Orientation error: compute the rotation difference
     // qError = qA * qOffset * qB^-1  (should be identity if no error)
-    Quat qTarget = bodyA->motion.q * orientationOffset;
-    Quat qError = bodyB->motion.q * qTarget.GetConjugate();
+    Quat qTarget = sA->motion.q * orientationOffset;
+    Quat qError = sB->motion.q * qTarget.GetConjugate();
 
     // Ensure shortest path
     if (qError.w < 0.0f)
@@ -75,7 +79,7 @@ void WeldJoint::Prepare(const Timestep& step)
     }
 
     // The angular error is 2 * imaginary part of qError (small angle approximation)
-    angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * beta * step.inv_dt;
+    angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
 
     if (step.warm_starting)
     {
@@ -87,16 +91,19 @@ void WeldJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    // Linear velocity constraint
-    Vec3 linearJV =
-        (bodyB->linearVelocity + Cross(bodyB->angularVelocity, rb)) - (bodyA->linearVelocity + Cross(bodyA->angularVelocity, ra));
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
 
-    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * gamma);
+    // Linear velocity constraint
+    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
+
+    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * s->gamma);
 
     // Angular velocity constraint
-    Vec3 angularJV = bodyB->angularVelocity - bodyA->angularVelocity;
+    Vec3 angularJV = sB->angularVelocity - sA->angularVelocity;
 
-    Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * gamma);
+    Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * s->gamma);
 
     ApplyImpulse(linearLambda, angularLambda);
     linearImpulseSum += linearLambda;
@@ -105,13 +112,17 @@ void WeldJoint::SolveVelocityConstraints(const Timestep& step)
 
 void WeldJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda)
 {
-    // V2 = V2' + M^-1 ⋅ Pc
-    // Pc = J^t ⋅ λ
+    // V2 = V2' + M^-1 ??Pc
+    // Pc = J^t ??λ
 
-    bodyA->linearVelocity -= linearLambda * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * (Cross(ra, linearLambda) + angularLambda);
-    bodyB->linearVelocity += linearLambda * bodyB->invMass;
-    bodyB->angularVelocity += invIB * (Cross(rb, linearLambda) + angularLambda);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
+    sA->linearVelocity -= linearLambda * sA->invMass;
+    sA->angularVelocity -= s->invIA * (Cross(ra, linearLambda) + angularLambda);
+    sB->linearVelocity += linearLambda * sB->invMass;
+    sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);
 }
 
 } // namespace muli3

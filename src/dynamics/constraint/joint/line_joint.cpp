@@ -33,10 +33,14 @@ void LineJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 ra0 = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     Vec3 rb0 = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
-    Vec3 pa = bodyA->motion.c + ra0;
-    Vec3 pb = bodyB->motion.c + rb0;
+    Vec3 pa = sA->motion.c + ra0;
+    Vec3 pb = sB->motion.c + rb0;
     Vec3 d = pb - pa;
 
     Vec3 worldAxis = bodyA->GetRotation().Rotate(localAxis);
@@ -47,22 +51,22 @@ void LineJoint::Prepare(const Timestep& step)
     sa2 = Cross(ra0 + d, t2);
     sb2 = Cross(rb0, t2);
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     Mat2 k;
-    k[0][0] = bodyA->invMass + bodyB->invMass + Dot(sa1, invIA * sa1) + Dot(sb1, invIB * sb1);
-    k[1][1] = bodyA->invMass + bodyB->invMass + Dot(sa2, invIA * sa2) + Dot(sb2, invIB * sb2);
-    k[0][1] = Dot(sa1, invIA * sa2) + Dot(sb1, invIB * sb2);
+    k[0][0] = sA->invMass + sB->invMass + Dot(sa1, s->invIA * sa1) + Dot(sb1, s->invIB * sb1);
+    k[1][1] = sA->invMass + sB->invMass + Dot(sa2, s->invIA * sa2) + Dot(sb2, s->invIB * sb2);
+    k[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     k[1][0] = k[0][1];
 
-    k[0][0] += gamma;
-    k[1][1] += gamma;
+    k[0][0] += s->gamma;
+    k[1][1] += s->gamma;
 
     m = k.GetInverse();
 
     bias.Set(Dot(d, t1), Dot(d, t2));
-    bias *= beta * step.inv_dt;
+    bias *= s->beta * step.inv_dt;
 
     if (step.warm_starting)
     {
@@ -74,12 +78,16 @@ void LineJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    Vec3 dv = bodyB->linearVelocity - bodyA->linearVelocity;
-    Vec2 jv;
-    jv.x = Dot(t1, dv) + Dot(sb1, bodyB->angularVelocity) - Dot(sa1, bodyA->angularVelocity);
-    jv.y = Dot(t2, dv) + Dot(sb2, bodyB->angularVelocity) - Dot(sa2, bodyA->angularVelocity);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
 
-    Vec2 lambda = Mul(m, -(jv + bias + impulseSum * gamma));
+    Vec3 dv = sB->linearVelocity - sA->linearVelocity;
+    Vec2 jv;
+    jv.x = Dot(t1, dv) + Dot(sb1, sB->angularVelocity) - Dot(sa1, sA->angularVelocity);
+    jv.y = Dot(t2, dv) + Dot(sb2, sB->angularVelocity) - Dot(sa2, sA->angularVelocity);
+
+    Vec2 lambda = Mul(m, -(jv + bias + impulseSum * s->gamma));
 
     ApplyImpulse(lambda);
     impulseSum += lambda;
@@ -87,12 +95,16 @@ void LineJoint::SolveVelocityConstraints(const Timestep& step)
 
 void LineJoint::ApplyImpulse(const Vec2& lambda)
 {
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 p = t1 * lambda.x + t2 * lambda.y;
 
-    bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * (sa1 * lambda.x + sa2 * lambda.y);
-    bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += invIB * (sb1 * lambda.x + sb2 * lambda.y);
+    sA->linearVelocity -= p * sA->invMass;
+    sA->angularVelocity -= s->invIA * (sa1 * lambda.x + sa2 * lambda.y);
+    sB->linearVelocity += p * sB->invMass;
+    sB->angularVelocity += s->invIB * (sb1 * lambda.x + sb2 * lambda.y);
 }
 
 } // namespace muli3

@@ -10,7 +10,7 @@ enum ProfileValue
     profile_build_islands,
     profile_solve_islands,
     profile_sync_transforms,
-    profile_clear_island_flags,
+    profile_finalize,
 };
 
 struct ProfileGraphEntry

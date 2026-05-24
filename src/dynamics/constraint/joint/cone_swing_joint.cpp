@@ -48,6 +48,8 @@ void ConeSwingJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
     Vec3 axisB = bodyB->GetRotation().Rotate(localAxisB);
 
@@ -85,14 +87,14 @@ void ConeSwingJoint::Prepare(const Timestep& step)
         swingAxis = axis;
     }
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
-    float k = Dot(swingAxis, invIA * swingAxis) + Dot(swingAxis, invIB * swingAxis) + gamma;
+    float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis) + s->gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;
 
     float error = Min(currentAngle - (maxAngle + angular_slop), max_joint_angular_correction);
-    bias = error * beta * step.inv_dt;
+    bias = error * s->beta * step.inv_dt;
     impulseSum = ClampImpulse(impulseSum, limitState);
 
     if (step.warm_starting)
@@ -105,13 +107,17 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     if (limitState == cone_limit_inactive)
     {
         return;
     }
 
-    float jv = Dot(swingAxis, bodyB->angularVelocity - bodyA->angularVelocity);
-    float lambda = m * -(jv + bias + impulseSum * gamma);
+    float jv = Dot(swingAxis, sB->angularVelocity - sA->angularVelocity);
+    float lambda = m * -(jv + bias + impulseSum * s->gamma);
     float newImpulseSum = ClampImpulse(impulseSum + lambda, limitState);
 
     lambda = newImpulseSum - impulseSum;
@@ -122,10 +128,14 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
 
 void ConeSwingJoint::ApplyImpulse(float lambda)
 {
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 p = swingAxis * lambda;
 
-    bodyA->angularVelocity -= invIA * p;
-    bodyB->angularVelocity += invIB * p;
+    sA->angularVelocity -= s->invIA * p;
+    sB->angularVelocity += s->invIB * p;
 }
 
 } // namespace muli3

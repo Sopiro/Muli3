@@ -194,7 +194,7 @@ void BroadPhase::Remove(Collider* collider)
 void BroadPhase::Update(Collider* collider, const AABB& aabb, const Vec3& displacement)
 {
     NodeIndex node = collider->node;
-    bool rested = collider->body->resting > contactGraph->world->settings.sleeping_time;
+    bool rested = collider->body->GetBodyState()->resting > contactGraph->world->settings.sleeping_time;
 
     if (tree.MoveNode(node, aabb, displacement, rested))
     {

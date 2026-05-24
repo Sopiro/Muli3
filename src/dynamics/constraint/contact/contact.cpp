@@ -2,6 +2,7 @@
 #include "muli3/callbacks.h"
 #include "muli3/frame.h"
 #include "muli3/settings.h"
+#include "muli3/world.h"
 
 namespace muli3
 {
@@ -12,28 +13,33 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     : collideFunction{ nullptr }
     , colliderA{ colliderA }
     , colliderB{ colliderB }
-    , b1{ colliderA->GetBody() }
-    , b2{ colliderB->GetBody() }
+    , setIndex{ -1 }
+    , localIndex{ -1 }
     , flag{ 0 }
 {
     MuliAssert(colliderA->GetType() >= colliderB->GetType());
-
-    manifold.contactCount = 0;
-
-    friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
-    restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
-    restitutionThreshold = MixRestitutionTreshold(colliderA->GetRestitutionTreshold(), colliderB->GetRestitutionTreshold());
-    surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
 
     collideFunction = collide_function_map[colliderA->GetType()][colliderB->GetType()];
     MuliAssert(collideFunction != nullptr);
 }
 
-void Contact::Update()
+ContactState* Contact::GetContactState()
 {
+    return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
+}
+
+const ContactState* Contact::GetContactState() const
+{
+    return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
+}
+
+void ContactState::Update()
+{
+    Contact* c = contact;
+
     // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.
     // Writes are strictly isolated to this contact instance, and read accesses to rigidbody transforms are read-only.
-    flag |= flag_enabled;
+    c->flag |= Contact::flag_enabled;
 
     ContactManifold oldManifold = manifold;
     for (int32 i = 0; i < max_contact_point_count; ++i)
@@ -46,28 +52,31 @@ void Contact::Update()
         tangent2Solvers[i].impulse = 0.0f;
     }
 
-    bool wasTouching = (flag & flag_touching) == flag_touching;
+    bool wasTouching = (c->flag & Contact::flag_touching) == Contact::flag_touching;
     if (wasTouching)
     {
-        flag |= flag_was_touching;
+        c->flag |= Contact::flag_was_touching;
     }
     else
     {
-        flag &= ~flag_was_touching;
+        c->flag &= ~Contact::flag_was_touching;
     }
 
-    RigidBody* bodyA = colliderA->GetBody();
-    RigidBody* bodyB = colliderB->GetBody();
+    RigidBody* bodyA = c->colliderA->GetBody();
+    RigidBody* bodyB = c->colliderB->GetBody();
 
-    bool touching = collideFunction(colliderA->shape, bodyA->transform, colliderB->shape, bodyB->transform, &manifold);
+    bool touching = c->collideFunction(
+        c->colliderA->GetShape(), bodyA->GetBodyState()->transform, c->colliderB->GetShape(), bodyB->GetBodyState()->transform,
+        &manifold
+    );
 
     if (touching)
     {
-        flag |= flag_touching;
+        c->flag |= Contact::flag_touching;
     }
     else
     {
-        flag &= ~flag_touching;
+        c->flag &= ~Contact::flag_touching;
     }
 
     if (touching == false)
@@ -77,13 +86,13 @@ void Contact::Update()
 
     if (manifold.featureFlipped)
     {
-        b1 = bodyB;
-        b2 = bodyA;
+        s1 = bodyB->GetBodyState();
+        s2 = bodyA->GetBodyState();
     }
     else
     {
-        b1 = bodyA;
-        b2 = bodyB;
+        s1 = bodyA->GetBodyState();
+        s2 = bodyB->GetBodyState();
     }
 
     for (int32 n = 0; n < manifold.contactCount; ++n)
@@ -104,6 +113,11 @@ void Contact::Update()
 void Contact::TriggerCallbacks()
 {
     // Safely execute all user contact listener callbacks sequentially on the main thread during serial state integration.
+    if (colliderA->ContactListener == nullptr && colliderB->ContactListener == nullptr)
+    {
+        return;
+    }
+
     bool wasTouching = (flag & flag_was_touching) == flag_was_touching;
     bool touching = (flag & flag_touching) == flag_touching;
 
@@ -138,10 +152,10 @@ void Contact::TriggerCallbacks()
     }
 }
 
-void Contact::Prepare(const Timestep& step)
+void ContactState::Prepare(const Timestep& step)
 {
-    invIA = b1->GetWorldInverseInertiaTensor();
-    invIB = b2->GetWorldInverseInertiaTensor();
+    invIA = s1->body->GetWorldInverseInertiaTensor();
+    invIB = s2->body->GetWorldInverseInertiaTensor();
 
     Vec3 tangent1 = GramSchmidt(x_axis, manifold.contactNormal);
     if (tangent1.Normalize() == 0)
@@ -159,7 +173,7 @@ void Contact::Prepare(const Timestep& step)
     }
 }
 
-void Contact::SolveVelocityConstraints(const Timestep& step)
+void ContactState::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
@@ -175,7 +189,7 @@ void Contact::SolveVelocityConstraints(const Timestep& step)
     }
 }
 
-bool Contact::SolvePositionConstraints(const Timestep& step)
+bool ContactState::SolvePositionConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
@@ -186,25 +200,28 @@ bool Contact::SolvePositionConstraints(const Timestep& step)
     cAngularImpulseA.SetZero();
     cAngularImpulseB.SetZero();
 
-    invIA = b1->GetWorldInverseInertiaTensor();
-    invIB = b2->GetWorldInverseInertiaTensor();
+    invIA = s1->body->GetWorldInverseInertiaTensor();
+    invIB = s2->body->GetWorldInverseInertiaTensor();
 
     for (int32 i = 0; i < manifold.contactCount; ++i)
     {
         solved &= positionSolvers[i].Solve(this);
     }
 
-    b1->motion.c += b1->invMass * cLinearImpulseA;
+    BodyState* bodySimA = s1;
+    BodyState* bodySimB = s2;
+
+    bodySimA->motion.c += bodySimA->invMass * cLinearImpulseA;
     Vec3 angularCorrectionA = invIA * cAngularImpulseA;
     Quat w1{ angularCorrectionA, 0.0f };
-    b1->motion.q = b1->motion.q + (w1 * b1->motion.q) * 0.5f;
-    b1->motion.q.Normalize();
+    bodySimA->motion.q = bodySimA->motion.q + (w1 * bodySimA->motion.q) * 0.5f;
+    bodySimA->motion.q.Normalize();
 
-    b2->motion.c += b2->invMass * cLinearImpulseB;
+    bodySimB->motion.c += bodySimB->invMass * cLinearImpulseB;
     Vec3 angularCorrectionB = invIB * cAngularImpulseB;
     Quat w2{ angularCorrectionB, 0.0f };
-    b2->motion.q = b2->motion.q + (w2 * b2->motion.q) * 0.5f;
-    b2->motion.q.Normalize();
+    bodySimB->motion.q = bodySimB->motion.q + (w2 * bodySimB->motion.q) * 0.5f;
+    bodySimB->motion.q.Normalize();
 
     return solved;
 }

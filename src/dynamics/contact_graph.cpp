@@ -23,40 +23,20 @@ ContactGraph::~ContactGraph()
 
 void ContactGraph::EvaluateContacts()
 {
-    MuliProfileZoneNC(gather_active_contacts, "Gather Active", color::random(109817), true);
-
-    // 1. Gather all active contacts to a flat buffer sequentially to preserve deterministic sequence.
-    // Active contacts are those where at least one rigid body is awake and not static.
-    LinearAllocator& allocator = world->linearAllocator;
-
-    int32 size = contactCount * sizeof(Contact*);
-    Contact** activeContacts = (Contact**)allocator.Allocate(size);
-    int32 activeCount = 0;
-
-    Contact* c = contactList;
-    while (c)
+    SolverSet& awakeSet = world->solverSets[awake_set];
+    int32 activeCount = int32(awakeSet.contactStates.size());
+    if (activeCount == 0)
     {
-        RigidBody* bodyA = c->GetBodyA();
-        RigidBody* bodyB = c->GetBodyB();
-
-        bool activeA = bodyA->IsSleeping() == false && bodyA->GetType() != RigidBody::static_body;
-        bool activeB = bodyB->IsSleeping() == false && bodyB->GetType() != RigidBody::static_body;
-
-        if (activeA || activeB)
-        {
-            activeContacts[activeCount++] = c;
-        }
-
-        c = c->next;
+        return;
     }
-    MuliProfileZoneEnd(gather_active_contacts);
 
-    // 2. Parallel Stage: Update manifolds in parallel.
+    // 1. Parallel Stage: Update manifolds in parallel.
     // The broad-phase overlap test (AABB query) and narrow-phase collision math (manifold calculations)
     // are strictly thread-safe as they read from body transforms and write only to their own Contact instances.
-    ParallelFor(0, activeCount, [this, &activeContacts](int32 i) {
+    ParallelFor(0, activeCount, [this, &awakeSet](int32 i) {
         MuliProfileZoneNC(narrow_phase_collision, "Collide", color::random(4567), true);
-        Contact* contact = activeContacts[i];
+        ContactState* state = &awakeSet.contactStates[i];
+        Contact* contact = state->contact;
 
         // Perform broad phase overlap test.
         if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
@@ -67,30 +47,35 @@ void ContactGraph::EvaluateContacts()
         }
 
         // Compute contact manifold and warm starting impulses.
-        contact->Update();
+        state->Update();
         MuliProfileZoneEnd(narrow_phase_collision);
     });
 
     MuliProfileZoneNC(post_narrow_phase, "Post Narrow Phase", color::random(945378), true);
 
-    // 3. Serial Stage: Integrate states, execute user callbacks, and destroy disjoint contacts.
+    // 2. Serial Stage: Integrate states, execute user callbacks, and destroy disjoint contacts.
     // Sequential execution on the main thread guarantees deterministic order of events.
     for (int32 i = 0; i < activeCount; ++i)
     {
-        Contact* contact = activeContacts[i];
-
-        if ((contact->flag & Contact::flag_disjoint) != 0)
-        {
-            contact->flag &= ~Contact::flag_disjoint;
-            Destroy(contact);
-        }
-        else
+        Contact* contact = awakeSet.contactStates[i].contact;
+        if ((contact->flag & Contact::flag_disjoint) == 0)
         {
             // Trigger contact begin/end/touching listener callbacks sequentially.
             contact->TriggerCallbacks();
         }
     }
-    allocator.Free(activeContacts, size);
+
+    // Destroy from the back because Destroy() swap-removes from awakeSet.contactStates.
+    for (int32 i = activeCount - 1; i >= 0; --i)
+    {
+        Contact* contact = awakeSet.contactStates[i].contact;
+        if ((contact->flag & Contact::flag_disjoint) != 0)
+        {
+            contact->flag &= ~Contact::flag_disjoint;
+            Destroy(contact);
+        }
+    }
+
     MuliProfileZoneEnd(post_narrow_phase);
 }
 
@@ -161,6 +146,7 @@ void ContactGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
     bodyB->contactList = &c->nodeB;
 
     ++contactCount;
+    world->AddContactState(c, world->GetContactTargetSet(c));
 }
 
 void ContactGraph::Destroy(Contact* c)
@@ -180,6 +166,7 @@ void ContactGraph::Destroy(Contact* c)
     if (c->nodeB.next) c->nodeB.next->prev = c->nodeB.prev;
     if (&c->nodeB == bodyB->contactList) bodyB->contactList = c->nodeB.next;
 
+    world->RemoveContactState(c);
     c->~Contact();
     world->blockAllocator.Free(c, sizeof(Contact));
     --contactCount;

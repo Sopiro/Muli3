@@ -17,6 +17,10 @@ void BallSocketJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     // Compute Jacobian J and effective mass W
     // J = [-I, -skew(ra), I, skew(rb)]
     // W = (J * M^-1 * J^t)^-1
@@ -28,26 +32,26 @@ void BallSocketJoint::Prepare(const Timestep& step)
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // clang-format off
-    Mat3 k = Mat3(bodyA->invMass + bodyB->invMass)
-           + skewRA.GetTranspose() * invIA * skewRA
-           + skewRB.GetTranspose() * invIB * skewRB;
+    Mat3 k = Mat3(sA->invMass + sB->invMass)
+           + skewRA.GetTranspose() * s->invIA * skewRA
+           + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    k.ex.x += gamma;
-    k.ey.y += gamma;
-    k.ez.z += gamma;
+    k.ex.x += s->gamma;
+    k.ey.y += s->gamma;
+    k.ez.z += s->gamma;
 
     m = k.GetInverse();
 
-    Vec3 pa = bodyA->motion.c + ra;
-    Vec3 pb = bodyB->motion.c + rb;
+    Vec3 pa = sA->motion.c + ra;
+    Vec3 pb = sB->motion.c + rb;
 
     Vec3 error = pb - pa;
-    bias = error * beta * step.inv_dt;
+    bias = error * s->beta * step.inv_dt;
 
     if (step.warm_starting)
     {
@@ -59,15 +63,18 @@ void BallSocketJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     // Compute corrective impulse: Pc
     // Pc = J^t * lambda
     // lambda = (J * M^-1 * J^t)^-1 * -(J*v+b)
 
-    Vec3 jv =
-        (bodyB->linearVelocity + Cross(bodyB->angularVelocity, rb)) - (bodyA->linearVelocity + Cross(bodyA->angularVelocity, ra));
+    Vec3 jv = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
 
     // You don't have to clamp the impulse. It's equality constraint!
-    Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
+    Vec3 lambda = m * -(jv + bias + impulseSum * s->gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;
@@ -78,10 +85,14 @@ void BallSocketJoint::ApplyImpulse(const Vec3& lambda)
     // V2 = V2' + M^-1 * Pc
     // Pc = J^t * lambda
 
-    bodyA->linearVelocity -= lambda * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * Cross(ra, lambda);
-    bodyB->linearVelocity += lambda * bodyB->invMass;
-    bodyB->angularVelocity += invIB * Cross(rb, lambda);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
+    sA->linearVelocity -= lambda * sA->invMass;
+    sA->angularVelocity -= s->invIA * Cross(ra, lambda);
+    sB->linearVelocity += lambda * sB->invMass;
+    sB->angularVelocity += s->invIB * Cross(rb, lambda);
 }
 
 } // namespace muli3

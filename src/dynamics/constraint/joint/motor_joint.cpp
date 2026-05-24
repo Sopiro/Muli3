@@ -4,8 +4,14 @@ namespace muli3
 {
 
 MotorJoint::MotorJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float maxJointForce, float maxJointTorque,
-    float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA,
+    RigidBody* bodyB,
+    const Vec3& anchor,
+    float maxJointForce,
+    float maxJointTorque,
+    float jointFrequency,
+    float jointDampingRatio,
+    float jointMass
 )
     : Joint(motor_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
@@ -26,46 +32,50 @@ void MotorJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     ra = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     rb = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
 
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear effective mass
     // clang-format off
-    Mat3 linearK = Mat3(bodyA->invMass + bodyB->invMass)
-                 + skewRA.GetTranspose() * invIA * skewRA
-                 + skewRB.GetTranspose() * invIB * skewRB;
+    Mat3 linearK = Mat3(sA->invMass + sB->invMass)
+                 + skewRA.GetTranspose() * s->invIA * skewRA
+                 + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    linearK.ex.x += gamma;
-    linearK.ey.y += gamma;
-    linearK.ez.z += gamma;
+    linearK.ex.x += s->gamma;
+    linearK.ey.y += s->gamma;
+    linearK.ez.z += s->gamma;
 
     linearM = linearK.GetInverse();
 
     // Angular effective mass
-    Mat3 angularK = invIA + invIB;
-    angularK.ex.x += gamma;
-    angularK.ey.y += gamma;
-    angularK.ez.z += gamma;
+    Mat3 angularK = s->invIA + s->invIB;
+    angularK.ex.x += s->gamma;
+    angularK.ey.y += s->gamma;
+    angularK.ez.z += s->gamma;
 
     angularM = angularK.GetInverse();
 
     // Linear bias
-    Vec3 pa = bodyA->motion.c + ra;
-    Vec3 pb = bodyB->motion.c + rb;
-    linearBias = (pb - pa + linearOffset) * beta * step.inv_dt;
+    Vec3 pa = sA->motion.c + ra;
+    Vec3 pb = sB->motion.c + rb;
+    linearBias = (pb - pa + linearOffset) * s->beta * step.inv_dt;
 
     // Angular bias
-    Quat qTarget = bodyA->motion.q * orientationOffset;
-    Quat qError = bodyB->motion.q * qTarget.GetConjugate();
+    Quat qTarget = sA->motion.q * orientationOffset;
+    Quat qError = sB->motion.q * qTarget.GetConjugate();
     if (qError.w < 0.0f) qError = -qError;
-    angularBias = (Vec3{ qError.x, qError.y, qError.z } * 2.0f - angularOffset) * beta * step.inv_dt;
+    angularBias = (Vec3{ qError.x, qError.y, qError.z } * 2.0f - angularOffset) * s->beta * step.inv_dt;
 
     if (step.warm_starting)
     {
@@ -75,16 +85,18 @@ void MotorJoint::Prepare(const Timestep& step)
 
 void MotorJoint::SolveVelocityConstraints(const Timestep& step)
 {
-    // Linear
-    Vec3 linearJV =
-        (bodyB->linearVelocity + Cross(bodyB->angularVelocity, rb)) -
-        (bodyA->linearVelocity + Cross(bodyA->angularVelocity, ra));
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
 
-    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * gamma);
+    // Linear
+    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
+
+    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * s->gamma);
 
     // Angular
-    Vec3 angularJV = bodyB->angularVelocity - bodyA->angularVelocity;
-    Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * gamma);
+    Vec3 angularJV = sB->angularVelocity - sA->angularVelocity;
+    Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * s->gamma);
 
     // Clamp linear impulse
     {
@@ -119,10 +131,14 @@ void MotorJoint::SolveVelocityConstraints(const Timestep& step)
 
 void MotorJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda)
 {
-    bodyA->linearVelocity -= bodyA->invMass * linearLambda;
-    bodyA->angularVelocity -= invIA * (Cross(ra, linearLambda) + angularLambda);
-    bodyB->linearVelocity += bodyB->invMass * linearLambda;
-    bodyB->angularVelocity += invIB * (Cross(rb, linearLambda) + angularLambda);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
+    sA->linearVelocity -= sA->invMass * linearLambda;
+    sA->angularVelocity -= s->invIA * (Cross(ra, linearLambda) + angularLambda);
+    sB->linearVelocity += sB->invMass * linearLambda;
+    sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);
 }
 
 } // namespace muli3

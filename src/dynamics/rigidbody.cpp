@@ -15,19 +15,9 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     : OnDestroy{ nullptr }
     , UserData{ nullptr }
     , type{ type }
-    , transform{ tf }
-    , motion{ tf }
-    , linearVelocity{ 0.0f, 0.0f, 0.0f }
-    , angularVelocity{ 0.0f, 0.0f, 0.0f }
-    , mass{ 0.0f }
-    , invMass{ 0.0f }
-    , inertia{ 0.0f }
-    , invInertia{ 0.0f }
-    , linearDamping{ default_linear_damping }
-    , angularDamping{ default_angular_damping }
-    , force{ 0.0f, 0.0f, 0.0f }
-    , torque{ 0.0f, 0.0f, 0.0f }
     , islandIndex{ 0 }
+    , setIndex{ -1 }
+    , localIndex{ -1 }
     , flag{ flag_enabled }
     , world{ nullptr }
     , prev{ nullptr }
@@ -36,8 +26,8 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , colliderCount{ 0 }
     , contactList{ nullptr }
     , jointList{ nullptr }
-    , resting{ 0.0f }
 {
+    MuliNotUsed(tf);
 }
 
 RigidBody::~RigidBody()
@@ -50,36 +40,59 @@ RigidBody::~RigidBody()
     world = nullptr;
 }
 
+BodyState* RigidBody::GetBodyState()
+{
+    return &world->solverSets[setIndex].bodyStates[localIndex];
+}
+
+const BodyState* RigidBody::GetBodyState() const
+{
+    return &world->solverSets[setIndex].bodyStates[localIndex];
+}
+
+void RigidBody::Awake()
+{
+    world->WakeBody(this);
+}
+
+void RigidBody::Sleep()
+{
+    world->SleepBody(this);
+}
+
 void RigidBody::SetTransform(const Transform& newTransform)
 {
-    transform = newTransform;
-    motion.c = Mul(transform, motion.localCenter);
-    motion.q = transform.q;
-    motion.c0 = motion.c;
-    motion.q0 = motion.q;
-    motion.alpha0 = 0.0f;
+    BodyState* s = GetBodyState();
+    s->transform = newTransform;
+    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.q = s->transform.q;
+    s->motion.c0 = s->motion.c;
+    s->motion.q0 = s->motion.q;
+    s->motion.alpha0 = 0.0f;
 
     SynchronizeColliders();
 }
 
 void RigidBody::SetPosition(float x, float y, float z)
 {
-    transform.p = Vec3{ x, y, z };
-    motion.c = Mul(transform, motion.localCenter);
-    motion.c0 = motion.c;
-    motion.alpha0 = 0.0f;
+    BodyState* s = GetBodyState();
+    s->transform.p = Vec3{ x, y, z };
+    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c0 = s->motion.c;
+    s->motion.alpha0 = 0.0f;
 
     SynchronizeColliders();
 }
 
 void RigidBody::SetRotation(const Quat& rotation)
 {
-    transform.q = rotation;
-    motion.q = transform.q;
-    motion.q0 = motion.q;
-    motion.c = Mul(transform, motion.localCenter);
-    motion.c0 = motion.c;
-    motion.alpha0 = 0.0f;
+    BodyState* s = GetBodyState();
+    s->transform.q = rotation;
+    s->motion.q = s->transform.q;
+    s->motion.q0 = s->motion.q;
+    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c0 = s->motion.c;
+    s->motion.alpha0 = 0.0f;
 
     SynchronizeColliders();
 }
@@ -91,24 +104,26 @@ void RigidBody::Translate(const Vec3& delta)
 
 void RigidBody::Translate(float dx, float dy, float dz)
 {
-    transform.p += Vec3{ dx, dy, dz };
-    motion.c = Mul(transform, motion.localCenter);
-    motion.c0 = motion.c;
-    motion.alpha0 = 0.0f;
+    BodyState* s = GetBodyState();
+    s->transform.p += Vec3{ dx, dy, dz };
+    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c0 = s->motion.c;
+    s->motion.alpha0 = 0.0f;
 
     SynchronizeColliders();
 }
 
 void RigidBody::Rotate(const Quat& delta)
 {
-    transform.q = delta * transform.q;
-    transform.q.Normalize();
+    BodyState* s = GetBodyState();
+    s->transform.q = delta * s->transform.q;
+    s->transform.q.Normalize();
 
-    motion.q = transform.q;
-    motion.q0 = motion.q;
-    motion.c = Mul(transform, motion.localCenter);
-    motion.c0 = motion.c;
-    motion.alpha0 = 0.0f;
+    s->motion.q = s->transform.q;
+    s->motion.q0 = s->motion.q;
+    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c0 = s->motion.c;
+    s->motion.alpha0 = 0.0f;
 
     SynchronizeColliders();
 }
@@ -411,21 +426,29 @@ void RigidBody::SetType(RigidBody::Type newType)
     }
 
     type = newType;
+    flag &= ~flag_sleeping;
     ResetMassData();
 
-    force = Vec3::zero;
-    torque = Vec3::zero;
+    BodyState* s = GetBodyState();
+    s->force = Vec3::zero;
+    s->torque = Vec3::zero;
 
     if (type == static_body)
     {
-        linearVelocity = Vec3::zero;
-        angularVelocity = Vec3::zero;
-        motion.c0 = motion.c;
-        motion.q0 = motion.q;
+        s->linearVelocity = Vec3::zero;
+        s->angularVelocity = Vec3::zero;
+        s->motion.c0 = s->motion.c;
+        s->motion.q0 = s->motion.q;
         SynchronizeColliders();
     }
 
-    Awake();
+    world->TransferBody(this, world->GetBodyTargetSet(this));
+
+    for (JointEdge* je = jointList; je; je = je->next)
+    {
+        Joint* joint = je->joint;
+        world->TransferJoint(joint, world->GetJointTargetSet(joint));
+    }
 
     ContactEdge* ce = contactList;
     while (ce)
@@ -454,10 +477,28 @@ void RigidBody::SetEnabled(bool enabled)
     if (enabled)
     {
         flag |= flag_enabled;
+        if (type != static_body)
+        {
+            flag &= ~flag_sleeping;
+        }
+
+        world->TransferBody(this, world->GetBodyTargetSet(this));
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
             world->contactGraph.AddCollider(collider);
+        }
+
+        for (JointEdge* je = jointList; je; je = je->next)
+        {
+            Joint* joint = je->joint;
+            RigidBody* bodyA = joint->GetBodyA();
+            RigidBody* bodyB = joint->GetBodyB();
+
+            if (bodyA->IsEnabled() && bodyB->IsEnabled())
+            {
+                world->TransferJoint(joint, world->GetJointTargetSet(joint));
+            }
         }
     }
     else
@@ -479,6 +520,13 @@ void RigidBody::SetEnabled(bool enabled)
         }
 
         islandIndex = 0;
+
+        for (JointEdge* je = jointList; je; je = je->next)
+        {
+            world->TransferJoint(je->joint, disabled_set);
+        }
+
+        world->TransferBody(this, disabled_set);
     }
 }
 
@@ -536,8 +584,9 @@ void RigidBody::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse
 
     if (IsSleeping() == false)
     {
-        linearVelocity += impulse * invMass;
-        angularVelocity += GetWorldInverseInertiaTensor() * Cross(impulsePoint - motion.c, impulse);
+        BodyState* s = GetBodyState();
+        s->linearVelocity += impulse * s->invMass;
+        s->angularVelocity += GetWorldInverseInertiaTensor() * Cross(impulsePoint - s->motion.c, impulse);
     }
 }
 
@@ -555,8 +604,9 @@ void RigidBody::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impu
 
     if (IsSleeping() == false)
     {
-        linearVelocity += impulse * invMass;
-        angularVelocity += GetWorldInverseInertiaTensor() * Cross(localPoint - motion.localCenter, impulse);
+        BodyState* s = GetBodyState();
+        s->linearVelocity += impulse * s->invMass;
+        s->angularVelocity += GetWorldInverseInertiaTensor() * Cross(localPoint - s->motion.localCenter, impulse);
     }
 }
 
@@ -574,21 +624,23 @@ void RigidBody::ApplyAngularImpulse(const Vec3& impulse, bool awake)
 
     if (IsSleeping() == false)
     {
-        angularVelocity += GetWorldInverseInertiaTensor() * impulse;
+        GetBodyState()->angularVelocity += GetWorldInverseInertiaTensor() * impulse;
     }
 }
 
 Vec3 RigidBody::GetVelocityAtWorldPoint(const Vec3& point) const
 {
-    return linearVelocity + Cross(angularVelocity, point - motion.c);
+    const BodyState* s = GetBodyState();
+    return s->linearVelocity + Cross(s->angularVelocity, point - s->motion.c);
 }
 
 void RigidBody::ResetMassData()
 {
-    mass = 0.0f;
-    invMass = 0.0f;
-    inertia = Mat3::zero;
-    invInertia = Mat3::zero;
+    BodyState* s = GetBodyState();
+    s->mass = 0.0f;
+    s->invMass = 0.0f;
+    s->inertia = Mat3::zero;
+    s->invInertia = Mat3::zero;
 
     if (type != dynamic_body)
     {
@@ -605,33 +657,33 @@ void RigidBody::ResetMassData()
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
         MassData massData = collider->GetMassData();
-        mass += massData.mass;
+        s->mass += massData.mass;
         localCenter += massData.mass * massData.centerOfMass;
-        inertia = inertia + massData.inertia;
+        s->inertia = s->inertia + massData.inertia;
     }
 
-    if (mass > 0.0f)
+    if (s->mass > 0.0f)
     {
-        invMass = 1.0f / mass;
-        localCenter *= invMass;
+        s->invMass = 1.0f / s->mass;
+        localCenter *= s->invMass;
     }
 
-    if (mass > 0.0f)
+    if (s->mass > 0.0f)
     {
         const Vec3& c = localCenter;
-        inertia.ex -= Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z };
-        inertia.ey -= Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z };
-        inertia.ez -= Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) };
-        invInertia = inertia.GetInverse();
+        s->inertia.ex -= Vec3{ s->mass * (c.y * c.y + c.z * c.z), -s->mass * c.x * c.y, -s->mass * c.x * c.z };
+        s->inertia.ey -= Vec3{ -s->mass * c.y * c.x, s->mass * (c.x * c.x + c.z * c.z), -s->mass * c.y * c.z };
+        s->inertia.ez -= Vec3{ -s->mass * c.z * c.x, -s->mass * c.z * c.y, s->mass * (c.x * c.x + c.y * c.y) };
+        s->invInertia = s->inertia.GetInverse();
     }
 
-    Vec3 oldCenter = motion.c;
-    motion.localCenter = localCenter;
-    motion.c = Mul(transform, motion.localCenter);
-    motion.c0 = motion.c;
-    motion.alpha0 = 0.0f;
+    Vec3 oldCenter = s->motion.c;
+    s->motion.localCenter = localCenter;
+    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c0 = s->motion.c;
+    s->motion.alpha0 = 0.0f;
 
-    linearVelocity += Cross(angularVelocity, motion.c - oldCenter);
+    s->linearVelocity += Cross(s->angularVelocity, s->motion.c - oldCenter);
 }
 
 void RigidBody::SynchronizeColliders()
@@ -643,19 +695,21 @@ void RigidBody::SynchronizeColliders()
 
     if (IsSleeping())
     {
+        const BodyState* s = GetBodyState();
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.UpdateCollider(collider, transform);
+            world->contactGraph.UpdateCollider(collider, s->transform);
         }
     }
     else
     {
+        const BodyState* s = GetBodyState();
         Transform transform0;
-        motion.GetTransform(0.0f, &transform0);
+        s->motion.GetTransform(0.0f, &transform0);
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.UpdateCollider(collider, transform0, transform);
+            world->contactGraph.UpdateCollider(collider, transform0, s->transform);
         }
     }
 }

@@ -1,5 +1,6 @@
 #include "muli3/world.h"
 #include "muli3/box_shape.h"
+#include "muli3/callbacks.h"
 #include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
 #include "muli3/convex_shape.h"
@@ -39,6 +40,13 @@ void World::Reset()
 
     destroyBodyBuffer.clear();
     destroyJointBuffer.clear();
+
+    for (int32 i = 0; i < solver_set_count; ++i)
+    {
+        solverSets[i].bodyStates.clear();
+        solverSets[i].contactStates.clear();
+        solverSets[i].jointStates.clear();
+    }
 }
 
 RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type type)
@@ -55,6 +63,7 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
     b->colliderCount = 0;
     b->flag &= ~RigidBody::flag_island;
     b->flag |= RigidBody::flag_enabled;
+    AddBodyState(b, type == RigidBody::static_body ? static_set : awake_set, transform);
 
     if (bodyListTail)
     {
@@ -224,6 +233,7 @@ void World::Destroy(RigidBody* body)
     if (body == bodyListTail) bodyListTail = body->prev;
     --bodyCount;
 
+    RemoveBodyState(body);
     FreeBody(body);
 }
 
@@ -280,6 +290,7 @@ void World::Destroy(Joint* joint)
         if (&joint->nodeB == bodyB->jointList) bodyB->jointList = joint->nodeB.next;
     }
 
+    RemoveJointState(joint);
     FreeJoint(joint);
     --jointCount;
 }
@@ -370,7 +381,7 @@ void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
                 return true;
             }
 
-            if (Collide(collider->shape, collider->body->transform, &region, transform))
+            if (Collide(collider->shape, collider->body->GetBodyState()->transform, &region, transform))
             {
                 return callback->OnQuery(collider);
             }
@@ -600,7 +611,7 @@ void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> call
                 return true;
             }
 
-            if (Collide(collider->shape, collider->body->transform, &region, transform))
+            if (Collide(collider->shape, collider->body->GetBodyState()->transform, &region, transform))
             {
                 return callbackFcn(collider);
             }
@@ -799,9 +810,6 @@ void World::Solve()
         return;
     }
 
-    int32 restingBodies = 0;
-    sleepingBodyCount = 0;
-
     int32 stackPointer = 0;
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
 
@@ -810,14 +818,19 @@ void World::Solve()
 
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
-    Contact** islandContacts = (Contact**)linearAllocator.Allocate(contactGraph.contactCount * sizeof(Contact*));
-    RigidBody** islandBodies = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
-    Joint** islandJoints = (Joint**)linearAllocator.Allocate(jointCount * sizeof(Joint*));
+    BodyState** islandBodies = (BodyState**)linearAllocator.Allocate(bodyCount * sizeof(BodyState*));
+    ContactState** islandContacts = (ContactState**)linearAllocator.Allocate(contactGraph.contactCount * sizeof(ContactState*));
+    JointState** islandJoints = (JointState**)linearAllocator.Allocate(jointCount * sizeof(JointState*));
 
     MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
     ProfileScope profile_build_islands{ &profile.build_islands };
-    for (RigidBody* b = bodyList; b; b = b->next)
+
+    SolverSet& awakeSet = solverSets[awake_set];
+    int32 awakeBodyCount = int32(awakeSet.bodyStates.size());
+
+    for (int32 i = 0; i < awakeBodyCount; ++i)
     {
+        RigidBody* b = awakeSet.bodyStates[i].body;
         if (b->flag & RigidBody::flag_island)
         {
             continue;
@@ -825,7 +838,6 @@ void World::Solve()
 
         if (b->IsSleeping())
         {
-            ++sleepingBodyCount;
             continue;
         }
 
@@ -847,7 +859,7 @@ void World::Solve()
         {
             RigidBody* t = stack[--stackPointer];
 
-            islandBodies[bodyIndex++] = t;
+            islandBodies[bodyIndex++] = t->GetBodyState();
             t->islandIndex = islandCount;
 
             for (ContactEdge* ce = t->contactList; ce; ce = ce->next)
@@ -869,7 +881,7 @@ void World::Solve()
                     continue;
                 }
 
-                islandContacts[contactIndex++] = c;
+                islandContacts[contactIndex++] = c->GetContactState();
                 c->flag |= Contact::flag_island;
 
                 RigidBody* other = ce->other;
@@ -905,7 +917,7 @@ void World::Solve()
                     continue;
                 }
 
-                islandJoints[jointIndex++] = j;
+                islandJoints[jointIndex++] = j->GetJointState();
                 j->flagIsland = true;
 
                 if (other->flag & RigidBody::flag_island)
@@ -922,22 +934,16 @@ void World::Solve()
                 stack[stackPointer++] = other;
                 other->flag |= RigidBody::flag_island;
             }
-
-            if (t->resting > settings.sleeping_time)
-            {
-                ++restingBodies;
-            }
         }
 
         int32 islandContactCount = contactIndex - contactIndex0;
         int32 islandBodyCount = bodyIndex - bodyIndex0;
         int32 islandJointCount = jointIndex - jointIndex0;
-        bool sleeping = settings.sleeping && (restingBodies == islandBodyCount);
 
         Island* island = &islands[islandCount++];
 
         island->Prepare(
-            sleeping, islandContacts + contactIndex0, islandBodies + bodyIndex0, islandJoints + jointIndex0, islandContactCount,
+            islandContacts + contactIndex0, islandBodies + bodyIndex0, islandJoints + jointIndex0, islandContactCount,
             islandBodyCount, islandJointCount
         );
 
@@ -945,7 +951,6 @@ void World::Solve()
         bodyIndex0 = bodyIndex;
         jointIndex0 = jointIndex;
 
-        restingBodies = 0;
         MuliProfileZoneEnd(build_island);
     }
     profile_build_islands.Stop();
@@ -961,31 +966,21 @@ void World::Solve()
         MuliProfileZoneEnd(solve_islands);
     }
 
-    linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
-    linearAllocator.Free(islandBodies, bodyCount * sizeof(RigidBody*));
-    linearAllocator.Free(islandContacts, contactGraph.contactCount * sizeof(Contact*));
-    linearAllocator.Free(islands, bodyCount * sizeof(Island));
-    linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
-
     {
         ProfileScope profile_sync_transforms{ &profile.sync_transforms };
         MuliProfileZoneNC(sync_transforms, "Sync Transforms", color::sync_transforms, true);
 
-        for (RigidBody* body = bodyList; body; body = body->next)
+        for (int32 i = 0; i < bodyIndex; ++i)
         {
-            if ((body->flag & RigidBody::flag_island) == 0)
-            {
-                continue;
-            }
-
+            BodyState* s = islandBodies[i];
+            RigidBody* body = s->body;
             MuliAssert(body->IsStatic() == false);
 
-            body->flag &= ~RigidBody::flag_island;
             Transform transform0;
-            body->motion.GetTransform(0.0f, &transform0);
+            s->motion.GetTransform(0.0f, &transform0);
             body->SynchronizeTransform();
 
-            if (settings.world_bounds.TestPoint(body->transform.p) == false)
+            if (settings.world_bounds.TestPoint(s->transform.p) == false)
             {
                 BufferDestroy(body);
             }
@@ -993,7 +988,7 @@ void World::Solve()
             {
                 for (Collider* collider = body->colliderList; collider; collider = collider->next)
                 {
-                    contactGraph.UpdateCollider(collider, transform0, body->transform);
+                    contactGraph.UpdateCollider(collider, transform0, s->transform);
                 }
             }
         }
@@ -1001,22 +996,108 @@ void World::Solve()
         MuliProfileZoneEnd(sync_transforms);
     }
 
-    {
-        ProfileScope profile_clear_flags{ &profile.clear_island_flags };
-        MuliProfileZoneNC(clear_flags, "Clear Island Flags", color::clear_island_flags, true);
+    MuliProfileZoneNC(finalize, "Finalize", color::finalize, true);
+    ProfileScope profile_finalize{ &profile.finalize };
 
-        for (Contact* contact = contactGraph.contactList; contact; contact = contact->next)
+    // Transfer awake contacts backward because TransferContact() swap-removes from contactStates.
+    // Touching island contacts are marked with flag_island. Non-touching contacts are not in islands,
+    // but may also need to leave awakeSet when both bodies fell asleep.
+    for (int32 i = int32(awakeSet.contactStates.size()) - 1; i >= 0; --i)
+    {
+        Contact* contact = awakeSet.contactStates[i].contact;
+
+        RigidBody* bodyA = contact->GetBodyA();
+        RigidBody* bodyB = contact->GetBodyB();
+
+        SolverSetIndex targetSet;
+        if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+        {
+            targetSet = disabled_set;
+        }
+        else
+        {
+            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+        }
+
+        if (contact->flag & Contact::flag_island)
         {
             contact->flag &= ~Contact::flag_island;
+            if (targetSet != awake_set)
+            {
+                TransferContact(contact, targetSet);
+            }
         }
-
-        for (Joint* joint = jointList; joint; joint = joint->next)
+        else if (targetSet != awake_set)
         {
-            joint->flagIsland = false;
+            TransferContact(contact, targetSet);
+        }
+    }
+
+    // Transfer awake joints backward because TransferJoint() swap-removes from jointStates.
+    for (int32 i = int32(awakeSet.jointStates.size()) - 1; i >= 0; --i)
+    {
+        Joint* joint = awakeSet.jointStates[i].joint;
+        if (joint->flagIsland == false)
+        {
+            continue;
         }
 
-        MuliProfileZoneEnd(clear_flags);
+        RigidBody* bodyA = joint->GetBodyA();
+        RigidBody* bodyB = joint->GetBodyB();
+
+        SolverSetIndex targetSet;
+        if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+        {
+            targetSet = disabled_set;
+        }
+        else if (bodyA->IsStatic() && bodyB->IsStatic())
+        {
+            targetSet = static_set;
+        }
+        else
+        {
+            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+        }
+
+        joint->flagIsland = false;
+        if (targetSet != awake_set)
+        {
+            TransferJoint(joint, targetSet);
+        }
     }
+
+    // Transfer bodies last. BodyState pointers into awakeSet can be invalidated by swap-remove,
+    // so iterate the set itself backward and use flag_island to find bodies solved this step.
+    for (int32 i = int32(awakeSet.bodyStates.size()) - 1; i >= 0; --i)
+    {
+        RigidBody* body = awakeSet.bodyStates[i].body;
+        if (body->flag & RigidBody::flag_island)
+        {
+            body->flag &= ~RigidBody::flag_island;
+            if (body->IsEnabled() == false)
+            {
+                TransferBody(body, disabled_set);
+            }
+            else if (body->IsSleeping())
+            {
+                TransferBody(body, sleeping_set);
+            }
+        }
+    }
+
+    sleepingBodyCount = int32(solverSets[sleeping_set].bodyStates.size());
+    // ValidateSolverSets();
+
+    linearAllocator.Free(islandJoints, jointCount * sizeof(JointState*));
+    linearAllocator.Free(islandContacts, contactGraph.contactCount * sizeof(ContactState*));
+    linearAllocator.Free(islandBodies, bodyCount * sizeof(BodyState*));
+    linearAllocator.Free(islands, bodyCount * sizeof(Island));
+    linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
+    MuliProfileZoneEnd(finalize);
 
     MuliProfileZoneEnd(solve_world);
 }
@@ -1415,6 +1496,7 @@ void World::AddJoint(Joint* joint)
         joint->bodyB->jointList = &joint->nodeB;
     }
 
+    AddJointState(joint, GetJointTargetSet(joint));
     ++jointCount;
 }
 
@@ -1536,6 +1618,426 @@ void World::FreeShape(Shape* shape)
     default:
         MuliAssert(false);
         break;
+    }
+}
+
+BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex, const Transform& transform)
+{
+    SolverSet& set = solverSets[setIndex];
+    body->setIndex = setIndex;
+    body->localIndex = int32(set.bodyStates.size());
+
+    BodyState state{};
+    state.body = body;
+    state.transform = transform;
+    state.motion = Motion{ transform };
+    state.linearVelocity = Vec3::zero;
+    state.angularVelocity = Vec3::zero;
+    state.mass = 0.0f;
+    state.invMass = 0.0f;
+    state.inertia = Mat3::zero;
+    state.invInertia = Mat3::zero;
+    state.linearDamping = default_linear_damping;
+    state.angularDamping = default_angular_damping;
+    state.force = Vec3::zero;
+    state.torque = Vec3::zero;
+    state.resting = 0.0f;
+
+    set.bodyStates.push_back(state);
+    return &set.bodyStates.back();
+}
+
+void World::RemoveBodyState(RigidBody* body)
+{
+    SolverSet& set = solverSets[body->setIndex];
+    int32 index = body->localIndex;
+    int32 last = int32(set.bodyStates.size() - 1);
+
+    if (index != last)
+    {
+        set.bodyStates[index] = set.bodyStates[last];
+        set.bodyStates[index].body->localIndex = index;
+    }
+
+    set.bodyStates.pop_back();
+    body->setIndex = -1;
+    body->localIndex = -1;
+}
+
+void World::TransferBody(RigidBody* body, SolverSetIndex targetSet)
+{
+    if (body->setIndex == targetSet)
+    {
+        return;
+    }
+
+    SolverSet& source = solverSets[body->setIndex];
+    SolverSet& target = solverSets[targetSet];
+
+    int32 sourceIndex = body->localIndex;
+    int32 targetIndex = int32(target.bodyStates.size());
+    target.bodyStates.push_back(source.bodyStates[sourceIndex]);
+    target.bodyStates.back().body = body;
+
+    int32 last = int32(source.bodyStates.size() - 1);
+    if (sourceIndex != last)
+    {
+        source.bodyStates[sourceIndex] = source.bodyStates[last];
+        source.bodyStates[sourceIndex].body->localIndex = sourceIndex;
+    }
+    source.bodyStates.pop_back();
+
+    body->setIndex = targetSet;
+    body->localIndex = targetIndex;
+}
+
+SolverSetIndex World::GetBodyTargetSet(RigidBody* body) const
+{
+    if (body->IsEnabled() == false)
+    {
+        return disabled_set;
+    }
+
+    if (body->type == RigidBody::static_body)
+    {
+        return static_set;
+    }
+
+    return body->IsSleeping() ? sleeping_set : awake_set;
+}
+
+ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
+{
+    SolverSet& set = solverSets[setIndex];
+    contact->setIndex = setIndex;
+    contact->localIndex = int32(set.contactStates.size());
+
+    ContactState state{};
+    state.contact = contact;
+    state.manifold.contactCount = 0;
+    state.friction = MixFriction(contact->colliderA->GetFriction(), contact->colliderB->GetFriction());
+    state.restitution = MixRestitution(contact->colliderA->GetRestitution(), contact->colliderB->GetRestitution());
+    state.restitutionThreshold =
+        MixRestitutionTreshold(contact->colliderA->GetRestitutionTreshold(), contact->colliderB->GetRestitutionTreshold());
+    state.surfaceSpeed = contact->colliderB->GetSurfaceSpeed() + contact->colliderA->GetSurfaceSpeed();
+
+    set.contactStates.push_back(state);
+    return &set.contactStates.back();
+}
+
+void World::RemoveContactState(Contact* contact)
+{
+    SolverSet& set = solverSets[contact->setIndex];
+    int32 index = contact->localIndex;
+    int32 last = int32(set.contactStates.size() - 1);
+
+    if (index != last)
+    {
+        set.contactStates[index] = set.contactStates[last];
+        set.contactStates[index].contact->localIndex = index;
+    }
+
+    set.contactStates.pop_back();
+    contact->setIndex = -1;
+    contact->localIndex = -1;
+}
+
+void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
+{
+    if (contact->setIndex == targetSet)
+    {
+        return;
+    }
+
+    SolverSet& source = solverSets[contact->setIndex];
+    SolverSet& target = solverSets[targetSet];
+
+    int32 sourceIndex = contact->localIndex;
+    int32 targetIndex = int32(target.contactStates.size());
+    target.contactStates.push_back(source.contactStates[sourceIndex]);
+    target.contactStates.back().contact = contact;
+
+    int32 last = int32(source.contactStates.size() - 1);
+    if (sourceIndex != last)
+    {
+        source.contactStates[sourceIndex] = source.contactStates[last];
+        source.contactStates[sourceIndex].contact->localIndex = sourceIndex;
+    }
+    source.contactStates.pop_back();
+
+    contact->setIndex = targetSet;
+    contact->localIndex = targetIndex;
+}
+
+SolverSetIndex World::GetContactTargetSet(Contact* contact) const
+{
+    RigidBody* bodyA = contact->GetBodyA();
+    RigidBody* bodyB = contact->GetBodyB();
+
+    if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+    {
+        return disabled_set;
+    }
+
+    bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+    bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+    return awakeA || awakeB ? awake_set : sleeping_set;
+}
+
+JointState* World::AddJointState(Joint* joint, SolverSetIndex setIndex)
+{
+    SolverSet& set = solverSets[setIndex];
+    joint->setIndex = setIndex;
+    joint->localIndex = int32(set.jointStates.size());
+
+    JointState state{};
+    state.joint = joint;
+    state.invIA = Mat3::zero;
+    state.invIB = Mat3::zero;
+    state.beta = 0.0f;
+    state.gamma = 0.0f;
+    set.jointStates.push_back(state);
+    return &set.jointStates.back();
+}
+
+void World::RemoveJointState(Joint* joint)
+{
+    SolverSet& set = solverSets[joint->setIndex];
+    int32 index = joint->localIndex;
+    int32 last = int32(set.jointStates.size() - 1);
+
+    if (index != last)
+    {
+        set.jointStates[index] = set.jointStates[last];
+        set.jointStates[index].joint->localIndex = index;
+    }
+
+    set.jointStates.pop_back();
+    joint->setIndex = -1;
+    joint->localIndex = -1;
+}
+
+void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
+{
+    if (joint->setIndex == targetSet)
+    {
+        return;
+    }
+
+    SolverSet& source = solverSets[joint->setIndex];
+    SolverSet& target = solverSets[targetSet];
+
+    int32 sourceIndex = joint->localIndex;
+    int32 targetIndex = int32(target.jointStates.size());
+    target.jointStates.push_back(source.jointStates[sourceIndex]);
+    target.jointStates.back().joint = joint;
+
+    int32 last = int32(source.jointStates.size() - 1);
+    if (sourceIndex != last)
+    {
+        source.jointStates[sourceIndex] = source.jointStates[last];
+        source.jointStates[sourceIndex].joint->localIndex = sourceIndex;
+    }
+    source.jointStates.pop_back();
+
+    joint->setIndex = targetSet;
+    joint->localIndex = targetIndex;
+}
+
+SolverSetIndex World::GetJointTargetSet(Joint* joint) const
+{
+    RigidBody* bodyA = joint->GetBodyA();
+    RigidBody* bodyB = joint->GetBodyB();
+
+    if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+    {
+        return disabled_set;
+    }
+
+    if (bodyA->IsStatic() && bodyB->IsStatic())
+    {
+        return static_set;
+    }
+
+    bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+    bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+    return awakeA || awakeB ? awake_set : sleeping_set;
+}
+
+void World::WakeBody(RigidBody* body)
+{
+    if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
+    {
+        return;
+    }
+
+    if (body->IsSleeping() == false && body->setIndex == awake_set)
+    {
+        return;
+    }
+
+    std::vector<RigidBody*> stack;
+    stack.push_back(body);
+
+    while (stack.empty() == false)
+    {
+        RigidBody* b = stack.back();
+        stack.pop_back();
+
+        if (b->IsStatic() || b->IsEnabled() == false || (b->IsSleeping() == false && b->setIndex == awake_set))
+        {
+            continue;
+        }
+
+        b->flag &= ~RigidBody::flag_sleeping;
+        b->GetBodyState()->resting = 0.0f;
+        TransferBody(b, awake_set);
+
+        for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
+        {
+            Contact* contact = ce->contact;
+            RigidBody* other = ce->other;
+
+            if (other->IsEnabled() == false)
+            {
+                continue;
+            }
+
+            TransferContact(contact, awake_set);
+
+            if (other->IsStatic() == false && other->IsSleeping())
+            {
+                stack.push_back(other);
+            }
+        }
+
+        for (JointEdge* je = b->jointList; je; je = je->next)
+        {
+            Joint* joint = je->joint;
+            RigidBody* other = je->other;
+
+            if (other->IsEnabled() == false)
+            {
+                continue;
+            }
+
+            TransferJoint(joint, awake_set);
+
+            if (other->IsStatic() == false && other->IsSleeping())
+            {
+                stack.push_back(other);
+            }
+        }
+    }
+}
+
+void World::SleepBody(RigidBody* body)
+{
+    if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
+    {
+        return;
+    }
+
+    std::vector<RigidBody*> stack;
+    std::vector<RigidBody*> bodies;
+
+    stack.push_back(body);
+    body->flag |= RigidBody::flag_island;
+
+    while (stack.empty() == false)
+    {
+        RigidBody* b = stack.back();
+        stack.pop_back();
+        bodies.push_back(b);
+
+        for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
+        {
+            Contact* contact = ce->contact;
+            RigidBody* other = ce->other;
+
+            if ((contact->flag & Contact::flag_touching) == 0 || (contact->flag & Contact::flag_enabled) == 0)
+            {
+                continue;
+            }
+
+            if (other->IsStatic() || other->IsEnabled() == false || (other->flag & RigidBody::flag_island))
+            {
+                continue;
+            }
+
+            other->flag |= RigidBody::flag_island;
+            stack.push_back(other);
+        }
+
+        for (JointEdge* je = b->jointList; je; je = je->next)
+        {
+            RigidBody* other = je->other;
+
+            if (other->IsStatic() || other->IsEnabled() == false || (other->flag & RigidBody::flag_island))
+            {
+                continue;
+            }
+
+            other->flag |= RigidBody::flag_island;
+            stack.push_back(other);
+        }
+    }
+
+    for (RigidBody* b : bodies)
+    {
+        BodyState* state = b->GetBodyState();
+        state->resting = max_float;
+        state->force = Vec3::zero;
+        state->torque = Vec3::zero;
+        state->linearVelocity = Vec3::zero;
+        state->angularVelocity = Vec3::zero;
+
+        b->flag |= RigidBody::flag_sleeping;
+    }
+
+    for (RigidBody* b : bodies)
+    {
+        for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
+        {
+            TransferContact(ce->contact, GetContactTargetSet(ce->contact));
+        }
+
+        for (JointEdge* je = b->jointList; je; je = je->next)
+        {
+            TransferJoint(je->joint, GetJointTargetSet(je->joint));
+        }
+    }
+
+    for (RigidBody* b : bodies)
+    {
+        b->flag &= ~RigidBody::flag_island;
+        TransferBody(b, sleeping_set);
+    }
+}
+
+void World::ValidateSolverSets() const
+{
+    for (int32 setIndex = 0; setIndex < solver_set_count; ++setIndex)
+    {
+        const SolverSet& set = solverSets[setIndex];
+
+        for (int32 i = 0; i < int32(set.bodyStates.size()); ++i)
+        {
+            MuliAssert(set.bodyStates[i].body->setIndex == setIndex);
+            MuliAssert(set.bodyStates[i].body->localIndex == i);
+        }
+
+        for (int32 i = 0; i < int32(set.contactStates.size()); ++i)
+        {
+            MuliAssert(set.contactStates[i].contact->setIndex == setIndex);
+            MuliAssert(set.contactStates[i].contact->localIndex == i);
+        }
+
+        for (int32 i = 0; i < int32(set.jointStates.size()); ++i)
+        {
+            MuliAssert(set.jointStates[i].joint->setIndex == setIndex);
+            MuliAssert(set.jointStates[i].joint->localIndex == i);
+        }
     }
 }
 

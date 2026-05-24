@@ -3,6 +3,7 @@
 #include "collision_filter.h"
 #include "material.h"
 #include "settings.h"
+#include "solver_states.h"
 #include "transform.h"
 
 namespace muli3
@@ -193,12 +194,15 @@ public:
         const Material& material = default_material
     );
 
-    BodyDestroyCallback* OnDestroy;
-    void* UserData;
+    BodyState* GetBodyState();
+    const BodyState* GetBodyState() const;
 
     Mat3 GetWorldInertiaTensor() const;
     Mat3 GetWorldInverseInertiaTensor() const;
     Vec3 GetVelocityAtWorldPoint(const Vec3& point) const;
+
+    BodyDestroyCallback* OnDestroy;
+    void* UserData;
 
 protected:
     friend class World;
@@ -216,7 +220,6 @@ protected:
     friend class PositionSolver;
 
     friend class Joint;
-    friend class Constraint;
     friend class FixedRotationJoint;
     friend class ConeSwingJoint;
     friend class RevoluteJoint;
@@ -241,24 +244,11 @@ protected:
 
     Type type;
 
-    Transform transform;
-    Motion motion;
-
-    Vec3 linearVelocity;
-    Vec3 angularVelocity;
-
-    float mass;
-    float invMass;
-    Mat3 inertia;
-    Mat3 invInertia;
-
-    float linearDamping;
-    float angularDamping;
-
-    Vec3 force;
-    Vec3 torque;
-
     int32 islandIndex;
+
+    int32 setIndex;
+    int32 localIndex;
+
     uint16 flag;
 
     void ResetMassData();
@@ -275,28 +265,26 @@ private:
 
     ContactEdge* contactList;
     JointEdge* jointList;
-
-    float resting;
 };
 
 inline const Transform& RigidBody::GetTransform() const
 {
-    return transform;
+    return GetBodyState()->transform;
 }
 
 inline const Motion& RigidBody::GetMotion() const
 {
-    return motion;
+    return GetBodyState()->motion;
 }
 
 inline const Vec3& RigidBody::GetLocalCenter() const
 {
-    return motion.localCenter;
+    return GetBodyState()->motion.localCenter;
 }
 
 inline const Vec3& RigidBody::GetPosition() const
 {
-    return transform.p;
+    return GetBodyState()->transform.p;
 }
 
 inline void RigidBody::SetPosition(const Vec3& position)
@@ -306,48 +294,49 @@ inline void RigidBody::SetPosition(const Vec3& position)
 
 inline const Quat& RigidBody::GetRotation() const
 {
-    return transform.q;
+    return GetBodyState()->transform.q;
 }
 
 inline float RigidBody::GetMass() const
 {
-    return mass;
+    return GetBodyState()->mass;
 }
 
 inline const Mat3& RigidBody::GetInertiaTensor() const
 {
-    return inertia;
+    return GetBodyState()->inertia;
 }
 
 inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
 {
-    const Vec3& c = motion.localCenter;
+    const BodyState* s = GetBodyState();
+    const Vec3& c = s->motion.localCenter;
 
     return Mat3(
-        inertia.ex + Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z },
-        inertia.ey + Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z },
-        inertia.ez + Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) }
+        s->inertia.ex + Vec3{ s->mass * (c.y * c.y + c.z * c.z), -s->mass * c.x * c.y, -s->mass * c.x * c.z },
+        s->inertia.ey + Vec3{ -s->mass * c.y * c.x, s->mass * (c.x * c.x + c.z * c.z), -s->mass * c.y * c.z },
+        s->inertia.ez + Vec3{ -s->mass * c.z * c.x, -s->mass * c.z * c.y, s->mass * (c.x * c.x + c.y * c.y) }
     );
 }
 
 inline float RigidBody::GetLinearDamping() const
 {
-    return linearDamping;
+    return GetBodyState()->linearDamping;
 }
 
 inline void RigidBody::SetLinearDamping(float newLinearDamping)
 {
-    linearDamping = newLinearDamping;
+    GetBodyState()->linearDamping = newLinearDamping;
 }
 
 inline float RigidBody::GetAngularDamping() const
 {
-    return angularDamping;
+    return GetBodyState()->angularDamping;
 }
 
 inline void RigidBody::SetAngularDamping(float newAngularDamping)
 {
-    angularDamping = newAngularDamping;
+    GetBodyState()->angularDamping = newAngularDamping;
 }
 
 inline void RigidBody::SetGyroscopicTorqueEnabled(bool enabled)
@@ -374,7 +363,7 @@ inline bool RigidBody::GetGyroscopicTorqueEnabled() const
 
 inline const Vec3& RigidBody::GetForce() const
 {
-    return force;
+    return GetBodyState()->force;
 }
 
 inline void RigidBody::SetForce(const Vec3& newForce)
@@ -384,12 +373,12 @@ inline void RigidBody::SetForce(const Vec3& newForce)
         return;
     }
 
-    force = newForce;
+    GetBodyState()->force = newForce;
 }
 
 inline const Vec3& RigidBody::GetTorque() const
 {
-    return torque;
+    return GetBodyState()->torque;
 }
 
 inline void RigidBody::SetTorque(const Vec3& newTorque)
@@ -399,12 +388,12 @@ inline void RigidBody::SetTorque(const Vec3& newTorque)
         return;
     }
 
-    torque = newTorque;
+    GetBodyState()->torque = newTorque;
 }
 
 inline const Vec3& RigidBody::GetLinearVelocity() const
 {
-    return linearVelocity;
+    return GetBodyState()->linearVelocity;
 }
 
 inline void RigidBody::SetLinearVelocity(const Vec3& newLinearVelocity)
@@ -419,12 +408,12 @@ inline void RigidBody::SetLinearVelocity(float vx, float vy, float vz)
         return;
     }
 
-    linearVelocity = Vec3{ vx, vy, vz };
+    GetBodyState()->linearVelocity = Vec3{ vx, vy, vz };
 }
 
 inline const Vec3& RigidBody::GetAngularVelocity() const
 {
-    return angularVelocity;
+    return GetBodyState()->angularVelocity;
 }
 
 inline void RigidBody::SetAngularVelocity(const Vec3& newAngularVelocity)
@@ -439,7 +428,7 @@ inline void RigidBody::SetAngularVelocity(float vx, float vy, float vz)
         return;
     }
 
-    angularVelocity = Vec3{ vx, vy, vz };
+    GetBodyState()->angularVelocity = Vec3{ vx, vy, vz };
 }
 
 inline void RigidBody::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, bool awake)
@@ -456,8 +445,9 @@ inline void RigidBody::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, b
 
     if (IsSleeping() == false)
     {
-        force += inForce;
-        torque += Cross(worldPoint - motion.c, inForce);
+        BodyState* s = GetBodyState();
+        s->force += inForce;
+        s->torque += Cross(worldPoint - s->motion.c, inForce);
     }
 }
 
@@ -475,8 +465,9 @@ inline void RigidBody::ApplyForceLocal(const Vec3& localPoint, const Vec3& inFor
 
     if (IsSleeping() == false)
     {
-        force += inForce;
-        torque += Cross(localPoint - motion.localCenter, inForce);
+        BodyState* s = GetBodyState();
+        s->force += inForce;
+        s->torque += Cross(localPoint - s->motion.localCenter, inForce);
     }
 }
 
@@ -494,7 +485,7 @@ inline void RigidBody::ApplyTorque(const Vec3& inTorque, bool awake)
 
     if (IsSleeping() == false)
     {
-        torque += inTorque;
+        GetBodyState()->torque += inTorque;
     }
 }
 
@@ -565,32 +556,6 @@ inline bool RigidBody::IsSleeping() const
     return (flag & flag_sleeping) == flag_sleeping;
 }
 
-inline void RigidBody::Awake()
-{
-    if (IsStatic())
-    {
-        return;
-    }
-
-    resting = 0.0f;
-    flag &= ~flag_sleeping;
-}
-
-inline void RigidBody::Sleep()
-{
-    if (IsStatic())
-    {
-        return;
-    }
-
-    resting = max_float;
-    force = Vec3::zero;
-    torque = Vec3::zero;
-    linearVelocity = Vec3::zero;
-    angularVelocity = Vec3::zero;
-    flag |= flag_sleeping;
-}
-
 inline Collider* RigidBody::GetColliderList()
 {
     return colliderList;
@@ -608,21 +573,24 @@ inline int32 RigidBody::GetColliderCount() const
 
 inline void RigidBody::SynchronizeTransform()
 {
-    transform.q = motion.q;
-    transform.p = motion.c - transform.q.Rotate(motion.localCenter);
-    transform.s = Vec3{ 1.0f, 1.0f, 1.0f };
+    BodyState* s = GetBodyState();
+    s->transform.q = s->motion.q;
+    s->transform.p = s->motion.c - s->transform.q.Rotate(s->motion.localCenter);
+    s->transform.s = Vec3{ 1.0f, 1.0f, 1.0f };
 }
 
 inline Mat3 RigidBody::GetWorldInertiaTensor() const
 {
-    Mat3 rotation{ motion.q };
-    return rotation * inertia * rotation.GetTranspose();
+    const BodyState* s = GetBodyState();
+    Mat3 rotation{ s->motion.q };
+    return rotation * s->inertia * rotation.GetTranspose();
 }
 
 inline Mat3 RigidBody::GetWorldInverseInertiaTensor() const
 {
-    Mat3 rotation{ motion.q };
-    return rotation * invInertia * rotation.GetTranspose();
+    const BodyState* s = GetBodyState();
+    Mat3 rotation{ s->motion.q };
+    return rotation * s->invInertia * rotation.GetTranspose();
 }
 
 } // namespace muli3

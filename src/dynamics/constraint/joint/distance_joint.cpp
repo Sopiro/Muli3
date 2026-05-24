@@ -53,6 +53,10 @@ void DistanceJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     // Compute Jacobian J and effective mass W
     // J = [-d, -d×ra, d, d×rb] ( d = (anchorB-anchorA) / ||anchorB-anchorA|| )
     // W = (J · M^-1 · J^t)^-1
@@ -60,8 +64,8 @@ void DistanceJoint::Prepare(const Timestep& step)
     ra = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     rb = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
 
-    Vec3 pa = bodyA->motion.c + ra;
-    Vec3 pb = bodyB->motion.c + rb;
+    Vec3 pa = sA->motion.c + ra;
+    Vec3 pb = sB->motion.c + rb;
 
     d = pb - pa;
     float currentLength = Length(d);
@@ -74,17 +78,17 @@ void DistanceJoint::Prepare(const Timestep& step)
         d = x_axis;
     }
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     Vec3 crossDA = Cross(d, ra);
     Vec3 crossDB = Cross(d, rb);
 
     // clang-format off
-    float k = bodyA->invMass + bodyB->invMass
-            + Dot(crossDA, invIA * crossDA)
-            + Dot(crossDB, invIB * crossDB)
-            + gamma;
+    float k = sA->invMass + sB->invMass
+            + Dot(crossDA, s->invIA * crossDA)
+            + Dot(crossDB, s->invIB * crossDB)
+            + s->gamma;
     // clang-format on
 
     m = k != 0.0f ? 1.0f / k : 0.0f;
@@ -92,17 +96,17 @@ void DistanceJoint::Prepare(const Timestep& step)
     if (minLength == maxLength)
     {
         limitState = distance_limit_equal;
-        bias = (currentLength - minLength) * beta * step.inv_dt;
+        bias = (currentLength - minLength) * s->beta * step.inv_dt;
     }
     else if (currentLength < minLength)
     {
         limitState = distance_limit_at_lower;
-        bias = (currentLength - minLength) * beta * step.inv_dt;
+        bias = (currentLength - minLength) * s->beta * step.inv_dt;
     }
     else if (currentLength > maxLength)
     {
         limitState = distance_limit_at_upper;
-        bias = (currentLength - maxLength) * beta * step.inv_dt;
+        bias = (currentLength - maxLength) * s->beta * step.inv_dt;
     }
     else
     {
@@ -122,6 +126,10 @@ void DistanceJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     if (limitState == distance_limit_inactive)
     {
         return;
@@ -132,11 +140,9 @@ void DistanceJoint::SolveVelocityConstraints(const Timestep& step)
     // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
 
     float jv =
-        Dot((bodyB->linearVelocity + Cross(bodyB->angularVelocity, rb)) -
-                (bodyA->linearVelocity + Cross(bodyA->angularVelocity, ra)),
-            d);
+        Dot((sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra)), d);
 
-    float lambda = m * -(jv + bias + impulseSum * gamma);
+    float lambda = m * -(jv + bias + impulseSum * s->gamma);
 
     float newImpulseSum;
     if (limitState == distance_limit_equal)
@@ -159,12 +165,16 @@ void DistanceJoint::ApplyImpulse(float lambda)
     // V2 = V2' + M^-1 ⋅ Pc
     // Pc = J^t ⋅ λ
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 p = d * lambda;
 
-    bodyA->linearVelocity -= p * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * Cross(ra, p);
-    bodyB->linearVelocity += p * bodyB->invMass;
-    bodyB->angularVelocity += invIB * Cross(rb, p);
+    sA->linearVelocity -= p * sA->invMass;
+    sA->angularVelocity -= s->invIA * Cross(ra, p);
+    sB->linearVelocity += p * sB->invMass;
+    sB->angularVelocity += s->invIB * Cross(rb, p);
 }
 
 } // namespace muli3

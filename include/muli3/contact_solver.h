@@ -6,6 +6,7 @@ namespace muli3
 {
 
 class Contact;
+struct ContactState;
 struct Timestep;
 
 struct ContactJacobian
@@ -19,12 +20,13 @@ struct ContactJacobian
 class ContactSolverNormal
 {
 public:
-    void Prepare(Contact* contact, int32 index, const Timestep& step);
-    void Solve(Contact* contact);
+    void Prepare(ContactState* s, int32 index, const Timestep& step);
+    void Solve(ContactState* s);
 
 private:
     friend class Contact;
     friend class ContactSolverTangent;
+    friend struct ContactState;
 
     ContactJacobian j;
 
@@ -38,11 +40,12 @@ private:
 class ContactSolverTangent
 {
 public:
-    void Prepare(Contact* contact, const Vec3& tangent, uint8 tangentIndex, int32 index, const Timestep& step);
-    void Solve(Contact* contact, const ContactSolverNormal* normalSolver);
+    void Prepare(ContactState* s, const Vec3& tangent, uint8 tangentIndex, int32 index, const Timestep& step);
+    void Solve(ContactState* s, const ContactSolverNormal* normalSolver);
 
 private:
     friend class Contact;
+    friend struct ContactState;
 
     ContactJacobian j;
 

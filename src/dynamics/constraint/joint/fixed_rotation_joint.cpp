@@ -14,22 +14,25 @@ void FixedRotationJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
 
-    Mat3 k = invIA;
-    k.ex.x += gamma;
-    k.ey.y += gamma;
-    k.ez.z += gamma;
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+
+    Mat3 k = s->invIA;
+    k.ex.x += s->gamma;
+    k.ey.y += s->gamma;
+    k.ez.z += s->gamma;
 
     m = k.GetInverse();
 
-    Quat qError = bodyA->motion.q * targetOrientation.GetConjugate();
+    Quat qError = sA->motion.q * targetOrientation.GetConjugate();
     if (qError.w < 0.0f)
     {
         qError = -qError;
     }
 
-    bias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * beta * step.inv_dt;
+    bias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
 
     if (step.warm_starting)
     {
@@ -41,8 +44,11 @@ void FixedRotationJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    Vec3 jv = bodyA->angularVelocity;
-    Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+
+    Vec3 jv = sA->angularVelocity;
+    Vec3 lambda = m * -(jv + bias + impulseSum * s->gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;
@@ -50,7 +56,10 @@ void FixedRotationJoint::SolveVelocityConstraints(const Timestep& step)
 
 void FixedRotationJoint::ApplyImpulse(const Vec3& lambda)
 {
-    bodyA->angularVelocity += invIA * lambda;
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+
+    sA->angularVelocity += s->invIA * lambda;
 }
 
 } // namespace muli3

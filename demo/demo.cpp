@@ -192,15 +192,25 @@ bool Demo::EnableBodyGrab()
         {
             targetBody->Awake();
             cursorJoint = world->CreateGrabJoint(targetBody, targetPoint, targetPoint, 4.0f, 0.5f, targetBody->GetMass());
+            cursorJoint->OnDestroy = this;
             grabDepth = Dot(targetPoint - camera.GetPosition(), camera.GetForward());
         }
     }
     if (targetBody && (Input::IsMousePressed(GLFW_MOUSE_BUTTON_MIDDLE) || Input::IsKeyPressed(GLFW_KEY_F)))
     {
         targetBody->DestroyCollider(targetCollider);
+        targetCollider = nullptr;
+
         if (targetBody->GetColliderCount() == 0)
         {
+            if (cursorJoint && cursorJoint->GetBodyA() == targetBody)
+            {
+                cursorJoint = nullptr;
+            }
+
             world->Destroy(targetBody);
+            targetBody = nullptr;
+            return false;
         }
     }
 

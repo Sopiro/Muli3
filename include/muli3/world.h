@@ -323,6 +323,8 @@ public:
 private:
     friend class RigidBody;
     friend class Collider;
+    friend class Contact;
+    friend class Joint;
     friend class Island;
     friend class ContactGraph;
     friend class BroadPhase;
@@ -334,10 +336,31 @@ private:
     Shape* CloneShape(const Shape* shape, const Transform& transform = identity);
     void FreeShape(Shape* shape);
 
+    BodyState* AddBodyState(RigidBody* body, SolverSetIndex setIndex, const Transform& transform);
+    void RemoveBodyState(RigidBody* body);
+    void TransferBody(RigidBody* body, SolverSetIndex targetSet);
+    SolverSetIndex GetBodyTargetSet(RigidBody* body) const;
+
+    ContactState* AddContactState(Contact* contact, SolverSetIndex setIndex);
+    void RemoveContactState(Contact* contact);
+    void TransferContact(Contact* contact, SolverSetIndex targetSet);
+    SolverSetIndex GetContactTargetSet(Contact* contact) const;
+
+    JointState* AddJointState(Joint* joint, SolverSetIndex setIndex);
+    void RemoveJointState(Joint* joint);
+    void TransferJoint(Joint* joint, SolverSetIndex targetSet);
+    SolverSetIndex GetJointTargetSet(Joint* joint) const;
+
+    void WakeBody(RigidBody* body);
+    void SleepBody(RigidBody* body);
+
+    void ValidateSolverSets() const;
+
     const WorldSettings& settings;
     WorldProfile profile;
 
     ContactGraph contactGraph;
+    SolverSet solverSets[solver_set_count];
 
     RigidBody* bodyList = nullptr;
     RigidBody* bodyListTail = nullptr;

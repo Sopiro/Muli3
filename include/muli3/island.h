@@ -6,9 +6,9 @@ namespace muli3
 {
 
 class World;
-class Contact;
-class RigidBody;
-class Joint;
+struct BodyState;
+struct ContactState;
+struct JointState;
 
 class Island
 {
@@ -16,39 +16,28 @@ public:
     Island() = default;
 
     void Prepare(
-        bool sleeping,
-        Contact** contacts,
-        RigidBody** bodies,
-        Joint** joints,
-        int32 contactCount,
-        int32 bodyCount,
-        int32 jointCount
+        ContactState** contacts, BodyState** bodies, JointState** joints, int32 contactCount, int32 bodyCount, int32 jointCount
     );
     void Solve(World* world);
 
-    Contact** contacts;
-    RigidBody** bodies;
-    Joint** joints;
+    ContactState** contacts;
+    BodyState** bodies;
+    JointState** joints;
 
     int32 contactCount;
     int32 bodyCount;
     int32 jointCount;
-
-    bool sleeping;
 };
 
 inline void Island::Prepare(
-    bool inSleeping,
-    Contact** inContacts,
-    RigidBody** inBodies,
-    Joint** inJoints,
+    ContactState** inContacts,
+    BodyState** inBodies,
+    JointState** inJoints,
     int32 inContactCount,
     int32 inBodyCount,
     int32 inJointCount
 )
 {
-    sleeping = inSleeping;
-
     contacts = inContacts;
     bodies = inBodies;
     joints = inJoints;

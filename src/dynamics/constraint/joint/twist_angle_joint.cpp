@@ -118,6 +118,8 @@ void TwistAngleJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
     Vec3 axisB = bodyB->GetRotation().Rotate(localAxisB);
     Vec3 refAxisA = bodyA->GetRotation().Rotate(localNormalAxisA);
@@ -129,8 +131,8 @@ void TwistAngleJoint::Prepare(const Timestep& step)
         CoordinateSystem(axisA, &binormalA);
     }
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Use the average of both transformed axes when possible.
     // This keeps the correction symmetric while still measuring the angle in A's frame.
@@ -140,7 +142,7 @@ void TwistAngleJoint::Prepare(const Timestep& step)
         twistAxis = axisA;
     }
 
-    float angleK = Dot(twistAxis, invIA * twistAxis) + Dot(twistAxis, invIB * twistAxis) + gamma;
+    float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis) + s->gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
     currentAngle = GetTwistAngle(refAxisA, binormalA, axisA, axisB, refAxisB) - angleOffset;
@@ -149,7 +151,7 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     {
         limitState = twist_limit_equal;
         angleBias = Clamp(NormalizeAngle(currentAngle - minAngle), -max_joint_angular_correction, max_joint_angular_correction) *
-                    beta * step.inv_dt;
+                    s->beta * step.inv_dt;
     }
     else if (maxAngle - minAngle >= two_pi)
     {
@@ -166,12 +168,12 @@ void TwistAngleJoint::Prepare(const Timestep& step)
         if (currentAngle < lower - angular_slop)
         {
             limitState = twist_limit_at_lower;
-            angleBias = Max(currentAngle - (lower - angular_slop), -max_joint_angular_correction) * beta * step.inv_dt;
+            angleBias = Max(currentAngle - (lower - angular_slop), -max_joint_angular_correction) * s->beta * step.inv_dt;
         }
         else if (currentAngle > upper + angular_slop)
         {
             limitState = twist_limit_at_upper;
-            angleBias = Min(currentAngle - (upper + angular_slop), max_joint_angular_correction) * beta * step.inv_dt;
+            angleBias = Min(currentAngle - (upper + angular_slop), max_joint_angular_correction) * s->beta * step.inv_dt;
         }
         else
         {
@@ -192,13 +194,17 @@ void TwistAngleJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     if (limitState == twist_limit_inactive)
     {
         return;
     }
 
-    float angleJV = Dot(twistAxis, bodyB->angularVelocity - bodyA->angularVelocity);
-    float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * gamma);
+    float angleJV = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
+    float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * s->gamma);
 
     float newImpulseSum;
     if (limitState == twist_limit_equal)
@@ -218,10 +224,14 @@ void TwistAngleJoint::SolveVelocityConstraints(const Timestep& step)
 
 void TwistAngleJoint::ApplyAngleImpulse(float lambda)
 {
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 p = twistAxis * lambda;
 
-    bodyA->angularVelocity -= invIA * p;
-    bodyB->angularVelocity += invIB * p;
+    sA->angularVelocity -= s->invIA * p;
+    sB->angularVelocity += s->invIB * p;
 }
 
 } // namespace muli3

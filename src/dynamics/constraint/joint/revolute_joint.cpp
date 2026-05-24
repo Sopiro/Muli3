@@ -101,32 +101,36 @@ void RevoluteJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     ra = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     rb = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
 
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
-    invIA = bodyA->GetWorldInverseInertiaTensor();
-    invIB = bodyB->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     // Linear part: keep the world anchor points together.
     // clang-format off
-    Mat3 linearK = Mat3(bodyA->invMass + bodyB->invMass)
-                 + skewRA.GetTranspose() * invIA * skewRA
-                 + skewRB.GetTranspose() * invIB * skewRB;
+    Mat3 linearK = Mat3(sA->invMass + sB->invMass)
+                 + skewRA.GetTranspose() * s->invIA * skewRA
+                 + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    linearK.ex.x += gamma;
-    linearK.ey.y += gamma;
-    linearK.ez.z += gamma;
+    linearK.ex.x += s->gamma;
+    linearK.ey.y += s->gamma;
+    linearK.ez.z += s->gamma;
 
     linearM = linearK.GetInverse();
 
-    Vec3 pa = bodyA->motion.c + ra;
-    Vec3 pb = bodyB->motion.c + rb;
+    Vec3 pa = sA->motion.c + ra;
+    Vec3 pb = sB->motion.c + rb;
 
-    linearBias = (pb - pa) * beta * step.inv_dt;
+    linearBias = (pb - pa) * s->beta * step.inv_dt;
 
     // Angular part: align the hinge axes while leaving twist free.
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
@@ -154,7 +158,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
 
     if (swingAxis != Vec3::zero)
     {
-        float swingK = Dot(swingAxis, invIA * swingAxis) + Dot(swingAxis, invIB * swingAxis) + gamma;
+        float swingK = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis) + s->gamma;
         swingM = swingK != 0.0f ? 1.0f / swingK : 0.0f;
     }
     else
@@ -162,7 +166,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
         swingM = 0.0f;
     }
 
-    swingBias = Min(swingAngle, revolute_joint_max_angular_correction) * beta * step.inv_dt;
+    swingBias = Min(swingAngle, revolute_joint_max_angular_correction) * s->beta * step.inv_dt;
 
     twistAxis = axisA + axisB;
     if (twistAxis.Normalize() == 0.0f)
@@ -170,7 +174,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
         twistAxis = axisA;
     }
 
-    float angleK = Dot(twistAxis, invIA * twistAxis) + Dot(twistAxis, invIB * twistAxis) + gamma;
+    float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis) + s->gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
     currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
@@ -179,7 +183,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
     {
         limitState = revolute_limit_equal;
         angleBias = Clamp(NormalizeAngle(currentAngle - minAngle), -max_joint_angular_correction, max_joint_angular_correction) *
-                    beta * step.inv_dt;
+                    s->beta * step.inv_dt;
     }
     else if (maxAngle - minAngle >= two_pi)
     {
@@ -196,12 +200,12 @@ void RevoluteJoint::Prepare(const Timestep& step)
         if (currentAngle < lower - angular_slop)
         {
             limitState = revolute_limit_at_lower;
-            angleBias = Max(currentAngle - (lower - angular_slop), -max_joint_angular_correction) * beta * step.inv_dt;
+            angleBias = Max(currentAngle - (lower - angular_slop), -max_joint_angular_correction) * s->beta * step.inv_dt;
         }
         else if (currentAngle > upper + angular_slop)
         {
             limitState = revolute_limit_at_upper;
-            angleBias = Min(currentAngle - (upper + angular_slop), max_joint_angular_correction) * beta * step.inv_dt;
+            angleBias = Min(currentAngle - (upper + angular_slop), max_joint_angular_correction) * s->beta * step.inv_dt;
         }
         else
         {
@@ -228,14 +232,17 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    Vec3 linearJV =
-        (bodyB->linearVelocity + Cross(bodyB->angularVelocity, rb)) - (bodyA->linearVelocity + Cross(bodyA->angularVelocity, ra));
-    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * gamma);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
+    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
+    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * s->gamma);
     ApplyLinearImpulse(linearLambda);
     linearImpulseSum += linearLambda;
 
-    float swingJV = Dot(swingAxis, bodyB->angularVelocity - bodyA->angularVelocity);
-    float swingLambda = swingM * -(swingJV + swingBias + swingImpulseSum * gamma);
+    float swingJV = Dot(swingAxis, sB->angularVelocity - sA->angularVelocity);
+    float swingLambda = swingM * -(swingJV + swingBias + swingImpulseSum * s->gamma);
     ApplySwingImpulse(swingLambda);
     swingImpulseSum += swingLambda;
 
@@ -244,8 +251,8 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
         return;
     }
 
-    float angleJV = Dot(twistAxis, bodyB->angularVelocity - bodyA->angularVelocity);
-    float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * gamma);
+    float angleJV = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
+    float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * s->gamma);
 
     float newImpulseSum;
     if (limitState == revolute_limit_equal)
@@ -265,26 +272,38 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
 
 void RevoluteJoint::ApplyLinearImpulse(const Vec3& lambda)
 {
-    bodyA->linearVelocity -= lambda * bodyA->invMass;
-    bodyA->angularVelocity -= invIA * Cross(ra, lambda);
-    bodyB->linearVelocity += lambda * bodyB->invMass;
-    bodyB->angularVelocity += invIB * Cross(rb, lambda);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
+    sA->linearVelocity -= lambda * sA->invMass;
+    sA->angularVelocity -= s->invIA * Cross(ra, lambda);
+    sB->linearVelocity += lambda * sB->invMass;
+    sB->angularVelocity += s->invIB * Cross(rb, lambda);
 }
 
 void RevoluteJoint::ApplySwingImpulse(float lambda)
 {
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 p = swingAxis * lambda;
 
-    bodyA->angularVelocity -= invIA * p;
-    bodyB->angularVelocity += invIB * p;
+    sA->angularVelocity -= s->invIA * p;
+    sB->angularVelocity += s->invIB * p;
 }
 
 void RevoluteJoint::ApplyAngleImpulse(float lambda)
 {
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
     Vec3 p = twistAxis * lambda;
 
-    bodyA->angularVelocity -= invIA * p;
-    bodyB->angularVelocity += invIB * p;
+    sA->angularVelocity -= s->invIA * p;
+    sB->angularVelocity += s->invIB * p;
 }
 
 } // namespace muli3

@@ -1,18 +1,56 @@
 #include "muli3/joint.h"
+#include "muli3/solver_states.h"
+#include "muli3/world.h"
 
 namespace muli3
 {
 
 Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio, float jointMass)
-    : Constraint(bodyA, bodyB)
+    : OnDestroy{ nullptr }
     , UserData{ nullptr }
+    , bodyA{ bodyA }
+    , bodyB{ bodyB }
     , type{ type }
+    , setIndex{ -1 }
+    , localIndex{ -1 }
     , flagIsland{ false }
 {
+    MuliAssert(bodyA->GetWorld() == bodyB->GetWorld());
     SetParameters(jointFrequency, jointDampingRatio, jointMass);
 }
 
-Joint::~Joint() {}
+Joint::~Joint()
+{
+    if (OnDestroy)
+    {
+        OnDestroy->OnJointDestroy(this);
+    }
+}
+
+JointState* Joint::GetJointState()
+{
+    return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+}
+
+const JointState* Joint::GetJointState() const
+{
+    return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+}
+
+void JointState::Prepare(const Timestep& step)
+{
+    joint->Prepare(step);
+}
+
+void JointState::SolveVelocityConstraints(const Timestep& step)
+{
+    joint->SolveVelocityConstraints(step);
+}
+
+bool JointState::SolvePositionConstraints(const Timestep& step)
+{
+    return joint->SolvePositionConstraints(step);
+}
 
 void Joint::SetParameters(float newJointFrequency, float newJointDampingRatio, float newJointMass)
 {
@@ -36,11 +74,13 @@ void Joint::SetParameters(float newJointFrequency, float newJointDampingRatio, f
 
 void Joint::ComputeBetaAndGamma(const Timestep& step)
 {
+    JointState* s = GetJointState();
+
     // If the frequency is less than or equal to zero, make this joint solid
     if (jointFrequency <= 0.0f)
     {
-        beta = 1.0f;
-        gamma = 0.0f;
+        s->beta = 1.0f;
+        s->gamma = 0.0f;
     }
     else
     {
@@ -49,8 +89,8 @@ void Joint::ComputeBetaAndGamma(const Timestep& step)
         float k = jointMass * omega * omega;                    // Spring constant
         float h = step.dt;
 
-        beta = h * k / (d + h * k);
-        gamma = 1.0f / ((d + h * k) * h);
+        s->beta = h * k / (d + h * k);
+        s->gamma = 1.0f / ((d + h * k) * h);
     }
 }
 

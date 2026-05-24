@@ -22,26 +22,29 @@ void GrabJoint::Prepare(const Timestep& step)
 {
     ComputeBetaAndGamma(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+
     // Compute Jacobian J and effective mass W
     // J = [I, skew(r)]
     // W = (J · M^-1 · J^t)^-1
 
     r = bodyA->GetRotation().Rotate(localAnchor - bodyA->GetLocalCenter());
-    Vec3 p = bodyA->motion.c + r;
+    Vec3 p = sA->motion.c + r;
 
     Mat3 skewR = Skew(r);
-    invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
 
-    Mat3 k = Mat3(bodyA->invMass) + skewR.GetTranspose() * invIA * skewR;
+    Mat3 k = Mat3(sA->invMass) + skewR.GetTranspose() * s->invIA * skewR;
 
-    k.ex.x += gamma;
-    k.ey.y += gamma;
-    k.ez.z += gamma;
+    k.ex.x += s->gamma;
+    k.ey.y += s->gamma;
+    k.ez.z += s->gamma;
 
     m = k.GetInverse();
 
     Vec3 error = p - target;
-    bias = error * beta * step.inv_dt;
+    bias = error * s->beta * step.inv_dt;
 
     if (step.warm_starting)
     {
@@ -53,13 +56,16 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+
     // Compute corrective impulse: Pc
     // Pc = J^t · λ (λ: lagrangian multiplier)
-    // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
+    // λ = (J · M^-1 · J^t)^-1 ??-(J·v+b)
 
-    Vec3 jv = bodyA->linearVelocity + Cross(bodyA->angularVelocity, r);
+    Vec3 jv = sA->linearVelocity + Cross(sA->angularVelocity, r);
 
-    Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
+    Vec3 lambda = m * -(jv + bias + impulseSum * s->gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;
@@ -67,8 +73,11 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 
 void GrabJoint::ApplyImpulse(const Vec3& lambda)
 {
-    bodyA->linearVelocity += lambda * bodyA->invMass;
-    bodyA->angularVelocity += invIA * Cross(r, lambda);
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+
+    sA->linearVelocity += lambda * sA->invMass;
+    sA->angularVelocity += s->invIA * Cross(r, lambda);
 }
 
 } // namespace muli3

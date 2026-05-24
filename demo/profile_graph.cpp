@@ -24,8 +24,8 @@ static float GetProfileValue(const WorldProfile& profile, ProfileValue value)
         return profile.solve_islands;
     case profile_sync_transforms:
         return profile.sync_transforms;
-    case profile_clear_island_flags:
-        return profile.clear_island_flags;
+    case profile_finalize:
+        return profile.finalize;
     case profile_step_other:
         return (std::max)(0.0f,
                           profile.step - profile.broad_phase - profile.narrow_phase - profile.solve - profile.deferred_destroy);

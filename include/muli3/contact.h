@@ -5,7 +5,7 @@
 #include "contact_solver.h"
 #include "position_solver.h"
 #include "rigidbody.h"
-#include "settings.h"
+#include "solver_states.h"
 
 namespace muli3
 {
@@ -66,20 +66,16 @@ private:
     friend class ContactSolverNormal;
     friend class ContactSolverTangent;
     friend class PositionSolver;
+    friend struct ContactState;
 
-    void Prepare(const Timestep& step);
-    void SolveVelocityConstraints(const Timestep& step);
-    bool SolvePositionConstraints(const Timestep& step);
-
-    void Update();
     void TriggerCallbacks();
+    ContactState* GetContactState();
+    const ContactState* GetContactState() const;
 
     CollideFunction* collideFunction;
 
     Collider* colliderA;
     Collider* colliderB;
-    RigidBody* b1;
-    RigidBody* b2;
 
     Contact* prev = nullptr;
     Contact* next = nullptr;
@@ -87,24 +83,8 @@ private:
     ContactEdge nodeA;
     ContactEdge nodeB;
 
-    ContactManifold manifold;
-
-    ContactSolverNormal normalSolvers[max_contact_point_count];
-    ContactSolverTangent tangent1Solvers[max_contact_point_count];
-    ContactSolverTangent tangent2Solvers[max_contact_point_count];
-    PositionSolver positionSolvers[max_contact_point_count];
-
-    // Impulse buffer for position correction
-    // prefix 'c' stands for corrective
-    Vec3 cLinearImpulseA, cLinearImpulseB;
-    Vec3 cAngularImpulseA, cAngularImpulseB;
-
-    Mat3 invIA, invIB;
-
-    float friction;
-    float restitution;
-    float restitutionThreshold;
-    Vec2 surfaceSpeed;
+    int32 setIndex;
+    int32 localIndex;
 
     uint16 flag;
 };
@@ -131,12 +111,12 @@ inline RigidBody* Contact::GetBodyB() const
 
 inline RigidBody* Contact::GetReferenceBody() const
 {
-    return b1;
+    return GetContactState()->s1->body;
 }
 
 inline RigidBody* Contact::GetIncidentBody() const
 {
-    return b2;
+    return GetContactState()->s2->body;
 }
 
 inline const Contact* Contact::GetPrev() const
@@ -173,44 +153,44 @@ inline void Contact::SetEnabled(bool enabled)
 
 inline const ContactManifold& Contact::GetContactManifold() const
 {
-    return manifold;
+    return GetContactState()->manifold;
 }
 
 inline int32 Contact::GetContactCount() const
 {
-    return manifold.contactCount;
+    return GetContactState()->manifold.contactCount;
 }
 
 inline float Contact::GetNormalImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return normalSolvers[index].impulse;
+    return GetContactState()->normalSolvers[index].impulse;
 }
 
 inline float Contact::GetTangentImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return tangent1Solvers[index].impulse;
+    return GetContactState()->tangent1Solvers[index].impulse;
 }
 
 inline float Contact::GetFriction() const
 {
-    return friction;
+    return GetContactState()->friction;
 }
 
 inline float Contact::GetRestitution() const
 {
-    return restitution;
+    return GetContactState()->restitution;
 }
 
 inline float Contact::GetRestitutionTreshold() const
 {
-    return restitutionThreshold;
+    return GetContactState()->restitutionThreshold;
 }
 
 inline Vec2 Contact::GetSurfaceSpeed() const
 {
-    return surfaceSpeed;
+    return GetContactState()->surfaceSpeed;
 }
 
 } // namespace muli3

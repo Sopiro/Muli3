@@ -5,13 +5,13 @@
 namespace muli3
 {
 
-class Contact;
+struct ContactState;
 
 class PositionSolver
 {
 public:
-    void Prepare(Contact* contact, int32 index);
-    bool Solve(Contact* contact);
+    void Prepare(ContactState* s, int32 index);
+    bool Solve(ContactState* s);
 
 private:
     friend class Contact;

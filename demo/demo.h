@@ -10,7 +10,7 @@ namespace muli3
 class Game;
 class Renderer;
 
-class Demo : NonCopyable
+class Demo : public JointDestroyCallback, NonCopyable
 {
 public:
     Demo(Game& game);
@@ -20,6 +20,8 @@ public:
     virtual void Step();
     virtual void UpdateUI() {}
     virtual void Render() {}
+
+    virtual void OnJointDestroy(Joint* me) override;
 
     World& GetWorld();
     WorldSettings& GetWorldSettings();
@@ -72,6 +74,12 @@ inline WorldSettings& Demo::GetWorldSettings()
 inline Camera& Demo::GetCamera()
 {
     return camera;
+}
+
+inline void Demo::OnJointDestroy(Joint* me)
+{
+    MuliNotUsed(me);
+    cursorJoint = nullptr;
 }
 
 inline RigidBody* Demo::GetTargetBody()
