@@ -2,7 +2,6 @@
 
 #include "collision.h"
 #include "contact_solver.h"
-#include "position_solver.h"
 #include "transform.h"
 
 namespace muli3
@@ -23,9 +22,7 @@ struct BodyState
     Vec3 linearVelocity;
     Vec3 angularVelocity;
 
-    float mass;
     float invMass;
-    Mat3 inertia;
     Mat3 invInertia;
 
     float linearDamping;
@@ -39,11 +36,6 @@ struct BodyState
 
 struct ContactState
 {
-    void Update();
-    void Prepare(const Timestep& step);
-    void SolveVelocityConstraints(const Timestep& step);
-    bool SolvePositionConstraints(const Timestep& step);
-
     Contact* contact;
 
     BodyState* s1;
@@ -51,18 +43,15 @@ struct ContactState
 
     ContactManifold manifold;
 
-    ContactSolverNormal normalSolvers[max_contact_point_count];
-    ContactSolverTangent tangent1Solvers[max_contact_point_count];
-    ContactSolverTangent tangent2Solvers[max_contact_point_count];
-    PositionSolver positionSolvers[max_contact_point_count];
+    SolverContact normalContact[max_contact_point_count];
+    SolverContact tangentContact1[max_contact_point_count];
+    SolverContact tangentContact2[max_contact_point_count];
+    SolverPosition positionContact[max_contact_point_count];
 
-    Vec3 cLinearImpulseA;
-    Vec3 cLinearImpulseB;
-    Vec3 cAngularImpulseA;
-    Vec3 cAngularImpulseB;
+    Vec3 cLinearImpulseA, cLinearImpulseB;
+    Vec3 cAngularImpulseA, cAngularImpulseB;
 
-    Mat3 invIA;
-    Mat3 invIB;
+    Mat3 invIA, invIB;
 
     float friction;
     float restitution;
@@ -72,10 +61,6 @@ struct ContactState
 
 struct JointState
 {
-    void Prepare(const Timestep& step);
-    void SolveVelocityConstraints(const Timestep& step);
-    bool SolvePositionConstraints(const Timestep& step);
-
     Joint* joint;
 
     Mat3 invIA;
@@ -87,10 +72,22 @@ struct JointState
 
 enum SolverSetIndex
 {
+    // Static bodies live here.
+    // Contacts and joints also move here when both connected bodies are static.
     static_set = 0,
+
+    // Disabled bodies live here.
+    // Contacts and joints move here when either connected body is disabled.
     disabled_set,
+
+    // Awake dynamic/kinematic bodies live here.
+    // Contacts and joints live here while at least one connected non-static body is awake.
     awake_set,
+
+    // Sleeping dynamic/kinematic bodies live here.
+    // Contacts and joints live here when all connected non-static bodies are sleeping.
     sleeping_set,
+
     solver_set_count,
 };
 
@@ -100,5 +97,7 @@ struct SolverSet
     std::vector<ContactState> contactStates;
     std::vector<JointState> jointStates;
 };
+
+inline constexpr int32 null_index = -1;
 
 } // namespace muli3

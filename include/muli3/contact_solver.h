@@ -7,6 +7,7 @@ namespace muli3
 
 class Contact;
 struct ContactState;
+struct JointState;
 struct Timestep;
 
 struct ContactJacobian
@@ -17,43 +18,34 @@ struct ContactJacobian
     Vec3 wb; //  Cross(rb, dir)
 };
 
-class ContactSolverNormal
+struct SolverContact
 {
-public:
-    void Prepare(ContactState* s, int32 index, const Timestep& step);
-    void Solve(ContactState* s);
-
-private:
-    friend class Contact;
-    friend class ContactSolverTangent;
-    friend struct ContactState;
-
     ContactJacobian j;
 
-    float m;              // effective mass
+    // effective mass
+    float m;
     float bias;
 
-    float impulse = 0.0f; // impulse sum
+    // impulse sum
+    float impulse = 0.0f;
     float impulseSave = 0.0f;
 };
 
-class ContactSolverTangent
+struct SolverPosition
 {
-public:
-    void Prepare(ContactState* s, const Vec3& tangent, uint8 tangentIndex, int32 index, const Timestep& step);
-    void Solve(ContactState* s, const ContactSolverNormal* normalSolver);
-
-private:
-    friend class Contact;
-    friend struct ContactState;
-
-    ContactJacobian j;
-
-    float m;              // effective mass
-    float bias;
-
-    float impulse = 0.0f; // impulse sum
-    float impulseSave = 0.0f;
+    Vec3 localPlanePoint;
+    Vec3 localClipPoint;
+    Vec3 localNormal;
 };
+
+void PrepareContact(ContactState* s);
+void WarmStartContact(ContactState* s);
+void SolveContactVelocityConstraints(ContactState* s);
+bool SolveContactPositionConstraints(ContactState* s);
+
+void PrepareJoint(JointState* s, const Timestep& step);
+void WarmStartJoint(JointState* s);
+void SolveJointVelocityConstraints(JointState* s, const Timestep& step);
+bool SolveJointPositionConstraints(JointState* s, const Timestep& step);
 
 } // namespace muli3

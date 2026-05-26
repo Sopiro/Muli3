@@ -151,14 +151,14 @@ float World::Step(float dt)
     ProfileScope profile_step{ &profile.step };
     MuliProfileZoneNC(world_step, "World::Step", color::step, true);
 
-    settings.step.dt = dt;
-    settings.step.inv_dt = dt > 0.0f ? 1.0f / dt : 0.0f;
-
-    if (settings.step.inv_dt == 0.0f)
+    if (dt <= 0.0f)
     {
         MuliProfileZoneEnd(world_step);
         return 0.0f;
     }
+
+    settings.step.dt = dt;
+    settings.step.inv_dt = 1 / dt;
 
     linearAllocator.GrowMemory();
 
@@ -896,6 +896,11 @@ void World::Solve()
                     continue;
                 }
 
+                if (other->IsSleeping())
+                {
+                    other->Awake();
+                }
+
                 MuliAssert(stackPointer < bodyCount);
                 stack[stackPointer++] = other;
                 other->flag |= RigidBody::flag_island;
@@ -928,6 +933,11 @@ void World::Solve()
                 if (other->IsStatic())
                 {
                     continue;
+                }
+
+                if (other->IsSleeping())
+                {
+                    other->Awake();
                 }
 
                 MuliAssert(stackPointer < bodyCount);
@@ -1496,7 +1506,23 @@ void World::AddJoint(Joint* joint)
         joint->bodyB->jointList = &joint->nodeB;
     }
 
-    AddJointState(joint, GetJointTargetSet(joint));
+    SolverSetIndex setIndex;
+    if (joint->bodyA->IsEnabled() == false || joint->bodyB->IsEnabled() == false)
+    {
+        setIndex = disabled_set;
+    }
+    else if (joint->bodyA->IsStatic() && joint->bodyB->IsStatic())
+    {
+        setIndex = static_set;
+    }
+    else
+    {
+        bool awakeA = joint->bodyA->IsStatic() == false && joint->bodyA->IsSleeping() == false;
+        bool awakeB = joint->bodyB->IsStatic() == false && joint->bodyB->IsSleeping() == false;
+        setIndex = awakeA || awakeB ? awake_set : sleeping_set;
+    }
+
+    AddJointState(joint, setIndex);
     ++jointCount;
 }
 
@@ -1633,9 +1659,7 @@ BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex, const T
     state.motion = Motion{ transform };
     state.linearVelocity = Vec3::zero;
     state.angularVelocity = Vec3::zero;
-    state.mass = 0.0f;
     state.invMass = 0.0f;
-    state.inertia = Mat3::zero;
     state.invInertia = Mat3::zero;
     state.linearDamping = default_linear_damping;
     state.angularDamping = default_angular_damping;
@@ -1660,8 +1684,8 @@ void World::RemoveBodyState(RigidBody* body)
     }
 
     set.bodyStates.pop_back();
-    body->setIndex = -1;
-    body->localIndex = -1;
+    body->setIndex = null_index;
+    body->localIndex = null_index;
 }
 
 void World::TransferBody(RigidBody* body, SolverSetIndex targetSet)
@@ -1689,21 +1713,6 @@ void World::TransferBody(RigidBody* body, SolverSetIndex targetSet)
 
     body->setIndex = targetSet;
     body->localIndex = targetIndex;
-}
-
-SolverSetIndex World::GetBodyTargetSet(RigidBody* body) const
-{
-    if (body->IsEnabled() == false)
-    {
-        return disabled_set;
-    }
-
-    if (body->type == RigidBody::static_body)
-    {
-        return static_set;
-    }
-
-    return body->IsSleeping() ? sleeping_set : awake_set;
 }
 
 ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
@@ -1738,8 +1747,8 @@ void World::RemoveContactState(Contact* contact)
     }
 
     set.contactStates.pop_back();
-    contact->setIndex = -1;
-    contact->localIndex = -1;
+    contact->setIndex = null_index;
+    contact->localIndex = null_index;
 }
 
 void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
@@ -1767,21 +1776,6 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
 
     contact->setIndex = targetSet;
     contact->localIndex = targetIndex;
-}
-
-SolverSetIndex World::GetContactTargetSet(Contact* contact) const
-{
-    RigidBody* bodyA = contact->GetBodyA();
-    RigidBody* bodyB = contact->GetBodyB();
-
-    if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
-    {
-        return disabled_set;
-    }
-
-    bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-    bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
-    return awakeA || awakeB ? awake_set : sleeping_set;
 }
 
 JointState* World::AddJointState(Joint* joint, SolverSetIndex setIndex)
@@ -1813,8 +1807,8 @@ void World::RemoveJointState(Joint* joint)
     }
 
     set.jointStates.pop_back();
-    joint->setIndex = -1;
-    joint->localIndex = -1;
+    joint->setIndex = null_index;
+    joint->localIndex = null_index;
 }
 
 void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
@@ -1844,26 +1838,6 @@ void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
     joint->localIndex = targetIndex;
 }
 
-SolverSetIndex World::GetJointTargetSet(Joint* joint) const
-{
-    RigidBody* bodyA = joint->GetBodyA();
-    RigidBody* bodyB = joint->GetBodyB();
-
-    if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
-    {
-        return disabled_set;
-    }
-
-    if (bodyA->IsStatic() && bodyB->IsStatic())
-    {
-        return static_set;
-    }
-
-    bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-    bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
-    return awakeA || awakeB ? awake_set : sleeping_set;
-}
-
 void World::WakeBody(RigidBody* body)
 {
     if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
@@ -1876,10 +1850,10 @@ void World::WakeBody(RigidBody* body)
         return;
     }
 
-    std::vector<RigidBody*> stack;
+    GrowableArray<RigidBody*, 64> stack;
     stack.push_back(body);
 
-    while (stack.empty() == false)
+    while (stack.size() > 0)
     {
         RigidBody* b = stack.back();
         stack.pop_back();
@@ -1938,13 +1912,18 @@ void World::SleepBody(RigidBody* body)
         return;
     }
 
-    std::vector<RigidBody*> stack;
-    std::vector<RigidBody*> bodies;
+    if (body->IsSleeping() && body->setIndex == sleeping_set)
+    {
+        return;
+    }
+
+    GrowableArray<RigidBody*, 64> stack;
+    GrowableArray<RigidBody*, 64> bodies;
 
     stack.push_back(body);
     body->flag |= RigidBody::flag_island;
 
-    while (stack.empty() == false)
+    while (stack.size() > 0)
     {
         RigidBody* b = stack.back();
         stack.pop_back();
@@ -1999,12 +1978,48 @@ void World::SleepBody(RigidBody* body)
     {
         for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
         {
-            TransferContact(ce->contact, GetContactTargetSet(ce->contact));
+            Contact* contact = ce->contact;
+            RigidBody* bodyA = contact->GetBodyA();
+            RigidBody* bodyB = contact->GetBodyB();
+
+            SolverSetIndex targetSet;
+            if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+            {
+                targetSet = disabled_set;
+            }
+            else
+            {
+                bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+                bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+                targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+            }
+
+            TransferContact(contact, targetSet);
         }
 
         for (JointEdge* je = b->jointList; je; je = je->next)
         {
-            TransferJoint(je->joint, GetJointTargetSet(je->joint));
+            Joint* joint = je->joint;
+            RigidBody* bodyA = joint->GetBodyA();
+            RigidBody* bodyB = joint->GetBodyB();
+
+            SolverSetIndex targetSet;
+            if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+            {
+                targetSet = disabled_set;
+            }
+            else if (bodyA->IsStatic() && bodyB->IsStatic())
+            {
+                targetSet = static_set;
+            }
+            else
+            {
+                bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+                bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+                targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+            }
+
+            TransferJoint(joint, targetSet);
         }
     }
 

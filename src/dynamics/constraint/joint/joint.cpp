@@ -11,8 +11,8 @@ Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFr
     , bodyA{ bodyA }
     , bodyB{ bodyB }
     , type{ type }
-    , setIndex{ -1 }
-    , localIndex{ -1 }
+    , setIndex{ null_index }
+    , localIndex{ null_index }
     , flagIsland{ false }
 {
     MuliAssert(bodyA->GetWorld() == bodyB->GetWorld());
@@ -35,21 +35,6 @@ JointState* Joint::GetJointState()
 const JointState* Joint::GetJointState() const
 {
     return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
-}
-
-void JointState::Prepare(const Timestep& step)
-{
-    joint->Prepare(step);
-}
-
-void JointState::SolveVelocityConstraints(const Timestep& step)
-{
-    joint->SolveVelocityConstraints(step);
-}
-
-bool JointState::SolvePositionConstraints(const Timestep& step)
-{
-    return joint->SolvePositionConstraints(step);
 }
 
 void Joint::SetParameters(float newJointFrequency, float newJointDampingRatio, float newJointMass)

@@ -85,6 +85,7 @@ public:
     virtual ~Joint();
 
     virtual void Prepare(const Timestep& step) = 0;
+    virtual void WarmStart() = 0;
     virtual void SolveVelocityConstraints(const Timestep& step) = 0;
     virtual bool SolvePositionConstraints(const Timestep& step)
     {
@@ -130,12 +131,9 @@ protected:
 private:
     // Following parameters are used to soften the joint
     // Frequency values less than or equal to zero make joints rigid
-    // 0 < Frequency
-    // 0 <= Damping ratio <= 1
-    // 0 < Mass
-    float jointFrequency;
-    float jointDampingRatio;
-    float jointMass;
+    float jointFrequency;    // 0 < Frequency
+    float jointDampingRatio; // 0 <= Damping ratio <= 1
+    float jointMass;         // 0 < Mass
 
     Joint* prev;
     Joint* next;

@@ -6,9 +6,8 @@
 namespace muli3
 {
 
-BroadPhase::BroadPhase(ContactGraph* contactGraph)
-    : contactGraph{ contactGraph }
-    , moveCapacity{ 64 }
+BroadPhase::BroadPhase()
+    : moveCapacity{ 64 }
     , moveCount{ 0 }
 {
     moveBuffer = (NodeIndex*)muli3::Alloc(moveCapacity * sizeof(NodeIndex));
@@ -100,7 +99,7 @@ struct BroadPhase::TreeCallback
     }
 };
 
-void BroadPhase::FindNewContacts()
+void BroadPhase::FindNewContacts(ContactGraph* contactGraph)
 {
     if (moveCount == 0)
     {
@@ -191,12 +190,11 @@ void BroadPhase::Remove(Collider* collider)
     UnBufferMove(node);
 }
 
-void BroadPhase::Update(Collider* collider, const AABB& aabb, const Vec3& displacement)
+void BroadPhase::Update(Collider* collider, const AABB& aabb, const Vec3& displacement, bool reset)
 {
     NodeIndex node = collider->node;
-    bool rested = collider->body->GetBodyState()->resting > contactGraph->world->settings.sleeping_time;
 
-    if (tree.MoveNode(node, aabb, displacement, rested))
+    if (tree.MoveNode(node, aabb, displacement, reset))
     {
         BufferMove(node);
     }

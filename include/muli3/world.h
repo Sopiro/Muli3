@@ -339,17 +339,14 @@ private:
     BodyState* AddBodyState(RigidBody* body, SolverSetIndex setIndex, const Transform& transform);
     void RemoveBodyState(RigidBody* body);
     void TransferBody(RigidBody* body, SolverSetIndex targetSet);
-    SolverSetIndex GetBodyTargetSet(RigidBody* body) const;
 
     ContactState* AddContactState(Contact* contact, SolverSetIndex setIndex);
     void RemoveContactState(Contact* contact);
     void TransferContact(Contact* contact, SolverSetIndex targetSet);
-    SolverSetIndex GetContactTargetSet(Contact* contact) const;
 
     JointState* AddJointState(Joint* joint, SolverSetIndex setIndex);
     void RemoveJointState(Joint* joint);
     void TransferJoint(Joint* joint, SolverSetIndex targetSet);
-    SolverSetIndex GetJointTargetSet(Joint* joint) const;
 
     void WakeBody(RigidBody* body);
     void SleepBody(RigidBody* body);
@@ -360,7 +357,6 @@ private:
     WorldProfile profile;
 
     ContactGraph contactGraph;
-    SolverSet solverSets[solver_set_count];
 
     RigidBody* bodyList = nullptr;
     RigidBody* bodyListTail = nullptr;
@@ -368,6 +364,8 @@ private:
 
     Joint* jointList = nullptr;
     int32 jointCount = 0;
+
+    SolverSet solverSets[solver_set_count];
 
     int32 islandCount = 0;
     int32 sleepingBodyCount = 0;

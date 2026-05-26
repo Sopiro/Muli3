@@ -80,11 +80,11 @@ void WeldJoint::Prepare(const Timestep& step)
 
     // The angular error is 2 * imaginary part of qError (small angle approximation)
     angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
+}
 
-    if (step.warm_starting)
-    {
-        ApplyImpulse(linearImpulseSum, angularImpulseSum);
-    }
+void WeldJoint::WarmStart()
+{
+    ApplyImpulse(linearImpulseSum, angularImpulseSum);
 }
 
 void WeldJoint::SolveVelocityConstraints(const Timestep& step)
@@ -112,8 +112,8 @@ void WeldJoint::SolveVelocityConstraints(const Timestep& step)
 
 void WeldJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda)
 {
-    // V2 = V2' + M^-1 ??Pc
-    // Pc = J^t ??λ
+    // V2 = V2' + M^-1 * Pc
+    // Pc = J^t * λ
 
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();

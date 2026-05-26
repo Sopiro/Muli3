@@ -4,27 +4,27 @@
 
 namespace muli3
 {
+
 class ContactGraph;
 
 class BroadPhase
 {
 public:
-    BroadPhase(ContactGraph* contactGraph);
+    BroadPhase();
     ~BroadPhase();
 
-    void FindNewContacts();
+    void FindNewContacts(ContactGraph* contactGraph);
     bool TestOverlap(Collider* colliderA, Collider* colliderB) const;
 
     void Add(Collider* collider, const AABB& aabb);
     void Remove(Collider* collider);
-    void Update(Collider* collider, const AABB& aabb, const Vec3& displacement);
+    void Update(Collider* collider, const AABB& aabb, const Vec3& displacement, bool reset);
     void Refresh(Collider* collider);
 
 private:
     friend class World;
     friend class ContactGraph;
 
-    ContactGraph* contactGraph;
     AABBTree tree;
 
     NodeIndex* moveBuffer;

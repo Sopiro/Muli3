@@ -115,8 +115,11 @@ void DistanceJoint::Prepare(const Timestep& step)
     }
 
     impulseSum = ClampImpulse(impulseSum, limitState);
+}
 
-    if (step.warm_starting && limitState != distance_limit_inactive)
+void DistanceJoint::WarmStart()
+{
+    if (limitState != distance_limit_inactive)
     {
         ApplyImpulse(impulseSum);
     }

@@ -33,11 +33,11 @@ void FixedRotationJoint::Prepare(const Timestep& step)
     }
 
     bias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
+}
 
-    if (step.warm_starting)
-    {
-        ApplyImpulse(impulseSum);
-    }
+void FixedRotationJoint::WarmStart()
+{
+    ApplyImpulse(impulseSum);
 }
 
 void FixedRotationJoint::SolveVelocityConstraints(const Timestep& step)

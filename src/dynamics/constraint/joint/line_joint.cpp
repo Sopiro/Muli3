@@ -67,11 +67,11 @@ void LineJoint::Prepare(const Timestep& step)
 
     bias.Set(Dot(d, t1), Dot(d, t2));
     bias *= s->beta * step.inv_dt;
+}
 
-    if (step.warm_starting)
-    {
-        ApplyImpulse(impulseSum);
-    }
+void LineJoint::WarmStart()
+{
+    ApplyImpulse(impulseSum);
 }
 
 void LineJoint::SolveVelocityConstraints(const Timestep& step)

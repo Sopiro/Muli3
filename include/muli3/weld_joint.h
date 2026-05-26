@@ -13,6 +13,7 @@ public:
     WeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio, float jointMass);
 
     virtual void Prepare(const Timestep& step) override;
+    virtual void WarmStart() override;
     virtual void SolveVelocityConstraints(const Timestep& step) override;
 
     const Vec3& GetLocalAnchorA() const;

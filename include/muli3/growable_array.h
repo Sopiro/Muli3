@@ -54,6 +54,11 @@ public:
         return *new (array + count++) T{ std::forward<Args>(args)... };
     }
 
+    void push_back(T& v)
+    {
+        emplace_back(v);
+    }
+
     T pop_back()
     {
         MuliAssert(count > 0);

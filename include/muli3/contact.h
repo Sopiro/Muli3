@@ -3,7 +3,6 @@
 #include "collider.h"
 #include "collision.h"
 #include "contact_solver.h"
-#include "position_solver.h"
 #include "rigidbody.h"
 #include "solver_states.h"
 
@@ -51,7 +50,7 @@ public:
     const ContactManifold& GetContactManifold() const;
     int32 GetContactCount() const;
     float GetNormalImpulse(int32 index) const;
-    float GetTangentImpulse(int32 index) const;
+    Vec2 GetTangentImpulse(int32 index) const;
 
     float GetFriction() const;
     float GetRestitution() const;
@@ -68,6 +67,7 @@ private:
     friend class PositionSolver;
     friend struct ContactState;
 
+    void Update();
     void TriggerCallbacks();
     ContactState* GetContactState();
     const ContactState* GetContactState() const;
@@ -164,13 +164,13 @@ inline int32 Contact::GetContactCount() const
 inline float Contact::GetNormalImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return GetContactState()->normalSolvers[index].impulse;
+    return GetContactState()->normalContact[index].impulse;
 }
 
-inline float Contact::GetTangentImpulse(int32 index) const
+inline Vec2 Contact::GetTangentImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return GetContactState()->tangent1Solvers[index].impulse;
+    return { GetContactState()->tangentContact1[index].impulse, GetContactState()->tangentContact2[index].impulse };
 }
 
 inline float Contact::GetFriction() const

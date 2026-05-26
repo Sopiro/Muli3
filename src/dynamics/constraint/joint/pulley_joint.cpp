@@ -81,11 +81,11 @@ void PulleyJoint::Prepare(const Timestep& step)
 
     float error = length - (lengthA + lengthB);
     bias = error * s->beta * step.inv_dt;
+}
 
-    if (step.warm_starting)
-    {
-        ApplyImpulse(impulseSum);
-    }
+void PulleyJoint::WarmStart()
+{
+    ApplyImpulse(impulseSum);
 }
 
 void PulleyJoint::SolveVelocityConstraints(const Timestep& step)

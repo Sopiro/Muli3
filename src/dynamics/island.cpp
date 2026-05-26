@@ -1,4 +1,5 @@
 #include "muli3/island.h"
+#include "muli3/contact_solver.h"
 #include "muli3/world.h"
 
 namespace muli3
@@ -70,7 +71,7 @@ void Island::Solve(World* world)
                 // Apply the w x (I * w) term
                 if (b->GetGyroscopicTorqueEnabled())
                 {
-                    s->angularVelocity = SolveGyroscopic(s->motion.q, s->inertia, s->angularVelocity, step.dt);
+                    s->angularVelocity = SolveGyroscopic(s->motion.q, b->inertia, s->angularVelocity, step.dt);
                 }
 
                 // Apply damping
@@ -88,15 +89,30 @@ void Island::Solve(World* world)
         // Prepare constraints for solving step
         for (int32 i = 0; i < contactCount; ++i)
         {
-            ContactState* s = contacts[i];
-            s->Prepare(step);
+            PrepareContact(contacts[i]);
         }
         for (int32 i = 0; i < jointCount; ++i)
         {
-            joints[i]->Prepare(step);
+            PrepareJoint(joints[i], step);
         }
 
         MuliProfileZoneEnd(prepare_constraints);
+    }
+
+    {
+        MuliProfileZoneNC(warm_start, "Warm Start", color::random(1235511), true);
+
+        // Prepare constraints for solving step
+        for (int32 i = 0; i < contactCount; ++i)
+        {
+            WarmStartContact(contacts[i]);
+        }
+        for (int32 i = 0; i < jointCount; ++i)
+        {
+            WarmStartJoint(joints[i]);
+        }
+
+        MuliProfileZoneEnd(warm_start);
     }
 
     {
@@ -108,12 +124,11 @@ void Island::Solve(World* world)
         {
             for (int32 j = contactCount; j > 0; --j)
             {
-                ContactState* s = contacts[j - 1];
-                s->SolveVelocityConstraints(step);
+                SolveContactVelocityConstraints(contacts[j - 1]);
             }
             for (int32 j = jointCount; j > 0; --j)
             {
-                joints[j - 1]->SolveVelocityConstraints(step);
+                SolveJointVelocityConstraints(joints[j - 1], step);
             }
         }
 
@@ -154,8 +169,7 @@ void Island::Solve(World* world)
             for (int32 j = contactCount; j > 0; j--)
             {
                 ContactState* s = contacts[j - 1];
-
-                bool solved = s->SolvePositionConstraints(step);
+                bool solved = SolveContactPositionConstraints(s);
                 if (solved == false)
                 {
                     s->s1->resting = 0.0f;
@@ -168,7 +182,7 @@ void Island::Solve(World* world)
             for (int32 j = jointCount; j > 0; j--)
             {
                 JointState* s = joints[j - 1];
-                bool solved = s->SolvePositionConstraints(step);
+                bool solved = SolveJointPositionConstraints(s, step);
                 if (solved == false)
                 {
                     Joint* joint = s->joint;

@@ -199,12 +199,12 @@ public:
 
     Mat3 GetWorldInertiaTensor() const;
     Mat3 GetWorldInverseInertiaTensor() const;
-    Vec3 GetVelocityAtWorldPoint(const Vec3& point) const;
+    Vec3 GetVelocityAtWorldSpace(const Vec3& point) const;
 
     BodyDestroyCallback* OnDestroy;
     void* UserData;
 
-protected:
+private:
     friend class World;
     friend class Island;
 
@@ -242,21 +242,12 @@ protected:
         flag_gyroscopic_torque = 1 << 3,
     };
 
-    Type type;
-
-    int32 islandIndex;
-
-    int32 setIndex;
-    int32 localIndex;
-
-    uint16 flag;
-
     void ResetMassData();
     void SynchronizeTransform();
     void SynchronizeColliders();
 
-private:
     World* world;
+
     RigidBody* prev;
     RigidBody* next;
 
@@ -265,6 +256,18 @@ private:
 
     ContactEdge* contactList;
     JointEdge* jointList;
+
+    Type type;
+
+    float mass;
+    Mat3 inertia;
+
+    int32 islandIndex;
+
+    int32 setIndex;
+    int32 localIndex;
+
+    uint16 flag;
 };
 
 inline const Transform& RigidBody::GetTransform() const
@@ -299,12 +302,12 @@ inline const Quat& RigidBody::GetRotation() const
 
 inline float RigidBody::GetMass() const
 {
-    return GetBodyState()->mass;
+    return mass;
 }
 
 inline const Mat3& RigidBody::GetInertiaTensor() const
 {
-    return GetBodyState()->inertia;
+    return inertia;
 }
 
 inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
@@ -313,9 +316,9 @@ inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
     const Vec3& c = s->motion.localCenter;
 
     return Mat3(
-        s->inertia.ex + Vec3{ s->mass * (c.y * c.y + c.z * c.z), -s->mass * c.x * c.y, -s->mass * c.x * c.z },
-        s->inertia.ey + Vec3{ -s->mass * c.y * c.x, s->mass * (c.x * c.x + c.z * c.z), -s->mass * c.y * c.z },
-        s->inertia.ez + Vec3{ -s->mass * c.z * c.x, -s->mass * c.z * c.y, s->mass * (c.x * c.x + c.y * c.y) }
+        inertia.ex + Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z },
+        inertia.ey + Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z },
+        inertia.ez + Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) }
     );
 }
 
@@ -583,7 +586,7 @@ inline Mat3 RigidBody::GetWorldInertiaTensor() const
 {
     const BodyState* s = GetBodyState();
     Mat3 rotation{ s->motion.q };
-    return rotation * s->inertia * rotation.GetTranspose();
+    return rotation * inertia * rotation.GetTranspose();
 }
 
 inline Mat3 RigidBody::GetWorldInverseInertiaTensor() const

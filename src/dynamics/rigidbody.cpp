@@ -14,11 +14,6 @@ namespace muli3
 RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     : OnDestroy{ nullptr }
     , UserData{ nullptr }
-    , type{ type }
-    , islandIndex{ 0 }
-    , setIndex{ -1 }
-    , localIndex{ -1 }
-    , flag{ flag_enabled }
     , world{ nullptr }
     , prev{ nullptr }
     , next{ nullptr }
@@ -26,6 +21,13 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , colliderCount{ 0 }
     , contactList{ nullptr }
     , jointList{ nullptr }
+    , type{ type }
+    , mass{ 0.0f }
+    , inertia{ 0.0f }
+    , islandIndex{ 0 }
+    , setIndex{ null_index }
+    , localIndex{ null_index }
+    , flag{ flag_enabled }
 {
     MuliNotUsed(tf);
 }
@@ -442,12 +444,41 @@ void RigidBody::SetType(RigidBody::Type newType)
         SynchronizeColliders();
     }
 
-    world->TransferBody(this, world->GetBodyTargetSet(this));
+    SolverSetIndex setIndex = static_set;
+    if (IsEnabled() == false)
+    {
+        setIndex = disabled_set;
+    }
+    else if (type != static_body)
+    {
+        setIndex = IsSleeping() ? sleeping_set : awake_set;
+    }
+
+    world->TransferBody(this, setIndex);
 
     for (JointEdge* je = jointList; je; je = je->next)
     {
         Joint* joint = je->joint;
-        world->TransferJoint(joint, world->GetJointTargetSet(joint));
+        RigidBody* bodyA = joint->GetBodyA();
+        RigidBody* bodyB = joint->GetBodyB();
+
+        SolverSetIndex targetSet;
+        if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+        {
+            targetSet = disabled_set;
+        }
+        else if (bodyA->IsStatic() && bodyB->IsStatic())
+        {
+            targetSet = static_set;
+        }
+        else
+        {
+            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+        }
+
+        world->TransferJoint(joint, targetSet);
     }
 
     ContactEdge* ce = contactList;
@@ -482,7 +513,13 @@ void RigidBody::SetEnabled(bool enabled)
             flag &= ~flag_sleeping;
         }
 
-        world->TransferBody(this, world->GetBodyTargetSet(this));
+        SolverSetIndex setIndex = static_set;
+        if (type != static_body)
+        {
+            setIndex = IsSleeping() ? sleeping_set : awake_set;
+        }
+
+        world->TransferBody(this, setIndex);
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
@@ -497,7 +534,19 @@ void RigidBody::SetEnabled(bool enabled)
 
             if (bodyA->IsEnabled() && bodyB->IsEnabled())
             {
-                world->TransferJoint(joint, world->GetJointTargetSet(joint));
+                SolverSetIndex targetSet;
+                if (bodyA->IsStatic() && bodyB->IsStatic())
+                {
+                    targetSet = static_set;
+                }
+                else
+                {
+                    bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+                    bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+                    targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+                }
+
+                world->TransferJoint(joint, targetSet);
             }
         }
     }
@@ -628,7 +677,7 @@ void RigidBody::ApplyAngularImpulse(const Vec3& impulse, bool awake)
     }
 }
 
-Vec3 RigidBody::GetVelocityAtWorldPoint(const Vec3& point) const
+Vec3 RigidBody::GetVelocityAtWorldSpace(const Vec3& point) const
 {
     const BodyState* s = GetBodyState();
     return s->linearVelocity + Cross(s->angularVelocity, point - s->motion.c);
@@ -637,9 +686,10 @@ Vec3 RigidBody::GetVelocityAtWorldPoint(const Vec3& point) const
 void RigidBody::ResetMassData()
 {
     BodyState* s = GetBodyState();
-    s->mass = 0.0f;
+
+    mass = 0.0f;
+    inertia = Mat3::zero;
     s->invMass = 0.0f;
-    s->inertia = Mat3::zero;
     s->invInertia = Mat3::zero;
 
     if (type != dynamic_body)
@@ -657,24 +707,24 @@ void RigidBody::ResetMassData()
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
         MassData massData = collider->GetMassData();
-        s->mass += massData.mass;
+        mass += massData.mass;
         localCenter += massData.mass * massData.centerOfMass;
-        s->inertia = s->inertia + massData.inertia;
+        inertia = inertia + massData.inertia;
     }
 
-    if (s->mass > 0.0f)
+    if (mass > 0.0f)
     {
-        s->invMass = 1.0f / s->mass;
+        s->invMass = 1.0f / mass;
         localCenter *= s->invMass;
     }
 
-    if (s->mass > 0.0f)
+    if (mass > 0.0f)
     {
         const Vec3& c = localCenter;
-        s->inertia.ex -= Vec3{ s->mass * (c.y * c.y + c.z * c.z), -s->mass * c.x * c.y, -s->mass * c.x * c.z };
-        s->inertia.ey -= Vec3{ -s->mass * c.y * c.x, s->mass * (c.x * c.x + c.z * c.z), -s->mass * c.y * c.z };
-        s->inertia.ez -= Vec3{ -s->mass * c.z * c.x, -s->mass * c.z * c.y, s->mass * (c.x * c.x + c.y * c.y) };
-        s->invInertia = s->inertia.GetInverse();
+        inertia.ex -= Vec3{ mass * (c.y * c.y + c.z * c.z), -mass * c.x * c.y, -mass * c.x * c.z };
+        inertia.ey -= Vec3{ -mass * c.y * c.x, mass * (c.x * c.x + c.z * c.z), -mass * c.y * c.z };
+        inertia.ez -= Vec3{ -mass * c.z * c.x, -mass * c.z * c.y, mass * (c.x * c.x + c.y * c.y) };
+        s->invInertia = inertia.GetInverse();
     }
 
     Vec3 oldCenter = s->motion.c;

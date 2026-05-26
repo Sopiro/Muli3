@@ -215,16 +215,16 @@ void RevoluteJoint::Prepare(const Timestep& step)
     }
 
     angleImpulseSum = ClampImpulse(angleImpulseSum, limitState);
+}
 
-    if (step.warm_starting)
+void RevoluteJoint::WarmStart()
+{
+    ApplyLinearImpulse(linearImpulseSum);
+    ApplySwingImpulse(swingImpulseSum);
+
+    if (limitState != revolute_limit_inactive)
     {
-        ApplyLinearImpulse(linearImpulseSum);
-        ApplySwingImpulse(swingImpulseSum);
-
-        if (limitState != revolute_limit_inactive)
-        {
-            ApplyAngleImpulse(angleImpulseSum);
-        }
+        ApplyAngleImpulse(angleImpulseSum);
     }
 }
 

@@ -183,8 +183,11 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     }
 
     angleImpulseSum = ClampImpulse(angleImpulseSum, limitState);
+}
 
-    if (step.warm_starting && limitState != twist_limit_inactive)
+void TwistAngleJoint::WarmStart()
+{
+    if (limitState != twist_limit_inactive)
     {
         ApplyAngleImpulse(angleImpulseSum);
     }

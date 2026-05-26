@@ -202,17 +202,17 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     }
 
     angleImpulseSum = ClampImpulse(angleImpulseSum, limitState);
+}
 
-    if (step.warm_starting)
+void RevoluteAngleJoint::WarmStart()
+{
+    // Warm start the swing constraint unconditionally.
+    ApplySwingImpulse(swingImpulseSum);
+
+    if (limitState != revolute_limit_inactive)
     {
-        // Warm start the swing constraint unconditionally.
-        ApplySwingImpulse(swingImpulseSum);
-
-        if (limitState != revolute_limit_inactive)
-        {
-            // Only warm start the twist limit when it is active.
-            ApplyAngleImpulse(angleImpulseSum);
-        }
+        // Only warm start the twist limit when it is active.
+        ApplyAngleImpulse(angleImpulseSum);
     }
 }
 

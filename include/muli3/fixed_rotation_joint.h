@@ -13,6 +13,7 @@ public:
     FixedRotationJoint(RigidBody* body, float frequency, float dampingRatio, float jointMass);
 
     virtual void Prepare(const Timestep& step) override;
+    virtual void WarmStart() override;
     virtual void SolveVelocityConstraints(const Timestep& step) override;
 
     const Quat& GetTargetOrientation() const;

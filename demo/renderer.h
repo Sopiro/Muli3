@@ -108,7 +108,7 @@ private:
     Mat4 viewMatrix{ identity };
     Mat4 projectionMatrix{ identity };
 
-    float pointSize = 5.0f;
+    float pointSize = 4.0f;
     float lineWidth = 1.0f;
 };
 

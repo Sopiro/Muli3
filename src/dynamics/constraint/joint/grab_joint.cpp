@@ -45,11 +45,6 @@ void GrabJoint::Prepare(const Timestep& step)
 
     Vec3 error = p - target;
     bias = error * s->beta * step.inv_dt;
-
-    if (step.warm_starting)
-    {
-        ApplyImpulse(impulseSum);
-    }
 }
 
 void GrabJoint::SolveVelocityConstraints(const Timestep& step)
@@ -61,7 +56,7 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 
     // Compute corrective impulse: Pc
     // Pc = J^t · λ (λ: lagrangian multiplier)
-    // λ = (J · M^-1 · J^t)^-1 ??-(J·v+b)
+    // λ = (J · M^-1 · J^t)^-1 * -(J·v+b)
 
     Vec3 jv = sA->linearVelocity + Cross(sA->angularVelocity, r);
 
@@ -69,6 +64,11 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 
     ApplyImpulse(lambda);
     impulseSum += lambda;
+}
+
+void GrabJoint::WarmStart()
+{
+    ApplyImpulse(impulseSum);
 }
 
 void GrabJoint::ApplyImpulse(const Vec3& lambda)

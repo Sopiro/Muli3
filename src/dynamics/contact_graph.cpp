@@ -9,7 +9,6 @@ extern void InitializeDetectionFunctionMap();
 
 ContactGraph::ContactGraph(World* world)
     : world{ world }
-    , broadPhase{ this }
     , contactList{ nullptr }
     , contactCount{ 0 }
 {
@@ -35,8 +34,7 @@ void ContactGraph::EvaluateContacts()
     // are strictly thread-safe as they read from body transforms and write only to their own Contact instances.
     ParallelFor(0, activeCount, [this, &awakeSet](int32 i) {
         MuliProfileZoneNC(narrow_phase_collision, "Collide", color::random(4567), true);
-        ContactState* state = &awakeSet.contactStates[i];
-        Contact* contact = state->contact;
+        Contact* contact = awakeSet.contactStates[i].contact;
 
         // Perform broad phase overlap test.
         if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
@@ -47,7 +45,7 @@ void ContactGraph::EvaluateContacts()
         }
 
         // Compute contact manifold and warm starting impulses.
-        state->Update();
+        contact->Update();
         MuliProfileZoneEnd(narrow_phase_collision);
     });
 
@@ -145,8 +143,20 @@ void ContactGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
     }
     bodyB->contactList = &c->nodeB;
 
+    SolverSetIndex setIndex;
+    if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+    {
+        setIndex = disabled_set;
+    }
+    else
+    {
+        bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+        bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+        setIndex = awakeA || awakeB ? awake_set : sleeping_set;
+    }
+
     ++contactCount;
-    world->AddContactState(c, world->GetContactTargetSet(c));
+    world->AddContactState(c, setIndex);
 }
 
 void ContactGraph::Destroy(Contact* c)
@@ -205,7 +215,8 @@ void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform
 {
     AABB aabb;
     collider->GetShape()->ComputeAABB(transform, &aabb);
-    broadPhase.Update(collider, aabb, Vec3::zero);
+
+    broadPhase.Update(collider, aabb, Vec3::zero, true);
 }
 
 void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1)
@@ -219,7 +230,8 @@ void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform
     aabb1.min += prediction;
     aabb1.max += prediction;
 
-    broadPhase.Update(collider, AABB::Union(aabb0, aabb1), prediction);
+    bool rested = collider->body->GetBodyState()->resting > world->settings.sleeping_time;
+    broadPhase.Update(collider, AABB::Union(aabb0, aabb1), prediction, rested);
 }
 
 } // namespace muli3

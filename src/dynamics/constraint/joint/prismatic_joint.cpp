@@ -84,13 +84,16 @@ void PrismaticJoint::Prepare(const Timestep& step)
     // Angular bias
     Quat qTarget = sA->motion.q * orientationOffset;
     Quat qError = sB->motion.q * qTarget.GetConjugate();
-    if (qError.w < 0.0f) qError = -qError;
-    angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
-
-    if (step.warm_starting)
+    if (qError.w < 0.0f)
     {
-        ApplyImpulse(linearImpulseSum, angularImpulseSum);
+        qError = -qError;
     }
+    angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
+}
+
+void PrismaticJoint::WarmStart()
+{
+    ApplyImpulse(linearImpulseSum, angularImpulseSum);
 }
 
 void PrismaticJoint::SolveVelocityConstraints(const Timestep& step)

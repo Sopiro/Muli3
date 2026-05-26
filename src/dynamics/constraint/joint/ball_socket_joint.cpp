@@ -52,11 +52,11 @@ void BallSocketJoint::Prepare(const Timestep& step)
 
     Vec3 error = pb - pa;
     bias = error * s->beta * step.inv_dt;
+}
 
-    if (step.warm_starting)
-    {
-        ApplyImpulse(impulseSum);
-    }
+void BallSocketJoint::WarmStart()
+{
+    ApplyImpulse(impulseSum);
 }
 
 void BallSocketJoint::SolveVelocityConstraints(const Timestep& step)

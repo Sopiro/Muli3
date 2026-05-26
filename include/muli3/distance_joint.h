@@ -23,6 +23,7 @@ public:
     );
 
     virtual void Prepare(const Timestep& step) override;
+    virtual void WarmStart() override;
     virtual void SolveVelocityConstraints(const Timestep& step) override;
 
     const Vec3& GetLocalAnchorA() const;

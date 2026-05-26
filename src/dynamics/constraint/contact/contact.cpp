@@ -1,7 +1,5 @@
 #include "muli3/contact.h"
 #include "muli3/callbacks.h"
-#include "muli3/frame.h"
-#include "muli3/settings.h"
 #include "muli3/world.h"
 
 namespace muli3
@@ -13,8 +11,8 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     : collideFunction{ nullptr }
     , colliderA{ colliderA }
     , colliderB{ colliderB }
-    , setIndex{ -1 }
-    , localIndex{ -1 }
+    , setIndex{ null_index }
+    , localIndex{ null_index }
     , flag{ 0 }
 {
     MuliAssert(colliderA->GetType() >= colliderB->GetType());
@@ -33,50 +31,50 @@ const ContactState* Contact::GetContactState() const
     return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
 }
 
-void ContactState::Update()
+void Contact::Update()
 {
-    Contact* c = contact;
+    ContactState* s = GetContactState();
 
     // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.
     // Writes are strictly isolated to this contact instance, and read accesses to rigidbody transforms are read-only.
-    c->flag |= Contact::flag_enabled;
+    flag |= Contact::flag_enabled;
 
-    ContactManifold oldManifold = manifold;
+    ContactManifold oldManifold = s->manifold;
     for (int32 i = 0; i < max_contact_point_count; ++i)
     {
-        normalSolvers[i].impulseSave = normalSolvers[i].impulse;
-        tangent1Solvers[i].impulseSave = tangent1Solvers[i].impulse;
-        tangent2Solvers[i].impulseSave = tangent2Solvers[i].impulse;
-        normalSolvers[i].impulse = 0.0f;
-        tangent1Solvers[i].impulse = 0.0f;
-        tangent2Solvers[i].impulse = 0.0f;
+        s->normalContact[i].impulseSave = s->normalContact[i].impulse;
+        s->tangentContact1[i].impulseSave = s->tangentContact1[i].impulse;
+        s->tangentContact2[i].impulseSave = s->tangentContact2[i].impulse;
+        s->normalContact[i].impulse = 0.0f;
+        s->tangentContact1[i].impulse = 0.0f;
+        s->tangentContact2[i].impulse = 0.0f;
     }
 
-    bool wasTouching = (c->flag & Contact::flag_touching) == Contact::flag_touching;
+    bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
     if (wasTouching)
     {
-        c->flag |= Contact::flag_was_touching;
+        flag |= Contact::flag_was_touching;
     }
     else
     {
-        c->flag &= ~Contact::flag_was_touching;
+        flag &= ~Contact::flag_was_touching;
     }
 
-    RigidBody* bodyA = c->colliderA->GetBody();
-    RigidBody* bodyB = c->colliderB->GetBody();
+    RigidBody* bodyA = colliderA->GetBody();
+    RigidBody* bodyB = colliderB->GetBody();
 
-    bool touching = c->collideFunction(
-        c->colliderA->GetShape(), bodyA->GetBodyState()->transform, c->colliderB->GetShape(), bodyB->GetBodyState()->transform,
-        &manifold
+    bool touching = collideFunction(
+        colliderA->GetShape(), bodyA->GetBodyState()->transform, colliderB->GetShape(), bodyB->GetBodyState()->transform,
+        &s->manifold
     );
 
     if (touching)
     {
-        c->flag |= Contact::flag_touching;
+        flag |= Contact::flag_touching;
     }
     else
     {
-        c->flag &= ~Contact::flag_touching;
+        flag &= ~Contact::flag_touching;
     }
 
     if (touching == false)
@@ -84,26 +82,26 @@ void ContactState::Update()
         return;
     }
 
-    if (manifold.featureFlipped)
+    if (s->manifold.featureFlipped)
     {
-        s1 = bodyB->GetBodyState();
-        s2 = bodyA->GetBodyState();
+        s->s1 = bodyB->GetBodyState();
+        s->s2 = bodyA->GetBodyState();
     }
     else
     {
-        s1 = bodyA->GetBodyState();
-        s2 = bodyB->GetBodyState();
+        s->s1 = bodyA->GetBodyState();
+        s->s2 = bodyB->GetBodyState();
     }
 
-    for (int32 n = 0; n < manifold.contactCount; ++n)
+    for (int32 n = 0; n < s->manifold.contactCount; ++n)
     {
         for (int32 o = 0; o < oldManifold.contactCount; ++o)
         {
-            if (manifold.contactPoints[n].id == oldManifold.contactPoints[o].id)
+            if (s->manifold.contactPoints[n].id == oldManifold.contactPoints[o].id)
             {
-                normalSolvers[n].impulse = normalSolvers[o].impulseSave;
-                tangent1Solvers[n].impulse = tangent1Solvers[o].impulseSave;
-                tangent2Solvers[n].impulse = tangent2Solvers[o].impulseSave;
+                s->normalContact[n].impulse = s->normalContact[o].impulseSave;
+                s->tangentContact1[n].impulse = s->tangentContact1[o].impulseSave;
+                s->tangentContact2[n].impulse = s->tangentContact2[o].impulseSave;
                 break;
             }
         }
@@ -150,80 +148,6 @@ void Contact::TriggerCallbacks()
     {
         flag &= ~flag_enabled;
     }
-}
-
-void ContactState::Prepare(const Timestep& step)
-{
-    invIA = s1->body->GetWorldInverseInertiaTensor();
-    invIB = s2->body->GetWorldInverseInertiaTensor();
-
-    Vec3 tangent1 = GramSchmidt(x_axis, manifold.contactNormal);
-    if (tangent1.Normalize() == 0)
-    {
-        tangent1 = Normalize(GramSchmidt(z_axis, manifold.contactNormal));
-    }
-    Vec3 tangent2 = Cross(manifold.contactNormal, tangent1);
-
-    for (int32 i = 0; i < manifold.contactCount; ++i)
-    {
-        normalSolvers[i].Prepare(this, i, step);
-        tangent1Solvers[i].Prepare(this, tangent1, 0, i, step);
-        tangent2Solvers[i].Prepare(this, tangent2, 1, i, step);
-        positionSolvers[i].Prepare(this, i);
-    }
-}
-
-void ContactState::SolveVelocityConstraints(const Timestep& step)
-{
-    MuliNotUsed(step);
-
-    for (int32 i = 0; i < manifold.contactCount; ++i)
-    {
-        tangent1Solvers[i].Solve(this, normalSolvers + i);
-        tangent2Solvers[i].Solve(this, normalSolvers + i);
-    }
-
-    for (int32 i = 0; i < manifold.contactCount; ++i)
-    {
-        normalSolvers[i].Solve(this);
-    }
-}
-
-bool ContactState::SolvePositionConstraints(const Timestep& step)
-{
-    MuliNotUsed(step);
-
-    bool solved = true;
-
-    cLinearImpulseA.SetZero();
-    cLinearImpulseB.SetZero();
-    cAngularImpulseA.SetZero();
-    cAngularImpulseB.SetZero();
-
-    invIA = s1->body->GetWorldInverseInertiaTensor();
-    invIB = s2->body->GetWorldInverseInertiaTensor();
-
-    for (int32 i = 0; i < manifold.contactCount; ++i)
-    {
-        solved &= positionSolvers[i].Solve(this);
-    }
-
-    BodyState* bodySimA = s1;
-    BodyState* bodySimB = s2;
-
-    bodySimA->motion.c += bodySimA->invMass * cLinearImpulseA;
-    Vec3 angularCorrectionA = invIA * cAngularImpulseA;
-    Quat w1{ angularCorrectionA, 0.0f };
-    bodySimA->motion.q = bodySimA->motion.q + (w1 * bodySimA->motion.q) * 0.5f;
-    bodySimA->motion.q.Normalize();
-
-    bodySimB->motion.c += bodySimB->invMass * cLinearImpulseB;
-    Vec3 angularCorrectionB = invIB * cAngularImpulseB;
-    Quat w2{ angularCorrectionB, 0.0f };
-    bodySimB->motion.q = bodySimB->motion.q + (w2 * bodySimB->motion.q) * 0.5f;
-    bodySimB->motion.q.Normalize();
-
-    return solved;
 }
 
 } // namespace muli3

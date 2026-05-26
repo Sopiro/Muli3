@@ -96,11 +96,11 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     float error = Min(currentAngle - (maxAngle + angular_slop), max_joint_angular_correction);
     bias = error * s->beta * step.inv_dt;
     impulseSum = ClampImpulse(impulseSum, limitState);
+}
 
-    if (step.warm_starting)
-    {
-        ApplyImpulse(impulseSum);
-    }
+void ConeSwingJoint::WarmStart()
+{
+    ApplyImpulse(impulseSum);
 }
 
 void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
