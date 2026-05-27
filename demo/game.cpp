@@ -262,35 +262,52 @@ void Game::UpdateUI()
 
     if (options.show_profiler)
     {
+        ImGui::SetNextWindowSize({ 720.0f, 280.0f }, ImGuiCond_Once);
         if (ImGui::Begin("Profile", &options.show_profiler, ImGuiWindowFlags_AlwaysAutoResize))
         {
             int count = (int)(profileWriteIndex - profileReadIndex);
+            float broadPhaseValues[profile_capacity]{};
+            float narrowPhaseValues[profile_capacity]{};
+            float buildIslandsValues[profile_capacity]{};
+            float solveIslandsValues[profile_capacity]{};
+            float syncTransformsValues[profile_capacity]{};
+            float finalizeValues[profile_capacity]{};
+            float deferredDestroyValues[profile_capacity]{};
 
-            static constexpr ProfileGraphEntry worldEntries[] = {
-                { "Broad phase", color::broad_phase, profile_broad_phase },
-                { "Narrow phase", color::narrow_phase, profile_narrow_phase },
-                { "Build islands", color::build_islands, profile_build_islands },
-                { "Solve islands", color::solve, profile_solve_islands },
-                { "Sync transforms", color::sync_transforms, profile_sync_transforms },
-                { "Finalize", color::finalize, profile_finalize },
-                { "Deferred destroy", color::deferred_destroy, profile_deferred_destroy },
-                { "Other", color::step, profile_step_other },
+            for (int32 i = 0; i < count; ++i)
+            {
+                int32 index = (int32)((profileReadIndex + i) & (profile_capacity - 1));
+                const WorldProfile& profile = profiles[index];
+                broadPhaseValues[i] = profile.broad_phase;
+                narrowPhaseValues[i] = profile.narrow_phase;
+                buildIslandsValues[i] = profile.build_islands;
+                solveIslandsValues[i] = profile.solve_islands;
+                syncTransformsValues[i] = profile.sync_transforms;
+                finalizeValues[i] = profile.finalize;
+                deferredDestroyValues[i] = profile.deferred_destroy;
+            }
+
+            ProfileGraphEntry entries[] = {
+                { "Broad phase", color::broad_phase, broadPhaseValues },
+                { "Narrow phase", color::narrow_phase, narrowPhaseValues },
+                { "Build islands", color::build_islands, buildIslandsValues },
+                { "Solve islands", color::solve, solveIslandsValues },
+                { "Sync transforms", color::sync_transforms, syncTransformsValues },
+                { "Finalize", color::finalize, finalizeValues },
+                { "Deferred destroy", color::deferred_destroy, deferredDestroyValues },
             };
 
             DrawProfileGraph(
-                "", profiles, { 420, 160 }, profile_capacity, profileReadIndex, count, worldEntries,
-                (int32)(sizeof(worldEntries) / sizeof(worldEntries[0])), profileMaxRange, profileShowOverlay, profileShowAverage
+                "", { -1.0f, -1.0f }, profile_capacity, count, entries, (int32)(sizeof(entries) / sizeof(entries[0])), true,
+                profileShowOverlay, profileShowAverage
             );
 
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 32.0f);
             ImGui::Checkbox("Stop", &profileStopped);
             ImGui::SameLine();
             ImGui::Checkbox("Overlay", &profileShowOverlay);
             ImGui::SameLine();
             if (ImGui::Button("Clear")) ClearProfiles();
-            ImGui::SameLine();
-            ImGui::SetNextItemWidth(120.0f);
-            ImGui::SameLine();
-            ImGui::SliderFloat("Max range", &profileMaxRange, 0.0f, 10.0f, "%.2f ms");
             ImGui::SameLine();
             ImGui::Checkbox("Average", &profileShowAverage);
         }
@@ -366,7 +383,7 @@ void Game::ClearProfiles()
 {
     std::memset(profiles, 0, profile_capacity * sizeof(WorldProfile));
     profileReadIndex = 0;
-    profileWriteIndex = profile_capacity - 1;
+    profileWriteIndex = 0;
 }
 
 } // namespace muli3

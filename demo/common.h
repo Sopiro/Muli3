@@ -3,7 +3,7 @@
 #include <muli3/muli3.h>
 
 #ifndef GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_NONE
+    #define GLFW_INCLUDE_NONE
 #endif
 
 #include <glad/glad.h>

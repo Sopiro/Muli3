@@ -8,64 +8,18 @@ static ImU32 ToImColor(uint32 c)
     return IM_COL32((c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff, 255);
 }
 
-static float GetProfileValue(const WorldProfile& profile, ProfileValue value)
-{
-    switch (value)
-    {
-    case profile_broad_phase:
-        return profile.broad_phase;
-    case profile_narrow_phase:
-        return profile.narrow_phase;
-    case profile_deferred_destroy:
-        return profile.deferred_destroy;
-    case profile_build_islands:
-        return profile.build_islands;
-    case profile_solve_islands:
-        return profile.solve_islands;
-    case profile_sync_transforms:
-        return profile.sync_transforms;
-    case profile_finalize:
-        return profile.finalize;
-    case profile_step_other:
-        return (std::max)(0.0f,
-                          profile.step - profile.broad_phase - profile.narrow_phase - profile.solve - profile.deferred_destroy);
-    default:
-        return 0.0f;
-    }
-}
-
-static float GetProfileTotal(const WorldProfile& profile, const ProfileGraphEntry* entries, int32 entryCount)
-{
-    float total = 0.0f;
-
-    for (int32 i = 0; i < entryCount; ++i)
-    {
-        total += GetProfileValue(profile, entries[i].value);
-    }
-
-    return total;
-}
-
 void DrawProfileGraph(
     const char* label,
-    const WorldProfile* profiles,
     Vec2 graphSize,
     int32 profileCapacity,
-    uint64 profileReadIndex,
     int32 count,
     const ProfileGraphEntry* entries,
     int32 entryCount,
-    float maxRange,
+    bool showAxisLabels,
     bool showOverlay,
     bool showAverage
 )
 {
-    if (count <= 0)
-    {
-        ImGui::TextUnformatted(label);
-        return;
-    }
-
     float maxTotal = 0.0f;
     float minTotal = 0.0f;
     float sumTotal = 0.0f;
@@ -73,8 +27,11 @@ void DrawProfileGraph(
 
     for (int32 i = 0; i < count; ++i)
     {
-        int32 index = (int32)((profileReadIndex + i) & (profileCapacity - 1));
-        float total = GetProfileTotal(profiles[index], entries, entryCount);
+        float total = 0.0f;
+        for (int32 j = 0; j < entryCount; ++j)
+        {
+            total += entries[j].values[i];
+        }
 
         if (i == 0)
         {
@@ -92,11 +49,7 @@ void DrawProfileGraph(
     }
 
     float minValue = 0.0f;
-    float maxValue = (std::max)(maxTotal, 0.1f);
-    if (maxRange > 0)
-    {
-        maxValue = (std::min)(maxValue, maxRange);
-    }
+    float maxValue = count > 0 ? (std::max)(maxTotal, 0.1f) : 0.1f;
     maxValue = (std::max)(maxValue, 0.001f);
 
     if (strlen(label) > 0)
@@ -105,9 +58,22 @@ void DrawProfileGraph(
     }
 
     ImDrawList* drawList = ImGui::GetWindowDrawList();
+    ImVec2 avail = ImGui::GetContentRegionAvail();
     ImVec2 plotSize{ graphSize.x, graphSize.y };
-    ImVec2 legendSize{ 240.0f, plotSize.y };
     ImVec2 spacing{ 14.0f, 0.0f };
+    ImVec2 legendSize{ 240.0f, 0.0f };
+
+    if (plotSize.x < 0.0f)
+    {
+        plotSize.x = (std::max)(180.0f, avail.x - legendSize.x - spacing.x);
+    }
+
+    if (plotSize.y < 0.0f)
+    {
+        plotSize.y = Clamp(plotSize.x * 0.38f, 120.0f, 220.0f);
+    }
+
+    legendSize.y = plotSize.y;
     ImVec2 canvasSize{ plotSize.x + spacing.x + legendSize.x, plotSize.y };
     ImVec2 canvasMin = ImGui::GetCursorScreenPos();
 
@@ -119,32 +85,49 @@ void DrawProfileGraph(
     ImU32 backgroundColor = IM_COL32(14, 29, 34, 255);
     ImU32 borderColor = IM_COL32(190, 205, 205, 255);
     ImU32 gridColor = IM_COL32(80, 105, 110, 90);
+    float axisLabelWidth = showAxisLabels ? 32.0f : 0.0f;
+    ImVec2 graphMin{ plotMin.x + axisLabelWidth, plotMin.y };
+    ImVec2 graphMax = plotMax;
 
-    drawList->AddRectFilled(plotMin, plotMax, backgroundColor);
-    drawList->AddRect(plotMin, plotMax, borderColor);
+    drawList->AddRectFilled(graphMin, graphMax, backgroundColor);
+    drawList->AddRect(graphMin, graphMax, borderColor);
 
     for (int32 i = 1; i < 4; ++i)
     {
-        float y = plotMax.y - plotSize.y * (float)i / 4.0f;
-        drawList->AddLine(ImVec2{ plotMin.x, y }, ImVec2{ plotMax.x, y }, gridColor);
+        float y = graphMax.y - plotSize.y * (float)i / 4.0f;
+        drawList->AddLine(ImVec2{ graphMin.x, y }, ImVec2{ graphMax.x, y }, gridColor);
     }
 
-    float columnStep = plotSize.x / (float)count;
+    for (int32 i = 0; i <= 4 && showAxisLabels; ++i)
+    {
+        float t = (float)i / 4.0f;
+        float y = graphMax.y - plotSize.y * t;
+        float value = maxValue * t;
+        char text[32];
+        std::snprintf(text, sizeof(text), "%.2f", value);
+        ImVec2 size = ImGui::CalcTextSize(text);
+        drawList->AddText(ImVec2{ graphMin.x - 4.0f - size.x, y - size.y * 0.5f }, borderColor, text);
+    }
+
+    float graphWidth = graphMax.x - graphMin.x;
+    float columnStep = graphWidth / (float)profileCapacity;
     float barWidth = (std::max)(1.0f, columnStep - 1.0f);
     float scale = plotSize.y / (maxValue - minValue);
+    float innerLeft = graphMin.x + 1.0f;
+    float innerRight = graphMax.x - 1.0f;
+    float innerTop = graphMin.y + 1.0f;
+    float innerBottom = graphMax.y - 1.0f;
+    int32 startSlot = profileCapacity - count;
 
     for (int32 i = 0; i < count; ++i)
     {
-        int32 index = (int32)((profileReadIndex + i) & (profileCapacity - 1));
-        const WorldProfile& profile = profiles[index];
-
-        float x0 = plotMin.x + columnStep * (float)i;
-        float x1 = (std::min)(x0 + barWidth, plotMax.x);
+        float x0 = innerLeft + columnStep * (float)(startSlot + i);
+        float x1 = (std::min)(x0 + barWidth, innerRight);
         float stack = 0.0f;
 
         for (int32 j = entryCount - 1; j >= 0; --j)
         {
-            float value = GetProfileValue(profile, entries[j].value);
+            float value = entries[j].values[i];
             if (value <= 0.0f)
             {
                 continue;
@@ -152,15 +135,13 @@ void DrawProfileGraph(
 
             float y0 = plotMax.y - ((stack + value) - minValue) * scale;
             float y1 = plotMax.y - (stack - minValue) * scale;
-            y0 = Clamp(y0, plotMin.y, plotMax.y);
-            y1 = Clamp(y1, plotMin.y, plotMax.y);
+            y0 = Clamp(y0, innerTop, innerBottom);
+            y1 = Clamp(y1, innerTop, innerBottom);
             drawList->AddRectFilled(ImVec2{ x0, y0 }, ImVec2{ x1, y1 }, ToImColor(entries[j].color));
             stack += value;
         }
     }
 
-    int32 latestIndex = (int32)((profileReadIndex + count - 1) & (profileCapacity - 1));
-    const WorldProfile& latestProfile = profiles[latestIndex];
     float textHeight = ImGui::GetTextLineHeight();
     float legendStep = (std::min)(textHeight + 2.0f, plotSize.y / (float)entryCount);
     float legendY = legendMin.y;
@@ -170,39 +151,44 @@ void DrawProfileGraph(
         float stack = 0.0f;
         for (int32 j = entryCount - 1; j > i; --j)
         {
-            float stackValue = GetProfileValue(latestProfile, entries[j].value);
+            float stackValue = count > 0 ? entries[j].values[count - 1] : 0.0f;
             if (showAverage)
             {
                 stackValue = 0.0f;
                 for (int32 k = 0; k < count; ++k)
                 {
-                    int32 index = (int32)((profileReadIndex + k) & (profileCapacity - 1));
-                    stackValue += GetProfileValue(profiles[index], entries[j].value);
+                    stackValue += entries[j].values[k];
                 }
-                stackValue /= (float)count;
+                if (count > 0)
+                {
+                    stackValue /= (float)count;
+                }
             }
 
             stack += stackValue;
         }
 
-        float value = GetProfileValue(latestProfile, entries[i].value);
+        float value = count > 0 ? entries[i].values[count - 1] : 0.0f;
         if (showAverage)
         {
             value = 0.0f;
             for (int32 j = 0; j < count; ++j)
             {
-                int32 index = (int32)((profileReadIndex + j) & (profileCapacity - 1));
-                value += GetProfileValue(profiles[index], entries[i].value);
+                value += entries[i].values[j];
             }
-            value /= (float)count;
+            if (count > 0)
+            {
+                value /= (float)count;
+            }
         }
 
         ImU32 entryColor = ToImColor(entries[i].color);
         float lineY = legendY + textHeight * 0.5f;
-        float stackY = plotMax.y - ((stack + value * 0.5f) - minValue) * scale;
-        stackY = Clamp(stackY, plotMin.y, plotMax.y);
+        float ratio = (stack + value * 0.5f - minValue) / (maxValue - minValue);
+        float stackY = graphMax.y - ratio * plotSize.y;
+        stackY = Clamp(stackY, graphMin.y, graphMax.y);
 
-        drawList->AddLine(ImVec2{ plotMax.x, stackY }, ImVec2{ legendMin.x - 3.0f, lineY }, entryColor, 1.0f);
+        drawList->AddLine(ImVec2{ graphMax.x, stackY }, ImVec2{ legendMin.x - 3.0f, lineY }, entryColor, 1.0f);
         drawList->AddRectFilled(
             ImVec2{ legendMin.x, legendY + 3.0f }, ImVec2{ legendMin.x + 10.0f, legendY + 13.0f }, entryColor
         );
@@ -215,27 +201,32 @@ void DrawProfileGraph(
     }
 
     ImVec2 mousePosition = ImGui::GetIO().MousePos;
-    bool plotHovered = ImGui::IsItemHovered() && mousePosition.x >= plotMin.x && mousePosition.x < plotMax.x &&
-                       mousePosition.y >= plotMin.y && mousePosition.y < plotMax.y;
+    bool plotHovered = count > 0 && ImGui::IsItemHovered() && mousePosition.x >= innerLeft + columnStep * startSlot &&
+                       mousePosition.x < innerLeft + columnStep * profileCapacity && mousePosition.y >= graphMin.y &&
+                       mousePosition.y < graphMax.y;
 
     if (showOverlay && plotHovered)
     {
-        int32 hoverOffset = (int32)((mousePosition.x - plotMin.x) / columnStep);
+        int32 hoverSlot = (int32)((mousePosition.x - innerLeft) / columnStep);
+        int32 hoverOffset = hoverSlot - startSlot;
         hoverOffset = Clamp(hoverOffset, 0, count - 1);
-        int32 hoverIndex = (int32)((profileReadIndex + hoverOffset) & (profileCapacity - 1));
-        const WorldProfile& hoverProfile = profiles[hoverIndex];
 
-        float lineX = plotMin.x + columnStep * ((float)hoverOffset + 0.5f);
-        drawList->AddLine(ImVec2{ lineX, plotMin.y }, ImVec2{ lineX, plotMax.y }, IM_COL32(255, 255, 255, 180), 1.0f);
+        float lineX = innerLeft + columnStep * ((float)(startSlot + hoverOffset) + 0.5f);
+        drawList->AddLine(ImVec2{ lineX, graphMin.y }, ImVec2{ lineX, graphMax.y }, IM_COL32(255, 255, 255, 180), 1.0f);
 
         ImGui::BeginTooltip();
         ImGui::Text("-%d frames", count - hoverOffset - 1);
         ImGui::Separator();
-        ImGui::Text("Total: %.3f ms", GetProfileTotal(hoverProfile, entries, entryCount));
+        float total = 0.0f;
+        for (int32 i = 0; i < entryCount; ++i)
+        {
+            total += entries[i].values[hoverOffset];
+        }
+        ImGui::Text("Total: %.3f ms", total);
 
         for (int32 i = 0; i < entryCount; ++i)
         {
-            float value = GetProfileValue(hoverProfile, entries[i].value);
+            float value = entries[i].values[hoverOffset];
             ImGui::TextColored(
                 ImVec4{
                     (float)((entries[i].color >> 16) & 0xff) / 255.0f,
@@ -250,7 +241,12 @@ void DrawProfileGraph(
         ImGui::EndTooltip();
     }
 
-    ImGui::Text("Min %.3f ms, Max %.3f ms, Avg %.3f ms, Current %.3f ms", minTotal, maxTotal, sumTotal / (float)count, nowTotal);
+    float avgTotal = count > 0 ? sumTotal / (float)count : 0.0f;
+    if (showAxisLabels)
+    {
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + axisLabelWidth);
+    }
+    ImGui::Text("Min %.3f ms, Max %.3f ms, Avg %.3f ms, Current %.3f ms", minTotal, maxTotal, avgTotal, nowTotal);
 }
 
 } // namespace muli3

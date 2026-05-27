@@ -46,11 +46,10 @@ private:
     size_t newIndex = 0;
     WorldProfile profiles[profile_capacity]{};
     uint64 profileReadIndex = 0;
-    uint64 profileWriteIndex = profile_capacity - 1;
+    uint64 profileWriteIndex = 0;
     bool profileStopped = false;
     bool profileShowOverlay = false;
     bool profileShowAverage = false;
-    float profileMaxRange = 0.0f;
     DebugOptions options;
 };
 

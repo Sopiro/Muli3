@@ -6,6 +6,7 @@
     // Tracy profiler (https://github.com/wolfpld/tracy)
     #include <tracy/TracyC.h>
 
+    #define MuliProfileZoneN(ctx, name, active) TracyCZoneN(ctx, name, active)
     #define MuliProfileZoneC(ctx, color, active) TracyCZoneC(ctx, color, active)
     #define MuliProfileZoneNC(ctx, name, color, active) TracyCZoneNC(ctx, name, color, active)
     #define MuliProfileZoneEnd(ctx) TracyCZoneEnd(ctx)
@@ -14,6 +15,7 @@
     #define MuliProfileShutdown() ___tracy_shutdown_profiler()
     #define MuliProfileFrameMark TracyCFrameMark
 #else
+    #define MuliProfileZoneN(ctx, name, active)
     #define MuliProfileZoneC(ctx, color, active)
     #define MuliProfileZoneNC(ctx, name, color, active)
     #define MuliProfileZoneEnd(ctx)

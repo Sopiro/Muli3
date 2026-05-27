@@ -96,7 +96,6 @@ void Demo::EnableKeyboardShortcut()
     if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
     if (Input::IsKeyPressed(GLFW_KEY_F1)) options.show_profiler = !options.show_profiler;
     if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
-    if (Input::IsKeyPressed(GLFW_KEY_M)) targetBody->Sleep();
     if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
 
     if (Input::IsKeyPressed(GLFW_KEY_G))
