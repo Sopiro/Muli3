@@ -53,29 +53,7 @@ RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type ty
 {
     void* mem = blockAllocator.Allocate(sizeof(RigidBody));
     RigidBody* b = new (mem) RigidBody(transform, type);
-
-    b->world = this;
-    b->prev = bodyListTail;
-    b->next = nullptr;
-    b->contactList = nullptr;
-    b->jointList = nullptr;
-    b->colliderList = nullptr;
-    b->colliderCount = 0;
-    b->flag &= ~RigidBody::flag_island;
-    b->flag |= RigidBody::flag_enabled;
-    AddBodyState(b, type == RigidBody::static_body ? static_set : awake_set, transform);
-
-    if (bodyListTail)
-    {
-        bodyListTail->next = b;
-    }
-    else
-    {
-        bodyList = b;
-    }
-    bodyListTail = b;
-    ++bodyCount;
-
+    AddBody(b);
     return b;
 }
 
@@ -149,7 +127,7 @@ float World::Step(float dt)
 {
     profile = {};
     ProfileScope profile_step{ &profile.step };
-    MuliProfileZoneNC(world_step, "World::Step", color::step, true);
+    MuliProfileZoneNC(world_step, "Step", color::step, true);
 
     if (dt <= 0.0f)
     {
@@ -178,25 +156,28 @@ float World::Step(float dt)
 
     {
         ProfileScope profile_solve{ &profile.solve };
-        MuliProfileZoneNC(solve, "Solve", color::solve, true);
+        MuliProfileZoneNC(world_solve, "Solve", color::solve, true);
         Solve();
-        MuliProfileZoneEnd(solve);
+        MuliProfileZoneEnd(world_solve);
     }
 
-    ProfileScope profile_destroy_buffer{ &profile.deferred_destroy };
-    MuliProfileZoneNC(destroy_buffer, "Deferred Destroy", color::deferred_destroy, true);
-    for (RigidBody* body : destroyBodyBuffer)
     {
-        Destroy(body);
-    }
-    for (Joint* j : destroyJointBuffer)
-    {
-        Destroy(j);
-    }
+        ProfileScope profile_destroy_buffer{ &profile.deferred_destroy };
+        MuliProfileZoneNC(destroy_buffer, "Deferred Destroy", color::deferred_destroy, true);
 
-    destroyBodyBuffer.clear();
-    destroyJointBuffer.clear();
-    MuliProfileZoneEnd(destroy_buffer);
+        for (RigidBody* body : destroyBodyBuffer)
+        {
+            Destroy(body);
+        }
+        for (Joint* j : destroyJointBuffer)
+        {
+            Destroy(j);
+        }
+
+        destroyBodyBuffer.clear();
+        destroyJointBuffer.clear();
+        MuliProfileZoneEnd(destroy_buffer);
+    }
 
     MuliProfileZoneEnd(world_step);
     return 1.0f;
@@ -245,7 +226,7 @@ void World::Destroy(std::span<RigidBody*> bodies)
     {
         RigidBody* b = bodies[i];
 
-        if (destroyed.find(b) == destroyed.end())
+        if (!destroyed.contains(b))
         {
             destroyed.insert(b);
             Destroy(b);
@@ -303,7 +284,7 @@ void World::Destroy(std::span<Joint*> joints)
     {
         Joint* j = joints[i];
 
-        if (destroyed.find(j) == destroyed.end())
+        if (!destroyed.contains(j))
         {
             destroyed.insert(j);
             Destroy(j);
@@ -381,7 +362,7 @@ void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
                 return true;
             }
 
-            if (Collide(collider->shape, collider->body->GetBodyState()->transform, &region, transform))
+            if (Collide(collider->shape, collider->body->transform, &region, transform))
             {
                 return callback->OnQuery(collider);
             }
@@ -611,7 +592,7 @@ void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> call
                 return true;
             }
 
-            if (Collide(collider->shape, collider->body->GetBodyState()->transform, &region, transform))
+            if (Collide(collider->shape, collider->body->transform, &region, transform))
             {
                 return callbackFcn(collider);
             }
@@ -802,11 +783,8 @@ bool World::ShapeCastClosest(
 
 void World::Solve()
 {
-    MuliProfileZoneNC(solve_world, "World::Solve", color::solve, true);
-
     if (bodyCount == 0)
     {
-        MuliProfileZoneEnd(solve_world);
         return;
     }
 
@@ -898,7 +876,7 @@ void World::Solve()
 
                 if (other->IsSleeping())
                 {
-                    other->Awake();
+                    WakeBody(other);
                 }
 
                 MuliAssert(stackPointer < bodyCount);
@@ -937,7 +915,7 @@ void World::Solve()
 
                 if (other->IsSleeping())
                 {
-                    other->Awake();
+                    WakeBody(other);
                 }
 
                 MuliAssert(stackPointer < bodyCount);
@@ -990,7 +968,7 @@ void World::Solve()
             s->motion.GetTransform(0.0f, &transform0);
             body->SynchronizeTransform();
 
-            if (settings.world_bounds.TestPoint(s->transform.p) == false)
+            if (settings.world_bounds.TestPoint(body->transform.p) == false)
             {
                 BufferDestroy(body);
             }
@@ -998,7 +976,7 @@ void World::Solve()
             {
                 for (Collider* collider = body->colliderList; collider; collider = collider->next)
                 {
-                    contactGraph.UpdateCollider(collider, transform0, s->transform);
+                    contactGraph.UpdateCollider(collider, transform0, body->transform);
                 }
             }
         }
@@ -1108,8 +1086,6 @@ void World::Solve()
     linearAllocator.Free(islands, bodyCount * sizeof(Island));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
     MuliProfileZoneEnd(finalize);
-
-    MuliProfileZoneEnd(solve_world);
 }
 
 // Joint factory functions
@@ -1466,6 +1442,40 @@ MotorJoint* World::CreateMotorJoint(
     return mj;
 }
 
+void World::AddBody(RigidBody* body)
+{
+    body->world = this;
+    body->prev = bodyListTail;
+    body->next = nullptr;
+    body->colliderList = nullptr;
+    body->colliderCount = 0;
+    body->contactList = nullptr;
+    body->jointList = nullptr;
+    body->flag &= ~RigidBody::flag_island;
+    body->flag |= RigidBody::flag_enabled;
+
+    // Connect to tail
+    if (bodyListTail)
+    {
+        bodyListTail->next = body;
+    }
+    else
+    {
+        bodyList = body;
+    }
+    bodyListTail = body;
+
+    SolverSetIndex setIndex = body->type == RigidBody::static_body ? static_set : awake_set;
+    AddBodyState(body, setIndex);
+    ++bodyCount;
+}
+
+void World::FreeBody(RigidBody* body)
+{
+    body->~RigidBody();
+    blockAllocator.Free(body, sizeof(RigidBody));
+}
+
 void World::AddJoint(Joint* joint)
 {
     // Insert into the world
@@ -1524,12 +1534,6 @@ void World::AddJoint(Joint* joint)
 
     AddJointState(joint, setIndex);
     ++jointCount;
-}
-
-void World::FreeBody(RigidBody* body)
-{
-    body->~RigidBody();
-    blockAllocator.Free(body, sizeof(RigidBody));
 }
 
 void World::FreeJoint(Joint* joint)
@@ -1647,7 +1651,7 @@ void World::FreeShape(Shape* shape)
     }
 }
 
-BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex, const Transform& transform)
+BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex)
 {
     SolverSet& set = solverSets[setIndex];
     body->setIndex = setIndex;
@@ -1655,8 +1659,7 @@ BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex, const T
 
     BodyState state{};
     state.body = body;
-    state.transform = transform;
-    state.motion = Motion{ transform };
+    state.motion = Motion{ body->transform };
     state.linearVelocity = Vec3::zero;
     state.angularVelocity = Vec3::zero;
     state.invMass = 0.0f;
@@ -1790,6 +1793,7 @@ JointState* World::AddJointState(Joint* joint, SolverSetIndex setIndex)
     state.invIB = Mat3::zero;
     state.beta = 0.0f;
     state.gamma = 0.0f;
+
     set.jointStates.push_back(state);
     return &set.jointStates.back();
 }

@@ -16,7 +16,6 @@ struct BodyState
 {
     RigidBody* body;
 
-    Transform transform;
     Motion motion;
 
     Vec3 linearVelocity;
@@ -48,10 +47,8 @@ struct ContactState
     SolverContact tangentContact2[max_contact_point_count];
     SolverPosition positionContact[max_contact_point_count];
 
-    Vec3 cLinearImpulseA, cLinearImpulseB;
-    Vec3 cAngularImpulseA, cAngularImpulseB;
-
-    Mat3 invIA, invIB;
+    Mat3 invIA;
+    Mat3 invIB;
 
     float friction;
     float restitution;

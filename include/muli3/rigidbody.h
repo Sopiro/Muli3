@@ -30,7 +30,7 @@ public:
         dynamic_body,
     };
 
-    RigidBody(const Transform& tf, RigidBody::Type type);
+    RigidBody(const Transform& tf, Type type);
     ~RigidBody();
 
     RigidBody(const RigidBody&) = delete;
@@ -86,8 +86,8 @@ public:
     void Rotate(const Quat& delta);
     void Rotate(const Vec3& eulerAngles);
 
-    RigidBody::Type GetType() const;
-    void SetType(RigidBody::Type type);
+    Type GetType() const;
+    void SetType(Type type);
 
     void SetEnabled(bool enabled);
     bool IsEnabled() const;
@@ -258,21 +258,22 @@ private:
     JointEdge* jointList;
 
     Type type;
+    Transform transform;
 
     float mass;
     Mat3 inertia;
 
-    int32 islandIndex;
-
     int32 setIndex;
     int32 localIndex;
+
+    int32 islandIndex;
 
     uint16 flag;
 };
 
 inline const Transform& RigidBody::GetTransform() const
 {
-    return GetBodyState()->transform;
+    return transform;
 }
 
 inline const Motion& RigidBody::GetMotion() const
@@ -287,7 +288,7 @@ inline const Vec3& RigidBody::GetLocalCenter() const
 
 inline const Vec3& RigidBody::GetPosition() const
 {
-    return GetBodyState()->transform.p;
+    return transform.p;
 }
 
 inline void RigidBody::SetPosition(const Vec3& position)
@@ -297,7 +298,7 @@ inline void RigidBody::SetPosition(const Vec3& position)
 
 inline const Quat& RigidBody::GetRotation() const
 {
-    return GetBodyState()->transform.q;
+    return transform.q;
 }
 
 inline float RigidBody::GetMass() const
@@ -577,22 +578,22 @@ inline int32 RigidBody::GetColliderCount() const
 inline void RigidBody::SynchronizeTransform()
 {
     BodyState* s = GetBodyState();
-    s->transform.q = s->motion.q;
-    s->transform.p = s->motion.c - s->transform.q.Rotate(s->motion.localCenter);
-    s->transform.s = Vec3{ 1.0f, 1.0f, 1.0f };
+    transform.q = s->motion.q;
+    transform.p = s->motion.c - transform.q.Rotate(s->motion.localCenter);
+    transform.s = Vec3(1);
 }
 
 inline Mat3 RigidBody::GetWorldInertiaTensor() const
 {
     const BodyState* s = GetBodyState();
-    Mat3 rotation{ s->motion.q };
+    Mat3 rotation(s->motion.q);
     return rotation * inertia * rotation.GetTranspose();
 }
 
 inline Mat3 RigidBody::GetWorldInverseInertiaTensor() const
 {
     const BodyState* s = GetBodyState();
-    Mat3 rotation{ s->motion.q };
+    Mat3 rotation(s->motion.q);
     return rotation * s->invInertia * rotation.GetTranspose();
 }
 

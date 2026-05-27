@@ -73,9 +73,6 @@ public:
         Stop();
     }
 
-    ProfileScope(const ProfileScope&) = delete;
-    ProfileScope& operator=(const ProfileScope&) = delete;
-
     void Stop()
     {
         if (milliseconds)

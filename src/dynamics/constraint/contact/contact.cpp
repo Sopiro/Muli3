@@ -40,14 +40,15 @@ void Contact::Update()
     flag |= Contact::flag_enabled;
 
     ContactManifold oldManifold = s->manifold;
+
+    float impulseSaveNormal[max_contact_point_count];
+    float impulseSaveTangent1[max_contact_point_count];
+    float impulseSaveTangent2[max_contact_point_count];
     for (int32 i = 0; i < max_contact_point_count; ++i)
     {
-        s->normalContact[i].impulseSave = s->normalContact[i].impulse;
-        s->tangentContact1[i].impulseSave = s->tangentContact1[i].impulse;
-        s->tangentContact2[i].impulseSave = s->tangentContact2[i].impulse;
-        s->normalContact[i].impulse = 0.0f;
-        s->tangentContact1[i].impulse = 0.0f;
-        s->tangentContact2[i].impulse = 0.0f;
+        impulseSaveNormal[i] = s->normalContact[i].impulse;
+        impulseSaveTangent1[i] = s->tangentContact1[i].impulse;
+        impulseSaveTangent2[i] = s->tangentContact2[i].impulse;
     }
 
     bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
@@ -63,10 +64,8 @@ void Contact::Update()
     RigidBody* bodyA = colliderA->GetBody();
     RigidBody* bodyB = colliderB->GetBody();
 
-    bool touching = collideFunction(
-        colliderA->GetShape(), bodyA->GetBodyState()->transform, colliderB->GetShape(), bodyB->GetBodyState()->transform,
-        &s->manifold
-    );
+    bool touching =
+        collideFunction(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifold);
 
     if (touching)
     {
@@ -99,9 +98,9 @@ void Contact::Update()
         {
             if (s->manifold.contactPoints[n].id == oldManifold.contactPoints[o].id)
             {
-                s->normalContact[n].impulse = s->normalContact[o].impulseSave;
-                s->tangentContact1[n].impulse = s->tangentContact1[o].impulseSave;
-                s->tangentContact2[n].impulse = s->tangentContact2[o].impulseSave;
+                s->normalContact[n].impulse = impulseSaveNormal[o];
+                s->tangentContact1[n].impulse = impulseSaveTangent1[o];
+                s->tangentContact2[n].impulse = impulseSaveTangent2[o];
                 break;
             }
         }

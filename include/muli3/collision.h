@@ -23,7 +23,7 @@ constexpr int32 max_contact_point_count = 4;
 struct ContactManifold
 {
     Point contactPoints[max_contact_point_count];
-    Point referencePoint;
+    Vec3 referencePoint;
     Vec3 contactNormal;  // Contact normal is always pointing from reference body to incident body
     float penetrationDepth;
     int32 contactCount;

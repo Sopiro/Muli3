@@ -330,13 +330,17 @@ private:
     friend class BroadPhase;
 
     void Solve();
+
+    void AddBody(RigidBody* body);
     void FreeBody(RigidBody* body);
+
     void AddJoint(Joint* joint);
     void FreeJoint(Joint* joint);
+
     Shape* CloneShape(const Shape* shape, const Transform& transform = identity);
     void FreeShape(Shape* shape);
 
-    BodyState* AddBodyState(RigidBody* body, SolverSetIndex setIndex, const Transform& transform);
+    BodyState* AddBodyState(RigidBody* body, SolverSetIndex setIndex);
     void RemoveBodyState(RigidBody* body);
     void TransferBody(RigidBody* body, SolverSetIndex targetSet);
 
@@ -356,14 +360,14 @@ private:
     const WorldSettings& settings;
     WorldProfile profile;
 
-    ContactGraph contactGraph;
-
     RigidBody* bodyList = nullptr;
     RigidBody* bodyListTail = nullptr;
     int32 bodyCount = 0;
 
     Joint* jointList = nullptr;
     int32 jointCount = 0;
+
+    ContactGraph contactGraph;
 
     SolverSet solverSets[solver_set_count];
 

@@ -21,14 +21,9 @@ struct ContactJacobian
 struct SolverContact
 {
     ContactJacobian j;
-
-    // effective mass
-    float m;
+    float m;       // effective mass
     float bias;
-
-    // impulse sum
-    float impulse = 0.0f;
-    float impulseSave = 0.0f;
+    float impulse; // impulse sum
 };
 
 struct SolverPosition

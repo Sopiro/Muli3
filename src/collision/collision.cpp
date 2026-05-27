@@ -460,7 +460,7 @@ static void FindContactPoints(
         manifold->contactNormal = n;
     }
 
-    manifold->referencePoint = ref.points[0];
+    manifold->referencePoint = ref.points[0].p;
 
     Vec3 planeNormal = ref.normal;
     Vec3 planePoint = ref.points[0].p;
@@ -629,8 +629,7 @@ bool SphereVsSphere(
     manifold->contactNormal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactPoints[0].p = pb - normal * rb;
-    manifold->referencePoint.id = 0;
-    manifold->referencePoint.p = pa + normal * ra;
+    manifold->referencePoint = pa + normal * ra;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
     manifold->featureFlipped = false;
@@ -699,7 +698,7 @@ bool CapsuleVsSphere(
     manifold->contactNormal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactPoints[0].p = centerB - normal * rb;
-    manifold->referencePoint = supportA;
+    manifold->referencePoint = supportA.p;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
     manifold->featureFlipped = false;
@@ -765,8 +764,7 @@ bool CapsuleVsCapsule(
     manifold->contactNormal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactPoints[0].p = pb - normal * rb;
-    manifold->referencePoint.id = 0;
-    manifold->referencePoint.p = pa + normal * ra;
+    manifold->referencePoint = pa + normal * ra;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
     manifold->featureFlipped = false;
@@ -882,8 +880,7 @@ bool BoxVsSphere(
     manifold->contactNormal = normal;
     manifold->contactPoints[0].id = contactID;
     manifold->contactPoints[0].p = c - normal * b->GetRadius();
-    manifold->referencePoint.id = contactID;
-    manifold->referencePoint.p = closest + normal * a->GetRadius();
+    manifold->referencePoint = closest + normal * a->GetRadius();
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - separation;
     manifold->featureFlipped = false;
@@ -1167,8 +1164,7 @@ bool ConvexVsSphere(
     manifold->contactNormal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactPoints[0].p = centerB - normal * rb;
-    manifold->referencePoint.id = convex->GetFaces()[faceIndex].indices[0];
-    manifold->referencePoint.p = closest;
+    manifold->referencePoint = closest;
     manifold->contactCount = 1;
     manifold->penetrationDepth = penetrationDepth;
     manifold->featureFlipped = false;
@@ -1210,7 +1206,7 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
             manifold->contactNormal = normal;
             manifold->contactPoints[0] = supportB;
             manifold->contactCount = 1;
-            manifold->referencePoint = supportA;
+            manifold->referencePoint = supportA.p;
             manifold->penetrationDepth = radii - gjkResult.distance;
             manifold->featureFlipped = false;
 

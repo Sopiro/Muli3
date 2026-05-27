@@ -11,7 +11,7 @@
 namespace muli3
 {
 
-RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
+RigidBody::RigidBody(const Transform& tf, Type type)
     : OnDestroy{ nullptr }
     , UserData{ nullptr }
     , world{ nullptr }
@@ -22,14 +22,14 @@ RigidBody::RigidBody(const Transform& tf, RigidBody::Type type)
     , contactList{ nullptr }
     , jointList{ nullptr }
     , type{ type }
+    , transform{ tf }
     , mass{ 0.0f }
     , inertia{ 0.0f }
-    , islandIndex{ 0 }
     , setIndex{ null_index }
     , localIndex{ null_index }
+    , islandIndex{ null_index }
     , flag{ flag_enabled }
 {
-    MuliNotUsed(tf);
 }
 
 RigidBody::~RigidBody()
@@ -64,10 +64,11 @@ void RigidBody::Sleep()
 
 void RigidBody::SetTransform(const Transform& newTransform)
 {
+    transform = newTransform;
+
     BodyState* s = GetBodyState();
-    s->transform = newTransform;
-    s->motion.c = Mul(s->transform, s->motion.localCenter);
-    s->motion.q = s->transform.q;
+    s->motion.c = Mul(transform, s->motion.localCenter);
+    s->motion.q = transform.q;
     s->motion.c0 = s->motion.c;
     s->motion.q0 = s->motion.q;
     s->motion.alpha0 = 0.0f;
@@ -77,9 +78,10 @@ void RigidBody::SetTransform(const Transform& newTransform)
 
 void RigidBody::SetPosition(float x, float y, float z)
 {
+    transform.p.Set(x, y, z);
+
     BodyState* s = GetBodyState();
-    s->transform.p = Vec3{ x, y, z };
-    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c = Mul(transform, s->motion.localCenter);
     s->motion.c0 = s->motion.c;
     s->motion.alpha0 = 0.0f;
 
@@ -88,11 +90,12 @@ void RigidBody::SetPosition(float x, float y, float z)
 
 void RigidBody::SetRotation(const Quat& rotation)
 {
+    transform.q = rotation;
+
     BodyState* s = GetBodyState();
-    s->transform.q = rotation;
-    s->motion.q = s->transform.q;
+    s->motion.q = transform.q;
     s->motion.q0 = s->motion.q;
-    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c = Mul(transform, s->motion.localCenter);
     s->motion.c0 = s->motion.c;
     s->motion.alpha0 = 0.0f;
 
@@ -106,9 +109,10 @@ void RigidBody::Translate(const Vec3& delta)
 
 void RigidBody::Translate(float dx, float dy, float dz)
 {
+    transform.p += Vec3(dx, dy, dz);
+
     BodyState* s = GetBodyState();
-    s->transform.p += Vec3{ dx, dy, dz };
-    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c = Mul(transform, s->motion.localCenter);
     s->motion.c0 = s->motion.c;
     s->motion.alpha0 = 0.0f;
 
@@ -117,13 +121,13 @@ void RigidBody::Translate(float dx, float dy, float dz)
 
 void RigidBody::Rotate(const Quat& delta)
 {
-    BodyState* s = GetBodyState();
-    s->transform.q = delta * s->transform.q;
-    s->transform.q.Normalize();
+    transform.q = delta * transform.q;
+    transform.q.Normalize();
 
-    s->motion.q = s->transform.q;
+    BodyState* s = GetBodyState();
+    s->motion.q = transform.q;
     s->motion.q0 = s->motion.q;
-    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c = Mul(transform, s->motion.localCenter);
     s->motion.c0 = s->motion.c;
     s->motion.alpha0 = 0.0f;
 
@@ -729,7 +733,7 @@ void RigidBody::ResetMassData()
 
     Vec3 oldCenter = s->motion.c;
     s->motion.localCenter = localCenter;
-    s->motion.c = Mul(s->transform, s->motion.localCenter);
+    s->motion.c = Mul(transform, s->motion.localCenter);
     s->motion.c0 = s->motion.c;
     s->motion.alpha0 = 0.0f;
 
@@ -745,21 +749,20 @@ void RigidBody::SynchronizeColliders()
 
     if (IsSleeping())
     {
-        const BodyState* s = GetBodyState();
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.UpdateCollider(collider, s->transform);
+            world->contactGraph.UpdateCollider(collider, transform);
         }
     }
     else
     {
-        const BodyState* s = GetBodyState();
+        BodyState* s = GetBodyState();
         Transform transform0;
         s->motion.GetTransform(0.0f, &transform0);
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.UpdateCollider(collider, transform0, s->transform);
+            world->contactGraph.UpdateCollider(collider, transform0, transform);
         }
     }
 }

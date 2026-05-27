@@ -215,7 +215,7 @@ inline void Collider::SetEnabled(bool newEnabled)
 inline AABB Collider::GetAABB() const
 {
     AABB aabb;
-    shape->ComputeAABB(body->GetBodyState()->transform, &aabb);
+    shape->ComputeAABB(body->transform, &aabb);
     return aabb;
 }
 
@@ -228,17 +228,17 @@ inline MassData Collider::GetMassData() const
 
 inline bool Collider::TestPoint(const Vec3& q) const
 {
-    return shape->TestPoint(body->GetBodyState()->transform, q);
+    return shape->TestPoint(body->transform, q);
 }
 
 inline Vec3 Collider::GetClosestPoint(const Vec3& q) const
 {
-    return shape->GetClosestPoint(body->GetBodyState()->transform, q);
+    return shape->GetClosestPoint(body->transform, q);
 }
 
 inline bool Collider::RayCast(const RayCastInput& input, RayCastOutput* output) const
 {
-    return shape->RayCast(body->GetBodyState()->transform, input, output);
+    return shape->RayCast(body->transform, input, output);
 }
 
 } // namespace muli3

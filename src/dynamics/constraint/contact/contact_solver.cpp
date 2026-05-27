@@ -156,12 +156,18 @@ static void PreparePosition(SolverPosition* p, ContactState* s, int32 index)
     Quat qA = sA->motion.q;
     Quat qB = sB->motion.q;
 
-    p->localPlanePoint = qA.RotateInv(s->manifold.referencePoint.p - comA);
+    p->localPlanePoint = qA.RotateInv(s->manifold.referencePoint - comA);
     p->localClipPoint = qB.RotateInv(s->manifold.contactPoints[index].p - comB);
     p->localNormal = qA.RotateInv(s->manifold.contactNormal);
 }
 
-static bool SolvePosition(SolverPosition* p, ContactState* s)
+struct PositionCorrection
+{
+    Vec3 linearImpulseA, linearImpulseB;
+    Vec3 angularImpulseA, angularImpulseB;
+};
+
+static bool SolvePosition(PositionCorrection* r, const SolverPosition* p, const ContactState* s)
 {
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
@@ -183,25 +189,17 @@ static bool SolvePosition(SolverPosition* p, ContactState* s)
     Vec3 ran = Cross(ra, normal);
     Vec3 rbn = Cross(rb, normal);
 
-    // clang-format off
-    // effective mass = 1 / k
-    float k = sA->invMass
-            + Dot(ran, s->invIA * ran)
-            + sB->invMass
-            + Dot(rbn, s->invIB * rbn);
-    // clang-format on
-
-    // Constraint (bias)
+    float k = sA->invMass + Dot(ran, s->invIA * ran) + sB->invMass + Dot(rbn, s->invIB * rbn);
     float c = Clamp(position_correction * (separation + linear_slop), -max_position_correction, 0.0f);
 
     // Compute normal impulse
     float lambda = k > 0.0f ? -c / k : 0.0f;
     Vec3 impulse = normal * lambda;
 
-    s->cLinearImpulseA -= impulse;
-    s->cAngularImpulseA -= Cross(ra, impulse);
-    s->cLinearImpulseB += impulse;
-    s->cAngularImpulseB += Cross(rb, impulse);
+    r->linearImpulseA -= impulse;
+    r->angularImpulseA -= Cross(ra, impulse);
+    r->linearImpulseB += impulse;
+    r->angularImpulseB += Cross(rb, impulse);
 
     // We can't expect separation >= -linear_slop
     // because we don't push the separation above -linear_slop
@@ -257,33 +255,30 @@ bool SolveContactPositionConstraints(ContactState* s)
 {
     bool solved = true;
 
-    s->cLinearImpulseA.SetZero();
-    s->cLinearImpulseB.SetZero();
-    s->cAngularImpulseA.SetZero();
-    s->cAngularImpulseB.SetZero();
+    PositionCorrection correction{};
 
     s->invIA = s->s1->body->GetWorldInverseInertiaTensor();
     s->invIB = s->s2->body->GetWorldInverseInertiaTensor();
 
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
     {
-        solved &= SolvePosition(s->positionContact + i, s);
+        solved &= SolvePosition(&correction, s->positionContact + i, s);
     }
 
-    BodyState* bodySimA = s->s1;
-    BodyState* bodySimB = s->s2;
+    BodyState* s1 = s->s1;
+    BodyState* s2 = s->s2;
 
-    bodySimA->motion.c += bodySimA->invMass * s->cLinearImpulseA;
-    Vec3 angularCorrectionA = s->invIA * s->cAngularImpulseA;
+    s1->motion.c += s1->invMass * correction.linearImpulseA;
+    Vec3 angularCorrectionA = s->invIA * correction.angularImpulseA;
     Quat w1{ angularCorrectionA, 0.0f };
-    bodySimA->motion.q = bodySimA->motion.q + (w1 * bodySimA->motion.q) * 0.5f;
-    bodySimA->motion.q.Normalize();
+    s1->motion.q = s1->motion.q + (w1 * s1->motion.q) * 0.5f;
+    s1->motion.q.Normalize();
 
-    bodySimB->motion.c += bodySimB->invMass * s->cLinearImpulseB;
-    Vec3 angularCorrectionB = s->invIB * s->cAngularImpulseB;
+    s2->motion.c += s2->invMass * correction.linearImpulseB;
+    Vec3 angularCorrectionB = s->invIB * correction.angularImpulseB;
     Quat w2{ angularCorrectionB, 0.0f };
-    bodySimB->motion.q = bodySimB->motion.q + (w2 * bodySimB->motion.q) * 0.5f;
-    bodySimB->motion.q.Normalize();
+    s2->motion.q = s2->motion.q + (w2 * s2->motion.q) * 0.5f;
+    s2->motion.q.Normalize();
 
     return solved;
 }
@@ -292,6 +287,7 @@ void PrepareJoint(JointState* s, const Timestep& step)
 {
     s->joint->Prepare(step);
 }
+
 void WarmStartJoint(JointState* s)
 {
     s->joint->WarmStart();

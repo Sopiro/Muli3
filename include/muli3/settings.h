@@ -15,8 +15,6 @@ inline constexpr float gjk_tolerance = epsilon;
 inline constexpr int32 epa_max_iteration = 20;
 inline constexpr float epa_tolerance = epsilon;
 
-inline constexpr float contact_merge_threshold = linear_slop * 0.001f;
-
 inline constexpr float position_correction = 0.2f;
 inline constexpr float max_position_correction = linear_slop * 2;
 inline constexpr float position_solver_threshold = linear_slop * 3.0f;
