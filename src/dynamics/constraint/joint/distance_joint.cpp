@@ -33,10 +33,10 @@ DistanceJoint::DistanceJoint(
     const Vec3& anchorB,
     float jointMinLength,
     float jointMaxLength,
-    float jointFrequency,
-    float jointDampingRatio
+    float frequency,
+    float dampingRatio
 )
-    : Joint(distance_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+    : Joint(distance_joint, bodyA, bodyB, frequency, dampingRatio)
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
     , limitState{ distance_limit_inactive }

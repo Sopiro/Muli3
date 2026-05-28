@@ -9,10 +9,10 @@ MotorJoint::MotorJoint(
     const Vec3& anchor,
     float maxJointForce,
     float maxJointTorque,
-    float jointFrequency,
-    float jointDampingRatio
+    float frequency,
+    float dampingRatio
 )
-    : Joint(motor_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+    : Joint(motor_joint, bodyA, bodyB, frequency, dampingRatio)
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
 {

@@ -4,15 +4,8 @@
 namespace muli3
 {
 
-LineJoint::LineJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    const Vec3& dir,
-    float jointFrequency,
-    float jointDampingRatio
-)
-    : Joint(line_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+LineJoint::LineJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
+    : Joint(line_joint, bodyA, bodyB, frequency, dampingRatio)
     , impulseSum{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);

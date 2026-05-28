@@ -3,8 +3,8 @@
 namespace muli3
 {
 
-FixedRotationJoint::FixedRotationJoint(RigidBody* body, float jointFrequency, float jointDampingRatio)
-    : Joint(fixed_rotation_joint, body, body, jointFrequency, jointDampingRatio)
+FixedRotationJoint::FixedRotationJoint(RigidBody* body, float frequency, float dampingRatio)
+    : Joint(fixed_rotation_joint, body, body, frequency, dampingRatio)
     , targetOrientation{ body->GetRotation() }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {

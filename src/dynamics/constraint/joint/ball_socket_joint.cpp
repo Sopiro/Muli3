@@ -3,10 +3,8 @@
 namespace muli3
 {
 
-BallSocketJoint::BallSocketJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio
-)
-    : Joint(ball_socket_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+BallSocketJoint::BallSocketJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
+    : Joint(ball_socket_joint, bodyA, bodyB, frequency, dampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);

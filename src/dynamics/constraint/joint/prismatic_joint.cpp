@@ -5,14 +5,9 @@ namespace muli3
 {
 
 PrismaticJoint::PrismaticJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    const Vec3& dir,
-    float jointFrequency,
-    float jointDampingRatio
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
 )
-    : Joint(prismatic_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+    : Joint(prismatic_joint, bodyA, bodyB, frequency, dampingRatio)
     , linearImpulseSum{ 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
 {

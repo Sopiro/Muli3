@@ -3,14 +3,8 @@
 namespace muli3
 {
 
-GrabJoint::GrabJoint(
-    RigidBody* body,
-    const Vec3& anchor,
-    const Vec3& targetPosition,
-    float jointFrequency,
-    float jointDampingRatio
-)
-    : Joint(grab_joint, body, body, jointFrequency, jointDampingRatio)
+GrabJoint::GrabJoint(RigidBody* body, const Vec3& anchor, const Vec3& targetPosition, float frequency, float dampingRatio)
+    : Joint(grab_joint, body, body, frequency, dampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {
     localAnchor = MulT(body->GetTransform(), anchor);

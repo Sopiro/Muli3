@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio)
+Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio)
     : DynamicDispatcher(int32(type))
     , OnDestroy{ nullptr }
     , UserData{ nullptr }
@@ -16,7 +16,7 @@ Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFr
     , flagIsland{ false }
 {
     MuliAssert(bodyA->GetWorld() == bodyB->GetWorld());
-    SetParameters(jointFrequency, jointDampingRatio);
+    SetParameters(frequency, dampingRatio);
 }
 
 Joint::~Joint()
@@ -37,35 +37,21 @@ const JointState* Joint::GetJointState() const
     return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
 }
 
-void Joint::SetParameters(float newJointFrequency, float newJointDampingRatio)
-{
-    if (newJointFrequency > 0.0f)
-    {
-        jointFrequency = newJointFrequency;
-        jointDampingRatio = Clamp(newJointDampingRatio, 0.0f, 1.0f);
-    }
-    else
-    {
-        jointFrequency = -1.0f;
-        jointDampingRatio = 0.0f;
-    }
-}
-
 void Joint::ComputeBetaAndGamma(float effectiveMass, float dt)
 {
     JointState* s = GetJointState();
 
-    // If the frequency is less than or equal to zero, make this joint solid
-    if (jointFrequency <= 0.0f || effectiveMass <= 0.0f)
+    // If the frequency is less than or equal to zero, make this joint rigid
+    if (frequency <= 0.0f || effectiveMass <= 0.0f)
     {
         s->beta = 1.0f;
         s->gamma = 0.0f;
     }
     else
     {
-        float omega = 2.0f * pi * jointFrequency;
-        float d = 2.0f * effectiveMass * jointDampingRatio * omega; // Damping coefficient
-        float k = effectiveMass * omega * omega;                    // Spring constant
+        float omega = 2.0f * pi * frequency;
+        float d = 2.0f * effectiveMass * dampingRatio * omega; // Damping coefficient
+        float k = effectiveMass * omega * omega;               // Spring constant
         float h = dt;
 
         s->beta = h * k / (d + h * k);

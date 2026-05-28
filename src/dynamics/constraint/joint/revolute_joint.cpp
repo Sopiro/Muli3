@@ -65,10 +65,10 @@ RevoluteJoint::RevoluteJoint(
     const Vec3& axis,
     float jointMinAngle,
     float jointMaxAngle,
-    float jointFrequency,
-    float jointDampingRatio
+    float frequency,
+    float dampingRatio
 )
-    : Joint(revolute_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+    : Joint(revolute_joint, bodyA, bodyB, frequency, dampingRatio)
     , angleOffset{ 0.0f }
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }

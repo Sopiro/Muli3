@@ -5,8 +5,8 @@ namespace muli3
 
 // BallSocketJoint + orientation constraint
 
-WeldJoint::WeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio)
-    : Joint(weld_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+WeldJoint::WeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
+    : Joint(weld_joint, bodyA, bodyB, frequency, dampingRatio)
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
 {

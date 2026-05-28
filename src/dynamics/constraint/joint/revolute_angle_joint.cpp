@@ -57,18 +57,12 @@ static float GetAngle(const Vec3& frameX, const Vec3& frameY, const Vec3& frameZ
 }
 
 RevoluteAngleJoint::RevoluteAngleJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& worldAxis,
-    float jointMinAngle,
-    float jointMaxAngle,
-    float jointFrequency,
-    float jointDampingRatio
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& worldAxis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
-    : Joint(revolute_angle_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
+    : Joint(revolute_angle_joint, bodyA, bodyB, frequency, dampingRatio)
     , angleOffset{ 0.0f }
-    , minAngle{ jointMinAngle }
-    , maxAngle{ jointMaxAngle }
+    , minAngle{ minAngle }
+    , maxAngle{ maxAngle }
     , currentAngle{ 0.0f }
     , swingM{ 0.0f }
     , swingBias{ 0.0f }
