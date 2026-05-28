@@ -104,10 +104,8 @@ public:
     void SetJointFrequency(float jointFrequency);
     float GetJointDampingRatio() const;
     void SetJointDampingRatio(float jointDampingRatio);
-    float GetJointMass() const;
-    void SetJointMass(float jointMass);
 
-    void SetParameters(float jointFrequency, float jointDampingRatio, float jointMass);
+    void SetParameters(float jointFrequency, float jointDampingRatio);
 
     bool IsSolid() const;
     Joint::Type GetType() const;
@@ -129,14 +127,13 @@ protected:
         RigidBody* bodyA,
         RigidBody* bodyB,
         float jointFrequency,
-        float jointDampingRatio,
-        float jointMass
+        float jointDampingRatio
     );
     // clang-format on
 
     JointState* GetJointState();
     const JointState* GetJointState() const;
-    void ComputeBetaAndGamma(const Timestep& step);
+    void ComputeBetaAndGamma(float effectiveMass, float dt);
 
     RigidBody* bodyA;
     RigidBody* bodyB;
@@ -146,7 +143,6 @@ private:
     // Frequency values less than or equal to zero make joints rigid
     float jointFrequency;    // 0 < Frequency
     float jointDampingRatio; // 0 <= Damping ratio <= 1
-    float jointMass;         // 0 < Mass
 
     Joint* prev;
     Joint* next;
@@ -167,7 +163,7 @@ inline float Joint::GetJointFrequency() const
 
 inline void Joint::SetJointFrequency(float newJointFrequency)
 {
-    SetParameters(newJointFrequency, jointDampingRatio, jointMass);
+    SetParameters(newJointFrequency, jointDampingRatio);
 }
 
 inline float Joint::GetJointDampingRatio() const
@@ -177,17 +173,7 @@ inline float Joint::GetJointDampingRatio() const
 
 inline void Joint::SetJointDampingRatio(float newJointDampingRatio)
 {
-    SetParameters(jointFrequency, newJointDampingRatio, jointMass);
-}
-
-inline float Joint::GetJointMass() const
-{
-    return jointMass;
-}
-
-inline void Joint::SetJointMass(float newJointMass)
-{
-    SetParameters(jointFrequency, jointDampingRatio, newJointMass);
+    SetParameters(jointFrequency, newJointDampingRatio);
 }
 
 inline bool Joint::IsSolid() const

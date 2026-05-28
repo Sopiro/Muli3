@@ -11,7 +11,7 @@ class ConeSwingJoint : public Joint
 {
 public:
     ConeSwingJoint(
-        RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio, float jointMass
+        RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio
     );
 
     void Prepare(const Timestep& step);

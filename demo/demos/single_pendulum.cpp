@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-static float frequency = 4.0f;
+static float frequency = 10.0f;
 static float dampingRatio = 1.0f;
 
 class SinglePendulum : public Demo
@@ -22,7 +22,7 @@ public:
         RigidBody* body = world->CreateBox(0.45f, Transform{ position });
         body->SetAngularVelocity(0.8f, -0.35f, 0.45f);
 
-        world->CreateBallSocketJoint(body, ground, anchor, frequency, dampingRatio, body->GetMass());
+        world->CreateBallSocketJoint(body, ground, anchor, frequency, dampingRatio);
 
         camera.SetPosition(Vec3{ 0.0f, 5.2f, 9.0f });
         camera.SetRotation(-90.0f, -18.0f);
@@ -34,15 +34,19 @@ public:
 
         if (ImGui::Begin("Single pendulum", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            if (ImGui::SliderFloat("Frequency", &frequency, 0.5f, 20.0f, "%.2f"))
+            ImGui::PushID(0);
+            ImGui::Text("Frequency");
+            if (ImGui::SliderFloat("##Frequency", &frequency, 0.0f, 20.0f, "%.2f"))
             {
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Damping ratio", &dampingRatio, 0.0f, 1.0f, "%.2f"))
+            ImGui::Text("Damping ratio");
+            if (ImGui::SliderFloat("##Damping ratio", &dampingRatio, 0.0f, 1.0f, "%.2f"))
             {
                 game.RestartDemo();
             }
+            ImGui::PopID();
         }
         ImGui::End();
     }

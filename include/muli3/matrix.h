@@ -98,6 +98,22 @@ struct Mat2
         return t;
     }
 
+    constexpr Float Trace() const
+    {
+        return ex.x + ey.y;
+    }
+
+    constexpr Float TraceInverse() const
+    {
+        Float det = ex.x * ey.y - ey.x * ex.y;
+        if (det == 0.0f)
+        {
+            return 0.0f;
+        }
+
+        return (ex.x + ey.y) / det;
+    }
+
     constexpr Float GetDeterminant() const
     {
         return ex.x * ey.y - ey.x * ex.y;
@@ -187,6 +203,13 @@ struct Mat3
 
         return t;
     }
+
+    constexpr Float Trace() const
+    {
+        return ex.x + ey.y + ez.z;
+    }
+
+    constexpr Float TraceInverse() const;
 
     constexpr Mat3 GetInverse() const;
 
@@ -295,6 +318,13 @@ struct Mat4
 
         return t;
     }
+
+    constexpr Float Trace() const
+    {
+        return ex.x + ey.y + ez.z + ew.w;
+    }
+
+    constexpr Float TraceInverse() const;
 
     constexpr Mat4 GetInverse() const;
 
@@ -436,6 +466,21 @@ constexpr inline Mat3 Mat3::GetInverse() const
     t.ez.z = (ex.x * ey.y - ex.y * ey.x) * det;
 
     return t;
+}
+
+constexpr inline Float Mat3::TraceInverse() const
+{
+    Float cxx = ey.y * ez.z - ey.z * ez.y;
+    Float cyy = ex.x * ez.z - ex.z * ez.x;
+    Float czz = ex.x * ey.y - ex.y * ey.x;
+
+    Float det = ex.x * cxx - ey.x * (ex.y * ez.z - ex.z * ez.y) + ez.x * (ex.y * ey.z - ex.z * ey.y);
+    if (det == 0.0f)
+    {
+        return 0.0f;
+    }
+
+    return (cxx + cyy + czz) / det;
 }
 
 inline Mat3 Mat3::Scale(const Vec2& scale) const
@@ -581,6 +626,37 @@ constexpr inline Mat4 Mat4::GetInverse() const
     t.ew.w = det * (ex.x * a1212 - ex.y * a0212 + ex.z * a0112);
 
     return t;
+}
+
+constexpr inline Float Mat4::TraceInverse() const
+{
+    Float a2323 = ez.z * ew.w - ez.w * ew.z;
+    Float a1323 = ez.y * ew.w - ez.w * ew.y;
+    Float a1223 = ez.y * ew.z - ez.z * ew.y;
+    Float a0323 = ez.x * ew.w - ez.w * ew.x;
+    Float a0223 = ez.x * ew.z - ez.z * ew.x;
+    Float a0123 = ez.x * ew.y - ez.y * ew.x;
+    Float a1313 = ey.y * ew.w - ey.w * ew.y;
+    Float a1212 = ey.y * ez.z - ey.z * ez.y;
+    Float a0313 = ey.x * ew.w - ey.w * ew.x;
+    Float a0212 = ey.x * ez.z - ey.z * ez.x;
+    Float a0113 = ey.x * ew.y - ey.y * ew.x;
+    Float a0112 = ey.x * ez.y - ey.y * ez.x;
+
+    Float det = ex.x * (ey.y * a2323 - ey.z * a1323 + ey.w * a1223) - ex.y * (ey.x * a2323 - ey.z * a0323 + ey.w * a0223) +
+                ex.z * (ey.x * a1323 - ey.y * a0323 + ey.w * a0123) - ex.w * (ey.x * a1223 - ey.y * a0223 + ey.z * a0123);
+
+    if (det == 0.0f)
+    {
+        return 0.0f;
+    }
+
+    Float cxx = ey.y * a2323 - ey.z * a1323 + ey.w * a1223;
+    Float cyy = ex.x * a2323 - ex.z * a0323 + ex.w * a0223;
+    Float czz = ex.x * a1313 - ex.y * a0313 + ex.w * a0113;
+    Float cww = ex.x * a1212 - ex.y * a0212 + ex.z * a0112;
+
+    return (cxx + cyy + czz + cww) / det;
 }
 
 inline Mat4 Mat4::Scale(const Vec3& s) const

@@ -33,8 +33,7 @@ public:
 
         world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
         joint = world->CreateLimitedRevoluteAngleJoint(
-            base, arm, z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency, revoluteDampingRatio,
-            arm->GetMass()
+            base, arm, z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency, revoluteDampingRatio
         );
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });

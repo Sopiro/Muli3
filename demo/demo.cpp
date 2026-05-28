@@ -191,7 +191,7 @@ bool Demo::EnableBodyGrab()
         if (targetBody->GetType() == RigidBody::dynamic_body)
         {
             targetBody->Awake();
-            cursorJoint = world->CreateGrabJoint(targetBody, targetPoint, targetPoint, 4.0f, 0.5f, targetBody->GetMass());
+            cursorJoint = world->CreateGrabJoint(targetBody, targetPoint, targetPoint, 4.0f, 0.5f);
             cursorJoint->OnDestroy = this;
             grabDepth = Dot(targetPoint - camera.GetPosition(), camera.GetForward());
         }

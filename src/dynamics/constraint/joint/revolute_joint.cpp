@@ -66,10 +66,9 @@ RevoluteJoint::RevoluteJoint(
     float jointMinAngle,
     float jointMaxAngle,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(revolute_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(revolute_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , angleOffset{ 0.0f }
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
@@ -99,8 +98,6 @@ RevoluteJoint::RevoluteJoint(
 
 void RevoluteJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -120,6 +117,8 @@ void RevoluteJoint::Prepare(const Timestep& step)
                  + skewRA.GetTranspose() * s->invIA * skewRA
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
+
+    ComputeBetaAndGamma(linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += s->gamma;
     linearK.ey.y += s->gamma;

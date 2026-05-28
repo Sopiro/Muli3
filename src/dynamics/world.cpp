@@ -1088,9 +1088,7 @@ void World::Solve()
 
 // Joint factory functions
 
-GrabJoint* World::CreateGrabJoint(
-    RigidBody* body, const Vec3& anchor, const Vec3& target, float jointFrequency, float jointDampingRatio, float jointMass
-)
+GrabJoint* World::CreateGrabJoint(RigidBody* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio)
 {
     if (body->world != this)
     {
@@ -1098,15 +1096,13 @@ GrabJoint* World::CreateGrabJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(GrabJoint));
-    GrabJoint* gj = new (mem) GrabJoint(body, anchor, target, jointFrequency, jointDampingRatio, jointMass);
+    GrabJoint* gj = new (mem) GrabJoint(body, anchor, target, frequency, dampingRatio);
 
     AddJoint(gj);
     return gj;
 }
 
-FixedRotationJoint* World::CreateFixedRotationJoint(
-    RigidBody* body, float jointFrequency, float jointDampingRatio, float jointMass
-)
+FixedRotationJoint* World::CreateFixedRotationJoint(RigidBody* body, float frequency, float dampingRatio)
 {
     if (body->world != this)
     {
@@ -1114,20 +1110,14 @@ FixedRotationJoint* World::CreateFixedRotationJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(FixedRotationJoint));
-    FixedRotationJoint* frj = new (mem) FixedRotationJoint(body, jointFrequency, jointDampingRatio, jointMass);
+    FixedRotationJoint* frj = new (mem) FixedRotationJoint(body, frequency, dampingRatio);
 
     AddJoint(frj);
     return frj;
 }
 
 ConeSwingJoint* World::CreateConeSwingJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& axis,
-    float maxAngle,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1136,23 +1126,17 @@ ConeSwingJoint* World::CreateConeSwingJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(ConeSwingJoint));
-    ConeSwingJoint* csj = new (mem) ConeSwingJoint(bodyA, bodyB, axis, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+    ConeSwingJoint* csj = new (mem) ConeSwingJoint(bodyA, bodyB, axis, maxAngle, frequency, dampingRatio);
 
     AddJoint(csj);
     return csj;
 }
 
 RevoluteJoint* World::CreateRevoluteJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    const Vec3& axis,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& axis, float frequency, float dampingRatio
 )
 {
-    return CreateLimitedRevoluteJoint(bodyA, bodyB, anchor, axis, -pi, pi, jointFrequency, jointDampingRatio, jointMass);
+    return CreateLimitedRevoluteJoint(bodyA, bodyB, anchor, axis, -pi, pi, frequency, dampingRatio);
 }
 
 RevoluteJoint* World::CreateLimitedRevoluteJoint(
@@ -1162,9 +1146,8 @@ RevoluteJoint* World::CreateLimitedRevoluteJoint(
     const Vec3& axis,
     float minAngle,
     float maxAngle,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float frequency,
+    float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1173,29 +1156,21 @@ RevoluteJoint* World::CreateLimitedRevoluteJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(RevoluteJoint));
-    RevoluteJoint* rj =
-        new (mem) RevoluteJoint(bodyA, bodyB, anchor, axis, minAngle, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+    RevoluteJoint* rj = new (mem) RevoluteJoint(bodyA, bodyB, anchor, axis, minAngle, maxAngle, frequency, dampingRatio);
 
     AddJoint(rj);
     return rj;
 }
 
 RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float frequency, float dampingRatio
 )
 {
-    return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, -pi, pi, jointFrequency, jointDampingRatio, jointMass);
+    return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, -pi, pi, frequency, dampingRatio);
 }
 
 RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& axis,
-    float minAngle,
-    float maxAngle,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1204,22 +1179,14 @@ RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(RevoluteAngleJoint));
-    RevoluteAngleJoint* raj =
-        new (mem) RevoluteAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+    RevoluteAngleJoint* raj = new (mem) RevoluteAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
 
     AddJoint(raj);
     return raj;
 }
 
 TwistAngleJoint* World::CreateTwistAngleJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& axis,
-    float minAngle,
-    float maxAngle,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1228,15 +1195,14 @@ TwistAngleJoint* World::CreateTwistAngleJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(TwistAngleJoint));
-    TwistAngleJoint* taj =
-        new (mem) TwistAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, jointFrequency, jointDampingRatio, jointMass);
+    TwistAngleJoint* taj = new (mem) TwistAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
 
     AddJoint(taj);
     return taj;
 }
 
 BallSocketJoint* World::CreateBallSocketJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1245,7 +1211,7 @@ BallSocketJoint* World::CreateBallSocketJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(BallSocketJoint));
-    BallSocketJoint* bsj = new (mem) BallSocketJoint(bodyA, bodyB, anchor, jointFrequency, jointDampingRatio, jointMass);
+    BallSocketJoint* bsj = new (mem) BallSocketJoint(bodyA, bodyB, anchor, frequency, dampingRatio);
 
     AddJoint(bsj);
     return bsj;
@@ -1257,9 +1223,8 @@ DistanceJoint* World::CreateDistanceJoint(
     const Vec3& anchorA,
     const Vec3& anchorB,
     float length,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float frequency,
+    float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1268,20 +1233,15 @@ DistanceJoint* World::CreateDistanceJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(DistanceJoint));
-    DistanceJoint* dj =
-        new (mem) DistanceJoint(bodyA, bodyB, anchorA, anchorB, length, length, jointFrequency, jointDampingRatio, jointMass);
+    DistanceJoint* dj = new (mem) DistanceJoint(bodyA, bodyB, anchorA, anchorB, length, length, frequency, dampingRatio);
 
     AddJoint(dj);
     return dj;
 }
 
-DistanceJoint* World::CreateDistanceJoint(
-    RigidBody* bodyA, RigidBody* bodyB, float length, float jointFrequency, float jointDampingRatio, float jointMass
-)
+DistanceJoint* World::CreateDistanceJoint(RigidBody* bodyA, RigidBody* bodyB, float length, float frequency, float dampingRatio)
 {
-    return CreateDistanceJoint(
-        bodyA, bodyB, bodyA->GetPosition(), bodyB->GetPosition(), length, jointFrequency, jointDampingRatio, jointMass
-    );
+    return CreateDistanceJoint(bodyA, bodyB, bodyA->GetPosition(), bodyB->GetPosition(), length, frequency, dampingRatio);
 }
 
 DistanceJoint* World::CreateLimitedDistanceJoint(
@@ -1291,9 +1251,8 @@ DistanceJoint* World::CreateLimitedDistanceJoint(
     const Vec3& anchorB,
     float minLength,
     float maxLength,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float frequency,
+    float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1302,16 +1261,13 @@ DistanceJoint* World::CreateLimitedDistanceJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(DistanceJoint));
-    DistanceJoint* dj = new (mem)
-        DistanceJoint(bodyA, bodyB, anchorA, anchorB, minLength, maxLength, jointFrequency, jointDampingRatio, jointMass);
+    DistanceJoint* dj = new (mem) DistanceJoint(bodyA, bodyB, anchorA, anchorB, minLength, maxLength, frequency, dampingRatio);
 
     AddJoint(dj);
     return dj;
 }
 
-WeldJoint* World::CreateWeldJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
-)
+WeldJoint* World::CreateWeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
 {
     if (bodyA->world != this || bodyB->world != this)
     {
@@ -1319,20 +1275,14 @@ WeldJoint* World::CreateWeldJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(WeldJoint));
-    WeldJoint* wj = new (mem) WeldJoint(bodyA, bodyB, anchor, jointFrequency, jointDampingRatio, jointMass);
+    WeldJoint* wj = new (mem) WeldJoint(bodyA, bodyB, anchor, frequency, dampingRatio);
 
     AddJoint(wj);
     return wj;
 }
 
 LineJoint* World::CreateLineJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    const Vec3& dir,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1341,30 +1291,21 @@ LineJoint* World::CreateLineJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(LineJoint));
-    LineJoint* lj = new (mem) LineJoint(bodyA, bodyB, anchor, dir, jointFrequency, jointDampingRatio, jointMass);
+    LineJoint* lj = new (mem) LineJoint(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
 
     AddJoint(lj);
     return lj;
 }
 
-LineJoint* World::CreateLineJoint(
-    RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio, float jointMass
-)
+LineJoint* World::CreateLineJoint(RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio)
 {
     return CreateLineJoint(
-        bodyA, bodyB, bodyA->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), jointFrequency,
-        jointDampingRatio, jointMass
+        bodyA, bodyB, bodyA->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), frequency, dampingRatio
     );
 }
 
 PrismaticJoint* World::CreatePrismaticJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    const Vec3& dir,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1373,19 +1314,16 @@ PrismaticJoint* World::CreatePrismaticJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(PrismaticJoint));
-    PrismaticJoint* pj = new (mem) PrismaticJoint(bodyA, bodyB, anchor, dir, jointFrequency, jointDampingRatio, jointMass);
+    PrismaticJoint* pj = new (mem) PrismaticJoint(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
 
     AddJoint(pj);
     return pj;
 }
 
-PrismaticJoint* World::CreatePrismaticJoint(
-    RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio, float jointMass
-)
+PrismaticJoint* World::CreatePrismaticJoint(RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio)
 {
     return CreatePrismaticJoint(
-        bodyA, bodyB, bodyB->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), jointFrequency,
-        jointDampingRatio, jointMass
+        bodyA, bodyB, bodyB->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), frequency, dampingRatio
     );
 }
 
@@ -1397,9 +1335,8 @@ PulleyJoint* World::CreatePulleyJoint(
     const Vec3& groundAnchorA,
     const Vec3& groundAnchorB,
     float ratio,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float frequency,
+    float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1408,23 +1345,15 @@ PulleyJoint* World::CreatePulleyJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(PulleyJoint));
-    PulleyJoint* pj = new (mem) PulleyJoint(
-        bodyA, bodyB, anchorA, anchorB, groundAnchorA, groundAnchorB, ratio, jointFrequency, jointDampingRatio, jointMass
-    );
+    PulleyJoint* pj =
+        new (mem) PulleyJoint(bodyA, bodyB, anchorA, anchorB, groundAnchorA, groundAnchorB, ratio, frequency, dampingRatio);
 
     AddJoint(pj);
     return pj;
 }
 
 MotorJoint* World::CreateMotorJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    float maxForce,
-    float maxTorque,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float maxForce, float maxTorque, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1433,8 +1362,7 @@ MotorJoint* World::CreateMotorJoint(
     }
 
     void* mem = blockAllocator.Allocate(sizeof(MotorJoint));
-    MotorJoint* mj =
-        new (mem) MotorJoint(bodyA, bodyB, anchor, maxForce, maxTorque, jointFrequency, jointDampingRatio, jointMass);
+    MotorJoint* mj = new (mem) MotorJoint(bodyA, bodyB, anchor, maxForce, maxTorque, frequency, dampingRatio);
 
     AddJoint(mj);
     return mj;

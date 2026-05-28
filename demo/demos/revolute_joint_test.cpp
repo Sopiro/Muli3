@@ -7,7 +7,6 @@ namespace muli3
 
 static float revoluteFrequency = 20.0f;
 static float revoluteDampingRatio = 1.0f;
-static float revoluteJointMass = 1.0f;
 static float revoluteMinAngle = -60.0f;
 static float revoluteMaxAngle = 60.0f;
 
@@ -34,7 +33,7 @@ public:
 
         joint = world->CreateLimitedRevoluteJoint(
             base, arm, base->GetPosition(), z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency,
-            revoluteDampingRatio, revoluteJointMass
+            revoluteDampingRatio
         );
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
@@ -73,10 +72,6 @@ public:
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Joint mass", &revoluteJointMass, 0.0f, 10.0f, "%.2f"))
-            {
-                game.RestartDemo();
-            }
         }
         ImGui::End();
     }

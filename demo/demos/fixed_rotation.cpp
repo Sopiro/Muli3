@@ -37,7 +37,7 @@ public:
             px += d * error;
 
             RigidBody* body = world->CreateBox(size, Transform{ Vec3{ px, start + i * (size + gap), 0.0f } });
-            world->CreateFixedRotationJoint(body, jointFrequency, dampingRatio, body->GetMass());
+            world->CreateFixedRotationJoint(body, jointFrequency, dampingRatio);
         }
 
         camera.SetPosition(Vec3{ 0.0f, 6.2f, 14.0f });
@@ -67,7 +67,7 @@ public:
             }
             else
             {
-                world->CreateFixedRotationJoint(targetBody, jointFrequency, dampingRatio, targetBody->GetMass());
+                world->CreateFixedRotationJoint(targetBody, jointFrequency, dampingRatio);
             }
         }
     }

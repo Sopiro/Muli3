@@ -10,7 +10,7 @@ namespace muli3
 class GrabJoint : public Joint
 {
 public:
-    GrabJoint(RigidBody* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio, float jointMass);
+    GrabJoint(RigidBody* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

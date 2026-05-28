@@ -6,10 +6,8 @@ namespace muli3
 {
 
 static int32 selection = 0;
-static const char* items[] = { "Ball socket joint", "Distance joint" };
-static float frequency = 5.0f;
+static float frequency = 15.0f;
 static float dampingRatio = 0.5f;
-static float jointMass = 1.0f;
 
 class MultiPendulum : public Demo
 {
@@ -34,27 +32,16 @@ public:
             RigidBody* bodyB =
                 world->CreateBox(sizeW, sizeH, sizeH, Transform{ Vec3{ xStart - (gap + sizeW) * (i + 1), yStart, 0.0f } });
 
-            if (selection == 0)
-            {
-                world->CreateBallSocketJoint(
-                    bodyA, bodyB, Vec3{ xStart - (sizeW + gap) * 0.5f - (gap + sizeW) * i, yStart, 0.0f }, frequency,
-                    dampingRatio, jointMass
-                );
-                // world->CreateLimitedRevoluteAngleJoint(
-                //     bodyA, bodyB, -z_axis, DegToRad(-60), DegToRad(60), frequency, dampingRatio, jointMass
-                // );
-                // world->CreateRevoluteJoint(
-                //     bodyA, bodyB, Vec3{ xStart - (sizeW + gap) * 0.5f - (gap + sizeW) * i, yStart, 0.0f }, -z_axis, frequency,
-                //     dampingRatio, jointMass
-                // );
-            }
-            else
-            {
-                world->CreateDistanceJoint(
-                    bodyA, bodyB, bodyA->GetPosition() - Vec3{ sizeW * 0.5f, 0.0f, 0.0f },
-                    bodyB->GetPosition() + Vec3{ sizeW * 0.5f, 0.0f, 0.0f }, -1.0f, frequency, dampingRatio, jointMass
-                );
-            }
+            world->CreateBallSocketJoint(
+                bodyA, bodyB, Vec3{ xStart - (sizeW + gap) * 0.5f - (gap + sizeW) * i, yStart, 0.0f }, frequency, dampingRatio
+            );
+            // world->CreateLimitedRevoluteAngleJoint(
+            //     bodyA, bodyB, -z_axis, DegToRad(-60), DegToRad(60), frequency, dampingRatio, jointMass
+            // );
+            // world->CreateRevoluteJoint(
+            //     bodyA, bodyB, Vec3{ xStart - (sizeW + gap) * 0.5f - (gap + sizeW) * i, yStart, 0.0f }, -z_axis, frequency,
+            //     dampingRatio, jointMass
+            // );
 
             bodyA = bodyB;
         }
@@ -69,12 +56,7 @@ public:
 
         if (ImGui::Begin("Multi pendulum", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::Text("Joint type");
             ImGui::PushID(0);
-            if (ImGui::ListBox("", &selection, items, IM_ARRAYSIZE(items)))
-            {
-                game.RestartDemo();
-            }
 
             ImGui::Text("Frequency");
             if (ImGui::SliderFloat("##Frequency", &frequency, 0.0f, 20.0f, "%.2f"))
@@ -88,11 +70,6 @@ public:
                 game.RestartDemo();
             }
 
-            ImGui::Text("Joint mass");
-            if (ImGui::SliderFloat("##Joint mass", &jointMass, 0.0f, 10.0f, "%.2f"))
-            {
-                game.RestartDemo();
-            }
             ImGui::PopID();
         }
         ImGui::End();

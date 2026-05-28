@@ -10,10 +10,9 @@ LineJoint::LineJoint(
     const Vec3& anchor,
     const Vec3& dir,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(line_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(line_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , impulseSum{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
@@ -31,8 +30,6 @@ LineJoint::LineJoint(
 
 void LineJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -59,6 +56,8 @@ void LineJoint::Prepare(const Timestep& step)
     k[1][1] = sA->invMass + sB->invMass + Dot(sa2, s->invIA * sa2) + Dot(sb2, s->invIB * sb2);
     k[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     k[1][0] = k[0][1];
+
+    ComputeBetaAndGamma(k.TraceInverse() / 2.0f, step.dt);
 
     k[0][0] += s->gamma;
     k[1][1] += s->gamma;

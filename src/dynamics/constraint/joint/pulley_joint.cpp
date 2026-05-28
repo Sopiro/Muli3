@@ -12,10 +12,9 @@ PulleyJoint::PulleyJoint(
     const Vec3& inGroundAnchorB,
     float pulleyRatio,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(pulley_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(pulley_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , impulseSum{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchorA);
@@ -29,8 +28,6 @@ PulleyJoint::PulleyJoint(
 
 void PulleyJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -70,9 +67,11 @@ void PulleyJoint::Prepare(const Timestep& step)
 
     // clang-format off
     float k = sA->invMass + Dot(rua, s->invIA * rua)
-            + (sB->invMass + Dot(rub, s->invIB * rub)) * ratio * ratio
-            + s->gamma;
+            + (sB->invMass + Dot(rub, s->invIB * rub)) * ratio * ratio;
     // clang-format on
+
+    ComputeBetaAndGamma(k > 0.0f ? 1.0f / k : 0.0f, step.dt);
+    k += s->gamma;
 
     if (k != 0.0f)
     {

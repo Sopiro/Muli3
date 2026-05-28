@@ -17,8 +17,7 @@ public:
         float maxJointForce,
         float maxJointTorque,
         float frequency,
-        float dampingRatio,
-        float jointMass
+        float dampingRatio
     );
 
     void Prepare(const Timestep& step);

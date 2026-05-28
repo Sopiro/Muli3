@@ -22,15 +22,9 @@ static float ClampImpulse(float impulse, int32 limitState)
 }
 
 ConeSwingJoint::ConeSwingJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& worldAxis,
-    float jointMaxAngle,
-    float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& worldAxis, float jointMaxAngle, float jointFrequency, float jointDampingRatio
 )
-    : Joint(cone_swing_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(cone_swing_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , maxAngle{ Clamp(jointMaxAngle, 0.0f, pi) }
     , currentAngle{ 0.0f }
     , m{ 0.0f }
@@ -46,8 +40,6 @@ ConeSwingJoint::ConeSwingJoint(
 
 void ConeSwingJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
 
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
@@ -90,7 +82,10 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
-    float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis) + s->gamma;
+    float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis);
+    ComputeBetaAndGamma(k > 0.0f ? 1.0f / k : 0.0f, step.dt);
+
+    k += s->gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;
 
     float error = Min(currentAngle - (maxAngle + angular_slop), max_joint_angular_correction);

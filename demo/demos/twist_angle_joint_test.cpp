@@ -35,7 +35,7 @@ public:
         world->CreateBallSocketJoint(base, arm, base->GetPosition());
         world->CreateConeSwingJoint(base, arm, -y_axis, DegToRad(30));
         joint = world->CreateTwistAngleJoint(
-            base, arm, y_axis, DegToRad(twistMinAngle), DegToRad(twistMaxAngle), twistFrequency, twistDampingRatio, arm->GetMass()
+            base, arm, y_axis, DegToRad(twistMinAngle), DegToRad(twistMaxAngle), twistFrequency, twistDampingRatio
         );
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });

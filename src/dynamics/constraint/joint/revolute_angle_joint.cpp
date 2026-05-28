@@ -63,10 +63,9 @@ RevoluteAngleJoint::RevoluteAngleJoint(
     float jointMinAngle,
     float jointMaxAngle,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(revolute_angle_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(revolute_angle_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , angleOffset{ 0.0f }
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
@@ -95,8 +94,6 @@ RevoluteAngleJoint::RevoluteAngleJoint(
 
 void RevoluteAngleJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
 
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
@@ -135,7 +132,9 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
 
     if (swingAxis != Vec3::zero)
     {
-        float swingK = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis) + s->gamma;
+        float swingK = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis);
+        ComputeBetaAndGamma(swingK > 0.0f ? 1.0f / swingK : 0.0f, step.dt);
+        swingK += s->gamma;
         swingM = swingK != 0.0f ? 1.0f / swingK : 0.0f;
     }
     else
@@ -155,7 +154,11 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
         twistAxis = axisA;
     }
 
-    float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis) + s->gamma;
+    float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
+
+    ComputeBetaAndGamma(angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
+
+    angleK += s->gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
     // Measure the signed twist angle of body B around body A's hinge axis.

@@ -5,10 +5,8 @@ namespace muli3
 
 // BallSocketJoint + orientation constraint
 
-WeldJoint::WeldJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
-)
-    : Joint(weld_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+WeldJoint::WeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio)
+    : Joint(weld_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
 {
@@ -21,8 +19,6 @@ WeldJoint::WeldJoint(
 
 void WeldJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     // Compute Jacobian J and effective mass W
     // Linear part: J = [-I, -skew(ra), I, skew(rb)]
     // Angular part: J = [0, -I, 0, I]
@@ -46,6 +42,8 @@ void WeldJoint::Prepare(const Timestep& step)
                  + skewRA.GetTranspose() * s->invIA * skewRA
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
+
+    ComputeBetaAndGamma(linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += s->gamma;
     linearK.ey.y += s->gamma;

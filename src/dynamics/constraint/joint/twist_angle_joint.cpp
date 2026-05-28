@@ -87,10 +87,9 @@ TwistAngleJoint::TwistAngleJoint(
     float jointMinAngle,
     float jointMaxAngle,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(twist_angle_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(twist_angle_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , angleOffset{ 0.0f }
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
@@ -116,8 +115,6 @@ TwistAngleJoint::TwistAngleJoint(
 
 void TwistAngleJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
 
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
@@ -142,7 +139,11 @@ void TwistAngleJoint::Prepare(const Timestep& step)
         twistAxis = axisA;
     }
 
-    float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis) + s->gamma;
+    float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
+
+    ComputeBetaAndGamma(angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
+
+    angleK += s->gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
     currentAngle = GetTwistAngle(refAxisA, binormalA, axisA, axisB, refAxisB) - angleOffset;

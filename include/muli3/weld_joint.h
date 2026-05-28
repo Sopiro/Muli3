@@ -10,7 +10,7 @@ namespace muli3
 class WeldJoint : public Joint
 {
 public:
-    WeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio, float jointMass);
+    WeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

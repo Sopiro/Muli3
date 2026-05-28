@@ -16,8 +16,7 @@ public:
         const Vec3& anchor,
         const Vec3& dir,
         float frequency,
-        float dampingRatio,
-        float jointMass
+        float dampingRatio
     );
 
     void Prepare(const Timestep& step);

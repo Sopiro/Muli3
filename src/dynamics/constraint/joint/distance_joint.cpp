@@ -34,10 +34,9 @@ DistanceJoint::DistanceJoint(
     float jointMinLength,
     float jointMaxLength,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(distance_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(distance_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
     , limitState{ distance_limit_inactive }
@@ -51,8 +50,6 @@ DistanceJoint::DistanceJoint(
 
 void DistanceJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -87,11 +84,13 @@ void DistanceJoint::Prepare(const Timestep& step)
     // clang-format off
     float k = sA->invMass + sB->invMass
             + Dot(crossDA, s->invIA * crossDA)
-            + Dot(crossDB, s->invIB * crossDB)
-            + s->gamma;
+            + Dot(crossDB, s->invIB * crossDB);
     // clang-format on
 
     m = k != 0.0f ? 1.0f / k : 0.0f;
+    ComputeBetaAndGamma(m, step.dt);
+
+    k += s->gamma;
 
     if (minLength == maxLength)
     {

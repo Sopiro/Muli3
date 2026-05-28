@@ -8,10 +8,9 @@ GrabJoint::GrabJoint(
     const Vec3& anchor,
     const Vec3& targetPosition,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(grab_joint, body, body, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(grab_joint, body, body, jointFrequency, jointDampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {
     localAnchor = MulT(body->GetTransform(), anchor);
@@ -20,8 +19,6 @@ GrabJoint::GrabJoint(
 
 void GrabJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
@@ -36,6 +33,8 @@ void GrabJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
 
     Mat3 k = Mat3(sA->invMass) + skewR.GetTranspose() * s->invIA * skewR;
+
+    ComputeBetaAndGamma(k.TraceInverse() / 3.0f, step.dt);
 
     k.ex.x += s->gamma;
     k.ey.y += s->gamma;

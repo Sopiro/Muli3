@@ -10,10 +10,9 @@ PrismaticJoint::PrismaticJoint(
     const Vec3& anchor,
     const Vec3& dir,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(prismatic_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(prismatic_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , linearImpulseSum{ 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
 {
@@ -34,8 +33,6 @@ PrismaticJoint::PrismaticJoint(
 
 void PrismaticJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -63,6 +60,8 @@ void PrismaticJoint::Prepare(const Timestep& step)
     lk[1][1] = sA->invMass + sB->invMass + Dot(sa2, s->invIA * sa2) + Dot(sb2, s->invIB * sb2);
     lk[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     lk[1][0] = lk[0][1];
+
+    ComputeBetaAndGamma(lk.TraceInverse() / 2.0f, step.dt);
 
     lk[0][0] += s->gamma;
     lk[1][1] += s->gamma;

@@ -10,10 +10,9 @@ MotorJoint::MotorJoint(
     float maxJointForce,
     float maxJointTorque,
     float jointFrequency,
-    float jointDampingRatio,
-    float jointMass
+    float jointDampingRatio
 )
-    : Joint(motor_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(motor_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
 {
@@ -30,8 +29,6 @@ MotorJoint::MotorJoint(
 
 void MotorJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -51,6 +48,8 @@ void MotorJoint::Prepare(const Timestep& step)
                  + skewRA.GetTranspose() * s->invIA * skewRA
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
+
+    ComputeBetaAndGamma(linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += s->gamma;
     linearK.ey.y += s->gamma;

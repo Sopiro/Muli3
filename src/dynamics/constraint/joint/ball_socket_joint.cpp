@@ -4,9 +4,9 @@ namespace muli3
 {
 
 BallSocketJoint::BallSocketJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio, float jointMass
+    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float jointFrequency, float jointDampingRatio
 )
-    : Joint(ball_socket_joint, bodyA, bodyB, jointFrequency, jointDampingRatio, jointMass)
+    : Joint(ball_socket_joint, bodyA, bodyB, jointFrequency, jointDampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
@@ -15,8 +15,6 @@ BallSocketJoint::BallSocketJoint(
 
 void BallSocketJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
@@ -40,6 +38,8 @@ void BallSocketJoint::Prepare(const Timestep& step)
            + skewRA.GetTranspose() * s->invIA * skewRA
            + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
+
+    ComputeBetaAndGamma(k.TraceInverse() / 3.0f, step.dt);
 
     k.ex.x += s->gamma;
     k.ey.y += s->gamma;

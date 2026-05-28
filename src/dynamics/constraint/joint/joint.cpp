@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio, float jointMass)
+Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio)
     : DynamicDispatcher(int32(type))
     , OnDestroy{ nullptr }
     , UserData{ nullptr }
@@ -16,7 +16,7 @@ Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFr
     , flagIsland{ false }
 {
     MuliAssert(bodyA->GetWorld() == bodyB->GetWorld());
-    SetParameters(jointFrequency, jointDampingRatio, jointMass);
+    SetParameters(jointFrequency, jointDampingRatio);
 }
 
 Joint::~Joint()
@@ -37,32 +37,26 @@ const JointState* Joint::GetJointState() const
     return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
 }
 
-void Joint::SetParameters(float newJointFrequency, float newJointDampingRatio, float newJointMass)
+void Joint::SetParameters(float newJointFrequency, float newJointDampingRatio)
 {
-    // 0 < Frequency
-    // 0 <= Damping ratio <= 1
-    // 0 < Mass
-
     if (newJointFrequency > 0.0f)
     {
         jointFrequency = newJointFrequency;
         jointDampingRatio = Clamp(newJointDampingRatio, 0.0f, 1.0f);
-        jointMass = Clamp(newJointMass, epsilon, max_float);
     }
     else
     {
         jointFrequency = -1.0f;
         jointDampingRatio = 0.0f;
-        jointMass = 0.0f;
     }
 }
 
-void Joint::ComputeBetaAndGamma(const Timestep& step)
+void Joint::ComputeBetaAndGamma(float effectiveMass, float dt)
 {
     JointState* s = GetJointState();
 
     // If the frequency is less than or equal to zero, make this joint solid
-    if (jointFrequency <= 0.0f)
+    if (jointFrequency <= 0.0f || effectiveMass <= 0.0f)
     {
         s->beta = 1.0f;
         s->gamma = 0.0f;
@@ -70,9 +64,9 @@ void Joint::ComputeBetaAndGamma(const Timestep& step)
     else
     {
         float omega = 2.0f * pi * jointFrequency;
-        float d = 2.0f * jointMass * jointDampingRatio * omega; // Damping coefficient
-        float k = jointMass * omega * omega;                    // Spring constant
-        float h = step.dt;
+        float d = 2.0f * effectiveMass * jointDampingRatio * omega; // Damping coefficient
+        float k = effectiveMass * omega * omega;                    // Spring constant
+        float h = dt;
 
         s->beta = h * k / (d + h * k);
         s->gamma = 1.0f / ((d + h * k) * h);

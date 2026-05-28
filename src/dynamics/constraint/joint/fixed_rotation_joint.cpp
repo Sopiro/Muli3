@@ -3,8 +3,8 @@
 namespace muli3
 {
 
-FixedRotationJoint::FixedRotationJoint(RigidBody* body, float jointFrequency, float jointDampingRatio, float jointMass)
-    : Joint(fixed_rotation_joint, body, body, jointFrequency, jointDampingRatio, jointMass)
+FixedRotationJoint::FixedRotationJoint(RigidBody* body, float jointFrequency, float jointDampingRatio)
+    : Joint(fixed_rotation_joint, body, body, jointFrequency, jointDampingRatio)
     , targetOrientation{ body->GetRotation() }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {
@@ -12,14 +12,14 @@ FixedRotationJoint::FixedRotationJoint(RigidBody* body, float jointFrequency, fl
 
 void FixedRotationJoint::Prepare(const Timestep& step)
 {
-    ComputeBetaAndGamma(step);
-
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
 
     Mat3 k = s->invIA;
+    ComputeBetaAndGamma(k.TraceInverse() / 3.0f, step.dt);
+
     k.ex.x += s->gamma;
     k.ey.y += s->gamma;
     k.ez.z += s->gamma;
