@@ -12,13 +12,8 @@
 #include "profile.h"              // IWYU pragma: export
 #include "raycast.h"              // IWYU pragma: export
 #include "rigidbody.h"            // IWYU pragma: export
+#include "shapes.h"               // IWYU pragma: export
 #include "world.h"                // IWYU pragma: export
-
-#include "box_shape.h"            // IWYU pragma: export
-#include "capsule_shape.h"        // IWYU pragma: export
-#include "convex_shape.h"         // IWYU pragma: export
-#include "shape.h"                // IWYU pragma: export
-#include "sphere_shape.h"         // IWYU pragma: export
 
 #include "ball_socket_joint.h"    // IWYU pragma: export
 #include "cone_swing_joint.h"     // IWYU pragma: export
@@ -30,7 +25,7 @@
 #include "motor_joint.h"          // IWYU pragma: export
 #include "prismatic_joint.h"      // IWYU pragma: export
 #include "pulley_joint.h"         // IWYU pragma: export
-#include "revolute_joint.h"       // IWYU pragma: export
 #include "revolute_angle_joint.h" // IWYU pragma: export
+#include "revolute_joint.h"       // IWYU pragma: export
 #include "twist_angle_joint.h"    // IWYU pragma: export
 #include "weld_joint.h"           // IWYU pragma: export

@@ -12,17 +12,17 @@ public:
     CapsuleShape(const Vec3& p1, const Vec3& p2, float radius, const Transform& transform = identity);
     CapsuleShape(const CapsuleShape& other, const Transform& transform);
 
-    void ComputeMass(float density, MassData* outMassData) const override;
-    void ComputeAABB(const Transform& transform, AABB* outAABB) const override;
+    void ComputeMass(float density, MassData* outMassData) const;
+    void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
-    int32 GetVertexCount() const override;
-    Vec3 GetVertex(int32 id) const override;
-    int32 GetSupport(const Vec3& localDir) const override;
-    Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const override;
+    int32 GetVertexCount() const;
+    Vec3 GetVertex(int32 id) const;
+    int32 GetSupport(const Vec3& localDir) const;
+    Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
-    bool TestPoint(const Transform& transform, const Vec3& q) const override;
-    Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const override;
-    bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const override;
+    bool TestPoint(const Transform& transform, const Vec3& q) const;
+    Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const;
+    bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const;
 
     float GetHeight() const;
     const Vec3& GetVertexA() const;

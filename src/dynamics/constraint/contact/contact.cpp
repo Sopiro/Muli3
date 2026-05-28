@@ -11,6 +11,8 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     : collideFunction{ nullptr }
     , colliderA{ colliderA }
     , colliderB{ colliderB }
+    , prev{ nullptr }
+    , next{ nullptr }
     , setIndex{ null_index }
     , localIndex{ null_index }
     , flag{ 0 }
@@ -49,6 +51,9 @@ void Contact::Update()
         impulseSaveNormal[i] = s->normalContact[i].impulse;
         impulseSaveTangent1[i] = s->tangentContact1[i].impulse;
         impulseSaveTangent2[i] = s->tangentContact2[i].impulse;
+        s->normalContact[i].impulse = 0.0f;
+        s->tangentContact1[i].impulse = 0.0f;
+        s->tangentContact2[i].impulse = 0.0f;
     }
 
     bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;

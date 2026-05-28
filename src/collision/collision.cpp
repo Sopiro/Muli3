@@ -1,11 +1,8 @@
 #include "muli3/collision.h"
-#include "muli3/box_shape.h"
-#include "muli3/capsule_shape.h"
-#include "muli3/convex_shape.h"
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
-#include "muli3/shape.h"
+#include "muli3/shapes.h"
 
 namespace muli3
 {

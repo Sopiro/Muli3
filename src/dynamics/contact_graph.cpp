@@ -1,5 +1,6 @@
 #include "muli3/contact_graph.h"
 #include "muli3/parallel_for.h"
+#include "muli3/shapes.h"
 #include "muli3/world.h"
 
 namespace muli3

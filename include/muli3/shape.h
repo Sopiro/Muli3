@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bounding_box.h"
+#include "dynamic_dispatcher.h"
 #include "primitives.h"
 #include "raycast.h"
 
@@ -14,9 +15,13 @@ struct MassData
     Vec3 centerOfMass;
 };
 
-class Shape
+using Shapes = TypePack<class SphereShape, class CapsuleShape, class BoxShape, class ConvexShape>;
+
+class Shape : public DynamicDispatcher<Shapes>
 {
 public:
+    using Types = Shapes;
+
     enum Type
     {
         // Order matters!
@@ -27,40 +32,39 @@ public:
         shape_count,
     };
 
-    Shape(Type type, float radius);
-    virtual ~Shape() = default;
+    ~Shape() = default;
 
-    Shape::Type GetType() const;
+    Type GetType() const;
 
     float GetRadius() const;
     float GetVolume() const;
     const Vec3& GetCenter() const;
 
-    virtual void ComputeMass(float density, MassData* outMassData) const = 0;
-    virtual void ComputeAABB(const Transform& transform, AABB* outAABB) const = 0;
+    void ComputeMass(float density, MassData* outMassData) const;
+    void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
-    virtual int32 GetVertexCount() const = 0;
-    virtual Vec3 GetVertex(int32 id) const = 0;
-    virtual int32 GetSupport(const Vec3& localDir) const = 0;
-    virtual Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const = 0;
+    int32 GetVertexCount() const;
+    Vec3 GetVertex(int32 id) const;
+    int32 GetSupport(const Vec3& localDir) const;
+    Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
-    virtual bool TestPoint(const Transform& transform, const Vec3& q) const = 0;
-    virtual Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const = 0;
-    virtual bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const = 0;
+    bool TestPoint(const Transform& transform, const Vec3& q) const;
+    Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const;
+    bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const;
 
 protected:
     friend class ContactGraph;
     friend class RigidBody;
 
-    Type type;
+    Shape(Type type, float radius);
 
     Vec3 center;
     float radius;
     float volume;
 };
 
-inline Shape::Shape(Shape::Type type, float radius)
-    : type{ type }
+inline Shape::Shape(Type type, float radius)
+    : DynamicDispatcher(int32(type))
     , center{ 0.0f }
     , radius{ radius }
 {
@@ -68,7 +72,7 @@ inline Shape::Shape(Shape::Type type, float radius)
 
 inline Shape::Type Shape::GetType() const
 {
-    return type;
+    return Shape::Type(type_index);
 }
 
 inline float Shape::GetRadius() const

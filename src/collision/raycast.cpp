@@ -1,7 +1,7 @@
 #include "muli3/raycast.h"
 #include "muli3/collision.h"
 #include "muli3/settings.h"
-#include "muli3/shape.h"
+#include "muli3/shapes.h"
 
 namespace muli3
 {

@@ -77,8 +77,8 @@ private:
     Collider* colliderA;
     Collider* colliderB;
 
-    Contact* prev = nullptr;
-    Contact* next = nullptr;
+    Contact* prev;
+    Contact* next;
 
     ContactEdge nodeA;
     ContactEdge nodeB;

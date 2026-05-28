@@ -1,11 +1,8 @@
 #include "muli3/rigidbody.h"
-#include "muli3/box_shape.h"
 #include "muli3/callbacks.h"
-#include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
-#include "muli3/convex_shape.h"
 #include "muli3/shape.h"
-#include "muli3/sphere_shape.h"
+#include "muli3/shapes.h"
 #include "muli3/world.h"
 
 namespace muli3
