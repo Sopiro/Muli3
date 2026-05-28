@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.h"
+#include "dynamic_dispatcher.h"
 #include "rigidbody.h"
 
 namespace muli3
@@ -8,6 +9,21 @@ namespace muli3
 
 class Joint;
 class JointDestroyCallback;
+
+using Joints = TypePack<
+    class GrabJoint,
+    class FixedRotationJoint,
+    class ConeSwingJoint,
+    class RevoluteJoint,
+    class RevoluteAngleJoint,
+    class TwistAngleJoint,
+    class BallSocketJoint,
+    class DistanceJoint,
+    class WeldJoint,
+    class LineJoint,
+    class PrismaticJoint,
+    class PulleyJoint,
+    class MotorJoint>;
 
 struct JointEdge
 {
@@ -17,7 +33,7 @@ struct JointEdge
     JointEdge* next;
 };
 
-class Joint
+class Joint : public DynamicDispatcher<Joints>
 {
     /*
      * Equation of motion for the damped harmonic oscillator
@@ -55,7 +71,9 @@ class Joint
     friend class World;
 
 public:
-    enum Type : uint8
+    using Types = Joints;
+
+    enum Type
     {
         grab_joint,
         fixed_rotation_joint,
@@ -72,26 +90,12 @@ public:
         motor_joint,
     };
 
-    // clang-format off
-    Joint(
-        Joint::Type type,
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        float jointFrequency,
-        float jointDampingRatio,
-        float jointMass
-    );
-    // clang-format on
-    virtual ~Joint();
+    ~Joint();
 
-    virtual void Prepare(const Timestep& step) = 0;
-    virtual void WarmStart() = 0;
-    virtual void SolveVelocityConstraints(const Timestep& step) = 0;
-    virtual bool SolvePositionConstraints(const Timestep& step)
-    {
-        MuliNotUsed(step);
-        return true;
-    }
+    void Prepare(const Timestep& step);
+    void WarmStart();
+    void SolveVelocityConstraints(const Timestep& step);
+    bool SolvePositionConstraints(const Timestep& step);
 
     RigidBody* GetBodyA() const;
     RigidBody* GetBodyB() const;
@@ -119,14 +123,23 @@ public:
     void* UserData;
 
 protected:
-    RigidBody* bodyA;
-    RigidBody* bodyB;
-
-    Joint::Type type;
+    // clang-format off
+    Joint(
+        Joint::Type type,
+        RigidBody* bodyA,
+        RigidBody* bodyB,
+        float jointFrequency,
+        float jointDampingRatio,
+        float jointMass
+    );
+    // clang-format on
 
     JointState* GetJointState();
     const JointState* GetJointState() const;
     void ComputeBetaAndGamma(const Timestep& step);
+
+    RigidBody* bodyA;
+    RigidBody* bodyB;
 
 private:
     // Following parameters are used to soften the joint
@@ -184,7 +197,7 @@ inline bool Joint::IsSolid() const
 
 inline Joint::Type Joint::GetType() const
 {
-    return type;
+    return Joint::Type(type_index);
 }
 
 inline Joint* Joint::GetPrev()

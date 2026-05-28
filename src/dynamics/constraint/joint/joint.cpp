@@ -6,11 +6,11 @@ namespace muli3
 {
 
 Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float jointFrequency, float jointDampingRatio, float jointMass)
-    : OnDestroy{ nullptr }
+    : DynamicDispatcher(int32(type))
+    , OnDestroy{ nullptr }
     , UserData{ nullptr }
     , bodyA{ bodyA }
     , bodyB{ bodyB }
-    , type{ type }
     , setIndex{ null_index }
     , localIndex{ null_index }
     , flagIsland{ false }

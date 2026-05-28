@@ -12,9 +12,9 @@ class FixedRotationJoint : public Joint
 public:
     FixedRotationJoint(RigidBody* body, float frequency, float dampingRatio, float jointMass);
 
-    virtual void Prepare(const Timestep& step) override;
-    virtual void WarmStart() override;
-    virtual void SolveVelocityConstraints(const Timestep& step) override;
+    void Prepare(const Timestep& step);
+    void WarmStart();
+    void SolveVelocityConstraints(const Timestep& step);
 
     const Quat& GetTargetOrientation() const;
     void SetTargetOrientation(const Quat& newTargetOrientation);

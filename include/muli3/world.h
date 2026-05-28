@@ -2,20 +2,7 @@
 
 #include "rigidbody.h"
 
-#include "ball_socket_joint.h"
-#include "cone_swing_joint.h"
-#include "distance_joint.h"
-#include "fixed_rotation_joint.h"
-#include "grab_joint.h"
-#include "joint.h"
-#include "line_joint.h"
-#include "motor_joint.h"
-#include "prismatic_joint.h"
-#include "pulley_joint.h"
-#include "revolute_angle_joint.h"
-#include "revolute_joint.h"
-#include "twist_angle_joint.h"
-#include "weld_joint.h"
+#include "joints.h"
 
 #include "callbacks.h"
 #include "contact.h"

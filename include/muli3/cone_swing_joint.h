@@ -14,9 +14,9 @@ public:
         RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio, float jointMass
     );
 
-    virtual void Prepare(const Timestep& step) override;
-    virtual void WarmStart() override;
-    virtual void SolveVelocityConstraints(const Timestep& step) override;
+    void Prepare(const Timestep& step);
+    void WarmStart();
+    void SolveVelocityConstraints(const Timestep& step);
 
     const Vec3& GetLocalAxisA() const;
     const Vec3& GetLocalAxisB() const;

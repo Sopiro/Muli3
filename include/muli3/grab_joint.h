@@ -12,9 +12,9 @@ class GrabJoint : public Joint
 public:
     GrabJoint(RigidBody* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio, float jointMass);
 
-    virtual void Prepare(const Timestep& step) override;
-    virtual void WarmStart() override;
-    virtual void SolveVelocityConstraints(const Timestep& step) override;
+    void Prepare(const Timestep& step);
+    void WarmStart();
+    void SolveVelocityConstraints(const Timestep& step);
 
     const Vec3& GetLocalAnchor() const;
 

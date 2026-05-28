@@ -1,6 +1,6 @@
 #include "muli3/contact_solver.h"
 #include "muli3/frame.h"
-#include "muli3/joint.h"
+#include "muli3/joints.h"
 #include "muli3/rigidbody.h"
 #include "muli3/solver_states.h"
 

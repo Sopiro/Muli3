@@ -1536,48 +1536,58 @@ void World::AddJoint(Joint* joint)
 
 void World::FreeJoint(Joint* joint)
 {
-    Joint::Type type = joint->type;
-    joint->~Joint();
-
-    switch (type)
+    switch (joint->GetType())
     {
     case Joint::Type::grab_joint:
+        ((GrabJoint*)joint)->~GrabJoint();
         blockAllocator.Free(joint, sizeof(GrabJoint));
         break;
     case Joint::Type::fixed_rotation_joint:
+        ((FixedRotationJoint*)joint)->~FixedRotationJoint();
         blockAllocator.Free(joint, sizeof(FixedRotationJoint));
         break;
     case Joint::Type::cone_swing_joint:
+        ((ConeSwingJoint*)joint)->~ConeSwingJoint();
         blockAllocator.Free(joint, sizeof(ConeSwingJoint));
         break;
     case Joint::Type::revolute_joint:
+        ((RevoluteJoint*)joint)->~RevoluteJoint();
         blockAllocator.Free(joint, sizeof(RevoluteJoint));
         break;
     case Joint::Type::revolute_angle_joint:
+        ((RevoluteAngleJoint*)joint)->~RevoluteAngleJoint();
         blockAllocator.Free(joint, sizeof(RevoluteAngleJoint));
         break;
     case Joint::Type::twist_angle_joint:
+        ((TwistAngleJoint*)joint)->~TwistAngleJoint();
         blockAllocator.Free(joint, sizeof(TwistAngleJoint));
         break;
     case Joint::Type::ball_socket_joint:
+        ((BallSocketJoint*)joint)->~BallSocketJoint();
         blockAllocator.Free(joint, sizeof(BallSocketJoint));
         break;
     case Joint::Type::distance_joint:
+        ((DistanceJoint*)joint)->~DistanceJoint();
         blockAllocator.Free(joint, sizeof(DistanceJoint));
         break;
     case Joint::Type::weld_joint:
+        ((WeldJoint*)joint)->~WeldJoint();
         blockAllocator.Free(joint, sizeof(WeldJoint));
         break;
     case Joint::Type::line_joint:
+        ((LineJoint*)joint)->~LineJoint();
         blockAllocator.Free(joint, sizeof(LineJoint));
         break;
     case Joint::Type::prismatic_joint:
+        ((PrismaticJoint*)joint)->~PrismaticJoint();
         blockAllocator.Free(joint, sizeof(PrismaticJoint));
         break;
     case Joint::Type::pulley_joint:
+        ((PulleyJoint*)joint)->~PulleyJoint();
         blockAllocator.Free(joint, sizeof(PulleyJoint));
         break;
     case Joint::Type::motor_joint:
+        ((MotorJoint*)joint)->~MotorJoint();
         blockAllocator.Free(joint, sizeof(MotorJoint));
         break;
     default:
