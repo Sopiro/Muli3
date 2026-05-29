@@ -31,6 +31,7 @@ void World::Reset()
     MuliAssert(bodyList == nullptr);
     MuliAssert(bodyListTail == nullptr);
     MuliAssert(jointList == nullptr);
+    MuliAssert(jointListTail == nullptr);
     MuliAssert(bodyCount == 0);
     MuliAssert(jointCount == 0);
     MuliAssert(constraintGraph.contactList == nullptr);
@@ -255,6 +256,7 @@ void World::Destroy(Joint* joint)
     if (joint->prev) joint->prev->next = joint->next;
     if (joint->next) joint->next->prev = joint->prev;
     if (joint == jointList) jointList = joint->next;
+    if (joint == jointListTail) jointListTail = joint->prev;
 
     // Remove from bodyA
     if (joint->nodeA.prev) joint->nodeA.prev->next = joint->nodeA.next;
@@ -1406,13 +1408,17 @@ void World::FreeBody(RigidBody* body)
 void World::AddJoint(Joint* joint)
 {
     // Insert into the world
-    joint->prev = nullptr;
-    joint->next = jointList;
-    if (jointList != nullptr)
+    joint->prev = jointListTail;
+    joint->next = nullptr;
+    if (jointListTail != nullptr)
     {
-        jointList->prev = joint;
+        jointListTail->next = joint;
     }
-    jointList = joint;
+    else
+    {
+        jointList = joint;
+    }
+    jointListTail = joint;
 
     // Connect to island graph
 

@@ -303,6 +303,7 @@ private:
     int32 bodyCount = 0;
 
     Joint* jointList = nullptr;
+    Joint* jointListTail = nullptr;
     int32 jointCount = 0;
 
     ConstraintGraph constraintGraph;
