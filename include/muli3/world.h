@@ -1,13 +1,11 @@
 #pragma once
 
-#include "rigidbody.h"
-
-#include "joints.h"
-
 #include "callbacks.h"
+#include "constraint_graph.h"
 #include "contact.h"
-#include "contact_graph.h"
+#include "joints.h"
 #include "profile.h"
+#include "rigidbody.h"
 #include "settings.h"
 
 #include "block_allocator.h"
@@ -266,7 +264,7 @@ private:
     friend class Contact;
     friend class Joint;
     friend class Island;
-    friend class ContactGraph;
+    friend class ConstraintGraph;
     friend class BroadPhase;
 
     void Solve();
@@ -307,7 +305,7 @@ private:
     Joint* jointList = nullptr;
     int32 jointCount = 0;
 
-    ContactGraph contactGraph;
+    ConstraintGraph contactGraph;
 
     SolverSet solverSets[solver_set_count];
 

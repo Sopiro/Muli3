@@ -1,5 +1,5 @@
 #include "muli3/broad_phase.h"
-#include "muli3/contact_graph.h"
+#include "muli3/constraint_graph.h"
 #include "muli3/parallel_for.h"
 #include "muli3/shapes.h"
 #include "muli3/world.h"
@@ -100,7 +100,7 @@ struct BroadPhase::TreeCallback
     }
 };
 
-void BroadPhase::FindNewContacts(ContactGraph* contactGraph)
+void BroadPhase::FindNewContacts(ConstraintGraph* contactGraph)
 {
     if (moveCount == 0)
     {

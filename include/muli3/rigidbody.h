@@ -210,7 +210,7 @@ private:
 
     friend class AABBTree;
     friend class BroadPhase;
-    friend class ContactGraph;
+    friend class ConstraintGraph;
 
     friend class Collider;
 

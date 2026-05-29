@@ -65,7 +65,7 @@ private:
     friend class AABBTree;
     friend class BroadPhase;
     friend class Contact;
-    friend class ContactGraph;
+    friend class ConstraintGraph;
     friend class RigidBody;
     friend class World;
 

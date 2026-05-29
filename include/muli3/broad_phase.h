@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-class ContactGraph;
+class ConstraintGraph;
 
 class BroadPhase
 {
@@ -13,7 +13,7 @@ public:
     BroadPhase();
     ~BroadPhase();
 
-    void FindNewContacts(ContactGraph* contactGraph);
+    void FindNewContacts(ConstraintGraph* contactGraph);
     bool TestOverlap(Collider* colliderA, Collider* colliderB) const;
 
     void Add(Collider* collider, const AABB& aabb);
@@ -23,7 +23,7 @@ public:
 
 private:
     friend class World;
-    friend class ContactGraph;
+    friend class ConstraintGraph;
 
     AABBTree tree;
 

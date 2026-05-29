@@ -7,11 +7,11 @@ namespace muli3
 {
 class World;
 
-class ContactGraph
+class ConstraintGraph
 {
 public:
-    ContactGraph(World* world);
-    ~ContactGraph();
+    ConstraintGraph(World* world);
+    ~ConstraintGraph();
 
     void UpdateContactGraph();
     void EvaluateContacts();
@@ -39,12 +39,12 @@ private:
     void OnNewContact(Collider* colliderA, Collider* colliderB);
 };
 
-inline void ContactGraph::UpdateContactGraph()
+inline void ConstraintGraph::UpdateContactGraph()
 {
     broadPhase.FindNewContacts(this);
 }
 
-inline int32 ContactGraph::GetContactCount() const
+inline int32 ConstraintGraph::GetContactCount() const
 {
     return contactCount;
 }

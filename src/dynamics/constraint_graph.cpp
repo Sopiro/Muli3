@@ -1,4 +1,3 @@
-#include "muli3/contact_graph.h"
 #include "muli3/parallel_for.h"
 #include "muli3/shapes.h"
 #include "muli3/world.h"
@@ -8,7 +7,7 @@ namespace muli3
 
 extern void InitializeDetectionFunctionMap();
 
-ContactGraph::ContactGraph(World* world)
+ConstraintGraph::ConstraintGraph(World* world)
     : world{ world }
     , contactList{ nullptr }
     , contactCount{ 0 }
@@ -16,12 +15,12 @@ ContactGraph::ContactGraph(World* world)
     InitializeDetectionFunctionMap();
 }
 
-ContactGraph::~ContactGraph()
+ConstraintGraph::~ConstraintGraph()
 {
     MuliAssert(contactList == nullptr);
 }
 
-void ContactGraph::EvaluateContacts()
+void ConstraintGraph::EvaluateContacts()
 {
     SolverSet& awakeSet = world->solverSets[awake_set];
     int32 activeCount = int32(awakeSet.contactStates.size());
@@ -78,7 +77,7 @@ void ContactGraph::EvaluateContacts()
     MuliProfileZoneEnd(post_narrow_phase);
 }
 
-void ContactGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
+void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
 {
     RigidBody* bodyA = colliderA->body;
     RigidBody* bodyB = colliderB->body;
@@ -160,7 +159,7 @@ void ContactGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
     world->AddContactState(c, setIndex);
 }
 
-void ContactGraph::Destroy(Contact* c)
+void ConstraintGraph::Destroy(Contact* c)
 {
     RigidBody* bodyA = c->GetBodyA();
     RigidBody* bodyB = c->GetBodyB();
@@ -183,12 +182,12 @@ void ContactGraph::Destroy(Contact* c)
     --contactCount;
 }
 
-void ContactGraph::AddCollider(Collider* collider)
+void ConstraintGraph::AddCollider(Collider* collider)
 {
     broadPhase.Add(collider, collider->GetAABB());
 }
 
-void ContactGraph::RemoveCollider(Collider* collider)
+void ConstraintGraph::RemoveCollider(Collider* collider)
 {
     broadPhase.Remove(collider);
     collider->node = AABBTree::nullNode;
@@ -212,7 +211,7 @@ void ContactGraph::RemoveCollider(Collider* collider)
     }
 }
 
-void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform)
+void ConstraintGraph::UpdateCollider(Collider* collider, const Transform& transform)
 {
     AABB aabb;
     collider->GetShape()->ComputeAABB(transform, &aabb);
@@ -220,7 +219,7 @@ void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform
     broadPhase.Update(collider, aabb, Vec3::zero, true);
 }
 
-void ContactGraph::UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1)
+void ConstraintGraph::UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1)
 {
     AABB aabb0;
     AABB aabb1;

@@ -60,7 +60,7 @@ public:
 private:
     friend class World;
     friend class Island;
-    friend class ContactGraph;
+    friend class ConstraintGraph;
     friend class BroadPhase;
     friend class ContactSolverNormal;
     friend class ContactSolverTangent;
