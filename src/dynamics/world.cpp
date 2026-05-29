@@ -12,7 +12,7 @@ namespace muli3
 
 World::World(const WorldSettings& settings)
     : settings{ settings }
-    , contactGraph{ this }
+    , constraintGraph{ this }
 {
 }
 
@@ -33,8 +33,8 @@ void World::Reset()
     MuliAssert(jointList == nullptr);
     MuliAssert(bodyCount == 0);
     MuliAssert(jointCount == 0);
-    MuliAssert(contactGraph.contactList == nullptr);
-    MuliAssert(contactGraph.contactCount == 0);
+    MuliAssert(constraintGraph.contactList == nullptr);
+    MuliAssert(constraintGraph.contactCount == 0);
 
     destroyBodyBuffer.clear();
     destroyJointBuffer.clear();
@@ -141,14 +141,14 @@ float World::Step(float dt)
     {
         ProfileScope profile_broad_phase{ &profile.broad_phase };
         MuliProfileZoneNC(broad_phase, "Broad Phase", color::broad_phase, true);
-        contactGraph.UpdateContactGraph();
+        constraintGraph.UpdateContactGraph();
         MuliProfileZoneEnd(broad_phase);
     }
 
     {
         ProfileScope profile_narrow_phase{ &profile.narrow_phase };
         MuliProfileZoneNC(narrow_phase, "Narrow Phase", color::narrow_phase, true);
-        contactGraph.EvaluateContacts();
+        constraintGraph.EvaluateContacts();
         MuliProfileZoneEnd(narrow_phase);
     }
 
@@ -331,7 +331,7 @@ void World::Query(const Vec3& point, WorldQueryCallback* callback) const
     tempCallback.point = point;
     tempCallback.callback = callback;
 
-    contactGraph.broadPhase.tree.Query(point, &tempCallback);
+    constraintGraph.broadPhase.tree.Query(point, &tempCallback);
 }
 
 void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
@@ -371,7 +371,7 @@ void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
 
     tempCallback.callback = callback;
 
-    contactGraph.broadPhase.tree.Query(aabb, &tempCallback);
+    constraintGraph.broadPhase.tree.Query(aabb, &tempCallback);
 }
 
 void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
@@ -411,7 +411,7 @@ void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAn
 
     tempCallback.callback = callback;
 
-    contactGraph.broadPhase.tree.AABBCast(input, &tempCallback);
+    constraintGraph.broadPhase.tree.AABBCast(input, &tempCallback);
 }
 
 bool World::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const
@@ -489,7 +489,7 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
     input.maxFraction = 1.0f;
     input.halfExtents = aabb.GetExtents() * 0.5f;
 
-    contactGraph.broadPhase.tree.AABBCast(input, &tempCallback);
+    constraintGraph.broadPhase.tree.AABBCast(input, &tempCallback);
 }
 
 bool World::ShapeCastClosest(
@@ -560,7 +560,7 @@ void World::Query(const Vec3& point, std::function<bool(Collider* collider)> cal
         }
     } tempCallback(point, callback);
 
-    contactGraph.broadPhase.tree.Query(point, &tempCallback);
+    constraintGraph.broadPhase.tree.Query(point, &tempCallback);
 }
 
 void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> callback) const
@@ -599,7 +599,7 @@ void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> call
         }
     } tempCallback(region, transform, callback);
 
-    contactGraph.broadPhase.tree.Query(aabb, &tempCallback);
+    constraintGraph.broadPhase.tree.Query(aabb, &tempCallback);
 }
 
 void World::RayCastAny(
@@ -647,7 +647,7 @@ void World::RayCastAny(
         }
     } tempCallback(callback);
 
-    contactGraph.broadPhase.tree.AABBCast(input, &tempCallback);
+    constraintGraph.broadPhase.tree.AABBCast(input, &tempCallback);
 }
 
 bool World::RayCastClosest(
@@ -738,7 +738,7 @@ void World::ShapeCastAny(
         }
     } tempCallback(callback, shape, tf, translation);
 
-    contactGraph.broadPhase.tree.AABBCast(input, &tempCallback);
+    constraintGraph.broadPhase.tree.AABBCast(input, &tempCallback);
 }
 
 bool World::ShapeCastClosest(
@@ -795,7 +795,8 @@ void World::Solve()
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
     BodyState** islandBodies = (BodyState**)linearAllocator.Allocate(bodyCount * sizeof(BodyState*));
-    ContactState** islandContacts = (ContactState**)linearAllocator.Allocate(contactGraph.contactCount * sizeof(ContactState*));
+    ContactState** islandContacts =
+        (ContactState**)linearAllocator.Allocate(constraintGraph.contactCount * sizeof(ContactState*));
     JointState** islandJoints = (JointState**)linearAllocator.Allocate(jointCount * sizeof(JointState*));
 
     MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
@@ -974,7 +975,7 @@ void World::Solve()
             {
                 for (Collider* collider = body->colliderList; collider; collider = collider->next)
                 {
-                    contactGraph.UpdateCollider(collider, transform0, body->transform);
+                    constraintGraph.UpdateCollider(collider, transform0, body->transform);
                 }
             }
         }
@@ -1079,7 +1080,7 @@ void World::Solve()
     // ValidateSolverSets();
 
     linearAllocator.Free(islandJoints, jointCount * sizeof(JointState*));
-    linearAllocator.Free(islandContacts, contactGraph.contactCount * sizeof(ContactState*));
+    linearAllocator.Free(islandContacts, constraintGraph.contactCount * sizeof(ContactState*));
     linearAllocator.Free(islandBodies, bodyCount * sizeof(BodyState*));
     linearAllocator.Free(islands, bodyCount * sizeof(Island));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));

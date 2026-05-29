@@ -305,7 +305,7 @@ private:
     Joint* jointList = nullptr;
     int32 jointCount = 0;
 
-    ConstraintGraph contactGraph;
+    ConstraintGraph constraintGraph;
 
     SolverSet solverSets[solver_set_count];
 
@@ -341,12 +341,12 @@ inline int32 World::GetJointCount() const
 
 inline const Contact* World::GetContacts() const
 {
-    return contactGraph.contactList;
+    return constraintGraph.contactList;
 }
 
 inline int32 World::GetContactCount() const
 {
-    return contactGraph.contactCount;
+    return constraintGraph.contactCount;
 }
 
 inline int32 World::GetSleepingBodyCount() const
@@ -361,7 +361,7 @@ inline int32 World::GetAwakeIslandCount() const
 
 inline const AABBTree& World::GetDynamicTree() const
 {
-    return contactGraph.broadPhase.tree;
+    return constraintGraph.broadPhase.tree;
 }
 
 inline const WorldSettings& World::GetSettings() const

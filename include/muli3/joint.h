@@ -153,6 +153,7 @@ private:
     JointEdge nodeB;
 
     int32 setIndex;
+    int32 colorIndex;
     int32 localIndex;
 
     bool flagIsland;

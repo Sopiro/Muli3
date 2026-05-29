@@ -12,6 +12,7 @@ Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float frequen
     , bodyA{ bodyA }
     , bodyB{ bodyB }
     , setIndex{ null_index }
+    , colorIndex{ null_index }
     , localIndex{ null_index }
     , flagIsland{ false }
 {
@@ -29,12 +30,28 @@ Joint::~Joint()
 
 JointState* Joint::GetJointState()
 {
-    return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+    if (colorIndex != null_index)
+    {
+        return &bodyA->world->constraintGraph.batches[colorIndex].jointStates[localIndex];
+    }
+    else
+    {
+        MuliAssert(setIndex != null_index);
+        return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+    }
 }
 
 const JointState* Joint::GetJointState() const
 {
-    return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+    if (colorIndex != null_index)
+    {
+        return &bodyA->world->constraintGraph.batches[colorIndex].jointStates[localIndex];
+    }
+    else
+    {
+        MuliAssert(setIndex != null_index);
+        return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+    }
 }
 
 void Joint::ComputeBetaAndGamma(float effectiveMass, float dt)

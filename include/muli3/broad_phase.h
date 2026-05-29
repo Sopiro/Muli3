@@ -13,7 +13,7 @@ public:
     BroadPhase();
     ~BroadPhase();
 
-    void FindNewContacts(ConstraintGraph* contactGraph);
+    void FindNewContacts(ConstraintGraph* graph);
     bool TestOverlap(Collider* colliderA, Collider* colliderB) const;
 
     void Add(Collider* collider, const AABB& aabb);

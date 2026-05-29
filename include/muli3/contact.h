@@ -36,19 +36,24 @@ public:
 
     Collider* GetColliderA() const;
     Collider* GetColliderB() const;
+
     RigidBody* GetBodyA() const;
     RigidBody* GetBodyB() const;
+
     RigidBody* GetReferenceBody() const;
     RigidBody* GetIncidentBody() const;
 
     const Contact* GetNext() const;
     const Contact* GetPrev() const;
+
     bool IsTouching() const;
     bool IsEnabled() const;
     void SetEnabled(bool enabled);
+    int32 GetColorIndex() const;
 
     const ContactManifold& GetContactManifold() const;
     int32 GetContactCount() const;
+
     float GetNormalImpulse(int32 index) const;
     Vec2 GetTangentImpulse(int32 index) const;
 
@@ -84,6 +89,7 @@ private:
     ContactEdge nodeB;
 
     int32 setIndex;
+    int32 colorIndex;
     int32 localIndex;
 
     uint16 flag;
@@ -149,6 +155,11 @@ inline void Contact::SetEnabled(bool enabled)
     {
         flag &= ~flag_enabled;
     }
+}
+
+inline int32 Contact::GetColorIndex() const
+{
+    return colorIndex;
 }
 
 inline const ContactManifold& Contact::GetContactManifold() const

@@ -14,6 +14,7 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     , prev{ nullptr }
     , next{ nullptr }
     , setIndex{ null_index }
+    , colorIndex{ null_index }
     , localIndex{ null_index }
     , flag{ 0 }
 {
@@ -25,12 +26,28 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
 
 ContactState* Contact::GetContactState()
 {
-    return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
+    if (colorIndex != null_index)
+    {
+        return &colliderA->body->world->constraintGraph.batches[colorIndex].contactStates[localIndex];
+    }
+    else
+    {
+        MuliAssert(setIndex != null_index);
+        return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
+    }
 }
 
 const ContactState* Contact::GetContactState() const
 {
-    return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
+    if (colorIndex != null_index)
+    {
+        return &colliderA->body->world->constraintGraph.batches[colorIndex].contactStates[localIndex];
+    }
+    else
+    {
+        MuliAssert(setIndex != null_index);
+        return &colliderA->body->world->solverSets[setIndex].contactStates[localIndex];
+    }
 }
 
 void Contact::Update()

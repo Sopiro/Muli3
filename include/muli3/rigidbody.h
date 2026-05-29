@@ -267,6 +267,7 @@ private:
     int32 localIndex;
 
     int32 islandIndex;
+    uint32 usedColors;
 
     uint16 flag;
 };

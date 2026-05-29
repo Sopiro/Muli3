@@ -100,14 +100,14 @@ struct BroadPhase::TreeCallback
     }
 };
 
-void BroadPhase::FindNewContacts(ConstraintGraph* contactGraph)
+void BroadPhase::FindNewContacts(ConstraintGraph* graph)
 {
     if (moveCount == 0)
     {
         return;
     }
 
-    LinearAllocator& allocator = contactGraph->world->linearAllocator;
+    LinearAllocator& allocator = graph->world->linearAllocator;
 
     // Allocate moveResults array for thread-isolated results
     int32 size = moveCount * sizeof(MoveResult);
@@ -151,7 +151,7 @@ void BroadPhase::FindNewContacts(ConstraintGraph* contactGraph)
         for (int32 j = 0; j < result.pairs.size(); ++j)
         {
             const ColliderPair& pair = result.pairs[j];
-            contactGraph->OnNewContact(pair.colliderA, pair.colliderB);
+            graph->OnNewContact(pair.colliderA, pair.colliderB);
         }
 
         result.pairs.~GrowableArray();

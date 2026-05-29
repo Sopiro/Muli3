@@ -5,7 +5,19 @@
 
 namespace muli3
 {
+
 class World;
+
+inline constexpr int32 constraint_color_count = 24;
+inline constexpr int32 constraint_overflow_index = constraint_color_count - 1;
+
+// A batch of constraints assigned the same graph(edge) color.
+// Constraints in a batch do not share bodies and can be solved in parallel.
+struct ConstraintBatch
+{
+    std::vector<ContactState> contactStates;
+    std::vector<JointState> jointStates;
+};
 
 class ConstraintGraph
 {
@@ -26,11 +38,14 @@ private:
 
     friend class World;
     friend class RigidBody;
+    friend class Contact;
+    friend class Joint;
     friend class BroadPhase;
 
     World* world;
-
     BroadPhase broadPhase;
+
+    ConstraintBatch batches[constraint_color_count];
 
     Contact* contactList;
     int32 contactCount;

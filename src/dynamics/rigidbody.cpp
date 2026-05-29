@@ -25,6 +25,7 @@ RigidBody::RigidBody(const Transform& tf, Type type)
     , setIndex{ null_index }
     , localIndex{ null_index }
     , islandIndex{ null_index }
+    , usedColors{ 0 }
     , flag{ flag_enabled }
 {
 }
@@ -156,7 +157,7 @@ Collider* RigidBody::CreateCollider(Shape* shape, const Transform& tf, float den
     colliderList = collider;
     ++colliderCount;
 
-    world->contactGraph.AddCollider(collider);
+    world->constraintGraph.AddCollider(collider);
 
     ResetMassData();
 
@@ -185,7 +186,7 @@ void RigidBody::DestroyCollider(Collider* collider)
         c = &(*c)->next;
     }
 
-    world->contactGraph.RemoveCollider(collider);
+    world->constraintGraph.RemoveCollider(collider);
     collider->~Collider();
     collider->Destroy(world);
     world->blockAllocator.Free(collider, sizeof(Collider));
@@ -487,13 +488,13 @@ void RigidBody::SetType(RigidBody::Type newType)
     {
         ContactEdge* ce0 = ce;
         ce = ce->next;
-        world->contactGraph.Destroy(ce0->contact);
+        world->constraintGraph.Destroy(ce0->contact);
     }
     contactList = nullptr;
 
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
-        world->contactGraph.broadPhase.Refresh(collider);
+        world->constraintGraph.broadPhase.Refresh(collider);
     }
 
     islandIndex = 0;
@@ -524,7 +525,7 @@ void RigidBody::SetEnabled(bool enabled)
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.AddCollider(collider);
+            world->constraintGraph.AddCollider(collider);
         }
 
         for (JointEdge* je = jointList; je; je = je->next)
@@ -560,13 +561,13 @@ void RigidBody::SetEnabled(bool enabled)
         {
             ContactEdge* ce0 = ce;
             ce = ce->next;
-            world->contactGraph.Destroy(ce0->contact);
+            world->constraintGraph.Destroy(ce0->contact);
         }
         contactList = nullptr;
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.RemoveCollider(collider);
+            world->constraintGraph.RemoveCollider(collider);
         }
 
         islandIndex = 0;
@@ -748,7 +749,7 @@ void RigidBody::SynchronizeColliders()
     {
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.UpdateCollider(collider, transform);
+            world->constraintGraph.UpdateCollider(collider, transform);
         }
     }
     else
@@ -759,7 +760,7 @@ void RigidBody::SynchronizeColliders()
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->contactGraph.UpdateCollider(collider, transform0, transform);
+            world->constraintGraph.UpdateCollider(collider, transform0, transform);
         }
     }
 }
