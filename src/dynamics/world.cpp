@@ -42,9 +42,15 @@ void World::Reset()
 
     for (int32 i = 0; i < solver_set_count; ++i)
     {
-        solverSets[i].bodyStates.clear();
-        solverSets[i].contactStates.clear();
-        solverSets[i].jointStates.clear();
+        MuliAssert(solverSets[i].bodyStates.empty());
+        MuliAssert(solverSets[i].contactStates.empty());
+        MuliAssert(solverSets[i].jointStates.empty());
+    }
+
+    for (int32 i = 0; i < constraint_color_count; ++i)
+    {
+        MuliAssert(constraintGraph.batches[i].contactStates.empty());
+        MuliAssert(constraintGraph.batches[i].jointStates.empty());
     }
 }
 
@@ -271,7 +277,15 @@ void World::Destroy(Joint* joint)
         if (&joint->nodeB == bodyB->jointList) bodyB->jointList = joint->nodeB.next;
     }
 
-    RemoveJointState(joint);
+    if (joint->colorIndex != null_index)
+    {
+        constraintGraph.RemoveJointFromGraph(joint);
+    }
+    else
+    {
+        RemoveJointState(joint);
+    }
+
     FreeJoint(joint);
     --jointCount;
 }
@@ -1024,6 +1038,43 @@ void World::Solve()
         }
     }
 
+    for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
+    {
+        ConstraintBatch& batch = constraintGraph.batches[colorIndex];
+        for (int32 i = int32(batch.contactStates.size()) - 1; i >= 0; --i)
+        {
+            Contact* contact = batch.contactStates[i].contact;
+
+            RigidBody* bodyA = contact->GetBodyA();
+            RigidBody* bodyB = contact->GetBodyB();
+
+            SolverSetIndex targetSet;
+            if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+            {
+                targetSet = disabled_set;
+            }
+            else
+            {
+                bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+                bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+                targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+            }
+
+            contact->flag &= ~Contact::flag_island;
+            if (targetSet != awake_set)
+            {
+                ContactState state = batch.contactStates[i];
+                constraintGraph.RemoveContactFromGraph(contact);
+                MuliAssert(contact->colorIndex == null_index);
+
+                SolverSet& target = solverSets[targetSet];
+                contact->setIndex = targetSet;
+                contact->localIndex = int32(target.contactStates.size());
+                target.contactStates.push_back(state);
+            }
+        }
+    }
+
     // Transfer awake joints backward because TransferJoint() swap-removes from jointStates.
     for (int32 i = int32(awakeSet.jointStates.size()) - 1; i >= 0; --i)
     {
@@ -1056,6 +1107,47 @@ void World::Solve()
         if (targetSet != awake_set)
         {
             TransferJoint(joint, targetSet);
+        }
+    }
+
+    // Finalize graph joints separately because their localIndex refers to a color batch.
+    for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
+    {
+        ConstraintBatch& batch = constraintGraph.batches[colorIndex];
+        for (int32 i = int32(batch.jointStates.size()) - 1; i >= 0; --i)
+        {
+            Joint* joint = batch.jointStates[i].joint;
+
+            RigidBody* bodyA = joint->GetBodyA();
+            RigidBody* bodyB = joint->GetBodyB();
+
+            SolverSetIndex targetSet;
+            if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+            {
+                targetSet = disabled_set;
+            }
+            else if (bodyA->IsStatic() && bodyB->IsStatic())
+            {
+                targetSet = static_set;
+            }
+            else
+            {
+                bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+                bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+                targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+            }
+
+            joint->flagIsland = false;
+            if (targetSet != awake_set)
+            {
+                JointState state = batch.jointStates[i];
+                constraintGraph.RemoveJointFromGraph(joint);
+
+                SolverSet& target = solverSets[targetSet];
+                joint->setIndex = targetSet;
+                joint->localIndex = int32(target.jointStates.size());
+                target.jointStates.push_back(state);
+            }
         }
     }
 
@@ -1465,7 +1557,26 @@ void World::AddJoint(Joint* joint)
         setIndex = awakeA || awakeB ? awake_set : sleeping_set;
     }
 
-    AddJointState(joint, setIndex);
+    JointState state;
+    state.joint = joint;
+    state.invIA = Mat3::zero;
+    state.invIB = Mat3::zero;
+    state.beta = 0.0f;
+    state.gamma = 0.0f;
+
+    joint->setIndex = setIndex;
+    if (setIndex == awake_set)
+    {
+        constraintGraph.AddJointToGraph(joint, state);
+    }
+    else
+    {
+        SolverSet& set = solverSets[setIndex];
+        joint->localIndex = int32(set.jointStates.size());
+
+        set.jointStates.push_back(state);
+    }
+
     ++jointCount;
 }
 
@@ -1663,6 +1774,8 @@ void World::TransferBody(RigidBody* body, SolverSetIndex targetSet)
 
 ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
 {
+    MuliAssert(contact->colorIndex == null_index);
+
     SolverSet& set = solverSets[setIndex];
     contact->setIndex = setIndex;
     contact->localIndex = int32(set.contactStates.size());
@@ -1682,6 +1795,8 @@ ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
 
 void World::RemoveContactState(Contact* contact)
 {
+    MuliAssert(contact->colorIndex == null_index);
+
     SolverSet& set = solverSets[contact->setIndex];
     int32 index = contact->localIndex;
     int32 last = int32(set.contactStates.size() - 1);
@@ -1699,6 +1814,24 @@ void World::RemoveContactState(Contact* contact)
 
 void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
 {
+    if (contact->colorIndex != null_index)
+    {
+        if (targetSet == awake_set)
+        {
+            return;
+        }
+
+        ContactState state = constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex];
+        constraintGraph.RemoveContactFromGraph(contact);
+
+        SolverSet& target = solverSets[targetSet];
+        contact->setIndex = targetSet;
+        contact->localIndex = int32(target.contactStates.size());
+        target.contactStates.push_back(state);
+        target.contactStates.back().contact = contact;
+        return;
+    }
+
     if (contact->setIndex == targetSet)
     {
         return;
@@ -1708,9 +1841,7 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
     SolverSet& target = solverSets[targetSet];
 
     int32 sourceIndex = contact->localIndex;
-    int32 targetIndex = int32(target.contactStates.size());
-    target.contactStates.push_back(source.contactStates[sourceIndex]);
-    target.contactStates.back().contact = contact;
+    ContactState state = source.contactStates[sourceIndex];
 
     int32 last = int32(source.contactStates.size() - 1);
     if (sourceIndex != last)
@@ -1720,12 +1851,24 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
     }
     source.contactStates.pop_back();
 
-    contact->setIndex = targetSet;
-    contact->localIndex = targetIndex;
+    if (targetSet == awake_set && contact->IsTouching() && contact->IsEnabled())
+    {
+        contact->setIndex = awake_set;
+        constraintGraph.AddContactToGraph(contact, state);
+    }
+    else
+    {
+        contact->setIndex = targetSet;
+        contact->localIndex = int32(target.contactStates.size());
+        target.contactStates.push_back(state);
+        target.contactStates.back().contact = contact;
+    }
 }
 
 JointState* World::AddJointState(Joint* joint, SolverSetIndex setIndex)
 {
+    MuliAssert(joint->colorIndex == null_index);
+
     SolverSet& set = solverSets[setIndex];
     joint->setIndex = setIndex;
     joint->localIndex = int32(set.jointStates.size());
@@ -1743,6 +1886,8 @@ JointState* World::AddJointState(Joint* joint, SolverSetIndex setIndex)
 
 void World::RemoveJointState(Joint* joint)
 {
+    MuliAssert(joint->colorIndex == null_index);
+
     SolverSet& set = solverSets[joint->setIndex];
     int32 index = joint->localIndex;
     int32 last = int32(set.jointStates.size() - 1);
@@ -1760,6 +1905,24 @@ void World::RemoveJointState(Joint* joint)
 
 void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
 {
+    if (joint->colorIndex != null_index)
+    {
+        if (targetSet == awake_set)
+        {
+            return;
+        }
+
+        JointState state = constraintGraph.batches[joint->colorIndex].jointStates[joint->localIndex];
+        constraintGraph.RemoveJointFromGraph(joint);
+
+        SolverSet& target = solverSets[targetSet];
+        joint->setIndex = targetSet;
+        joint->localIndex = int32(target.jointStates.size());
+        target.jointStates.push_back(state);
+        target.jointStates.back().joint = joint;
+        return;
+    }
+
     if (joint->setIndex == targetSet)
     {
         return;
@@ -1769,9 +1932,7 @@ void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
     SolverSet& target = solverSets[targetSet];
 
     int32 sourceIndex = joint->localIndex;
-    int32 targetIndex = int32(target.jointStates.size());
-    target.jointStates.push_back(source.jointStates[sourceIndex]);
-    target.jointStates.back().joint = joint;
+    JointState state = source.jointStates[sourceIndex];
 
     int32 last = int32(source.jointStates.size() - 1);
     if (sourceIndex != last)
@@ -1781,8 +1942,18 @@ void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
     }
     source.jointStates.pop_back();
 
-    joint->setIndex = targetSet;
-    joint->localIndex = targetIndex;
+    if (targetSet == awake_set)
+    {
+        joint->setIndex = awake_set;
+        constraintGraph.AddJointToGraph(joint, state);
+    }
+    else
+    {
+        joint->setIndex = targetSet;
+        joint->localIndex = int32(target.jointStates.size());
+        target.jointStates.push_back(state);
+        target.jointStates.back().joint = joint;
+    }
 }
 
 void World::WakeBody(RigidBody* body)
@@ -1825,6 +1996,11 @@ void World::WakeBody(RigidBody* body)
             }
 
             TransferContact(contact, awake_set);
+
+            if (!contact->IsTouching())
+            {
+                continue;
+            }
 
             if (other->IsStatic() == false && other->IsSleeping())
             {

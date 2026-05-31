@@ -261,6 +261,20 @@ Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
     return g_colors[colorIndex % g_colorCount];
 }
 
+Vec4 GetContactColor(const Contact* contact)
+{
+    int32 colorIndex = contact->GetColorIndex();
+    if (colorIndex < 0)
+    {
+        return Vec4{ 0.3f, 0.3f, 0.3f, 0.9f };
+    }
+
+    constexpr int32 colorCount = 24;
+    float hue = float((colorIndex * 7) % colorCount) / float(colorCount);
+    Vec3 rgb = HSLToRGB({ hue, 0.9f, 0.62f });
+    return Vec4{ rgb.x, rgb.y, rgb.z, 0.95f };
+}
+
 Vec4 GetModeColor(const Renderer::DrawMode& mode)
 {
     if (mode.colorIndex < 0)
@@ -1350,7 +1364,6 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.show_contact_point || options.show_contact_normal)
     {
-        const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 0.9f };
         const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 0.9f };
         for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
         {
@@ -1360,6 +1373,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             }
 
             const ContactManifold& manifold = contact->GetContactManifold();
+            const Vec4 pointColor = GetContactColor(contact);
 
             for (int32 i = 0; i < manifold.contactCount; ++i)
             {

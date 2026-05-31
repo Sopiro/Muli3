@@ -30,17 +30,31 @@ public:
 
     int32 GetContactCount() const;
 
-private:
-    void AddCollider(Collider* collider);
-    void RemoveCollider(Collider* collider);
-    void UpdateCollider(Collider* collider, const Transform& transform);
-    void UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1);
+    ContactState* GetContactState(Contact* contact);
+    const ContactState* GetContactState(const Contact* contact) const;
+    JointState* GetJointState(Joint* joint);
+    const JointState* GetJointState(const Joint* joint) const;
 
+private:
     friend class World;
     friend class RigidBody;
     friend class Contact;
     friend class Joint;
     friend class BroadPhase;
+
+    void AddCollider(Collider* collider);
+    void RemoveCollider(Collider* collider);
+    void UpdateCollider(Collider* collider, const Transform& transform);
+    void UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1);
+
+    int32 AssignColor(RigidBody* bodyA, RigidBody* bodyB);
+    void AddColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIndex);
+    void RemoveColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIndex);
+
+    ContactState* AddContactToGraph(Contact* contact, const ContactState& source);
+    void RemoveContactFromGraph(Contact* contact);
+    JointState* AddJointToGraph(Joint* joint, const JointState& source);
+    void RemoveJointFromGraph(Joint* joint);
 
     World* world;
     BroadPhase broadPhase;

@@ -68,7 +68,6 @@ class Joint : public DynamicDispatcher<Joints>
      * https://box2d.org/files/ErinCatto_SoftConstraints_GDC2011.pdf
      * https://pybullet.org/Bullet/phpBB3/viewtopic.php?f=4&t=1354
      */
-    friend class World;
 
 public:
     using Types = Joints;
@@ -141,6 +140,9 @@ protected:
     RigidBody* bodyB;
 
 private:
+    friend class World;
+    friend class ConstraintGraph;
+
     // Following parameters are used to soften the joint
     // Frequency values less than or equal to zero make joints rigid
     float frequency;    // 0 < Frequency

@@ -2,6 +2,7 @@
 
 #include <algorithm>          // IWYU pragma: export
 #include <array>              // IWYU pragma: export
+#include <bit>                // IWYU pragma: export
 #include <cassert>            // IWYU pragma: export
 #include <cfloat>             // IWYU pragma: export
 #include <chrono>             // IWYU pragma: export
