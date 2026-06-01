@@ -1,5 +1,6 @@
 #include "muli3/color.h"
 #include "muli3/frame.h"
+#include "muli3/hash.h"
 
 #include "renderer.h"
 
@@ -14,6 +15,7 @@ constexpr int32 g_fillPass = 0;
 constexpr int32 g_outlinePass = 1;
 
 Vec4 g_colors[g_colorCount];
+Vec4 g_colors2[constraint_color_count];
 bool g_colorsInitialized = false;
 
 constexpr const char* g_shapeVertexShader = R"(
@@ -232,6 +234,13 @@ void InitializeColors()
         g_colors[i] = Vec4{ rgb.x, rgb.y, rgb.z, 0.85f };
     }
 
+    for (int32 i = 0; i < constraint_color_count; ++i)
+    {
+        float hue = PermutationElement(i, constraint_color_count, 123) / float(constraint_color_count);
+        Vec3 rgb = HSLToRGB({ hue, 0.9f, 0.55f });
+        g_colors2[i] = { rgb.x, rgb.y, rgb.z, 0.95f };
+    }
+
     g_colorsInitialized = true;
 }
 
@@ -268,11 +277,10 @@ Vec4 GetContactColor(const Contact* contact)
     {
         return Vec4{ 0.3f, 0.3f, 0.3f, 0.9f };
     }
-
-    constexpr int32 colorCount = 24;
-    float hue = float((colorIndex * 7) % colorCount) / float(colorCount);
-    Vec3 rgb = HSLToRGB({ hue, 0.9f, 0.62f });
-    return Vec4{ rgb.x, rgb.y, rgb.z, 0.95f };
+    else
+    {
+        return g_colors2[colorIndex];
+    }
 }
 
 Vec4 GetModeColor(const Renderer::DrawMode& mode)

@@ -874,10 +874,15 @@ void World::Solve()
                     continue;
                 }
 
+                RigidBody* other = ce->other;
+
+                if ((other->flag & RigidBody::flag_island) == 0 && other->IsStatic() == false && other->IsSleeping())
+                {
+                    WakeBody(other);
+                }
+
                 islandContacts[contactIndex++] = c->GetContactState();
                 c->flag |= Contact::flag_island;
-
-                RigidBody* other = ce->other;
 
                 if (other->flag & RigidBody::flag_island)
                 {
@@ -887,11 +892,6 @@ void World::Solve()
                 if (other->IsStatic())
                 {
                     continue;
-                }
-
-                if (other->IsSleeping())
-                {
-                    WakeBody(other);
                 }
 
                 MuliAssert(stackPointer < bodyCount);
@@ -915,6 +915,11 @@ void World::Solve()
                     continue;
                 }
 
+                if ((other->flag & RigidBody::flag_island) == 0 && other->IsStatic() == false && other->IsSleeping())
+                {
+                    WakeBody(other);
+                }
+
                 islandJoints[jointIndex++] = j->GetJointState();
                 j->flagIsland = true;
 
@@ -926,11 +931,6 @@ void World::Solve()
                 if (other->IsStatic())
                 {
                     continue;
-                }
-
-                if (other->IsSleeping())
-                {
-                    WakeBody(other);
                 }
 
                 MuliAssert(stackPointer < bodyCount);
@@ -1968,6 +1968,70 @@ void World::WakeBody(RigidBody* body)
         return;
     }
 
+    body->flag &= ~RigidBody::flag_sleeping;
+    body->GetBodyState()->resting = 0.0f;
+
+    TransferBody(body, awake_set);
+
+    for (ContactEdge* ce = body->contactList; ce; ce = ce->next)
+    {
+        Contact* contact = ce->contact;
+        RigidBody* other = ce->other;
+
+        if (other->IsEnabled() == false)
+        {
+            continue;
+        }
+
+        TransferContact(contact, awake_set);
+    }
+
+    for (JointEdge* je = body->jointList; je; je = je->next)
+    {
+        Joint* joint = je->joint;
+        RigidBody* other = je->other;
+
+        if (other->IsEnabled() == false)
+        {
+            continue;
+        }
+
+        TransferJoint(joint, awake_set);
+    }
+}
+
+void World::SleepBody(RigidBody* body)
+{
+    if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
+    {
+        return;
+    }
+
+    if (body->IsSleeping() && body->setIndex == sleeping_set)
+    {
+        return;
+    }
+
+    BodyState* state = body->GetBodyState();
+    state->resting = max_float;
+    state->force = Vec3::zero;
+    state->torque = Vec3::zero;
+    state->linearVelocity = Vec3::zero;
+    state->angularVelocity = Vec3::zero;
+}
+
+void World::WakeIsland(RigidBody* body)
+{
+    if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
+    {
+        return;
+    }
+
+    if (body->IsSleeping() == false && body->setIndex == awake_set)
+    {
+        return;
+    }
+
     GrowableArray<RigidBody*, 64> stack;
     stack.push_back(body);
 
@@ -2028,7 +2092,7 @@ void World::WakeBody(RigidBody* body)
     }
 }
 
-void World::SleepBody(RigidBody* body)
+void World::SleepIsland(RigidBody* body)
 {
     if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
     {

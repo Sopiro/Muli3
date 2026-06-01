@@ -293,6 +293,9 @@ private:
     void WakeBody(RigidBody* body);
     void SleepBody(RigidBody* body);
 
+    void WakeIsland(RigidBody* body);
+    void SleepIsland(RigidBody* body);
+
     void ValidateSolverSets() const;
 
     const WorldSettings& settings;
