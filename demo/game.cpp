@@ -27,7 +27,7 @@ Game::Game()
 
     demoIndex = demoCount;
 
-    InitDemo(23);
+    InitDemo(26);
     Window::Get()->SetCursorHidden(false);
 
     ThreadPool::global_thread_pool.reset(new ThreadPool(std::thread::hardware_concurrency()));

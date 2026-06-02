@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-static int32 rows = 10;
+static int32 rows = 100;
 
 class Pyramid : public Demo
 {

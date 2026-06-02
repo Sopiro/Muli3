@@ -2579,6 +2579,7 @@ void World::Validate() const
             RigidBody* body = set.bodyStates[i].body;
             MuliAssert(body->setIndex == setIndex);
             MuliAssert(body->localIndex == i);
+            MuliNotUsed(body);
 
             if (setIndex == static_set)
             {
@@ -2630,6 +2631,8 @@ void World::Validate() const
                 bool sleepingA = bodyA->IsStatic() || bodyA->IsSleeping();
                 bool sleepingB = bodyB->IsStatic() || bodyB->IsSleeping();
                 MuliAssert(sleepingA && sleepingB);
+                MuliNotUsed(sleepingA);
+                MuliNotUsed(sleepingB);
             }
         }
 
@@ -2656,6 +2659,8 @@ void World::Validate() const
                 bool sleepingA = bodyA->IsStatic() || bodyA->IsSleeping();
                 bool sleepingB = bodyB->IsStatic() || bodyB->IsSleeping();
                 MuliAssert(sleepingA && sleepingB);
+                MuliNotUsed(sleepingA);
+                MuliNotUsed(sleepingB);
             }
         }
     }
@@ -2666,6 +2671,7 @@ void World::Validate() const
         const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
         std::unordered_set<RigidBody*> colorBodies;
         uint32 colorBit = colorIndex == constraint_overflow_index ? 0 : 1u << colorIndex;
+        MuliNotUsed(colorBit);
 
         for (int32 i = 0; i < int32(batch.contactStates.size()); ++i)
         {
@@ -2749,6 +2755,7 @@ void World::Validate() const
     }
     MuliAssert(contactCount == int32(seenContacts.size()));
     MuliAssert(contactCount == constraintGraph.contactCount);
+    MuliNotUsed(contactCount);
 
     int32 jointCount = 0;
     for (Joint* joint = jointList; joint; joint = joint->next)
@@ -2758,6 +2765,7 @@ void World::Validate() const
     }
     MuliAssert(jointCount == int32(seenJoints.size()));
     MuliAssert(jointCount == this->jointCount);
+    MuliNotUsed(jointCount);
 
     for (RigidBody* body = bodyList; body; body = body->next)
     {
