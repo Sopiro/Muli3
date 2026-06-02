@@ -1506,7 +1506,7 @@ void World::Solve()
 
     sleepingBodyCount = int32(solverSets[sleeping_set].bodyStates.size());
 #ifndef NDEBUG
-    ValidateSolverSets();
+    Validate();
 #endif
 
     linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
@@ -2565,28 +2565,98 @@ void World::SleepIsland(RigidBody* body)
     }
 }
 
-void World::ValidateSolverSets() const
+void World::Validate() const
 {
+    std::unordered_set<Contact*> seenContacts;
+    std::unordered_set<Joint*> seenJoints;
+
     for (int32 setIndex = 0; setIndex < solver_set_count; ++setIndex)
     {
         const SolverSet& set = solverSets[setIndex];
 
         for (int32 i = 0; i < int32(set.bodyStates.size()); ++i)
         {
-            MuliAssert(set.bodyStates[i].body->setIndex == setIndex);
-            MuliAssert(set.bodyStates[i].body->localIndex == i);
+            RigidBody* body = set.bodyStates[i].body;
+            MuliAssert(body->setIndex == setIndex);
+            MuliAssert(body->localIndex == i);
+
+            if (setIndex == static_set)
+            {
+                MuliAssert(body->IsStatic());
+            }
+            else if (setIndex == disabled_set)
+            {
+                MuliAssert(body->IsEnabled() == false);
+            }
+            else if (setIndex == awake_set)
+            {
+                MuliAssert(body->IsEnabled());
+                MuliAssert(body->IsStatic() == false);
+                MuliAssert(body->IsSleeping() == false);
+            }
+            else if (setIndex == sleeping_set)
+            {
+                MuliAssert(body->IsEnabled());
+                MuliAssert(body->IsStatic() == false);
+                MuliAssert(body->IsSleeping());
+            }
         }
 
         for (int32 i = 0; i < int32(set.contactStates.size()); ++i)
         {
-            MuliAssert(set.contactStates[i].contact->setIndex == setIndex);
-            MuliAssert(set.contactStates[i].contact->localIndex == i);
+            Contact* contact = set.contactStates[i].contact;
+            MuliAssert(seenContacts.insert(contact).second);
+            MuliAssert(contact->setIndex == setIndex);
+            MuliAssert(contact->colorIndex == null_index);
+            MuliAssert(contact->localIndex == i);
+
+            RigidBody* bodyA = contact->GetBodyA();
+            RigidBody* bodyB = contact->GetBodyB();
+            if (setIndex == static_set)
+            {
+                MuliAssert(bodyA->IsStatic() && bodyB->IsStatic());
+            }
+            else if (setIndex == disabled_set)
+            {
+                MuliAssert(bodyA->IsEnabled() == false || bodyB->IsEnabled() == false);
+            }
+            else if (setIndex == awake_set)
+            {
+                // Touching awake contacts should be in the constraint graph.
+                MuliAssert(contact->IsEnabled() == false || contact->IsTouching() == false);
+            }
+            else if (setIndex == sleeping_set)
+            {
+                bool sleepingA = bodyA->IsStatic() || bodyA->IsSleeping();
+                bool sleepingB = bodyB->IsStatic() || bodyB->IsSleeping();
+                MuliAssert(sleepingA && sleepingB);
+            }
         }
 
         for (int32 i = 0; i < int32(set.jointStates.size()); ++i)
         {
-            MuliAssert(set.jointStates[i].joint->setIndex == setIndex);
-            MuliAssert(set.jointStates[i].joint->localIndex == i);
+            Joint* joint = set.jointStates[i].joint;
+            MuliAssert(seenJoints.insert(joint).second);
+            MuliAssert(joint->setIndex == setIndex);
+            MuliAssert(joint->colorIndex == null_index);
+            MuliAssert(joint->localIndex == i);
+
+            RigidBody* bodyA = joint->GetBodyA();
+            RigidBody* bodyB = joint->GetBodyB();
+            if (setIndex == static_set)
+            {
+                MuliAssert(bodyA->IsStatic() && bodyB->IsStatic());
+            }
+            else if (setIndex == disabled_set)
+            {
+                MuliAssert(bodyA->IsEnabled() == false || bodyB->IsEnabled() == false);
+            }
+            else if (setIndex == sleeping_set)
+            {
+                bool sleepingA = bodyA->IsStatic() || bodyA->IsSleeping();
+                bool sleepingB = bodyB->IsStatic() || bodyB->IsSleeping();
+                MuliAssert(sleepingA && sleepingB);
+            }
         }
     }
 
@@ -2594,20 +2664,135 @@ void World::ValidateSolverSets() const
     for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
     {
         const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
+        std::unordered_set<RigidBody*> colorBodies;
+        uint32 colorBit = colorIndex == constraint_overflow_index ? 0 : 1u << colorIndex;
 
         for (int32 i = 0; i < int32(batch.contactStates.size()); ++i)
         {
-            MuliAssert(batch.contactStates[i].contact->setIndex == awake_set);
-            MuliAssert(batch.contactStates[i].contact->colorIndex == colorIndex);
-            MuliAssert(batch.contactStates[i].contact->localIndex == i);
+            Contact* contact = batch.contactStates[i].contact;
+            MuliAssert(seenContacts.insert(contact).second);
+            MuliAssert(contact->setIndex == awake_set);
+            MuliAssert(contact->colorIndex == colorIndex);
+            MuliAssert(contact->localIndex == i);
+            MuliAssert(contact->IsEnabled());
+            MuliAssert(contact->IsTouching());
+
+            RigidBody* bodyA = contact->GetBodyA();
+            RigidBody* bodyB = contact->GetBodyB();
+            MuliAssert(bodyA->IsEnabled());
+            MuliAssert(bodyB->IsEnabled());
+
+            if (colorIndex != constraint_overflow_index)
+            {
+                if (bodyA->IsStatic() == false)
+                {
+                    MuliAssert(bodyA->IsSleeping() == false);
+                    MuliAssert((bodyA->usedColors & colorBit) != 0);
+                    MuliAssert(colorBodies.insert(bodyA).second);
+                }
+                if (bodyB->IsStatic() == false)
+                {
+                    MuliAssert(bodyB->IsSleeping() == false);
+                    MuliAssert((bodyB->usedColors & colorBit) != 0);
+                    MuliAssert(colorBodies.insert(bodyB).second);
+                }
+            }
+            else
+            {
+                MuliAssert(bodyA->IsStatic() || bodyA->IsSleeping() == false);
+                MuliAssert(bodyB->IsStatic() || bodyB->IsSleeping() == false);
+            }
         }
 
         for (int32 i = 0; i < int32(batch.jointStates.size()); ++i)
         {
-            MuliAssert(batch.jointStates[i].joint->setIndex == awake_set);
-            MuliAssert(batch.jointStates[i].joint->colorIndex == colorIndex);
-            MuliAssert(batch.jointStates[i].joint->localIndex == i);
+            Joint* joint = batch.jointStates[i].joint;
+            MuliAssert(seenJoints.insert(joint).second);
+            MuliAssert(joint->setIndex == awake_set);
+            MuliAssert(joint->colorIndex == colorIndex);
+            MuliAssert(joint->localIndex == i);
+            MuliAssert(joint->IsEnabled());
+
+            RigidBody* bodyA = joint->GetBodyA();
+            RigidBody* bodyB = joint->GetBodyB();
+            MuliAssert(bodyA->IsEnabled());
+            MuliAssert(bodyB->IsEnabled());
+
+            if (colorIndex != constraint_overflow_index)
+            {
+                if (bodyA->IsStatic() == false)
+                {
+                    MuliAssert(bodyA->IsSleeping() == false);
+                    MuliAssert((bodyA->usedColors & colorBit) != 0);
+                    MuliAssert(colorBodies.insert(bodyA).second);
+                }
+                if (bodyB->IsStatic() == false)
+                {
+                    MuliAssert(bodyB->IsSleeping() == false);
+                    MuliAssert((bodyB->usedColors & colorBit) != 0);
+                    MuliAssert(colorBodies.insert(bodyB).second);
+                }
+            }
+            else
+            {
+                MuliAssert(bodyA->IsStatic() || bodyA->IsSleeping() == false);
+                MuliAssert(bodyB->IsStatic() || bodyB->IsSleeping() == false);
+            }
         }
+    }
+
+    int32 contactCount = 0;
+    for (Contact* contact = constraintGraph.contactList; contact; contact = contact->next)
+    {
+        MuliAssert(seenContacts.contains(contact));
+        ++contactCount;
+    }
+    MuliAssert(contactCount == int32(seenContacts.size()));
+    MuliAssert(contactCount == constraintGraph.contactCount);
+
+    int32 jointCount = 0;
+    for (Joint* joint = jointList; joint; joint = joint->next)
+    {
+        MuliAssert(seenJoints.contains(joint));
+        ++jointCount;
+    }
+    MuliAssert(jointCount == int32(seenJoints.size()));
+    MuliAssert(jointCount == this->jointCount);
+
+    for (RigidBody* body = bodyList; body; body = body->next)
+    {
+        if (body->IsStatic())
+        {
+            continue;
+        }
+
+        uint32 usedColors = 0;
+        for (int32 colorIndex = 0; colorIndex < constraint_overflow_index; ++colorIndex)
+        {
+            const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
+            uint32 colorBit = 1u << colorIndex;
+
+            for (const ContactState& state : batch.contactStates)
+            {
+                Contact* contact = state.contact;
+                if (contact->GetBodyA() == body || contact->GetBodyB() == body)
+                {
+                    usedColors |= colorBit;
+                }
+            }
+
+            for (const JointState& state : batch.jointStates)
+            {
+                Joint* joint = state.joint;
+                if (joint->GetBodyA() == body || joint->GetBodyB() == body)
+                {
+                    usedColors |= colorBit;
+                }
+            }
+        }
+
+        MuliNotUsed(usedColors);
+        MuliAssert(body->usedColors == usedColors);
     }
 }
 

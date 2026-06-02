@@ -296,7 +296,7 @@ private:
     void WakeIsland(RigidBody* body);
     void SleepIsland(RigidBody* body);
 
-    void ValidateSolverSets() const;
+    void Validate() const;
 
     const WorldSettings& settings;
     WorldProfile profile;
