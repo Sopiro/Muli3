@@ -156,6 +156,9 @@ void ThreadPool::RemoveJob(ParallelJob* job)
     {
         job->next->prev = job->prev;
     }
+
+    job->prev = nullptr;
+    job->next = nullptr;
 }
 
 void ThreadPool::ForEachThread(std::function<void(void)> func)

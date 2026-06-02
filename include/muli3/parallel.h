@@ -7,6 +7,57 @@ namespace muli3
 
 class ThreadPool;
 
+inline void Pause() noexcept
+{
+#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)
+    _mm_pause();
+#elif defined(_M_ARM64) || defined(_M_ARM)
+    __yield();
+#elif defined(__aarch64__) || defined(__arm__)
+    asm volatile("yield");
+#else
+    std::atomic_signal_fence(std::memory_order_seq_cst);
+#endif
+}
+
+class SpinLock
+{
+public:
+    void lock()
+    {
+        int spin = 2;
+
+        while (flag.test_and_set(std::memory_order_acquire))
+        {
+            while (flag.test(std::memory_order_relaxed))
+            {
+                for (int i = 0; i < spin; ++i)
+                {
+                    Pause();
+                }
+
+                if (spin < 64)
+                {
+                    spin *= 2;
+                }
+            }
+        }
+    }
+
+    bool try_lock()
+    {
+        return !flag.test_and_set(std::memory_order_acquire);
+    }
+
+    void unlock()
+    {
+        flag.clear(std::memory_order_release);
+    }
+
+private:
+    alignas(64) std::atomic_flag flag = ATOMIC_FLAG_INIT;
+};
+
 class ParallelJob
 {
 public:
