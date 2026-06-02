@@ -112,6 +112,19 @@ void ConstraintGraph::EvaluateContacts()
 
         if (graphContact)
         {
+            RigidBody* bodyA = contact->GetBodyA();
+            RigidBody* bodyB = contact->GetBodyB();
+
+            if (!bodyA->IsStatic() && bodyA->IsSleeping())
+            {
+                world->WakeIsland(bodyA);
+            }
+
+            if (!bodyB->IsStatic() && bodyB->IsSleeping())
+            {
+                world->WakeIsland(bodyB);
+            }
+
             // The contact just became active while it was stored as an awake non-touching contact.
             // Move state into the constraint graph so the solver can color it.
             int32 sourceIndex = contact->localIndex;

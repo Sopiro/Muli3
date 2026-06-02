@@ -7,6 +7,8 @@
 #include "muli3/raycast.h"
 #include "muli3/shapes.h"
 
+#include "muli3/contact_solver.h"
+
 namespace muli3
 {
 
@@ -795,33 +797,63 @@ bool World::ShapeCastClosest(
     return false;
 }
 
+// https://box2d.org/files/ErinCatto_NumericalMethods_GDC2015.pdf
+// Erin Catto's numerical method for stable gyroscopic torque integration
+static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, float h)
+{
+    // Convert to body frame
+    Vec3 localW = q.RotateInv(w);
+    Vec3 localL = inertia * localW;
+
+    // Residual vector
+    Vec3 f = h * Cross(localW, localL);
+    Mat3 gyro = Skew(localW) * inertia - Skew(localL);
+
+    // Jacobian
+    Mat3 j = inertia + Mat3{ gyro.ex * h, gyro.ey * h, gyro.ez * h };
+
+    // Single Newton-Raphson update
+    localW -= j.GetInverse() * f;
+
+    // Back to world frame
+    return q.Rotate(localW);
+}
+
 void World::Solve()
 {
-    if (bodyCount == 0)
+    SolverSet& awakeSet = solverSets[awake_set];
+    int32 awakeBodyCount = int32(awakeSet.bodyStates.size());
+    if (awakeBodyCount == 0)
     {
         return;
     }
 
+    struct StepIsland
+    {
+        int32 bodyStart;
+        int32 contactStart;
+        int32 jointStart;
+        int32 bodyCount;
+        int32 contactCount;
+        int32 jointCount;
+    };
+
     int32 stackPointer = 0;
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
 
-    int32 islandCount = 0;
-    Island* islands = (Island*)linearAllocator.Allocate(bodyCount * sizeof(Island));
+    islandCount = 0;
+    StepIsland* islands = (StepIsland*)linearAllocator.Allocate(bodyCount * sizeof(StepIsland));
 
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
     BodyState** islandBodies = (BodyState**)linearAllocator.Allocate(bodyCount * sizeof(BodyState*));
-    ContactState** islandContacts =
-        (ContactState**)linearAllocator.Allocate(constraintGraph.contactCount * sizeof(ContactState*));
-    JointState** islandJoints = (JointState**)linearAllocator.Allocate(jointCount * sizeof(JointState*));
+    Contact** islandContacts = (Contact**)linearAllocator.Allocate(constraintGraph.contactCount * sizeof(Contact*));
+    Joint** islandJoints = (Joint**)linearAllocator.Allocate(jointCount * sizeof(Joint*));
 
     MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
     ProfileScope profile_build_islands{ &profile.build_islands };
 
-    SolverSet& awakeSet = solverSets[awake_set];
-    int32 awakeBodyCount = int32(awakeSet.bodyStates.size());
-
-    for (int32 i = 0; i < awakeBodyCount; ++i)
+    for (size_t i = 0; i < awakeSet.bodyStates.size(); ++i)
     {
         RigidBody* b = awakeSet.bodyStates[i].body;
         if (b->flag & RigidBody::flag_island)
@@ -876,12 +908,7 @@ void World::Solve()
 
                 RigidBody* other = ce->other;
 
-                if ((other->flag & RigidBody::flag_island) == 0 && other->IsStatic() == false && other->IsSleeping())
-                {
-                    WakeBody(other);
-                }
-
-                islandContacts[contactIndex++] = c->GetContactState();
+                islandContacts[contactIndex++] = c;
                 c->flag |= Contact::flag_island;
 
                 if (other->flag & RigidBody::flag_island)
@@ -915,12 +942,7 @@ void World::Solve()
                     continue;
                 }
 
-                if ((other->flag & RigidBody::flag_island) == 0 && other->IsStatic() == false && other->IsSleeping())
-                {
-                    WakeBody(other);
-                }
-
-                islandJoints[jointIndex++] = j->GetJointState();
+                islandJoints[jointIndex++] = j;
                 j->flagIsland = true;
 
                 if (other->flag & RigidBody::flag_island)
@@ -943,12 +965,13 @@ void World::Solve()
         int32 islandBodyCount = bodyIndex - bodyIndex0;
         int32 islandJointCount = jointIndex - jointIndex0;
 
-        Island* island = &islands[islandCount++];
-
-        island->Prepare(
-            islandContacts + contactIndex0, islandBodies + bodyIndex0, islandJoints + jointIndex0, islandContactCount,
-            islandBodyCount, islandJointCount
-        );
+        StepIsland* island = &islands[islandCount++];
+        island->bodyStart = bodyIndex0;
+        island->contactStart = contactIndex0;
+        island->jointStart = jointIndex0;
+        island->bodyCount = islandBodyCount;
+        island->contactCount = islandContactCount;
+        island->jointCount = islandJointCount;
 
         contactIndex0 = contactIndex;
         bodyIndex0 = bodyIndex;
@@ -956,18 +979,308 @@ void World::Solve()
 
         MuliProfileZoneEnd(build_island);
     }
+
     profile_build_islands.Stop();
     MuliProfileZoneEnd(build_islands);
 
+    const Timestep& step = settings.step;
+
+    // Integrate velocities for all awake bodies
+    MuliProfileZoneNC(integrate_velocities, "Integrate Velocities", color::integrate_velocities, true);
     {
-        ProfileScope profile_solve_islands{ &profile.solve_islands };
-        MuliProfileZoneNC(solve_islands, "Solve Islands", color::solve_islands, true);
-        ParallelFor(0, islandCount, [&](int32 i) {
-            Island* island = islands + i;
-            island->Solve(this);
+        ParallelFor(0, bodyIndex, [&](int32 i) {
+            MuliProfileZoneNC(integrate_velocity, "Integrate Velocity", color::random(123987259), true);
+
+            BodyState* s = islandBodies[i];
+            RigidBody* b = s->body;
+            s->motion.c0 = s->motion.c;
+            s->motion.q0 = s->motion.q;
+            s->motion.alpha0 = 0.0f;
+
+            b->flag &= ~RigidBody::flag_sleeping;
+
+            if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+                Length2(s->linearVelocity) > settings.rest_linear_tolerance || Length2(s->torque) > 0.0f ||
+                Length2(s->force) > 0.0f)
+            {
+                s->resting = 0.0f;
+            }
+
+            if (b->GetType() == RigidBody::dynamic_body)
+            {
+                if (settings.apply_gravity)
+                {
+                    s->linearVelocity += settings.gravity * step.dt;
+                }
+
+                s->linearVelocity += s->force * s->invMass * step.dt;
+                s->angularVelocity += b->GetWorldInverseInertiaTensor() * s->torque * step.dt;
+
+                if (b->GetGyroscopicTorqueEnabled())
+                {
+                    s->angularVelocity = SolveGyroscopic(s->motion.q, b->inertia, s->angularVelocity, step.dt);
+                }
+
+                s->linearVelocity *= 1.0f / (1.0f + s->linearDamping * step.dt);
+                s->angularVelocity *= 1.0f / (1.0f + s->angularDamping * step.dt);
+            }
+
+            MuliProfileZoneEnd(integrate_velocity);
         });
-        MuliProfileZoneEnd(solve_islands);
     }
+    MuliProfileZoneEnd(integrate_velocities);
+
+    // Prepare all constraints
+    MuliProfileZoneNC(prepare_constraints, "Prepare Constraints", color::random(5684652), true);
+    {
+        MuliProfileZoneNC(prepare_contacts, "Prepare Contacts", color::random(1239087), true);
+        ParallelFor(0, contactIndex, [&](int32 i) {
+            MuliProfileZoneN(prepare_contact, "Prepare Contact", true);
+            PrepareContact(islandContacts[i]->GetContactState());
+            MuliProfileZoneEnd(prepare_contact);
+        });
+        MuliProfileZoneEnd(prepare_contacts);
+
+        MuliProfileZoneNC(prepare_joints, "Prepare Joints", color::random(523546), true);
+        ParallelFor(0, jointIndex, [&](int32 i) {
+            MuliProfileZoneN(prepare_joint, "Prepare Joints", true);
+            PrepareJoint(islandJoints[i]->GetJointState(), step);
+            MuliProfileZoneEnd(prepare_joint);
+        });
+        MuliProfileZoneEnd(prepare_joints);
+    }
+    MuliProfileZoneEnd(prepare_constraints);
+
+    MuliProfileZoneNC(warm_start_constraints, "Warm Start Constraints", color::random(912835), true);
+    {
+        ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
+
+        MuliProfileZoneNC(warm_start_contacts, "Warm Start Contacts", color::random(912835), true);
+        for (ContactState& state : overflow.contactStates)
+        {
+            MuliProfileZoneNC(warm_start_contact, "Warm Start Contact", color::random(5951211), true);
+            WarmStartContact(&state);
+            MuliProfileZoneEnd(warm_start_contact);
+        }
+        MuliProfileZoneEnd(warm_start_contacts);
+
+        MuliProfileZoneNC(warm_start_joints, "Warm Start Joints", color::random(912835), true);
+        for (JointState& state : overflow.jointStates)
+        {
+            MuliProfileZoneNC(warm_start_joint, "Warm Start Joint", color::random(591321), true);
+            WarmStartJoint(&state);
+            MuliProfileZoneEnd(warm_start_joint);
+        }
+        MuliProfileZoneEnd(warm_start_joints);
+
+        for (int32 color = 0; color < constraint_overflow_index; ++color)
+        {
+            ConstraintBatch& batch = constraintGraph.batches[color];
+
+            MuliProfileZoneNC(warm_start_contacts, "Warm Start Contacts", color::random(912835), true);
+            ParallelFor(0, batch.contactStates.size(), [&](int32 i) {
+                MuliProfileZoneNC(warm_start_contact, "Warm Start Contact", color::random(5951211), true);
+                WarmStartContact(&batch.contactStates[i]);
+                MuliProfileZoneEnd(warm_start_contact);
+            });
+            MuliProfileZoneEnd(warm_start_contacts);
+
+            MuliProfileZoneNC(warm_start_joints, "Warm Start Contacts", color::random(912835), true);
+            ParallelFor(0, batch.jointStates.size(), [&](int32 i) {
+                MuliProfileZoneNC(warm_start_joint, "Warm Start Joint", color::random(591321), true);
+                WarmStartJoint(&batch.jointStates[i]);
+                MuliProfileZoneEnd(warm_start_joint);
+            });
+            MuliProfileZoneEnd(warm_start_joints);
+        }
+    }
+    MuliProfileZoneEnd(warm_start_constraints);
+
+    MuliProfileZoneNC(solve_velocities, "Solve Velocities", color::random(98149294), true);
+    {
+        for (int32 i = 0; i < step.velocity_iterations; ++i)
+        {
+            ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
+
+            for (ContactState& state : overflow.contactStates)
+            {
+                MuliProfileZoneNC(solve_velocity_contact, "Solve Velocity Contact", color::random(9082394), true);
+                SolveContactVelocityConstraints(&state);
+                MuliProfileZoneEnd(solve_velocity_contact);
+            }
+
+            for (JointState& state : overflow.jointStates)
+            {
+                MuliProfileZoneNC(solve_velocity_joint, "Solve Velocity Joint", color::random(1287364), true);
+                SolveJointVelocityConstraints(&state, step);
+                MuliProfileZoneEnd(solve_velocity_joint);
+            }
+
+            MuliProfileZoneNC(solve_velocity, "Solve Velocity", color::random(465456), true);
+            for (int32 color = 0; color < constraint_overflow_index; ++color)
+            {
+                ConstraintBatch& batch = constraintGraph.batches[color];
+
+                ParallelFor(0, batch.contactStates.size(), [&](int32 i) {
+                    MuliProfileZoneNC(solve_velocity_contact, "Solve Velocity Contact", color::random(9082394), true);
+                    SolveContactVelocityConstraints(&batch.contactStates[i]);
+                    MuliProfileZoneEnd(solve_velocity_contact);
+                });
+
+                ParallelFor(0, batch.jointStates.size(), [&](int32 i) {
+                    MuliProfileZoneNC(solve_velocity_joint, "Solve Velocity Joint", color::random(1287364), true);
+                    SolveJointVelocityConstraints(&batch.jointStates[i], step);
+                    MuliProfileZoneEnd(solve_velocity_joint);
+                });
+            }
+
+            MuliProfileZoneEnd(solve_velocity);
+        }
+    }
+    MuliProfileZoneEnd(solve_velocities);
+
+    MuliProfileZoneNC(integrate_positions, "Integrate Positions", color::random(198372), true);
+    {
+        ParallelFor(0, bodyIndex, [&](int32 i) {
+            MuliProfileZoneNC(integrate_position, "Integrate Position", color::random(1132321), true);
+            BodyState* s = islandBodies[i];
+
+            s->force = Vec3::zero;
+            s->torque = Vec3::zero;
+
+            s->motion.c += s->linearVelocity * step.dt;
+
+            Quat w{ s->angularVelocity, 0.0f };
+            s->motion.q = s->motion.q + (w * s->motion.q) * step.dt * 0.5f;
+            s->motion.q.Normalize();
+            MuliProfileZoneEnd(integrate_position);
+        });
+    }
+    MuliProfileZoneEnd(integrate_positions);
+
+    MuliProfileZoneNC(solve_positions, "Solve Positions", color::random(8976432), true);
+    {
+        for (int32 i = 0; i < step.position_iterations; ++i)
+        {
+            MuliProfileZoneNC(solve_position, "Solve Position", color::solve_position, true);
+
+            ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
+
+            for (ContactState& state : overflow.contactStates)
+            {
+                MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
+                if (SolveContactPositionConstraints(&state) == false)
+                {
+                    state.s1->resting = 0.0f;
+                    state.s2->resting = 0.0f;
+                }
+                MuliProfileZoneEnd(solve_position_contact);
+            }
+
+            for (JointState& state : overflow.jointStates)
+            {
+                MuliProfileZoneNC(solve_position_joint, "Solve Position Joint", color::random(1287364), true);
+                if (SolveJointPositionConstraints(&state, step) == false)
+                {
+                    Joint* joint = state.joint;
+                    joint->GetBodyA()->GetBodyState()->resting = 0.0f;
+                    joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                }
+                MuliProfileZoneEnd(solve_position_joint);
+            }
+
+            for (int32 color = 0; color < constraint_overflow_index; ++color)
+            {
+                ConstraintBatch& batch = constraintGraph.batches[color];
+
+                ParallelFor(0, batch.contactStates.size(), [&](int32 j) {
+                    MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
+                    ContactState* state = &batch.contactStates[j];
+                    if (SolveContactPositionConstraints(state) == false)
+                    {
+                        state->s1->resting = 0.0f;
+                        state->s2->resting = 0.0f;
+                    }
+                    MuliProfileZoneEnd(solve_position_contact);
+                });
+
+                ParallelFor(0, batch.jointStates.size(), [&](int32 j) {
+                    MuliProfileZoneNC(solve_position_joint, "Solve Position Joint", color::random(1287364), true);
+                    JointState* state = &batch.jointStates[j];
+                    if (SolveJointPositionConstraints(state, step) == false)
+                    {
+                        Joint* joint = state->joint;
+                        joint->GetBodyA()->GetBodyState()->resting = 0.0f;
+                        joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                    }
+                    MuliProfileZoneEnd(solve_position_joint);
+                });
+            }
+
+            MuliProfileZoneEnd(solve_position);
+        }
+    }
+    MuliProfileZoneEnd(solve_positions);
+
+    MuliProfileZoneNC(sleep_island, "Sleep Island", color::random(12645), true);
+    for (int32 i = 0; i < islandCount; ++i)
+    {
+        StepIsland* island = islands + i;
+        bool awakeIsland = false;
+        for (int32 j = 0; j < island->bodyCount; ++j)
+        {
+            BodyState* s = islandBodies[island->bodyStart + j];
+            if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+                Length2(s->linearVelocity) > settings.rest_linear_tolerance)
+            {
+                awakeIsland = true;
+                break;
+            }
+        }
+
+        bool sleeping = false;
+        if (awakeIsland)
+        {
+            for (int32 j = 0; j < island->bodyCount; ++j)
+            {
+                islandBodies[island->bodyStart + j]->resting = 0.0f;
+            }
+        }
+        else
+        {
+            sleeping = settings.sleeping;
+            for (int32 j = 0; j < island->bodyCount; ++j)
+            {
+                BodyState* s = islandBodies[island->bodyStart + j];
+                s->resting += step.dt;
+                sleeping &= s->resting > settings.sleeping_time;
+            }
+        }
+
+        if (sleeping == false)
+        {
+            for (int32 j = 0; j < island->bodyCount; ++j)
+            {
+                islandBodies[island->bodyStart + j]->body->flag &= ~RigidBody::flag_sleeping;
+            }
+        }
+        else
+        {
+            for (int32 j = 0; j < island->bodyCount; ++j)
+            {
+                BodyState* s = islandBodies[island->bodyStart + j];
+                RigidBody* body = s->body;
+
+                s->force = Vec3::zero;
+                s->torque = Vec3::zero;
+                s->linearVelocity = Vec3::zero;
+                s->angularVelocity = Vec3::zero;
+                s->resting = max_float;
+                body->flag |= RigidBody::flag_sleeping;
+            }
+        }
+    }
+    MuliProfileZoneEnd(sleep_island);
 
     {
         ProfileScope profile_sync_transforms{ &profile.sync_transforms };
@@ -1002,12 +1315,51 @@ void World::Solve()
     MuliProfileZoneNC(finalize, "Finalize", color::finalize, true);
     ProfileScope profile_finalize{ &profile.finalize };
 
-    // Transfer awake contacts backward because TransferContact() swap-removes from contactStates.
-    // Touching island contacts are marked with flag_island. Non-touching contacts are not in islands,
-    // but may also need to leave awakeSet when both bodies fell asleep.
+    // Move solved graph contacts out of the graph before their bodies leave awakeSet.
+    for (int32 i = contactIndex - 1; i >= 0; --i)
+    {
+        Contact* contact = islandContacts[i];
+
+        RigidBody* bodyA = contact->GetBodyA();
+        RigidBody* bodyB = contact->GetBodyB();
+
+        contact->flag &= ~Contact::flag_island;
+
+        SolverSetIndex targetSet;
+        if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+        {
+            targetSet = disabled_set;
+        }
+        else
+        {
+            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+        }
+
+        if (targetSet != awake_set)
+        {
+            MuliAssert(contact->colorIndex != null_index);
+
+            ContactState state = constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex];
+            constraintGraph.RemoveContactFromGraph(contact);
+
+            SolverSet& target = solverSets[targetSet];
+            contact->setIndex = targetSet;
+            contact->localIndex = int32(target.contactStates.size());
+            target.contactStates.push_back(state);
+            target.contactStates.back().contact = contact;
+        }
+    }
+
+    // Non-touching awake contacts are not in islands, but may also need to leave awakeSet.
     for (int32 i = int32(awakeSet.contactStates.size()) - 1; i >= 0; --i)
     {
         Contact* contact = awakeSet.contactStates[i].contact;
+        if (contact->flag & Contact::flag_island)
+        {
+            continue;
+        }
 
         RigidBody* bodyA = contact->GetBodyA();
         RigidBody* bodyB = contact->GetBodyB();
@@ -1024,62 +1376,72 @@ void World::Solve()
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 
-        if (contact->flag & Contact::flag_island)
+        if (targetSet != awake_set)
         {
-            contact->flag &= ~Contact::flag_island;
-            if (targetSet != awake_set)
+            ContactState state = awakeSet.contactStates[i];
+
+            int32 last = int32(awakeSet.contactStates.size() - 1);
+            if (i != last)
             {
-                TransferContact(contact, targetSet);
+                awakeSet.contactStates[i] = awakeSet.contactStates[last];
+                awakeSet.contactStates[i].contact->localIndex = i;
             }
-        }
-        else if (targetSet != awake_set)
-        {
-            TransferContact(contact, targetSet);
+            awakeSet.contactStates.pop_back();
+
+            SolverSet& target = solverSets[targetSet];
+            contact->setIndex = targetSet;
+            contact->localIndex = int32(target.contactStates.size());
+            target.contactStates.push_back(state);
+            target.contactStates.back().contact = contact;
         }
     }
 
-    for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
+    // Move solved graph joints out of the graph before their bodies leave awakeSet.
+    for (int32 i = jointIndex - 1; i >= 0; --i)
     {
-        ConstraintBatch& batch = constraintGraph.batches[colorIndex];
-        for (int32 i = int32(batch.contactStates.size()) - 1; i >= 0; --i)
+        Joint* joint = islandJoints[i];
+
+        RigidBody* bodyA = joint->GetBodyA();
+        RigidBody* bodyB = joint->GetBodyB();
+
+        joint->flagIsland = false;
+
+        SolverSetIndex targetSet;
+        if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
         {
-            Contact* contact = batch.contactStates[i].contact;
+            targetSet = disabled_set;
+        }
+        else if (bodyA->IsStatic() && bodyB->IsStatic())
+        {
+            targetSet = static_set;
+        }
+        else
+        {
+            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
+            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+        }
 
-            RigidBody* bodyA = contact->GetBodyA();
-            RigidBody* bodyB = contact->GetBodyB();
+        if (targetSet != awake_set)
+        {
+            MuliAssert(joint->colorIndex != null_index);
 
-            SolverSetIndex targetSet;
-            if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
-            {
-                targetSet = disabled_set;
-            }
-            else
-            {
-                bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-                bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
-                targetSet = awakeA || awakeB ? awake_set : sleeping_set;
-            }
+            JointState state = constraintGraph.batches[joint->colorIndex].jointStates[joint->localIndex];
+            constraintGraph.RemoveJointFromGraph(joint);
 
-            contact->flag &= ~Contact::flag_island;
-            if (targetSet != awake_set)
-            {
-                ContactState state = batch.contactStates[i];
-                constraintGraph.RemoveContactFromGraph(contact);
-                MuliAssert(contact->colorIndex == null_index);
-
-                SolverSet& target = solverSets[targetSet];
-                contact->setIndex = targetSet;
-                contact->localIndex = int32(target.contactStates.size());
-                target.contactStates.push_back(state);
-            }
+            SolverSet& target = solverSets[targetSet];
+            joint->setIndex = targetSet;
+            joint->localIndex = int32(target.jointStates.size());
+            target.jointStates.push_back(state);
+            target.jointStates.back().joint = joint;
         }
     }
 
-    // Transfer awake joints backward because TransferJoint() swap-removes from jointStates.
+    // Non-island awake joints can still leave awakeSet when both connected bodies slept.
     for (int32 i = int32(awakeSet.jointStates.size()) - 1; i >= 0; --i)
     {
         Joint* joint = awakeSet.jointStates[i].joint;
-        if (joint->flagIsland == false)
+        if (joint->flagIsland)
         {
             continue;
         }
@@ -1103,51 +1465,23 @@ void World::Solve()
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 
-        joint->flagIsland = false;
         if (targetSet != awake_set)
         {
-            TransferJoint(joint, targetSet);
-        }
-    }
+            JointState state = awakeSet.jointStates[i];
 
-    // Finalize graph joints separately because their localIndex refers to a color batch.
-    for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
-    {
-        ConstraintBatch& batch = constraintGraph.batches[colorIndex];
-        for (int32 i = int32(batch.jointStates.size()) - 1; i >= 0; --i)
-        {
-            Joint* joint = batch.jointStates[i].joint;
-
-            RigidBody* bodyA = joint->GetBodyA();
-            RigidBody* bodyB = joint->GetBodyB();
-
-            SolverSetIndex targetSet;
-            if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
+            int32 last = int32(awakeSet.jointStates.size() - 1);
+            if (i != last)
             {
-                targetSet = disabled_set;
+                awakeSet.jointStates[i] = awakeSet.jointStates[last];
+                awakeSet.jointStates[i].joint->localIndex = i;
             }
-            else if (bodyA->IsStatic() && bodyB->IsStatic())
-            {
-                targetSet = static_set;
-            }
-            else
-            {
-                bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-                bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
-                targetSet = awakeA || awakeB ? awake_set : sleeping_set;
-            }
+            awakeSet.jointStates.pop_back();
 
-            joint->flagIsland = false;
-            if (targetSet != awake_set)
-            {
-                JointState state = batch.jointStates[i];
-                constraintGraph.RemoveJointFromGraph(joint);
-
-                SolverSet& target = solverSets[targetSet];
-                joint->setIndex = targetSet;
-                joint->localIndex = int32(target.jointStates.size());
-                target.jointStates.push_back(state);
-            }
+            SolverSet& target = solverSets[targetSet];
+            joint->setIndex = targetSet;
+            joint->localIndex = int32(target.jointStates.size());
+            target.jointStates.push_back(state);
+            target.jointStates.back().joint = joint;
         }
     }
 
@@ -1171,12 +1505,14 @@ void World::Solve()
     }
 
     sleepingBodyCount = int32(solverSets[sleeping_set].bodyStates.size());
-    // ValidateSolverSets();
+#ifndef NDEBUG
+    ValidateSolverSets();
+#endif
 
-    linearAllocator.Free(islandJoints, jointCount * sizeof(JointState*));
-    linearAllocator.Free(islandContacts, constraintGraph.contactCount * sizeof(ContactState*));
+    linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
+    linearAllocator.Free(islandContacts, constraintGraph.contactCount * sizeof(Contact*));
     linearAllocator.Free(islandBodies, bodyCount * sizeof(BodyState*));
-    linearAllocator.Free(islands, bodyCount * sizeof(Island));
+    linearAllocator.Free(islands, bodyCount * sizeof(StepIsland));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
     MuliProfileZoneEnd(finalize);
 }
@@ -1575,6 +1911,18 @@ void World::AddJoint(Joint* joint)
         joint->localIndex = int32(set.jointStates.size());
 
         set.jointStates.push_back(state);
+    }
+
+    if (setIndex == awake_set)
+    {
+        if (!joint->bodyA->IsStatic() && joint->bodyA->IsSleeping())
+        {
+            WakeIsland(joint->bodyA);
+        }
+        else if (!joint->bodyB->IsStatic() && joint->bodyB->IsSleeping())
+        {
+            WakeIsland(joint->bodyB);
+        }
     }
 
     ++jointCount;
@@ -2066,7 +2414,7 @@ void World::WakeIsland(RigidBody* body)
                 continue;
             }
 
-            if (other->IsStatic() == false && other->IsSleeping())
+            if (!other->IsStatic() && other->IsSleeping())
             {
                 stack.push_back(other);
             }
@@ -2084,7 +2432,7 @@ void World::WakeIsland(RigidBody* body)
 
             TransferJoint(joint, awake_set);
 
-            if (other->IsStatic() == false && other->IsSleeping())
+            if (!other->IsStatic() && other->IsSleeping())
             {
                 stack.push_back(other);
             }
@@ -2239,6 +2587,26 @@ void World::ValidateSolverSets() const
         {
             MuliAssert(set.jointStates[i].joint->setIndex == setIndex);
             MuliAssert(set.jointStates[i].joint->localIndex == i);
+        }
+    }
+
+    // Awake contacts and joints may be moved out of the solver set and into graph color batches.
+    for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
+    {
+        const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
+
+        for (int32 i = 0; i < int32(batch.contactStates.size()); ++i)
+        {
+            MuliAssert(batch.contactStates[i].contact->setIndex == awake_set);
+            MuliAssert(batch.contactStates[i].contact->colorIndex == colorIndex);
+            MuliAssert(batch.contactStates[i].contact->localIndex == i);
+        }
+
+        for (int32 i = 0; i < int32(batch.jointStates.size()); ++i)
+        {
+            MuliAssert(batch.jointStates[i].joint->setIndex == awake_set);
+            MuliAssert(batch.jointStates[i].joint->colorIndex == colorIndex);
+            MuliAssert(batch.jointStates[i].joint->localIndex == i);
         }
     }
 }

@@ -1,6 +1,5 @@
 #include "muli3/color.h"
 #include "muli3/frame.h"
-#include "muli3/hash.h"
 
 #include "renderer.h"
 
@@ -236,8 +235,8 @@ void InitializeColors()
 
     for (int32 i = 0; i < constraint_color_count; ++i)
     {
-        float hue = PermutationElement(i, constraint_color_count, 123) / float(constraint_color_count);
-        Vec3 rgb = HSLToRGB({ hue, 0.9f, 0.55f });
+        float hue = ((i * 7) % constraint_color_count) / float(constraint_color_count);
+        Vec3 rgb = HSLToRGB({ hue, 0.9f, 0.62f });
         g_colors2[i] = { rgb.x, rgb.y, rgb.z, 0.95f };
     }
 
