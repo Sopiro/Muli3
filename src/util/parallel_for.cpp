@@ -41,7 +41,7 @@ void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int
     }
 
     // Compute block size for parallel loop
-    const int32 blocks_per_worker = 4;
+    const int32 blocks_per_worker = 8;
     int32 max_block_count = blocks_per_worker * thread_pool->WorkerCount();
 
     int32 block_size;
@@ -63,11 +63,32 @@ void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int
     thread_pool->AddJob(&loop);
 
     // The calling thread helps workers instead of sleeping on the loop.
+    int32 spin = 1;
+    int32 tries = 0;
     while (!loop.Finished())
     {
-        if (thread_pool->WorkOrReturn(0) == false)
+        if (thread_pool->WorkOrReturn(0))
         {
-            Pause();
+            spin = 2;
+            tries = 0;
+        }
+        else if (tries < 128)
+        {
+            for (int32 i = 0; i < spin; ++i)
+            {
+                Pause();
+            }
+
+            if (spin < 64)
+            {
+                spin *= 2;
+            }
+
+            ++tries;
+        }
+        else
+        {
+            std::this_thread::yield();
         }
     }
 }

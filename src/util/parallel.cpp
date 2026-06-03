@@ -91,26 +91,36 @@ void ThreadPool::WaitForNextJob(uint32 currentJob)
 {
     if (spin_mode.load(std::memory_order_relaxed))
     {
-        // In spin mode workers stay awake between solver jobs.
-        // current_job changes whenever work is added, completed, or the pool shuts down.
-        while (current_job.load(std::memory_order_acquire) == currentJob)
+        // Spin briefly for the next solver job, then sleep so idle workers
+        // don't steal CPU time from a long tail block.
+        int32 spin = 2;
+        int32 tries = 0;
+        while (tries < 128)
         {
-            if (spin_mode.load(std::memory_order_relaxed) == false || shutdown.load(std::memory_order_acquire))
+            if (current_job.load(std::memory_order_acquire) != currentJob || shutdown.load(std::memory_order_acquire))
             {
                 return;
             }
 
-            Pause();
+            for (int32 i = 0; i < spin; ++i)
+            {
+                Pause();
+            }
+
+            if (spin < 64)
+            {
+                spin *= 2;
+            }
+
+            ++tries;
         }
     }
-    else
+
+    // Workers sleep until a job/state change is published.
+    std::unique_lock<std::mutex> lock(mutex);
+    while (current_job.load(std::memory_order_acquire) == currentJob && !shutdown.load(std::memory_order_acquire))
     {
-        // Outside spin mode workers sleep until a job/state change is published.
-        std::unique_lock<std::mutex> lock(mutex);
-        while (current_job.load(std::memory_order_acquire) == currentJob && !shutdown.load(std::memory_order_acquire))
-        {
-            job_list_condition.wait(lock);
-        }
+        job_list_condition.wait(lock);
     }
 }
 
@@ -158,10 +168,7 @@ void ThreadPool::AddJob(ParallelJob* job)
 
     // Wake sleeping workers or release spinning workers waiting for the next job.
     current_job.fetch_add(1, std::memory_order_release);
-    if (spin_mode.load(std::memory_order_relaxed) == false)
-    {
-        job_list_condition.notify_all();
-    }
+    job_list_condition.notify_all();
 }
 
 void ThreadPool::CompleteJob(ParallelJob* job)
