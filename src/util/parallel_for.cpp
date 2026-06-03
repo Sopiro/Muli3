@@ -42,20 +42,11 @@ void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int
 
     // Compute block size for parallel loop
     const int32 blocks_per_worker = 8;
-    int32 max_block_count = blocks_per_worker * thread_pool->WorkerCount();
+    int32 max_block_count = std::max(1, blocks_per_worker * thread_pool->WorkerCount());
+    int32 block_count = (item_count + min_range - 1) / min_range;
+    block_count = std::max(1, std::min(block_count, max_block_count));
 
-    int32 block_size;
-    int32 block_count;
-    if (item_count <= min_range * max_block_count)
-    {
-        block_size = min_range;
-        block_count = (item_count + block_size - 1) / block_size;
-    }
-    else
-    {
-        block_size = (item_count + max_block_count - 1) / max_block_count;
-        block_count = (item_count + block_size - 1) / block_size;
-    }
+    int32 block_size = (item_count + block_count - 1) / block_count;
 
     // It's safe to allocate loop on the stack
     // Because this ParallelFor() call does not return until all work for the loop is done.
