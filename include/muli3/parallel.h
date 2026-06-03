@@ -140,15 +140,20 @@ class SpinScope
 public:
     SpinScope(ThreadPool* threadPool)
         : threadPool{ threadPool }
+        , oldSpinMode{ false }
     {
-        MuliAssert(threadPool != nullptr);
-
-        oldSpinMode = threadPool->SetSpinMode(true);
+        if (threadPool)
+        {
+            oldSpinMode = threadPool->SetSpinMode(true);
+        }
     }
 
     ~SpinScope()
     {
-        threadPool->SetSpinMode(oldSpinMode);
+        if (threadPool)
+        {
+            threadPool->SetSpinMode(oldSpinMode);
+        }
     }
 
 private:

@@ -10,6 +10,7 @@ Demo::Demo(Game& game)
     , options{ game.GetDebugOptions() }
 {
     screenBounds = Window::Get()->GetWindowSize();
+    settings.thread_pool = game.GetThreadPool();
     settings.world_bounds.min.y = -30;
     world = new World(settings);
 

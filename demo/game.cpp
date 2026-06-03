@@ -27,10 +27,10 @@ Game::Game()
 
     demoIndex = demoCount;
 
+    workerCount = 8;
+    RecreateThreadPool();
     InitDemo(26);
     Window::Get()->SetCursorHidden(false);
-
-    ThreadPool::global_thread_pool.reset(new ThreadPool(std::thread::hardware_concurrency()));
 }
 
 Game::~Game()
@@ -180,7 +180,12 @@ void Game::UpdateUI()
                     ImGui::SliderInt("Velocity", &settings.step.velocity_iterations, 0, 50);
                     ImGui::SetNextItemWidth(120);
                     ImGui::SliderInt("Position", &settings.step.position_iterations, 0, 50);
-                    ImGui::Checkbox("Warm starting", &settings.step.warm_starting);
+                    ImGui::SetNextItemWidth(120);
+                    if (ImGui::SliderInt("Workers", &workerCount, 1, int32(std::max(1u, std::thread::hardware_concurrency()))))
+                    {
+                        RecreateThreadPool();
+                    }
+                    ImGui::Checkbox("Warm Starting", &settings.step.warm_starting);
                     ImGui::Checkbox("Sleeping", &settings.sleeping);
                 }
 
@@ -353,6 +358,7 @@ void Game::InitDemo(size_t index)
     if (restoreSettings)
     {
         previousSettings = demo->GetWorldSettings();
+        previousSettings.thread_pool = GetThreadPool();
         previousCamera = demo->GetCamera();
     }
 
@@ -363,11 +369,13 @@ void Game::InitDemo(size_t index)
     time = 0.0f;
     demoIndex = index;
     demo = demoFrames[demoIndex].createFunction(*this);
+    demo->GetWorldSettings().thread_pool = GetThreadPool();
     // ClearProfiles();
 
     if (restoreSettings)
     {
         demo->GetWorldSettings() = previousSettings;
+        demo->GetWorldSettings().thread_pool = GetThreadPool();
     }
 
     if (restoreCameraPosition)
@@ -384,6 +392,17 @@ void Game::ClearProfiles()
     std::memset(profiles, 0, profile_capacity * sizeof(WorldProfile));
     profileReadIndex = 0;
     profileWriteIndex = 0;
+}
+
+void Game::RecreateThreadPool()
+{
+    workerCount = std::max(workerCount, 1);
+    threadPool = std::make_unique<ThreadPool>(workerCount);
+
+    if (demo)
+    {
+        demo->GetWorldSettings().thread_pool = threadPool.get();
+    }
 }
 
 } // namespace muli3

@@ -984,56 +984,60 @@ void World::Solve()
     MuliProfileZoneEnd(build_islands);
 
     const Timestep& step = settings.step;
+    SpinScope spinMode{ settings.thread_pool };
 
-    SpinScope spinMode(ThreadPool::global_thread_pool.get());
     const int32 minBodyRange = 64;
     const int32 minConstraintRange = 32;
 
     // Integrate velocities for all awake bodies
     MuliProfileZoneNC(integrate_velocities, "Integrate Velocities", color::integrate_velocities, true);
     {
-        ParallelFor(0, bodyIndex, minBodyRange, [&](int32 i0, int32 i1) {
-            MuliProfileZoneNC(integrate_velocity, "Integrate Velocity", color::random(123987259), true);
+        ParallelFor(
+            0, bodyIndex, minBodyRange,
+            [&](int32 i0, int32 i1) {
+                MuliProfileZoneNC(integrate_velocity, "Integrate Velocity", color::random(123987259), true);
 
-            for (int32 i = i0; i < i1; ++i)
-            {
-                BodyState* s = islandBodies[i];
-                RigidBody* b = s->body;
-                s->motion.c0 = s->motion.c;
-                s->motion.q0 = s->motion.q;
-                s->motion.alpha0 = 0.0f;
-
-                b->flag &= ~RigidBody::flag_sleeping;
-
-                if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
-                    Length2(s->linearVelocity) > settings.rest_linear_tolerance || Length2(s->torque) > 0.0f ||
-                    Length2(s->force) > 0.0f)
+                for (int32 i = i0; i < i1; ++i)
                 {
-                    s->resting = 0.0f;
-                }
+                    BodyState* s = islandBodies[i];
+                    RigidBody* b = s->body;
+                    s->motion.c0 = s->motion.c;
+                    s->motion.q0 = s->motion.q;
+                    s->motion.alpha0 = 0.0f;
 
-                if (b->GetType() == RigidBody::dynamic_body)
-                {
-                    if (settings.apply_gravity)
+                    b->flag &= ~RigidBody::flag_sleeping;
+
+                    if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+                        Length2(s->linearVelocity) > settings.rest_linear_tolerance || Length2(s->torque) > 0.0f ||
+                        Length2(s->force) > 0.0f)
                     {
-                        s->linearVelocity += settings.gravity * step.dt;
+                        s->resting = 0.0f;
                     }
 
-                    s->linearVelocity += s->force * s->invMass * step.dt;
-                    s->angularVelocity += b->GetWorldInverseInertiaTensor() * s->torque * step.dt;
-
-                    if (b->GetGyroscopicTorqueEnabled())
+                    if (b->GetType() == RigidBody::dynamic_body)
                     {
-                        s->angularVelocity = SolveGyroscopic(s->motion.q, b->inertia, s->angularVelocity, step.dt);
+                        if (settings.apply_gravity)
+                        {
+                            s->linearVelocity += settings.gravity * step.dt;
+                        }
+
+                        s->linearVelocity += s->force * s->invMass * step.dt;
+                        s->angularVelocity += b->GetWorldInverseInertiaTensor() * s->torque * step.dt;
+
+                        if (b->GetGyroscopicTorqueEnabled())
+                        {
+                            s->angularVelocity = SolveGyroscopic(s->motion.q, b->inertia, s->angularVelocity, step.dt);
+                        }
+
+                        s->linearVelocity *= 1.0f / (1.0f + s->linearDamping * step.dt);
+                        s->angularVelocity *= 1.0f / (1.0f + s->angularDamping * step.dt);
                     }
-
-                    s->linearVelocity *= 1.0f / (1.0f + s->linearDamping * step.dt);
-                    s->angularVelocity *= 1.0f / (1.0f + s->angularDamping * step.dt);
                 }
-            }
 
-            MuliProfileZoneEnd(integrate_velocity);
-        });
+                MuliProfileZoneEnd(integrate_velocity);
+            },
+            settings.thread_pool
+        );
     }
     MuliProfileZoneEnd(integrate_velocities);
 
@@ -1041,25 +1045,33 @@ void World::Solve()
     MuliProfileZoneNC(prepare_constraints, "Prepare Constraints", color::random(5684652), true);
     {
         MuliProfileZoneNC(prepare_contacts, "Prepare Contacts", color::random(1239087), true);
-        ParallelFor(0, contactIndex, minConstraintRange, [&](int32 i0, int32 i1) {
-            MuliProfileZoneN(prepare_contact, "Prepare Contact", true);
-            for (int32 i = i0; i < i1; ++i)
-            {
-                PrepareContact(islandContacts[i]->GetContactState());
-            }
-            MuliProfileZoneEnd(prepare_contact);
-        });
+        ParallelFor(
+            0, contactIndex, minConstraintRange,
+            [&](int32 i0, int32 i1) {
+                MuliProfileZoneN(prepare_contact, "Prepare Contact", true);
+                for (int32 i = i0; i < i1; ++i)
+                {
+                    PrepareContact(islandContacts[i]->GetContactState());
+                }
+                MuliProfileZoneEnd(prepare_contact);
+            },
+            settings.thread_pool
+        );
         MuliProfileZoneEnd(prepare_contacts);
 
         MuliProfileZoneNC(prepare_joints, "Prepare Joints", color::random(523546), true);
-        ParallelFor(0, jointIndex, minConstraintRange, [&](int32 i0, int32 i1) {
-            MuliProfileZoneN(prepare_joint, "Prepare Joints", true);
-            for (int32 i = i0; i < i1; ++i)
-            {
-                PrepareJoint(islandJoints[i]->GetJointState(), step);
-            }
-            MuliProfileZoneEnd(prepare_joint);
-        });
+        ParallelFor(
+            0, jointIndex, minConstraintRange,
+            [&](int32 i0, int32 i1) {
+                MuliProfileZoneN(prepare_joint, "Prepare Joints", true);
+                for (int32 i = i0; i < i1; ++i)
+                {
+                    PrepareJoint(islandJoints[i]->GetJointState(), step);
+                }
+                MuliProfileZoneEnd(prepare_joint);
+            },
+            settings.thread_pool
+        );
         MuliProfileZoneEnd(prepare_joints);
     }
     MuliProfileZoneEnd(prepare_constraints);
@@ -1091,25 +1103,33 @@ void World::Solve()
             ConstraintBatch& batch = constraintGraph.batches[color];
 
             MuliProfileZoneNC(warm_start_contacts, "Warm Start Contacts", color::random(912835), true);
-            ParallelFor(0, batch.contactStates.size(), minConstraintRange, [&](int32 i0, int32 i1) {
-                MuliProfileZoneNC(warm_start_contact, "Warm Start Contact", color::random(5951211), true);
-                for (int32 i = i0; i < i1; ++i)
-                {
-                    WarmStartContact(&batch.contactStates[i]);
-                }
-                MuliProfileZoneEnd(warm_start_contact);
-            });
+            ParallelFor(
+                0, batch.contactStates.size(), minConstraintRange,
+                [&](int32 i0, int32 i1) {
+                    MuliProfileZoneNC(warm_start_contact, "Warm Start Contact", color::random(5951211), true);
+                    for (int32 i = i0; i < i1; ++i)
+                    {
+                        WarmStartContact(&batch.contactStates[i]);
+                    }
+                    MuliProfileZoneEnd(warm_start_contact);
+                },
+                settings.thread_pool
+            );
             MuliProfileZoneEnd(warm_start_contacts);
 
             MuliProfileZoneNC(warm_start_joints, "Warm Start Contacts", color::random(912835), true);
-            ParallelFor(0, batch.jointStates.size(), minConstraintRange, [&](int32 i0, int32 i1) {
-                MuliProfileZoneNC(warm_start_joint, "Warm Start Joint", color::random(591321), true);
-                for (int32 i = i0; i < i1; ++i)
-                {
-                    WarmStartJoint(&batch.jointStates[i]);
-                }
-                MuliProfileZoneEnd(warm_start_joint);
-            });
+            ParallelFor(
+                0, batch.jointStates.size(), minConstraintRange,
+                [&](int32 i0, int32 i1) {
+                    MuliProfileZoneNC(warm_start_joint, "Warm Start Joint", color::random(591321), true);
+                    for (int32 i = i0; i < i1; ++i)
+                    {
+                        WarmStartJoint(&batch.jointStates[i]);
+                    }
+                    MuliProfileZoneEnd(warm_start_joint);
+                },
+                settings.thread_pool
+            );
             MuliProfileZoneEnd(warm_start_joints);
         }
     }
@@ -1140,23 +1160,31 @@ void World::Solve()
             {
                 ConstraintBatch& batch = constraintGraph.batches[color];
 
-                ParallelFor(0, batch.contactStates.size(), minConstraintRange, [&](int32 i0, int32 i1) {
-                    MuliProfileZoneNC(solve_velocity_contact, "Solve Velocity Contact", color::random(9082394), true);
-                    for (int32 i = i0; i < i1; ++i)
-                    {
-                        SolveContactVelocityConstraints(&batch.contactStates[i]);
-                    }
-                    MuliProfileZoneEnd(solve_velocity_contact);
-                });
+                ParallelFor(
+                    0, batch.contactStates.size(), minConstraintRange,
+                    [&](int32 i0, int32 i1) {
+                        MuliProfileZoneNC(solve_velocity_contact, "Solve Velocity Contact", color::random(9082394), true);
+                        for (int32 i = i0; i < i1; ++i)
+                        {
+                            SolveContactVelocityConstraints(&batch.contactStates[i]);
+                        }
+                        MuliProfileZoneEnd(solve_velocity_contact);
+                    },
+                    settings.thread_pool
+                );
 
-                ParallelFor(0, batch.jointStates.size(), minConstraintRange, [&](int32 i0, int32 i1) {
-                    MuliProfileZoneNC(solve_velocity_joint, "Solve Velocity Joint", color::random(1287364), true);
-                    for (int32 i = i0; i < i1; ++i)
-                    {
-                        SolveJointVelocityConstraints(&batch.jointStates[i], step);
-                    }
-                    MuliProfileZoneEnd(solve_velocity_joint);
-                });
+                ParallelFor(
+                    0, batch.jointStates.size(), minConstraintRange,
+                    [&](int32 i0, int32 i1) {
+                        MuliProfileZoneNC(solve_velocity_joint, "Solve Velocity Joint", color::random(1287364), true);
+                        for (int32 i = i0; i < i1; ++i)
+                        {
+                            SolveJointVelocityConstraints(&batch.jointStates[i], step);
+                        }
+                        MuliProfileZoneEnd(solve_velocity_joint);
+                    },
+                    settings.thread_pool
+                );
             }
 
             MuliProfileZoneEnd(solve_velocity);
@@ -1166,23 +1194,27 @@ void World::Solve()
 
     MuliProfileZoneNC(integrate_positions, "Integrate Positions", color::random(198372), true);
     {
-        ParallelFor(0, bodyIndex, minBodyRange, [&](int32 i0, int32 i1) {
-            MuliProfileZoneNC(integrate_position, "Integrate Position", color::random(1132321), true);
-            for (int32 i = i0; i < i1; ++i)
-            {
-                BodyState* s = islandBodies[i];
+        ParallelFor(
+            0, bodyIndex, minBodyRange,
+            [&](int32 i0, int32 i1) {
+                MuliProfileZoneNC(integrate_position, "Integrate Position", color::random(1132321), true);
+                for (int32 i = i0; i < i1; ++i)
+                {
+                    BodyState* s = islandBodies[i];
 
-                s->force = Vec3::zero;
-                s->torque = Vec3::zero;
+                    s->force = Vec3::zero;
+                    s->torque = Vec3::zero;
 
-                s->motion.c += s->linearVelocity * step.dt;
+                    s->motion.c += s->linearVelocity * step.dt;
 
-                Quat w{ s->angularVelocity, 0.0f };
-                s->motion.q = s->motion.q + (w * s->motion.q) * step.dt * 0.5f;
-                s->motion.q.Normalize();
-            }
-            MuliProfileZoneEnd(integrate_position);
-        });
+                    Quat w{ s->angularVelocity, 0.0f };
+                    s->motion.q = s->motion.q + (w * s->motion.q) * step.dt * 0.5f;
+                    s->motion.q.Normalize();
+                }
+                MuliProfileZoneEnd(integrate_position);
+            },
+            settings.thread_pool
+        );
     }
     MuliProfileZoneEnd(integrate_positions);
 
@@ -1221,34 +1253,42 @@ void World::Solve()
             {
                 ConstraintBatch& batch = constraintGraph.batches[color];
 
-                ParallelFor(0, batch.contactStates.size(), minConstraintRange, [&](int32 i0, int32 i1) {
-                    MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
-                    for (int32 i = i0; i < i1; ++i)
-                    {
-                        ContactState* state = &batch.contactStates[i];
-                        if (SolveContactPositionConstraints(state) == false)
+                ParallelFor(
+                    0, batch.contactStates.size(), minConstraintRange,
+                    [&](int32 i0, int32 i1) {
+                        MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
+                        for (int32 i = i0; i < i1; ++i)
                         {
-                            state->s1->resting = 0.0f;
-                            state->s2->resting = 0.0f;
+                            ContactState* state = &batch.contactStates[i];
+                            if (SolveContactPositionConstraints(state) == false)
+                            {
+                                state->s1->resting = 0.0f;
+                                state->s2->resting = 0.0f;
+                            }
                         }
-                    }
-                    MuliProfileZoneEnd(solve_position_contact);
-                });
+                        MuliProfileZoneEnd(solve_position_contact);
+                    },
+                    settings.thread_pool
+                );
 
-                ParallelFor(0, batch.jointStates.size(), minConstraintRange, [&](int32 i0, int32 i1) {
-                    MuliProfileZoneNC(solve_position_joint, "Solve Position Joint", color::random(1287364), true);
-                    for (int32 i = i0; i < i1; ++i)
-                    {
-                        JointState* state = &batch.jointStates[i];
-                        if (SolveJointPositionConstraints(state, step) == false)
+                ParallelFor(
+                    0, batch.jointStates.size(), minConstraintRange,
+                    [&](int32 i0, int32 i1) {
+                        MuliProfileZoneNC(solve_position_joint, "Solve Position Joint", color::random(1287364), true);
+                        for (int32 i = i0; i < i1; ++i)
                         {
-                            Joint* joint = state->joint;
-                            joint->GetBodyA()->GetBodyState()->resting = 0.0f;
-                            joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                            JointState* state = &batch.jointStates[i];
+                            if (SolveJointPositionConstraints(state, step) == false)
+                            {
+                                Joint* joint = state->joint;
+                                joint->GetBodyA()->GetBodyState()->resting = 0.0f;
+                                joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                            }
                         }
-                    }
-                    MuliProfileZoneEnd(solve_position_joint);
-                });
+                        MuliProfileZoneEnd(solve_position_joint);
+                    },
+                    settings.thread_pool
+                );
             }
 
             MuliProfileZoneEnd(solve_position);

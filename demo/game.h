@@ -18,6 +18,7 @@ public:
     void Render();
 
     Renderer& GetRenderer();
+    ThreadPool* GetThreadPool() const;
     DebugOptions& GetDebugOptions();
     float GetTime() const;
     float GetFixedDeltaTime() const;
@@ -33,9 +34,12 @@ private:
     void UpdateInput();
     void InitDemo(size_t index);
     void ClearProfiles();
+    void RecreateThreadPool();
 
     Renderer renderer;
     Demo* demo = nullptr;
+    std::unique_ptr<ThreadPool> threadPool;
+    int32 workerCount = 1;
 
     bool restart = false;
     float fixedDeltaTime = 1.0f / 60.0f;
@@ -56,6 +60,11 @@ private:
 inline Renderer& Game::GetRenderer()
 {
     return renderer;
+}
+
+inline ThreadPool* Game::GetThreadPool() const
+{
+    return threadPool.get();
 }
 
 inline DebugOptions& Game::GetDebugOptions()

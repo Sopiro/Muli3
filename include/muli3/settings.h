@@ -46,6 +46,8 @@ struct Timestep
 
 struct WorldSettings
 {
+    class ThreadPool* thread_pool = nullptr;
+
     bool apply_gravity = true;
 
     bool sleeping = true;

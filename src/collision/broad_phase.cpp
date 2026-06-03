@@ -139,7 +139,7 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
         tree.Query(treeAABB, &callback);
 
         MuliProfileZoneEnd(broad_phase_tree_query);
-    });
+    }, graph->world->settings.thread_pool);
 
     MuliProfileZoneNC(contact_creation, "NewContact", color::random(123), true);
 
@@ -166,7 +166,7 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
         {
             tree.ClearMoved(node);
         }
-    });
+    }, graph->world->settings.thread_pool);
 
     allocator.Free(moveResults, size);
     moveCount = 0;

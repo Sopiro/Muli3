@@ -72,7 +72,7 @@ void ConstraintGraph::EvaluateContacts()
             contact->Update();
             MuliProfileZoneEnd(narrow_phase_collision);
         }
-    });
+    }, world->settings.thread_pool);
 
     MuliProfileZoneNC(post_narrow_phase, "Post Narrow Phase", color::random(945378), true);
 
@@ -294,12 +294,17 @@ void ConstraintGraph::RemoveCollider(Collider* collider)
 
         if (collider == colliderA || collider == colliderB)
         {
+            bool touching = contact->IsTouching();
+            bool enabled = contact->IsEnabled();
+            RigidBody* bodyA = colliderA->body;
+            RigidBody* bodyB = colliderB->body;
+
             Destroy(contact);
 
-            if (contact->IsTouching() && contact->IsEnabled())
+            if (touching && enabled)
             {
-                colliderA->body->Awake();
-                colliderB->body->Awake();
+                bodyA->Awake();
+                bodyB->Awake();
             }
         }
     }
