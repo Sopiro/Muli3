@@ -13,7 +13,7 @@ ThreadPool::ThreadPool(int32 worker_count)
     // so we launches one fewer than the requested number of threads.
     for (int32 i = 0; i < worker_count - 1; ++i)
     {
-        threads.emplace_back(&ThreadPool::Worker, this);
+        threads.emplace_back(&ThreadPool::Worker, this, i + 1);
     }
 }
 
@@ -36,7 +36,7 @@ ThreadPool::~ThreadPool()
     }
 }
 
-void ThreadPool::Worker()
+void ThreadPool::Worker(int32 worker_index)
 {
     MuliProfileSetThreadName("Worker");
 
@@ -44,11 +44,11 @@ void ThreadPool::Worker()
 
     while (!shutdown)
     {
-        WorkOrWait(&lock);
+        WorkOrWait(&lock, worker_index);
     }
 }
 
-void ThreadPool::WorkOrWait(std::unique_lock<std::mutex>* lock)
+void ThreadPool::WorkOrWait(std::unique_lock<std::mutex>* lock, int32 worker_index)
 {
     MuliAssert(lock->owns_lock() == true);
 
@@ -63,7 +63,7 @@ void ThreadPool::WorkOrWait(std::unique_lock<std::mutex>* lock)
     {
         // Execute work for this job
         job->active_workers++;
-        job->RunStep(lock);
+        job->RunStep(lock, worker_index);
 
         // Detach from this job
         MuliAssert(lock->owns_lock() == false);
@@ -80,12 +80,14 @@ void ThreadPool::WorkOrWait(std::unique_lock<std::mutex>* lock)
     }
     else
     {
+        // MuliProfileZoneN(wait, "Wait", true);
         // Wait for new work to arrive or the job to finish
         job_list_condition.wait(*lock);
+        // MuliProfileZoneEnd(wait);
     }
 }
 
-bool ThreadPool::WorkOrReturn()
+bool ThreadPool::WorkOrReturn(int32 worker_index)
 {
     // Return false if we do nothing
 
@@ -103,7 +105,7 @@ bool ThreadPool::WorkOrReturn()
     }
 
     job->active_workers++;
-    job->RunStep(&lock);
+    job->RunStep(&lock, worker_index);
 
     MuliAssert(lock.owns_lock() == false);
     lock.lock();
@@ -123,16 +125,18 @@ std::unique_lock<std::mutex> ThreadPool::AddJob(ParallelJob* job)
 
     std::unique_lock<std::mutex> lock(mutex);
 
-    // Link job to head of list
+    // Link job to tail of list
+    if (job_list_tail)
     {
-        if (job_list)
-        {
-            job_list->prev = job;
-        }
-
-        job->next = job_list;
+        job_list_tail->next = job;
+        job->prev = job_list_tail;
+    }
+    else
+    {
         job_list = job;
     }
+
+    job_list_tail = job;
 
     // Notify to all workers
     job_list_condition.notify_all();
@@ -155,6 +159,10 @@ void ThreadPool::RemoveJob(ParallelJob* job)
     if (job->next)
     {
         job->next->prev = job->prev;
+    }
+    else
+    {
+        job_list_tail = job->prev;
     }
 
     job->prev = nullptr;

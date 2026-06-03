@@ -2,6 +2,12 @@
 
 #include "common.h"
 
+#if defined(_M_IX86) || defined(_M_X64)
+    #include <intrin.h>
+#elif defined(__i386__) || defined(__x86_64__)
+    #include <immintrin.h>
+#endif
+
 namespace muli3
 {
 
@@ -14,7 +20,7 @@ inline void Pause() noexcept
 #elif defined(_M_ARM64) || defined(_M_ARM)
     __yield();
 #elif defined(__aarch64__) || defined(__arm__)
-    asm volatile("yield");
+    asm volatile("yield" ::: "memory");
 #else
     std::atomic_signal_fence(std::memory_order_seq_cst);
 #endif
@@ -64,7 +70,7 @@ public:
     virtual ~ParallelJob() = default;
 
     virtual bool HaveWork() const = 0;
-    virtual void RunStep(std::unique_lock<std::mutex>* lock) = 0;
+    virtual void RunStep(std::unique_lock<std::mutex>* lock, int32 worker_index) = 0;
 
     bool Finished() const
     {
@@ -92,8 +98,8 @@ public:
     explicit ThreadPool(int32 worker_count);
     ~ThreadPool();
 
-    void WorkOrWait(std::unique_lock<std::mutex>* lock);
-    bool WorkOrReturn();
+    void WorkOrWait(std::unique_lock<std::mutex>* lock, int32 worker_index = 0);
+    bool WorkOrReturn(int32 worker_index = 0);
 
     std::unique_lock<std::mutex> AddJob(ParallelJob* job);
     void RemoveJob(ParallelJob* job);
@@ -106,7 +112,7 @@ public:
     }
 
 private:
-    void Worker();
+    void Worker(int32 worker_index);
 
     bool shutdown = false;
 
@@ -115,6 +121,7 @@ private:
     std::condition_variable job_list_condition;
 
     ParallelJob* job_list = nullptr;
+    ParallelJob* job_list_tail = nullptr;
 };
 
 template <typename T>
