@@ -8,7 +8,7 @@
 
 ## Features
 
-Same architecture, collision detection, and solver as [Muli](https://github.com/Sopiro/Muli), with only the dynamics expanded to 3D.
+Same API and architecture as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded to 3D and multi-threading support.
 
 ### Collision
   - Shapes: sphere, capsule, box and convex polyhedron
@@ -23,8 +23,10 @@ Same architecture, collision detection, and solver as [Muli](https://github.com/
 
  ### Physics Simulation
   - PGS solver with a separate position solver
-  - Efficient and persistent contact management from Box2D
+  - Persistent constraint graph
+  - Graph coloring based solver with multi-threading
   - Constraint islanding and sleeping
+  - Deterministic simulation
   - Contact callbacks: begin, touching, end, pre-solve, post-solve, and destroy
   - Physics material: friction, restitution, and surface speed
   - Various joint types
