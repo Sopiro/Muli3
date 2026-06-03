@@ -27,7 +27,7 @@ public:
         return next_block.load(std::memory_order_relaxed) < block_count;
     }
 
-    virtual void RunStep(std::unique_lock<std::mutex>* lock, int32 worker_index) override;
+    virtual void RunStep(int32 worker_index) override;
 
 private:
     std::function<void(int32, int32, int32)> func;
@@ -38,8 +38,6 @@ private:
 
     int32 block_size;
     int32 block_count;
-
-    bool removed = false;
 };
 
 void ParallelFor(

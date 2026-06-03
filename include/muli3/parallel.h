@@ -70,11 +70,11 @@ public:
     virtual ~ParallelJob() = default;
 
     virtual bool HaveWork() const = 0;
-    virtual void RunStep(std::unique_lock<std::mutex>* lock, int32 worker_index) = 0;
+    virtual void RunStep(int32 worker_index) = 0;
 
     bool Finished() const
     {
-        return !HaveWork() && active_workers == 0;
+        return completed.load(std::memory_order_acquire);
     }
 
 protected:
@@ -83,7 +83,8 @@ protected:
 
 private:
     // Active threads working on this job
-    int32 active_workers = 0;
+    std::atomic<int32> active_workers = 0;
+    std::atomic_bool completed = false;
 
     // Links
     ParallelJob* prev = nullptr;
@@ -98,11 +99,12 @@ public:
     explicit ThreadPool(int32 worker_count);
     ~ThreadPool();
 
-    void WorkOrWait(std::unique_lock<std::mutex>* lock, int32 worker_index = 0);
     bool WorkOrReturn(int32 worker_index = 0);
 
-    std::unique_lock<std::mutex> AddJob(ParallelJob* job);
+    void AddJob(ParallelJob* job);
     void RemoveJob(ParallelJob* job);
+
+    bool SetSpinMode(bool enable);
 
     void ForEachThread(std::function<void(void)> func);
 
@@ -113,15 +115,45 @@ public:
 
 private:
     void Worker(int32 worker_index);
-
-    bool shutdown = false;
+    bool TryRunJob(int32 worker_index);
+    void WaitForNextJob(uint32 current_job);
+    void CompleteJob(ParallelJob* job);
 
     std::vector<std::thread> threads;
+
+    std::atomic_bool shutdown = false;
+    std::atomic_bool spin_mode = false;
+
+    // Atomic counter for job update
+    std::atomic<uint32> current_job = 0;
+
     std::mutex mutex;
     std::condition_variable job_list_condition;
 
+    SpinLock job_lock;
     ParallelJob* job_list = nullptr;
     ParallelJob* job_list_tail = nullptr;
+};
+
+class SpinScope
+{
+public:
+    SpinScope(ThreadPool* threadPool)
+        : threadPool{ threadPool }
+    {
+        MuliAssert(threadPool != nullptr);
+
+        oldSpinMode = threadPool->SetSpinMode(true);
+    }
+
+    ~SpinScope()
+    {
+        threadPool->SetSpinMode(oldSpinMode);
+    }
+
+private:
+    ThreadPool* threadPool;
+    bool oldSpinMode;
 };
 
 template <typename T>

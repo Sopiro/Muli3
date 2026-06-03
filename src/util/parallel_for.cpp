@@ -3,33 +3,18 @@
 namespace muli3
 {
 
-void ParallelForLoop::RunStep(std::unique_lock<std::mutex>* lock, int32 worker_index)
+void ParallelForLoop::RunStep(int32 worker_index)
 {
-    lock->unlock();
-
-    while (true)
+    // Claim one block at a time so workers share the loop through an atomic counter.
+    int32 block = next_block.fetch_add(1, std::memory_order_relaxed);
+    if (block >= block_count)
     {
-        int32 block = next_block.fetch_add(1, std::memory_order_relaxed);
-        if (block >= block_count)
-        {
-            break;
-        }
-
-        int32 index_begin = begin_index + block * block_size;
-        int32 index_end = std::min(index_begin + block_size, end_index);
-        func(index_begin, index_end, worker_index);
+        return;
     }
 
-    lock->lock();
-
-    // Remove job from list after all work has been claimed.
-    if (removed == false && HaveWork() == false)
-    {
-        thread_pool->RemoveJob(this);
-        removed = true;
-    }
-
-    lock->unlock();
+    int32 index_begin = begin_index + block * block_size;
+    int32 index_end = std::min(index_begin + block_size, end_index);
+    func(index_begin, index_end, worker_index);
 }
 
 void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int32, int32, int32)> func, ThreadPool* thread_pool)
@@ -49,6 +34,11 @@ void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int
     }
 
     int32 item_count = end - begin;
+    if (item_count <= min_range)
+    {
+        func(begin, end, 0);
+        return;
+    }
 
     // Compute block size for parallel loop
     const int32 blocks_per_worker = 4;
@@ -70,12 +60,15 @@ void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int
     // It's safe to allocate loop on the stack
     // Because this ParallelFor() call does not return until all work for the loop is done.
     ParallelForLoop loop(begin, end, block_size, block_count, std::move(func));
-    std::unique_lock<std::mutex> lock = thread_pool->AddJob(&loop);
+    thread_pool->AddJob(&loop);
 
-    // Current thread also work on the job
+    // The calling thread helps workers instead of sleeping on the loop.
     while (!loop.Finished())
     {
-        thread_pool->WorkOrWait(&lock, 0);
+        if (thread_pool->WorkOrReturn(0) == false)
+        {
+            Pause();
+        }
     }
 }
 

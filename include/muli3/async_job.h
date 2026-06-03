@@ -16,14 +16,18 @@ public:
 
     virtual bool HaveWork() const override
     {
-        return !started;
+        return started.load(std::memory_order_acquire) == false;
     }
 
-    virtual void RunStep(std::unique_lock<std::mutex>* lock) override
+    virtual void RunStep(int32 worker_index) override
     {
-        thread_pool->RemoveJob(this);
-        started = true;
-        lock->unlock();
+        MuliNotUsed(worker_index);
+
+        bool expected = false;
+        if (started.compare_exchange_strong(expected, true, std::memory_order_acq_rel, std::memory_order_acquire) == false)
+        {
+            return;
+        }
 
         T res = func();
         std::unique_lock<std::mutex> l(mutex);
@@ -78,7 +82,7 @@ private:
     mutable std::mutex mutex;
     std::condition_variable cv;
 
-    bool started = false;
+    std::atomic_bool started = false;
 };
 
 template <typename F, typename... Args>
@@ -88,14 +92,13 @@ inline auto RunAsync(ThreadPool* thread_pool, F&& func, Args&&... args)
     using R = std::invoke_result_t<decltype(fvoid)>;
     auto job = std::make_unique<AsyncJob<R>>(std::move(fvoid));
 
-    std::unique_lock<std::mutex> lock;
     if (!thread_pool)
     {
         job->DoWork();
     }
     else
     {
-        lock = thread_pool->AddJob(job.get());
+        thread_pool->AddJob(job.get());
     }
 
     return job;

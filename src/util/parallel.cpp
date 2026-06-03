@@ -24,11 +24,9 @@ ThreadPool::~ThreadPool()
         return;
     }
 
-    {
-        std::lock_guard<std::mutex> lock(mutex);
-        shutdown = true;
-        job_list_condition.notify_all();
-    }
+    shutdown.store(true, std::memory_order_release);
+    current_job.fetch_add(1, std::memory_order_release);
+    job_list_condition.notify_all();
 
     for (std::thread& thread : threads)
     {
@@ -40,63 +38,37 @@ void ThreadPool::Worker(int32 worker_index)
 {
     MuliProfileSetThreadName("Worker");
 
-    std::unique_lock<std::mutex> lock(mutex);
-
-    while (!shutdown)
+    while (shutdown.load(std::memory_order_acquire) == false)
     {
-        WorkOrWait(&lock, worker_index);
-    }
-}
+        uint32 job = current_job.load(std::memory_order_acquire);
 
-void ThreadPool::WorkOrWait(std::unique_lock<std::mutex>* lock, int32 worker_index)
-{
-    MuliAssert(lock->owns_lock() == true);
-
-    // Pick one job that still has work left
-    ParallelJob* job = job_list;
-    while (job && job->HaveWork() == false)
-    {
-        job = job->next;
-    }
-
-    if (job)
-    {
-        // Execute work for this job
-        job->active_workers++;
-        job->RunStep(lock, worker_index);
-
-        // Detach from this job
-        MuliAssert(lock->owns_lock() == false);
-        lock->lock();
-        job->active_workers--;
-
-        // If the job is completed,
-        // we must signal condition variable for the thread that initially add the work.
-        // That initial thread may be waiting on the condition variable for other threads to finish their work on the job.
-        if (job->Finished())
+        if (TryRunJob(worker_index))
         {
-            job_list_condition.notify_all();
+            continue;
         }
-    }
-    else
-    {
-        // MuliProfileZoneN(wait, "Wait", true);
-        // Wait for new work to arrive or the job to finish
-        job_list_condition.wait(*lock);
-        // MuliProfileZoneEnd(wait);
+
+        WaitForNextJob(job);
     }
 }
 
-bool ThreadPool::WorkOrReturn(int32 worker_index)
+bool ThreadPool::TryRunJob(int32 worker_index)
 {
-    // Return false if we do nothing
+    ParallelJob* job = nullptr;
 
-    std::unique_lock<std::mutex> lock(mutex);
-
-    ParallelJob* job = job_list;
-    while (job && job->HaveWork() == false)
     {
-        job = job->next;
+        std::lock_guard<SpinLock> lock(job_lock);
+
+        // The list lock is only held while choosing a job.
+        // The actual work runs without holding the lock.
+        for (ParallelJob* candidate = job_list; candidate; candidate = candidate->next)
+        {
+            if (candidate->HaveWork())
+            {
+                job = candidate;
+                job->active_workers.fetch_add(1, std::memory_order_relaxed);
+                break;
+            }
+        }
     }
 
     if (job == nullptr)
@@ -104,49 +76,121 @@ bool ThreadPool::WorkOrReturn(int32 worker_index)
         return false;
     }
 
-    job->active_workers++;
-    job->RunStep(&lock, worker_index);
+    job->RunStep(worker_index);
 
-    MuliAssert(lock.owns_lock() == false);
-    lock.lock();
-    job->active_workers--;
-
-    if (job->Finished())
+    int32 active_workers = job->active_workers.fetch_sub(1, std::memory_order_acq_rel) - 1;
+    if (active_workers == 0 && job->HaveWork() == false)
     {
-        job_list_condition.notify_all();
+        CompleteJob(job);
     }
 
     return true;
 }
 
-std::unique_lock<std::mutex> ThreadPool::AddJob(ParallelJob* job)
+void ThreadPool::WaitForNextJob(uint32 currentJob)
 {
-    job->thread_pool = this;
-
-    std::unique_lock<std::mutex> lock(mutex);
-
-    // Link job to tail of list
-    if (job_list_tail)
+    if (spin_mode.load(std::memory_order_relaxed))
     {
-        job_list_tail->next = job;
-        job->prev = job_list_tail;
+        // In spin mode workers stay awake between solver jobs.
+        // current_job changes whenever work is added, completed, or the pool shuts down.
+        while (current_job.load(std::memory_order_acquire) == currentJob)
+        {
+            if (spin_mode.load(std::memory_order_relaxed) == false || shutdown.load(std::memory_order_acquire))
+            {
+                return;
+            }
+
+            Pause();
+        }
     }
     else
     {
-        job_list = job;
+        // Outside spin mode workers sleep until a job/state change is published.
+        std::unique_lock<std::mutex> lock(mutex);
+        while (current_job.load(std::memory_order_acquire) == currentJob && !shutdown.load(std::memory_order_acquire))
+        {
+            job_list_condition.wait(lock);
+        }
     }
+}
 
-    job_list_tail = job;
+bool ThreadPool::WorkOrReturn(int32 worker_index)
+{
+    // Return false if we do nothing
+    return TryRunJob(worker_index);
+}
 
-    // Notify to all workers
+bool ThreadPool::SetSpinMode(bool enable)
+{
+    bool old_spin_mode = spin_mode.exchange(enable, std::memory_order_acq_rel);
+
+    // Wake sleeping workers and release spinning workers when the mode changes.
+    current_job.fetch_add(1, std::memory_order_release);
     job_list_condition.notify_all();
 
-    return lock;
+    return old_spin_mode;
+}
+
+void ThreadPool::AddJob(ParallelJob* job)
+{
+    job->thread_pool = this;
+    job->active_workers.store(0, std::memory_order_relaxed);
+    job->completed.store(false, std::memory_order_release);
+    job->prev = nullptr;
+    job->next = nullptr;
+
+    {
+        std::lock_guard<SpinLock> lock(job_lock);
+
+        // New jobs are appended so older jobs keep priority.
+        if (job_list_tail)
+        {
+            job_list_tail->next = job;
+            job->prev = job_list_tail;
+        }
+        else
+        {
+            job_list = job;
+        }
+
+        job_list_tail = job;
+    }
+
+    // Wake sleeping workers or release spinning workers waiting for the next job.
+    current_job.fetch_add(1, std::memory_order_release);
+    if (spin_mode.load(std::memory_order_relaxed) == false)
+    {
+        job_list_condition.notify_all();
+    }
+}
+
+void ThreadPool::CompleteJob(ParallelJob* job)
+{
+    bool completed = false;
+
+    {
+        std::lock_guard<SpinLock> lock(job_lock);
+
+        if (job->completed.load(std::memory_order_acquire) == false && job->HaveWork() == false &&
+            job->active_workers.load(std::memory_order_acquire) == 0)
+        {
+            RemoveJob(job);
+
+            job->completed.store(true, std::memory_order_release);
+            completed = true;
+        }
+    }
+
+    if (completed)
+    {
+        current_job.fetch_add(1, std::memory_order_release);
+        job_list_condition.notify_all();
+    }
 }
 
 void ThreadPool::RemoveJob(ParallelJob* job)
 {
-    // The lock must be held before calling this function
+    // The job lock must be held before calling this function
     if (job->prev)
     {
         job->prev->next = job->next;
