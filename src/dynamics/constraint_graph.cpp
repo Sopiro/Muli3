@@ -54,25 +54,29 @@ void ConstraintGraph::EvaluateContacts()
     // 1. Parallel Stage: Update manifolds in parallel.
     // The broad-phase overlap test (AABB query) and narrow-phase collision math (manifold calculations)
     // are strictly thread-safe as they read from body transforms and write only to their own Contact instances.
-    ParallelFor(0, activeCount, [this, &contacts](int32 begin, int32 end) {
-        for (int32 i = begin; i < end; ++i)
-        {
-            MuliProfileZoneNC(narrow_phase_collision, "Collide", color::random(4567), true);
-            Contact* contact = contacts[i];
-
-            // Perform broad phase overlap test.
-            if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
+    ParallelFor(
+        0, activeCount,
+        [this, &contacts](int32 begin, int32 end) {
+            for (int32 i = begin; i < end; ++i)
             {
-                contact->flag |= Contact::flag_disjoint;
-                MuliProfileZoneEnd(narrow_phase_collision);
-                continue;
-            }
+                MuliProfileZoneNC(narrow_phase_collision, "Collide", color::random(4567), true);
+                Contact* contact = contacts[i];
 
-            // Compute contact manifold and warm starting impulses.
-            contact->Update();
-            MuliProfileZoneEnd(narrow_phase_collision);
-        }
-    }, world->settings.thread_pool);
+                // Perform broad phase overlap test.
+                if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
+                {
+                    contact->flag |= Contact::flag_disjoint;
+                    MuliProfileZoneEnd(narrow_phase_collision);
+                    continue;
+                }
+
+                // Compute contact manifold and warm starting impulses.
+                contact->Update();
+                MuliProfileZoneEnd(narrow_phase_collision);
+            }
+        },
+        world->settings.thread_pool
+    );
 
     MuliProfileZoneNC(post_narrow_phase, "Post Narrow Phase", color::random(945378), true);
 

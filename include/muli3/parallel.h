@@ -31,7 +31,7 @@ class SpinLock
 public:
     void lock()
     {
-        int spin = 2;
+        int spin = 1;
 
         while (flag.test_and_set(std::memory_order_acquire))
         {
@@ -117,7 +117,6 @@ private:
     void Worker(int32 worker_index);
     bool TryRunJob(int32 worker_index);
     void WaitForNextJob(uint32 current_job);
-    void CompleteJob(ParallelJob* job);
 
     std::vector<std::thread> threads;
 
