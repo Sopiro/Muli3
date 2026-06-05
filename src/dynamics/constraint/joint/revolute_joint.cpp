@@ -275,10 +275,16 @@ void RevoluteJoint::ApplyLinearImpulse(const Vec3& lambda)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    sA->linearVelocity -= lambda * sA->invMass;
-    sA->angularVelocity -= s->invIA * Cross(ra, lambda);
-    sB->linearVelocity += lambda * sB->invMass;
-    sB->angularVelocity += s->invIB * Cross(rb, lambda);
+    if (!bodyA->IsStatic())
+    {
+        sA->linearVelocity -= lambda * sA->invMass;
+        sA->angularVelocity -= s->invIA * Cross(ra, lambda);
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->linearVelocity += lambda * sB->invMass;
+        sB->angularVelocity += s->invIB * Cross(rb, lambda);
+    }
 }
 
 void RevoluteJoint::ApplySwingImpulse(float lambda)
@@ -289,8 +295,14 @@ void RevoluteJoint::ApplySwingImpulse(float lambda)
 
     Vec3 p = swingAxis * lambda;
 
-    sA->angularVelocity -= s->invIA * p;
-    sB->angularVelocity += s->invIB * p;
+    if (!bodyA->IsStatic())
+    {
+        sA->angularVelocity -= s->invIA * p;
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->angularVelocity += s->invIB * p;
+    }
 }
 
 void RevoluteJoint::ApplyAngleImpulse(float lambda)
@@ -301,8 +313,14 @@ void RevoluteJoint::ApplyAngleImpulse(float lambda)
 
     Vec3 p = twistAxis * lambda;
 
-    sA->angularVelocity -= s->invIA * p;
-    sB->angularVelocity += s->invIB * p;
+    if (!bodyA->IsStatic())
+    {
+        sA->angularVelocity -= s->invIA * p;
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->angularVelocity += s->invIB * p;
+    }
 }
 
 } // namespace muli3

@@ -173,10 +173,16 @@ void DistanceJoint::ApplyImpulse(float lambda)
 
     Vec3 p = d * lambda;
 
-    sA->linearVelocity -= p * sA->invMass;
-    sA->angularVelocity -= s->invIA * Cross(ra, p);
-    sB->linearVelocity += p * sB->invMass;
-    sB->angularVelocity += s->invIB * Cross(rb, p);
+    if (!bodyA->IsStatic())
+    {
+        sA->linearVelocity -= p * sA->invMass;
+        sA->angularVelocity -= s->invIA * Cross(ra, p);
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->linearVelocity += p * sB->invMass;
+        sB->angularVelocity += s->invIB * Cross(rb, p);
+    }
 }
 
 } // namespace muli3

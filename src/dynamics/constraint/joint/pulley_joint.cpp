@@ -114,10 +114,16 @@ void PulleyJoint::ApplyImpulse(float lambda)
     Vec3 pa = -lambda * ua;
     Vec3 pb = -ratio * lambda * ub;
 
-    sA->linearVelocity += pa * sA->invMass;
-    sA->angularVelocity += s->invIA * Cross(ra, pa);
-    sB->linearVelocity += pb * sB->invMass;
-    sB->angularVelocity += s->invIB * Cross(rb, pb);
+    if (!bodyA->IsStatic())
+    {
+        sA->linearVelocity += pa * sA->invMass;
+        sA->angularVelocity += s->invIA * Cross(ra, pa);
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->linearVelocity += pb * sB->invMass;
+        sB->angularVelocity += s->invIB * Cross(rb, pb);
+    }
 }
 
 } // namespace muli3

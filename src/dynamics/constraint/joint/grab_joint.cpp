@@ -69,8 +69,11 @@ void GrabJoint::ApplyImpulse(const Vec3& lambda)
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
-    sA->linearVelocity += lambda * sA->invMass;
-    sA->angularVelocity += s->invIA * Cross(r, lambda);
+    if (!bodyA->IsStatic())
+    {
+        sA->linearVelocity += lambda * sA->invMass;
+        sA->angularVelocity += s->invIA * Cross(r, lambda);
+    }
 }
 
 } // namespace muli3

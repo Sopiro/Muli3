@@ -234,8 +234,14 @@ void TwistAngleJoint::ApplyAngleImpulse(float lambda)
 
     Vec3 p = twistAxis * lambda;
 
-    sA->angularVelocity -= s->invIA * p;
-    sB->angularVelocity += s->invIB * p;
+    if (!bodyA->IsStatic())
+    {
+        sA->angularVelocity -= s->invIA * p;
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->angularVelocity += s->invIB * p;
+    }
 }
 
 } // namespace muli3

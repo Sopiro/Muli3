@@ -123,10 +123,16 @@ void PrismaticJoint::ApplyImpulse(const Vec2& linearLambda, const Vec3& angularL
 
     Vec3 p = t1 * linearLambda.x + t2 * linearLambda.y;
 
-    sA->linearVelocity -= p * sA->invMass;
-    sA->angularVelocity -= s->invIA * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
-    sB->linearVelocity += p * sB->invMass;
-    sB->angularVelocity += s->invIB * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
+    if (!bodyA->IsStatic())
+    {
+        sA->linearVelocity -= p * sA->invMass;
+        sA->angularVelocity -= s->invIA * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->linearVelocity += p * sB->invMass;
+        sB->angularVelocity += s->invIB * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
+    }
 }
 
 } // namespace muli3

@@ -129,8 +129,14 @@ void ConeSwingJoint::ApplyImpulse(float lambda)
 
     Vec3 p = swingAxis * lambda;
 
-    sA->angularVelocity -= s->invIA * p;
-    sB->angularVelocity += s->invIB * p;
+    if (!bodyA->IsStatic())
+    {
+        sA->angularVelocity -= s->invIA * p;
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->angularVelocity += s->invIB * p;
+    }
 }
 
 } // namespace muli3

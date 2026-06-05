@@ -117,10 +117,16 @@ void WeldJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    sA->linearVelocity -= linearLambda * sA->invMass;
-    sA->angularVelocity -= s->invIA * (Cross(ra, linearLambda) + angularLambda);
-    sB->linearVelocity += linearLambda * sB->invMass;
-    sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);
+    if (!bodyA->IsStatic())
+    {
+        sA->linearVelocity -= linearLambda * sA->invMass;
+        sA->angularVelocity -= s->invIA * (Cross(ra, linearLambda) + angularLambda);
+    }
+    if (!bodyB->IsStatic())
+    {
+        sB->linearVelocity += linearLambda * sB->invMass;
+        sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);
+    }
 }
 
 } // namespace muli3

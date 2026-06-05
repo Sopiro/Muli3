@@ -80,7 +80,6 @@ static void SolveNormalContact(SolverContact* n, ContactState* s)
     }
     if (!sB->body->IsStatic())
     {
-
         sB->linearVelocity += n->j.vb * (sB->invMass * lambda);
         sB->angularVelocity += s->invIB * n->j.wb * lambda;
     }
@@ -292,8 +291,11 @@ bool SolveContactPositionConstraints(ContactState* s)
 
     PositionCorrection correction{};
 
-    s->invIA = s->s1->body->GetWorldInverseInertiaTensor();
-    s->invIB = s->s2->body->GetWorldInverseInertiaTensor();
+    RigidBody* bodyA = s->s1->body;
+    RigidBody* bodyB = s->s2->body;
+
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
     {
@@ -303,17 +305,23 @@ bool SolveContactPositionConstraints(ContactState* s)
     BodyState* s1 = s->s1;
     BodyState* s2 = s->s2;
 
-    s1->motion.c += s1->invMass * correction.linearImpulseA;
-    Vec3 angularCorrectionA = s->invIA * correction.angularImpulseA;
-    Quat w1{ angularCorrectionA, 0.0f };
-    s1->motion.q = s1->motion.q + (w1 * s1->motion.q) * 0.5f;
-    s1->motion.q.Normalize();
+    if (!bodyA->IsStatic())
+    {
+        s1->motion.c += s1->invMass * correction.linearImpulseA;
+        Vec3 angularCorrectionA = s->invIA * correction.angularImpulseA;
+        Quat w1{ angularCorrectionA, 0.0f };
+        s1->motion.q = s1->motion.q + (w1 * s1->motion.q) * 0.5f;
+        s1->motion.q.Normalize();
+    }
 
-    s2->motion.c += s2->invMass * correction.linearImpulseB;
-    Vec3 angularCorrectionB = s->invIB * correction.angularImpulseB;
-    Quat w2{ angularCorrectionB, 0.0f };
-    s2->motion.q = s2->motion.q + (w2 * s2->motion.q) * 0.5f;
-    s2->motion.q.Normalize();
+    if (!bodyB->IsStatic())
+    {
+        s2->motion.c += s2->invMass * correction.linearImpulseB;
+        Vec3 angularCorrectionB = s->invIB * correction.angularImpulseB;
+        Quat w2{ angularCorrectionB, 0.0f };
+        s2->motion.q = s2->motion.q + (w2 * s2->motion.q) * 0.5f;
+        s2->motion.q.Normalize();
+    }
 
     return solved;
 }

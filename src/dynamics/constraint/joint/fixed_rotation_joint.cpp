@@ -59,7 +59,10 @@ void FixedRotationJoint::ApplyImpulse(const Vec3& lambda)
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
-    sA->angularVelocity += s->invIA * lambda;
+    if (!bodyA->IsStatic())
+    {
+        sA->angularVelocity += s->invIA * lambda;
+    }
 }
 
 } // namespace muli3
