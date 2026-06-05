@@ -145,12 +145,10 @@ Collider* RigidBody::CreateCollider(Shape* shape, const Transform& tf, float den
         return nullptr;
     }
 
-    void* mem = world->blockAllocator.Allocate(sizeof(Collider));
-
     // Shape radius(skin) must be greater than or equal to linear_slop * 2.0 for stable CCD
     MuliAssert(shape->GetRadius() >= minimum_radius);
 
-    Collider* collider = new (mem) Collider;
+    Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
     collider->Create(this, shape, tf, density, material);
 
     collider->next = colliderList;
@@ -189,7 +187,7 @@ void RigidBody::DestroyCollider(Collider* collider)
     world->constraintGraph.RemoveCollider(collider);
     collider->~Collider();
     collider->Destroy(world);
-    world->blockAllocator.Free(collider, sizeof(Collider));
+    world->poolAllocator.Free(collider);
 
     --colliderCount;
 

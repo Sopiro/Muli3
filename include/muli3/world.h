@@ -8,8 +8,8 @@
 #include "rigidbody.h"
 #include "settings.h"
 
-#include "block_allocator.h"
 #include "linear_allocator.h"
+#include "pool_allocator.h"
 
 namespace muli3
 {
@@ -256,6 +256,8 @@ public:
     const WorldSettings& GetSettings() const;
     const WorldProfile& GetProfile() const;
 
+    uint64 GetStepIndex() const;
+
     void Awake();
 
 private:
@@ -301,6 +303,8 @@ private:
     const WorldSettings& settings;
     WorldProfile profile;
 
+    uint64 stepIndex = 0;
+
     RigidBody* bodyList = nullptr;
     RigidBody* bodyListTail = nullptr;
     int32 bodyCount = 0;
@@ -320,7 +324,7 @@ private:
     std::vector<Joint*> destroyJointBuffer;
 
     LinearAllocator linearAllocator;
-    BlockAllocator blockAllocator;
+    PoolAllocator poolAllocator;
 };
 
 inline RigidBody* World::GetBodyList() const
@@ -376,6 +380,11 @@ inline const WorldSettings& World::GetSettings() const
 inline const WorldProfile& World::GetProfile() const
 {
     return profile;
+}
+
+inline uint64 World::GetStepIndex() const
+{
+    return stepIndex;
 }
 
 inline void World::Awake()

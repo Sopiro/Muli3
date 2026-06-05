@@ -16,6 +16,9 @@ World::World(const WorldSettings& settings)
     : settings{ settings }
     , constraintGraph{ this }
 {
+    poolAllocator.Register<RigidBody>(512);
+    poolAllocator.Register<Collider>(512);
+    poolAllocator.Register<Contact>(1024);
 }
 
 World::~World()
@@ -54,12 +57,13 @@ void World::Reset()
         MuliAssert(constraintGraph.batches[i].contactStates.empty());
         MuliAssert(constraintGraph.batches[i].jointStates.empty());
     }
+
+    stepIndex = 0;
 }
 
 RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type type)
 {
-    void* mem = blockAllocator.Allocate(sizeof(RigidBody));
-    RigidBody* b = new (mem) RigidBody(transform, type);
+    RigidBody* b = poolAllocator.New<RigidBody>(transform, type);
     AddBody(b);
     return b;
 }
@@ -136,11 +140,15 @@ float World::Step(float dt)
     ProfileScope profile_step{ &profile.step };
     MuliProfileZoneNC(world_step, "Step", color::step, true);
 
+    MuliAssert(dt > 0.0f);
+
     if (dt <= 0.0f)
     {
         MuliProfileZoneEnd(world_step);
         return 0.0f;
     }
+
+    ++stepIndex;
 
     settings.step.dt = dt;
     settings.step.inv_dt = 1 / dt;
@@ -1600,8 +1608,7 @@ GrabJoint* World::CreateGrabJoint(RigidBody* body, const Vec3& anchor, const Vec
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(GrabJoint));
-    GrabJoint* gj = new (mem) GrabJoint(body, anchor, target, frequency, dampingRatio);
+    GrabJoint* gj = poolAllocator.New<GrabJoint>(body, anchor, target, frequency, dampingRatio);
 
     AddJoint(gj);
     return gj;
@@ -1614,8 +1621,7 @@ FixedRotationJoint* World::CreateFixedRotationJoint(RigidBody* body, float frequ
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(FixedRotationJoint));
-    FixedRotationJoint* frj = new (mem) FixedRotationJoint(body, frequency, dampingRatio);
+    FixedRotationJoint* frj = poolAllocator.New<FixedRotationJoint>(body, frequency, dampingRatio);
 
     AddJoint(frj);
     return frj;
@@ -1630,8 +1636,7 @@ ConeSwingJoint* World::CreateConeSwingJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(ConeSwingJoint));
-    ConeSwingJoint* csj = new (mem) ConeSwingJoint(bodyA, bodyB, axis, maxAngle, frequency, dampingRatio);
+    ConeSwingJoint* csj = poolAllocator.New<ConeSwingJoint>(bodyA, bodyB, axis, maxAngle, frequency, dampingRatio);
 
     AddJoint(csj);
     return csj;
@@ -1660,8 +1665,7 @@ RevoluteJoint* World::CreateLimitedRevoluteJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(RevoluteJoint));
-    RevoluteJoint* rj = new (mem) RevoluteJoint(bodyA, bodyB, anchor, axis, minAngle, maxAngle, frequency, dampingRatio);
+    RevoluteJoint* rj = poolAllocator.New<RevoluteJoint>(bodyA, bodyB, anchor, axis, minAngle, maxAngle, frequency, dampingRatio);
 
     AddJoint(rj);
     return rj;
@@ -1683,8 +1687,8 @@ RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(RevoluteAngleJoint));
-    RevoluteAngleJoint* raj = new (mem) RevoluteAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
+    RevoluteAngleJoint* raj =
+        poolAllocator.New<RevoluteAngleJoint>(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
 
     AddJoint(raj);
     return raj;
@@ -1699,8 +1703,7 @@ TwistAngleJoint* World::CreateTwistAngleJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(TwistAngleJoint));
-    TwistAngleJoint* taj = new (mem) TwistAngleJoint(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
+    TwistAngleJoint* taj = poolAllocator.New<TwistAngleJoint>(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
 
     AddJoint(taj);
     return taj;
@@ -1715,8 +1718,7 @@ BallSocketJoint* World::CreateBallSocketJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(BallSocketJoint));
-    BallSocketJoint* bsj = new (mem) BallSocketJoint(bodyA, bodyB, anchor, frequency, dampingRatio);
+    BallSocketJoint* bsj = poolAllocator.New<BallSocketJoint>(bodyA, bodyB, anchor, frequency, dampingRatio);
 
     AddJoint(bsj);
     return bsj;
@@ -1737,8 +1739,7 @@ DistanceJoint* World::CreateDistanceJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(DistanceJoint));
-    DistanceJoint* dj = new (mem) DistanceJoint(bodyA, bodyB, anchorA, anchorB, length, length, frequency, dampingRatio);
+    DistanceJoint* dj = poolAllocator.New<DistanceJoint>(bodyA, bodyB, anchorA, anchorB, length, length, frequency, dampingRatio);
 
     AddJoint(dj);
     return dj;
@@ -1765,8 +1766,8 @@ DistanceJoint* World::CreateLimitedDistanceJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(DistanceJoint));
-    DistanceJoint* dj = new (mem) DistanceJoint(bodyA, bodyB, anchorA, anchorB, minLength, maxLength, frequency, dampingRatio);
+    DistanceJoint* dj =
+        poolAllocator.New<DistanceJoint>(bodyA, bodyB, anchorA, anchorB, minLength, maxLength, frequency, dampingRatio);
 
     AddJoint(dj);
     return dj;
@@ -1779,8 +1780,7 @@ WeldJoint* World::CreateWeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(WeldJoint));
-    WeldJoint* wj = new (mem) WeldJoint(bodyA, bodyB, anchor, frequency, dampingRatio);
+    WeldJoint* wj = poolAllocator.New<WeldJoint>(bodyA, bodyB, anchor, frequency, dampingRatio);
 
     AddJoint(wj);
     return wj;
@@ -1795,8 +1795,7 @@ LineJoint* World::CreateLineJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(LineJoint));
-    LineJoint* lj = new (mem) LineJoint(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
+    LineJoint* lj = poolAllocator.New<LineJoint>(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
 
     AddJoint(lj);
     return lj;
@@ -1818,8 +1817,7 @@ PrismaticJoint* World::CreatePrismaticJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(PrismaticJoint));
-    PrismaticJoint* pj = new (mem) PrismaticJoint(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
+    PrismaticJoint* pj = poolAllocator.New<PrismaticJoint>(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
 
     AddJoint(pj);
     return pj;
@@ -1849,9 +1847,9 @@ PulleyJoint* World::CreatePulleyJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(PulleyJoint));
-    PulleyJoint* pj =
-        new (mem) PulleyJoint(bodyA, bodyB, anchorA, anchorB, groundAnchorA, groundAnchorB, ratio, frequency, dampingRatio);
+    PulleyJoint* pj = poolAllocator.New<PulleyJoint>(
+        bodyA, bodyB, anchorA, anchorB, groundAnchorA, groundAnchorB, ratio, frequency, dampingRatio
+    );
 
     AddJoint(pj);
     return pj;
@@ -1866,8 +1864,7 @@ MotorJoint* World::CreateMotorJoint(
         return nullptr;
     }
 
-    void* mem = blockAllocator.Allocate(sizeof(MotorJoint));
-    MotorJoint* mj = new (mem) MotorJoint(bodyA, bodyB, anchor, maxForce, maxTorque, frequency, dampingRatio);
+    MotorJoint* mj = poolAllocator.New<MotorJoint>(bodyA, bodyB, anchor, maxForce, maxTorque, frequency, dampingRatio);
 
     AddJoint(mj);
     return mj;
@@ -1903,8 +1900,7 @@ void World::AddBody(RigidBody* body)
 
 void World::FreeBody(RigidBody* body)
 {
-    body->~RigidBody();
-    blockAllocator.Free(body, sizeof(RigidBody));
+    poolAllocator.Delete(body);
 }
 
 void World::AddJoint(Joint* joint)
@@ -2007,56 +2003,43 @@ void World::FreeJoint(Joint* joint)
     switch (joint->GetType())
     {
     case Joint::Type::grab_joint:
-        ((GrabJoint*)joint)->~GrabJoint();
-        blockAllocator.Free(joint, sizeof(GrabJoint));
+        poolAllocator.Delete((GrabJoint*)joint);
         break;
     case Joint::Type::fixed_rotation_joint:
-        ((FixedRotationJoint*)joint)->~FixedRotationJoint();
-        blockAllocator.Free(joint, sizeof(FixedRotationJoint));
+        poolAllocator.Delete((FixedRotationJoint*)joint);
         break;
     case Joint::Type::cone_swing_joint:
-        ((ConeSwingJoint*)joint)->~ConeSwingJoint();
-        blockAllocator.Free(joint, sizeof(ConeSwingJoint));
+        poolAllocator.Delete((ConeSwingJoint*)joint);
         break;
     case Joint::Type::revolute_joint:
-        ((RevoluteJoint*)joint)->~RevoluteJoint();
-        blockAllocator.Free(joint, sizeof(RevoluteJoint));
+        poolAllocator.Delete((RevoluteJoint*)joint);
         break;
     case Joint::Type::revolute_angle_joint:
-        ((RevoluteAngleJoint*)joint)->~RevoluteAngleJoint();
-        blockAllocator.Free(joint, sizeof(RevoluteAngleJoint));
+        poolAllocator.Delete((RevoluteAngleJoint*)joint);
         break;
     case Joint::Type::twist_angle_joint:
-        ((TwistAngleJoint*)joint)->~TwistAngleJoint();
-        blockAllocator.Free(joint, sizeof(TwistAngleJoint));
+        poolAllocator.Delete((TwistAngleJoint*)joint);
         break;
     case Joint::Type::ball_socket_joint:
-        ((BallSocketJoint*)joint)->~BallSocketJoint();
-        blockAllocator.Free(joint, sizeof(BallSocketJoint));
+        poolAllocator.Delete((BallSocketJoint*)joint);
         break;
     case Joint::Type::distance_joint:
-        ((DistanceJoint*)joint)->~DistanceJoint();
-        blockAllocator.Free(joint, sizeof(DistanceJoint));
+        poolAllocator.Delete((DistanceJoint*)joint);
         break;
     case Joint::Type::weld_joint:
-        ((WeldJoint*)joint)->~WeldJoint();
-        blockAllocator.Free(joint, sizeof(WeldJoint));
+        poolAllocator.Delete((WeldJoint*)joint);
         break;
     case Joint::Type::line_joint:
-        ((LineJoint*)joint)->~LineJoint();
-        blockAllocator.Free(joint, sizeof(LineJoint));
+        poolAllocator.Delete((LineJoint*)joint);
         break;
     case Joint::Type::prismatic_joint:
-        ((PrismaticJoint*)joint)->~PrismaticJoint();
-        blockAllocator.Free(joint, sizeof(PrismaticJoint));
+        poolAllocator.Delete((PrismaticJoint*)joint);
         break;
     case Joint::Type::pulley_joint:
-        ((PulleyJoint*)joint)->~PulleyJoint();
-        blockAllocator.Free(joint, sizeof(PulleyJoint));
+        poolAllocator.Delete((PulleyJoint*)joint);
         break;
     case Joint::Type::motor_joint:
-        ((MotorJoint*)joint)->~MotorJoint();
-        blockAllocator.Free(joint, sizeof(MotorJoint));
+        poolAllocator.Delete((MotorJoint*)joint);
         break;
     default:
         MuliAssert(false);
@@ -2075,23 +2058,19 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
     case Shape::sphere:
     {
-        void* mem = blockAllocator.Allocate(sizeof(SphereShape));
-        return new (mem) SphereShape(*(const SphereShape*)shape, transform);
+        return poolAllocator.New<SphereShape>(*(const SphereShape*)shape, transform);
     }
     case Shape::capsule:
     {
-        void* mem = blockAllocator.Allocate(sizeof(CapsuleShape));
-        return new (mem) CapsuleShape(*(const CapsuleShape*)shape, transform);
+        return poolAllocator.New<CapsuleShape>(*(const CapsuleShape*)shape, transform);
     }
     case Shape::box:
     {
-        void* mem = blockAllocator.Allocate(sizeof(BoxShape));
-        return new (mem) BoxShape(*(const BoxShape*)shape, transform);
+        return poolAllocator.New<BoxShape>(*(const BoxShape*)shape, transform);
     }
     case Shape::convex:
     {
-        void* mem = blockAllocator.Allocate(sizeof(ConvexShape));
-        return new (mem) ConvexShape(*(const ConvexShape*)shape, transform);
+        return poolAllocator.New<ConvexShape>(*(const ConvexShape*)shape, transform);
     }
     default:
         MuliAssert(false);
@@ -2106,20 +2085,16 @@ void World::FreeShape(Shape* shape)
     switch (shape->GetType())
     {
     case Shape::sphere:
-        ((SphereShape*)shape)->~SphereShape();
-        blockAllocator.Free(shape, sizeof(SphereShape));
+        poolAllocator.Delete((SphereShape*)shape);
         break;
     case Shape::capsule:
-        ((CapsuleShape*)shape)->~CapsuleShape();
-        blockAllocator.Free(shape, sizeof(CapsuleShape));
+        poolAllocator.Delete((CapsuleShape*)shape);
         break;
     case Shape::box:
-        ((BoxShape*)shape)->~BoxShape();
-        blockAllocator.Free(shape, sizeof(BoxShape));
+        poolAllocator.Delete((BoxShape*)shape);
         break;
     case Shape::convex:
-        ((ConvexShape*)shape)->~ConvexShape();
-        blockAllocator.Free(shape, sizeof(ConvexShape));
+        poolAllocator.Delete((ConvexShape*)shape);
         break;
     default:
         MuliAssert(false);

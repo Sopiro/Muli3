@@ -197,8 +197,7 @@ void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
         e = e->next;
     }
 
-    void* mem = world->blockAllocator.Allocate(sizeof(Contact));
-    Contact* c = new (mem) Contact(colliderA, colliderB);
+    Contact* c = world->poolAllocator.New<Contact>(colliderA, colliderB);
 
     c->prev = nullptr;
     c->next = contactList;
@@ -271,8 +270,7 @@ void ConstraintGraph::Destroy(Contact* c)
         world->RemoveContactState(c);
     }
 
-    c->~Contact();
-    world->blockAllocator.Free(c, sizeof(Contact));
+    world->poolAllocator.Delete(c);
     --contactCount;
 }
 
