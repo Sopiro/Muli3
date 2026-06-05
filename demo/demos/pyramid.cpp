@@ -1,14 +1,18 @@
 #include "demo.h"
 #include "game.h"
+#include "muli3/hash.h"
 #include "window.h"
 
 namespace muli3
 {
 
-static int32 rows = 100;
+static int32 rows = 50;
 
 class Pyramid : public Demo
 {
+    int s = 0;
+    RigidBody* test[1000];
+
 public:
     Pyramid(Game& game)
         : Demo(game)
@@ -24,13 +28,17 @@ public:
         {
             for (int32 x = 0; x < rows - y; ++x)
             {
-                world->CreateBox(
+                RigidBody* box = world->CreateBox(
                     size,
                     Transform{
                         Vec3{ xStart + y * xStep * 0.5f + x * xStep, yStart + y * yStep, 0.0f },
                     },
                     RigidBody::dynamic_body
                 );
+                if (s < 1000)
+                {
+                    test[s++] = box;
+                }
             }
         }
 
@@ -38,6 +46,39 @@ public:
         world->CreateBox(h * 2, 0.5f, h * 2, identity, RigidBody::static_body);
         camera.SetPosition(Vec3{ 0.0f, h * 0.7f, h * 1.5f });
         camera.SetRotation(-90.0f, -18.0f);
+    }
+
+    std::string ts = "";
+    void Render() override
+    {
+        if (world->GetStepIndex() < 2500)
+        {
+            for (int i = 0; i < s; ++i)
+            {
+                if (test[i] && test[i]->IsSleeping())
+                {
+                    std::cout << world->GetStepIndex() << ": " << test[i]->GetPosition().ToString() << std::endl;
+                    ts += std::to_string(world->GetStepIndex()) + ": " + test[i]->GetPosition().ToString();
+                    test[i] = nullptr;
+                }
+                if (test[i]) renderer.DrawPoint(test[i]->GetPosition(), { 1, 0, 1, 1 });
+            }
+        }
+
+        if (world->GetStepIndex() == 2500)
+        {
+            auto hash = HashBuffer(ts.data(), ts.size());
+            std::cout << hash << std::endl;
+            if (hash == 3452869397254911038u)
+            {
+                std::cout << "Hash matched!" << std::endl;
+            }
+            else
+            {
+                std::cout << "Hash UN MATCHED" << std::endl;
+            }
+            exit(0);
+        }
     }
 
     void UpdateUI() override

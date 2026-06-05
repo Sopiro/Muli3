@@ -374,12 +374,12 @@ int32 ConstraintGraph::AssignColor(RigidBody* bodyA, RigidBody* bodyB)
         return constraint_overflow_index;
     }
 
-    if (staticA || staticB)
-    {
-        // Find the highest free color index.
-        return 31 - std::countl_zero(freeColors);
-    }
-    else
+    // if (staticA || staticB)
+    // {
+    //     // Find the highest free color index.
+    //     return 31 - std::countl_zero(freeColors);
+    // }
+    // else
     {
         // Find the lowest free color index.
         return std::countr_zero(freeColors);

@@ -117,12 +117,14 @@ inline RigidBody* Contact::GetBodyB() const
 
 inline RigidBody* Contact::GetReferenceBody() const
 {
-    return GetContactState()->s1->body;
+    const ContactState* s = GetContactState();
+    return s->manifold.featureFlipped ? GetBodyB() : GetBodyA();
 }
 
 inline RigidBody* Contact::GetIncidentBody() const
 {
-    return GetContactState()->s2->body;
+    const ContactState* s = GetContactState();
+    return s->manifold.featureFlipped ? GetBodyA() : GetBodyB();
 }
 
 inline const Contact* Contact::GetPrev() const

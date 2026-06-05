@@ -1,6 +1,7 @@
 #include "muli3/contact_solver.h"
+#include "muli3/contact.h"
 #include "muli3/frame.h"
-#include "muli3/joints.h"
+#include "muli3/joints.h" // IWYU pragma: keep
 #include "muli3/rigidbody.h"
 #include "muli3/solver_states.h"
 
@@ -72,11 +73,17 @@ static void SolveNormalContact(SolverContact* n, ContactState* s)
     // Apply impulse
     // V2 = V2' + M^-1 * Pc
     // Pc = J^t * λ
+    if (!sA->body->IsStatic())
+    {
+        sA->linearVelocity += n->j.va * (sA->invMass * lambda);
+        sA->angularVelocity += s->invIA * n->j.wa * lambda;
+    }
+    if (!sB->body->IsStatic())
+    {
 
-    sA->linearVelocity += n->j.va * (sA->invMass * lambda);
-    sA->angularVelocity += s->invIA * n->j.wa * lambda;
-    sB->linearVelocity += n->j.vb * (sB->invMass * lambda);
-    sB->angularVelocity += s->invIB * n->j.wb * lambda;
+        sB->linearVelocity += n->j.vb * (sB->invMass * lambda);
+        sB->angularVelocity += s->invIB * n->j.wb * lambda;
+    }
 }
 
 static void PrepareTangentContact(SolverContact* t, ContactState* s, const Vec3& tangent, uint8 tangentIndex, int32 index)
@@ -128,10 +135,16 @@ static void SolveTangentContact(SolverContact* t, ContactState* s, const SolverC
     // V2 = V2' + M^-1 * Pc
     // Pc = J^t * λ
 
-    sA->linearVelocity += t->j.va * (sA->invMass * lambda);
-    sA->angularVelocity += s->invIA * t->j.wa * lambda;
-    sB->linearVelocity += t->j.vb * (sB->invMass * lambda);
-    sB->angularVelocity += s->invIB * t->j.wb * lambda;
+    if (!sA->body->IsStatic())
+    {
+        sA->linearVelocity += t->j.va * (sA->invMass * lambda);
+        sA->angularVelocity += s->invIA * t->j.wa * lambda;
+    }
+    if (!sB->body->IsStatic())
+    {
+        sB->linearVelocity += t->j.vb * (sB->invMass * lambda);
+        sB->angularVelocity += s->invIB * t->j.wb * lambda;
+    }
 }
 
 static void WarmStartSolverContact(SolverContact* n, ContactState* s)
@@ -140,10 +153,16 @@ static void WarmStartSolverContact(SolverContact* n, ContactState* s)
     BodyState* sB = s->s2;
 
     // Warm start
-    sA->linearVelocity += n->j.va * (sA->invMass * n->impulse);
-    sA->angularVelocity += s->invIA * n->j.wa * n->impulse;
-    sB->linearVelocity += n->j.vb * (sB->invMass * n->impulse);
-    sB->angularVelocity += s->invIB * n->j.wb * n->impulse;
+    if (!sA->body->IsStatic())
+    {
+        sA->linearVelocity += n->j.va * (sA->invMass * n->impulse);
+        sA->angularVelocity += s->invIA * n->j.wa * n->impulse;
+    }
+    if (!sB->body->IsStatic())
+    {
+        sB->linearVelocity += n->j.vb * (sB->invMass * n->impulse);
+        sB->angularVelocity += s->invIB * n->j.wb * n->impulse;
+    }
 }
 
 static void PreparePosition(SolverPosition* p, ContactState* s, int32 index)
@@ -208,6 +227,22 @@ static bool SolvePosition(PositionCorrection* r, const SolverPosition* p, const 
 
 void PrepareContact(ContactState* s)
 {
+    Contact* contact = s->contact;
+
+    RigidBody* bodyA = contact->GetBodyA();
+    RigidBody* bodyB = contact->GetBodyB();
+
+    if (s->manifold.featureFlipped)
+    {
+        s->s1 = bodyB->GetBodyState();
+        s->s2 = bodyA->GetBodyState();
+    }
+    else
+    {
+        s->s1 = bodyA->GetBodyState();
+        s->s2 = bodyB->GetBodyState();
+    }
+
     s->invIA = s->s1->body->GetWorldInverseInertiaTensor();
     s->invIB = s->s2->body->GetWorldInverseInertiaTensor();
 

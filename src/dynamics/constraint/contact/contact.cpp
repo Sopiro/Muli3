@@ -103,17 +103,6 @@ void Contact::Update()
         return;
     }
 
-    if (s->manifold.featureFlipped)
-    {
-        s->s1 = bodyB->GetBodyState();
-        s->s2 = bodyA->GetBodyState();
-    }
-    else
-    {
-        s->s1 = bodyA->GetBodyState();
-        s->s2 = bodyB->GetBodyState();
-    }
-
     for (int32 n = 0; n < s->manifold.contactCount; ++n)
     {
         for (int32 o = 0; o < oldManifold.contactCount; ++o)

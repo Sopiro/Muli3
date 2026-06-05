@@ -194,6 +194,7 @@ void Game::UpdateUI()
                 ImGui::Text("Bodies: %d", world.GetBodyCount());
                 ImGui::Text("Sleeping dynamic bodies: %d", world.GetSleepingBodyCount());
                 ImGui::Text("Broad phase contacts: %d", world.GetContactCount());
+                ImGui::Text("Steps: %lld", world.GetStepIndex());
                 ImGui::EndTabItem();
             }
 

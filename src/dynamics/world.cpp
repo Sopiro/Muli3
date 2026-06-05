@@ -869,20 +869,9 @@ void World::Solve()
             continue;
         }
 
-        if (b->IsSleeping())
-        {
-            continue;
-        }
-
-        if (b->IsStatic())
-        {
-            continue;
-        }
-
-        if (b->IsEnabled() == false)
-        {
-            continue;
-        }
+        MuliAssert(!b->IsSleeping());
+        MuliAssert(!b->IsStatic());
+        MuliAssert(b->IsEnabled());
 
         MuliProfileZoneNC(build_island, "Build Island", color::random(31928), true);
         stack[stackPointer++] = b;
@@ -1239,8 +1228,14 @@ void World::Solve()
                 MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
                 if (SolveContactPositionConstraints(&state) == false)
                 {
-                    state.s1->resting = 0.0f;
-                    state.s2->resting = 0.0f;
+                    if (!state.s1->body->IsStatic())
+                    {
+                        state.s1->resting = 0.0f;
+                    }
+                    if (!state.s2->body->IsStatic())
+                    {
+                        state.s2->resting = 0.0f;
+                    }
                 }
                 MuliProfileZoneEnd(solve_position_contact);
             }
@@ -1251,8 +1246,16 @@ void World::Solve()
                 if (SolveJointPositionConstraints(&state, step) == false)
                 {
                     Joint* joint = state.joint;
-                    joint->GetBodyA()->GetBodyState()->resting = 0.0f;
-                    joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                    RigidBody* bodyA = joint->GetBodyA();
+                    RigidBody* bodyB = joint->GetBodyB();
+                    if (!bodyA->IsStatic())
+                    {
+                        bodyA->GetBodyState()->resting = 0.0f;
+                    }
+                    if (!bodyB->IsStatic())
+                    {
+                        bodyB->GetBodyState()->resting = 0.0f;
+                    }
                 }
                 MuliProfileZoneEnd(solve_position_joint);
             }
@@ -1270,8 +1273,14 @@ void World::Solve()
                             ContactState* state = &batch.contactStates[i];
                             if (SolveContactPositionConstraints(state) == false)
                             {
-                                state->s1->resting = 0.0f;
-                                state->s2->resting = 0.0f;
+                                if (!state->s1->body->IsStatic())
+                                {
+                                    state->s1->resting = 0.0f;
+                                }
+                                if (!state->s2->body->IsStatic())
+                                {
+                                    state->s2->resting = 0.0f;
+                                }
                             }
                         }
                         MuliProfileZoneEnd(solve_position_contact);
@@ -1289,8 +1298,16 @@ void World::Solve()
                             if (SolveJointPositionConstraints(state, step) == false)
                             {
                                 Joint* joint = state->joint;
-                                joint->GetBodyA()->GetBodyState()->resting = 0.0f;
-                                joint->GetBodyB()->GetBodyState()->resting = 0.0f;
+                                RigidBody* bodyA = joint->GetBodyA();
+                                RigidBody* bodyB = joint->GetBodyB();
+                                if (!bodyA->IsStatic())
+                                {
+                                    bodyA->GetBodyState()->resting = 0.0f;
+                                }
+                                if (!bodyB->IsStatic())
+                                {
+                                    bodyB->GetBodyState()->resting = 0.0f;
+                                }
                             }
                         }
                         MuliProfileZoneEnd(solve_position_joint);
@@ -2745,7 +2762,7 @@ void World::Validate() const
                     MuliAssert((bodyA->usedColors & colorBit) != 0);
                     MuliAssert(colorBodies.insert(bodyA).second);
                 }
-                if (bodyB->IsStatic() == false)
+                if (bodyA != bodyB && bodyB->IsStatic() == false)
                 {
                     MuliAssert(bodyB->IsSleeping() == false);
                     MuliAssert((bodyB->usedColors & colorBit) != 0);
@@ -2781,7 +2798,7 @@ void World::Validate() const
                     MuliAssert((bodyA->usedColors & colorBit) != 0);
                     MuliAssert(colorBodies.insert(bodyA).second);
                 }
-                if (bodyB->IsStatic() == false)
+                if (bodyA != bodyB && bodyB->IsStatic() == false)
                 {
                     MuliAssert(bodyB->IsSleeping() == false);
                     MuliAssert((bodyB->usedColors & colorBit) != 0);
