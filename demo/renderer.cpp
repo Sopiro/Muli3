@@ -229,14 +229,14 @@ void InitializeColors()
     constexpr float stride = 360.0f / g_colorCount;
     for (int32 i = 0; i < g_colorCount; ++i)
     {
-        Vec3 rgb = HSLToRGB({ i * stride / 360.0f, 1.0f, 0.8f });
+        Vec3 rgb = color::HSLToRGB({ i * stride / 360.0f, 1.0f, 0.8f });
         g_colors[i] = Vec4{ rgb.x, rgb.y, rgb.z, 0.85f };
     }
 
     for (int32 i = 0; i < constraint_color_count; ++i)
     {
         float hue = ((i * 7) % constraint_color_count) / float(constraint_color_count);
-        Vec3 rgb = HSLToRGB({ hue, 0.9f, 0.62f });
+        Vec3 rgb = color::HSLToRGB({ hue, 0.9f, 0.62f });
         g_colors2[i] = { rgb.x, rgb.y, rgb.z, 0.95f };
     }
 

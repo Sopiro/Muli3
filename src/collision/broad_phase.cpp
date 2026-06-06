@@ -115,33 +115,37 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
 
     // Parallel Stage: Query tree for each moved proxy in parallel
     // The AABB tree query is read-only and fully thread-safe
-    ParallelFor(0, moveCount, [this, moveResults](int32 i) {
-        MuliProfileZoneNC(broad_phase_tree_query, "TreeQuery", color::random(123), true);
+    ParallelFor(
+        0, moveCount,
+        [this, moveResults](int32 i) {
+            MuliProfileZoneNR(broad_phase_tree_query, "TreeQuery", true);
 
-        NodeIndex node = moveBuffer[i];
+            NodeIndex node = moveBuffer[i];
 
-        MoveResult* moveResult = moveResults + i;
-        moveResult->pairs.reset();
+            MoveResult* moveResult = moveResults + i;
+            moveResult->pairs.reset();
 
-        if (node == AABBTree::nullNode)
-        {
+            if (node == AABBTree::nullNode)
+            {
+                MuliProfileZoneEnd(broad_phase_tree_query);
+                return;
+            }
+
+            Collider* colliderA = tree.GetData(node);
+            RigidBody* bodyA = colliderA->body;
+            Shape::Type tfA = colliderA->GetType();
+
+            const AABB& treeAABB = tree.GetAABB(node);
+
+            TreeCallback callback{ &tree, node, colliderA, bodyA, tfA, moveResult };
+            tree.Query(treeAABB, &callback);
+
             MuliProfileZoneEnd(broad_phase_tree_query);
-            return;
-        }
+        },
+        graph->world->settings.thread_pool
+    );
 
-        Collider* colliderA = tree.GetData(node);
-        RigidBody* bodyA = colliderA->body;
-        Shape::Type tfA = colliderA->GetType();
-
-        const AABB& treeAABB = tree.GetAABB(node);
-
-        TreeCallback callback{ &tree, node, colliderA, bodyA, tfA, moveResult };
-        tree.Query(treeAABB, &callback);
-
-        MuliProfileZoneEnd(broad_phase_tree_query);
-    }, graph->world->settings.thread_pool);
-
-    MuliProfileZoneNC(contact_creation, "NewContact", color::random(123), true);
+    MuliProfileZoneN(contact_creation, "NewContact", true);
 
     // Serial Stage: Deterministic contact creation
     // Sequential iteration guarantees deterministic contact ordering
@@ -160,13 +164,17 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
     MuliProfileZoneEnd(contact_creation);
 
     // Reset move flags
-    ParallelFor(0, moveCount, [this](int32 i) {
-        NodeIndex node = moveBuffer[i];
-        if (node != AABBTree::nullNode)
-        {
-            tree.ClearMoved(node);
-        }
-    }, graph->world->settings.thread_pool);
+    ParallelFor(
+        0, moveCount,
+        [this](int32 i) {
+            NodeIndex node = moveBuffer[i];
+            if (node != AABBTree::nullNode)
+            {
+                tree.ClearMoved(node);
+            }
+        },
+        graph->world->settings.thread_pool
+    );
 
     allocator.Free(moveResults, size);
     moveCount = 0;

@@ -22,7 +22,7 @@ ConstraintGraph::~ConstraintGraph()
 
 void ConstraintGraph::EvaluateContacts()
 {
-    MuliProfileZoneNC(gather_contacts, "Gather Contacts", color::random(45613257), true);
+    MuliProfileZoneNR(gather_contacts, "Gather Contacts", true);
     SolverSet& awakeSet = world->solverSets[awake_set];
 
     // TODO: Optimize
@@ -59,7 +59,7 @@ void ConstraintGraph::EvaluateContacts()
         [this, &contacts](int32 begin, int32 end) {
             for (int32 i = begin; i < end; ++i)
             {
-                MuliProfileZoneNC(narrow_phase_collision, "Collide", color::random(4567), true);
+                MuliProfileZoneNR(narrow_phase_collision, "Collide", true);
                 Contact* contact = contacts[i];
 
                 // Perform broad phase overlap test.
@@ -78,7 +78,7 @@ void ConstraintGraph::EvaluateContacts()
         world->settings.thread_pool
     );
 
-    MuliProfileZoneNC(post_narrow_phase, "Post Narrow Phase", color::random(945378), true);
+    MuliProfileZoneNR(post_narrow_phase, "Post Narrow Phase", true);
 
     // 2. Serial Stage: Integrate states, execute user callbacks, and destroy disjoint contacts.
     // Sequential execution on the main thread guarantees deterministic order of events.

@@ -6,6 +6,8 @@
     // Tracy profiler (https://github.com/wolfpld/tracy)
     #include <tracy/TracyC.h>
 
+    #define MuliProfileZoneNR(ctx, name, active) TracyCZoneNC(ctx, name, muli3::color::Random(name), active)
+
     #define MuliProfileZoneN(ctx, name, active) TracyCZoneN(ctx, name, active)
     #define MuliProfileZoneC(ctx, color, active) TracyCZoneC(ctx, color, active)
     #define MuliProfileZoneNC(ctx, name, color, active) TracyCZoneNC(ctx, name, color, active)
@@ -15,6 +17,7 @@
     #define MuliProfileShutdown() ___tracy_shutdown_profiler()
     #define MuliProfileFrameMark TracyCFrameMark
 #else
+    #define MuliProfileZoneNR(ctx, name, active)
     #define MuliProfileZoneN(ctx, name, active)
     #define MuliProfileZoneC(ctx, color, active)
     #define MuliProfileZoneNC(ctx, name, color, active)
@@ -45,20 +48,23 @@ inline void ProfileFrameMark()
 
 struct WorldProfile
 {
-    float step;
+    // Step profiles
     float broad_phase;
     float narrow_phase;
     float solve;
+
+    // Solver profiles
     float build_islands;
-    float solve_islands;
     float integrate_velocities;
     float prepare_constraints;
-    float solve_velocity;
+    float warm_start;
+    float solve_velocities;
     float integrate_positions;
-    float solve_position;
-    float sync_transforms;
+    float solve_positions;
+    float sleep_and_sync;
     float finalize;
-    float deferred_destroy;
+
+    float post_solve;
 };
 
 class ProfileScope
@@ -94,10 +100,10 @@ private:
 namespace color
 {
 
-constexpr float offset = -0.1f;
-constexpr float shuffle = 1.0f;
+constexpr float offset = 0.0f;
+constexpr float cap = 1.0f;
 constexpr float saturation = 1.0f;
-constexpr float lightness = 0.6f;
+constexpr float lightness = 0.62f;
 
 constexpr float Wrap01(float v)
 {
@@ -110,41 +116,25 @@ constexpr float Wrap01(float v)
 
 #define WORLD_PROFILE_COLOR(member)                                                                                              \
     RGBToHex(HSLToRGB(                                                                                                           \
-        { Wrap01(shuffle * (offset + offsetof(WorldProfile, member) / float(sizeof(WorldProfile)))), saturation, lightness }     \
+        { cap * Wrap01((offset + (offsetof(WorldProfile, member)) / float(sizeof(WorldProfile)))), saturation, lightness }       \
     ))
 
-inline constexpr uint32 step = WORLD_PROFILE_COLOR(step);
 inline constexpr uint32 broad_phase = WORLD_PROFILE_COLOR(broad_phase);
 inline constexpr uint32 narrow_phase = WORLD_PROFILE_COLOR(narrow_phase);
 inline constexpr uint32 solve = WORLD_PROFILE_COLOR(solve);
-inline constexpr uint32 deferred_destroy = WORLD_PROFILE_COLOR(deferred_destroy);
+inline constexpr uint32 post_solve = WORLD_PROFILE_COLOR(post_solve);
+
 inline constexpr uint32 build_islands = WORLD_PROFILE_COLOR(build_islands);
-inline constexpr uint32 solve_islands = WORLD_PROFILE_COLOR(solve_islands);
 inline constexpr uint32 integrate_velocities = WORLD_PROFILE_COLOR(integrate_velocities);
 inline constexpr uint32 prepare_constraints = WORLD_PROFILE_COLOR(prepare_constraints);
-inline constexpr uint32 solve_velocity = WORLD_PROFILE_COLOR(solve_velocity);
+inline constexpr uint32 warm_start = WORLD_PROFILE_COLOR(warm_start);
+inline constexpr uint32 solve_velocities = WORLD_PROFILE_COLOR(solve_velocities);
 inline constexpr uint32 integrate_positions = WORLD_PROFILE_COLOR(integrate_positions);
-inline constexpr uint32 solve_position = WORLD_PROFILE_COLOR(solve_position);
-inline constexpr uint32 sync_transforms = WORLD_PROFILE_COLOR(sync_transforms);
+inline constexpr uint32 solve_positions = WORLD_PROFILE_COLOR(solve_positions);
+inline constexpr uint32 sleep_and_sync = WORLD_PROFILE_COLOR(sleep_and_sync);
 inline constexpr uint32 finalize = WORLD_PROFILE_COLOR(finalize);
 
 #undef WORLD_PROFILE_COLOR
-
-inline constexpr uint32 random(uint32 seed)
-{
-    uint32 h = seed + 0x9E3779B9u;
-    h ^= h >> 16;
-    h *= 0x7FEB352Du;
-    h ^= h >> 15;
-    h *= 0x846CA68Bu;
-    h ^= h >> 16;
-
-    uint32 r = 80u + (h & 0x7Fu);
-    uint32 g = 80u + ((h >> 8) & 0x7Fu);
-    uint32 b = 80u + ((h >> 16) & 0x7Fu);
-
-    return (r << 16) | (g << 8) | b;
-}
 
 } // namespace color
 

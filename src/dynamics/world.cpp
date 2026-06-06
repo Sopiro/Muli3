@@ -137,8 +137,7 @@ RigidBody* World::CreateConvex(
 float World::Step(float dt)
 {
     profile = {};
-    ProfileScope profile_step{ &profile.step };
-    MuliProfileZoneNC(world_step, "Step", color::step, true);
+    MuliProfileZoneNR(world_step, "Step", true);
 
     MuliAssert(dt > 0.0f);
 
@@ -177,8 +176,8 @@ float World::Step(float dt)
     }
 
     {
-        ProfileScope profile_destroy_buffer{ &profile.deferred_destroy };
-        MuliProfileZoneNC(destroy_buffer, "Deferred Destroy", color::deferred_destroy, true);
+        ProfileScope profile_destroy_buffer{ &profile.post_solve };
+        MuliProfileZoneNC(post_solve, "Post Solve", color::post_solve, true);
 
         for (RigidBody* body : destroyBodyBuffer)
         {
@@ -191,7 +190,7 @@ float World::Step(float dt)
 
         destroyBodyBuffer.clear();
         destroyJointBuffer.clear();
-        MuliProfileZoneEnd(destroy_buffer);
+        MuliProfileZoneEnd(post_solve);
     }
 
     MuliProfileZoneEnd(world_step);
@@ -873,7 +872,7 @@ void World::Solve()
         MuliAssert(!b->IsStatic());
         MuliAssert(b->IsEnabled());
 
-        MuliProfileZoneNC(build_island, "Build Island", color::random(31928), true);
+        MuliProfileZoneN(build_island, "Build Island", true);
         stack[stackPointer++] = b;
         b->flag |= RigidBody::flag_island;
 
@@ -981,7 +980,7 @@ void World::Solve()
     MuliProfileZoneEnd(build_islands);
 
     const Timestep& step = settings.step;
-    SpinScope spinMode{ settings.thread_pool };
+    SpinScope spinScope{ settings.thread_pool };
 
     const int32 minBodyRange = 64;
     const int32 minConstraintRange = 32;
@@ -989,10 +988,11 @@ void World::Solve()
     // Integrate velocities for all awake bodies
     MuliProfileZoneNC(integrate_velocities, "Integrate Velocities", color::integrate_velocities, true);
     {
+        ProfileScope profile_integrate_velocities{ &profile.integrate_velocities };
         ParallelFor(
             0, bodyIndex, minBodyRange,
             [&](int32 i0, int32 i1) {
-                MuliProfileZoneNC(integrate_velocity, "Integrate Velocity", color::random(123987259), true);
+                MuliProfileZoneN(integrate_velocity, "Integrate Velocity", true);
 
                 for (int32 i = i0; i < i1; ++i)
                 {
@@ -1039,9 +1039,10 @@ void World::Solve()
     MuliProfileZoneEnd(integrate_velocities);
 
     // Prepare all constraints
-    MuliProfileZoneNC(prepare_constraints, "Prepare Constraints", color::random(5684652), true);
+    MuliProfileZoneNC(prepare_constraints, "Prepare Constraints", color::prepare_constraints, true);
     {
-        MuliProfileZoneNC(prepare_contacts, "Prepare Contacts", color::random(1239087), true);
+        ProfileScope profile_prepare{ &profile.prepare_constraints };
+        MuliProfileZoneN(prepare_contacts, "Prepare Contacts", true);
         ParallelFor(
             0, contactIndex, minConstraintRange,
             [&](int32 i0, int32 i1) {
@@ -1056,7 +1057,7 @@ void World::Solve()
         );
         MuliProfileZoneEnd(prepare_contacts);
 
-        MuliProfileZoneNC(prepare_joints, "Prepare Joints", color::random(523546), true);
+        MuliProfileZoneN(prepare_joints, "Prepare Joints", true);
         ParallelFor(
             0, jointIndex, minConstraintRange,
             [&](int32 i0, int32 i1) {
@@ -1073,25 +1074,23 @@ void World::Solve()
     }
     MuliProfileZoneEnd(prepare_constraints);
 
-    MuliProfileZoneNC(warm_start_constraints, "Warm Start Constraints", color::random(912835), true);
+    MuliProfileZoneNC(warm_start_constraints, "Warm Start Constraints", color::warm_start, true);
     {
+        ProfileScope profile_warm_start{ &profile.warm_start };
+
         ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
 
-        MuliProfileZoneNC(warm_start_contacts, "Warm Start Contacts", color::random(912835), true);
+        MuliProfileZoneN(warm_start_contacts, "Warm Start Contacts Overflow", true);
         for (ContactState& state : overflow.contactStates)
         {
-            MuliProfileZoneNC(warm_start_contact, "Warm Start Contact", color::random(5951211), true);
             WarmStartContact(&state);
-            MuliProfileZoneEnd(warm_start_contact);
         }
         MuliProfileZoneEnd(warm_start_contacts);
 
-        MuliProfileZoneNC(warm_start_joints, "Warm Start Joints", color::random(912835), true);
+        MuliProfileZoneN(warm_start_joints, "Warm Start Joints Overflow", true);
         for (JointState& state : overflow.jointStates)
         {
-            MuliProfileZoneNC(warm_start_joint, "Warm Start Joint", color::random(591321), true);
             WarmStartJoint(&state);
-            MuliProfileZoneEnd(warm_start_joint);
         }
         MuliProfileZoneEnd(warm_start_joints);
 
@@ -1099,11 +1098,11 @@ void World::Solve()
         {
             ConstraintBatch& batch = constraintGraph.batches[color];
 
-            MuliProfileZoneNC(warm_start_contacts, "Warm Start Contacts", color::random(912835), true);
+            MuliProfileZoneN(warm_start_contacts, "Warm Start Contacts", true);
             ParallelFor(
                 0, batch.contactStates.size(), minConstraintRange,
                 [&](int32 i0, int32 i1) {
-                    MuliProfileZoneNC(warm_start_contact, "Warm Start Contact", color::random(5951211), true);
+                    MuliProfileZoneN(warm_start_contact, "Warm Start Contact", true);
                     for (int32 i = i0; i < i1; ++i)
                     {
                         WarmStartContact(&batch.contactStates[i]);
@@ -1114,11 +1113,11 @@ void World::Solve()
             );
             MuliProfileZoneEnd(warm_start_contacts);
 
-            MuliProfileZoneNC(warm_start_joints, "Warm Start Contacts", color::random(912835), true);
+            MuliProfileZoneN(warm_start_joints, "Warm Start Joints", true);
             ParallelFor(
                 0, batch.jointStates.size(), minConstraintRange,
                 [&](int32 i0, int32 i1) {
-                    MuliProfileZoneNC(warm_start_joint, "Warm Start Joint", color::random(591321), true);
+                    MuliProfileZoneN(warm_start_joint, "Warm Start Joint", true);
                     for (int32 i = i0; i < i1; ++i)
                     {
                         WarmStartJoint(&batch.jointStates[i]);
@@ -1132,27 +1131,29 @@ void World::Solve()
     }
     MuliProfileZoneEnd(warm_start_constraints);
 
-    MuliProfileZoneNC(solve_velocities, "Solve Velocities", color::random(98149294), true);
+    MuliProfileZoneNC(solve_velocities, "Solve Velocities", color::solve_velocities, true);
     {
+        ProfileScope profile_solve_velocities{ &profile.solve_velocities };
+
         for (int32 i = 0; i < step.velocity_iterations; ++i)
         {
             ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
 
+            MuliProfileZoneN(solve_velocity_contacts, "Solve Velocity Contact Overflow", true);
             for (ContactState& state : overflow.contactStates)
             {
-                MuliProfileZoneNC(solve_velocity_contact, "Solve Velocity Contact", color::random(9082394), true);
                 SolveContactVelocityConstraints(&state);
-                MuliProfileZoneEnd(solve_velocity_contact);
             }
+            MuliProfileZoneEnd(solve_velocity_contacts);
 
+            MuliProfileZoneN(solve_velocity_joints, "Solve Velocity Joint Overflow", true);
             for (JointState& state : overflow.jointStates)
             {
-                MuliProfileZoneNC(solve_velocity_joint, "Solve Velocity Joint", color::random(1287364), true);
                 SolveJointVelocityConstraints(&state, step);
-                MuliProfileZoneEnd(solve_velocity_joint);
             }
+            MuliProfileZoneEnd(solve_velocity_joints);
 
-            MuliProfileZoneNC(solve_velocity, "Solve Velocity", color::random(465456), true);
+            MuliProfileZoneN(solve_velocity, "Solve Velocity", true);
             for (int32 color = 0; color < constraint_overflow_index; ++color)
             {
                 ConstraintBatch& batch = constraintGraph.batches[color];
@@ -1160,7 +1161,7 @@ void World::Solve()
                 ParallelFor(
                     0, batch.contactStates.size(), minConstraintRange,
                     [&](int32 i0, int32 i1) {
-                        MuliProfileZoneNC(solve_velocity_contact, "Solve Velocity Contact", color::random(9082394), true);
+                        MuliProfileZoneN(solve_velocity_contact, "Solve Velocity Contact", true);
                         for (int32 i = i0; i < i1; ++i)
                         {
                             SolveContactVelocityConstraints(&batch.contactStates[i]);
@@ -1173,7 +1174,7 @@ void World::Solve()
                 ParallelFor(
                     0, batch.jointStates.size(), minConstraintRange,
                     [&](int32 i0, int32 i1) {
-                        MuliProfileZoneNC(solve_velocity_joint, "Solve Velocity Joint", color::random(1287364), true);
+                        MuliProfileZoneN(solve_velocity_joint, "Solve Velocity Joint", true);
                         for (int32 i = i0; i < i1; ++i)
                         {
                             SolveJointVelocityConstraints(&batch.jointStates[i], step);
@@ -1189,12 +1190,14 @@ void World::Solve()
     }
     MuliProfileZoneEnd(solve_velocities);
 
-    MuliProfileZoneNC(integrate_positions, "Integrate Positions", color::random(198372), true);
+    MuliProfileZoneNC(integrate_positions, "Integrate Positions", color::integrate_positions, true);
     {
+        ProfileScope profile_integrate_positions{ &profile.integrate_positions };
+
         ParallelFor(
             0, bodyIndex, minBodyRange,
             [&](int32 i0, int32 i1) {
-                MuliProfileZoneNC(integrate_position, "Integrate Position", color::random(1132321), true);
+                MuliProfileZoneN(integrate_position, "Integrate Position", true);
                 for (int32 i = i0; i < i1; ++i)
                 {
                     BodyState* s = islandBodies[i];
@@ -1215,17 +1218,19 @@ void World::Solve()
     }
     MuliProfileZoneEnd(integrate_positions);
 
-    MuliProfileZoneNC(solve_positions, "Solve Positions", color::random(8976432), true);
+    MuliProfileZoneNC(solve_positions, "Solve Positions", color::solve_positions, true);
     {
+        ProfileScope profile_solve_positions{ &profile.solve_positions };
+
         for (int32 i = 0; i < step.position_iterations; ++i)
         {
-            MuliProfileZoneNC(solve_position, "Solve Position", color::solve_position, true);
+            MuliProfileZoneN(solve_position, "Solve Position", true);
 
             ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
 
+            MuliProfileZoneN(solve_position_contact, "Solve Position Contacts Overflow", true);
             for (ContactState& state : overflow.contactStates)
             {
-                MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
                 if (SolveContactPositionConstraints(&state) == false)
                 {
                     if (!state.s1->body->IsStatic())
@@ -1237,12 +1242,12 @@ void World::Solve()
                         state.s2->resting = 0.0f;
                     }
                 }
-                MuliProfileZoneEnd(solve_position_contact);
             }
+            MuliProfileZoneEnd(solve_position_contact);
 
+            MuliProfileZoneN(solve_position_joint, "Solve Position Joints Overflow", true);
             for (JointState& state : overflow.jointStates)
             {
-                MuliProfileZoneNC(solve_position_joint, "Solve Position Joint", color::random(1287364), true);
                 if (SolveJointPositionConstraints(&state, step) == false)
                 {
                     Joint* joint = state.joint;
@@ -1257,8 +1262,8 @@ void World::Solve()
                         bodyB->GetBodyState()->resting = 0.0f;
                     }
                 }
-                MuliProfileZoneEnd(solve_position_joint);
             }
+            MuliProfileZoneEnd(solve_position_joint);
 
             for (int32 color = 0; color < constraint_overflow_index; ++color)
             {
@@ -1267,7 +1272,7 @@ void World::Solve()
                 ParallelFor(
                     0, batch.contactStates.size(), minConstraintRange,
                     [&](int32 i0, int32 i1) {
-                        MuliProfileZoneNC(solve_position_contact, "Solve Position Contact", color::random(9082394), true);
+                        MuliProfileZoneN(solve_position_contact, "Solve Position Contact", true);
                         for (int32 i = i0; i < i1; ++i)
                         {
                             ContactState* state = &batch.contactStates[i];
@@ -1291,7 +1296,7 @@ void World::Solve()
                 ParallelFor(
                     0, batch.jointStates.size(), minConstraintRange,
                     [&](int32 i0, int32 i1) {
-                        MuliProfileZoneNC(solve_position_joint, "Solve Position Joint", color::random(1287364), true);
+                        MuliProfileZoneN(solve_position_joint, "Solve Position Joint", true);
                         for (int32 i = i0; i < i1; ++i)
                         {
                             JointState* state = &batch.jointStates[i];
@@ -1321,95 +1326,82 @@ void World::Solve()
     }
     MuliProfileZoneEnd(solve_positions);
 
-    MuliProfileZoneNC(sleep_island, "Sleep Island", color::random(12645), true);
-    for (int32 i = 0; i < islandCount; ++i)
+    MuliProfileZoneNC(sleep_and_sync, "Sleep And Sync", color::sleep_and_sync, true);
     {
-        StepIsland* island = islands + i;
-        bool awakeIsland = false;
-        for (int32 j = 0; j < island->bodyCount; ++j)
-        {
-            BodyState* s = islandBodies[island->bodyStart + j];
-            if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
-                Length2(s->linearVelocity) > settings.rest_linear_tolerance)
-            {
-                awakeIsland = true;
-                break;
-            }
-        }
+        ProfileScope profile_sleep_and_sync{ &profile.sleep_and_sync };
 
-        bool sleeping = false;
-        if (awakeIsland)
+        for (int32 i = 0; i < islandCount; ++i)
         {
+            StepIsland* island = islands + i;
+            bool awakeIsland = false;
             for (int32 j = 0; j < island->bodyCount; ++j)
             {
-                islandBodies[island->bodyStart + j]->resting = 0.0f;
+                BodyState* s = islandBodies[island->bodyStart + j];
+                if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+                    Length2(s->linearVelocity) > settings.rest_linear_tolerance)
+                {
+                    awakeIsland = true;
+                }
+
+                RigidBody* body = s->body;
+                MuliAssert(body->IsStatic() == false);
+
+                Transform transform0;
+                s->motion.GetTransform(0.0f, &transform0);
+                body->SynchronizeTransform();
+
+                if (settings.world_bounds.TestPoint(body->transform.p) == false)
+                {
+                    BufferDestroy(body);
+                }
+                else
+                {
+                    MuliProfileZoneNR(sync, "Sync Transforms", true);
+                    for (Collider* collider = body->colliderList; collider; collider = collider->next)
+                    {
+                        constraintGraph.UpdateCollider(collider, transform0, body->transform);
+                    }
+                    MuliProfileZoneEnd(sync);
+                }
             }
-        }
-        else
-        {
-            sleeping = settings.sleeping;
+
+            if (awakeIsland)
+            {
+                for (int32 j = 0; j < island->bodyCount; ++j)
+                {
+                    islandBodies[island->bodyStart + j]->resting = 0.0f;
+                }
+
+                continue;
+            }
+
+            bool sleeping = settings.sleeping;
             for (int32 j = 0; j < island->bodyCount; ++j)
             {
                 BodyState* s = islandBodies[island->bodyStart + j];
                 s->resting += step.dt;
                 sleeping &= s->resting > settings.sleeping_time;
             }
-        }
 
-        if (sleeping == false)
-        {
-            for (int32 j = 0; j < island->bodyCount; ++j)
+            if (sleeping == false)
             {
-                islandBodies[island->bodyStart + j]->body->flag &= ~RigidBody::flag_sleeping;
+                continue;
             }
-        }
-        else
-        {
+
             for (int32 j = 0; j < island->bodyCount; ++j)
             {
                 BodyState* s = islandBodies[island->bodyStart + j];
-                RigidBody* body = s->body;
 
                 s->force = Vec3::zero;
                 s->torque = Vec3::zero;
                 s->linearVelocity = Vec3::zero;
                 s->angularVelocity = Vec3::zero;
                 s->resting = max_float;
-                body->flag |= RigidBody::flag_sleeping;
+                s->body->flag |= RigidBody::flag_sleeping;
             }
         }
     }
-    MuliProfileZoneEnd(sleep_island);
-
-    {
-        ProfileScope profile_sync_transforms{ &profile.sync_transforms };
-        MuliProfileZoneNC(sync_transforms, "Sync Transforms", color::sync_transforms, true);
-
-        for (int32 i = 0; i < bodyIndex; ++i)
-        {
-            BodyState* s = islandBodies[i];
-            RigidBody* body = s->body;
-            MuliAssert(body->IsStatic() == false);
-
-            Transform transform0;
-            s->motion.GetTransform(0.0f, &transform0);
-            body->SynchronizeTransform();
-
-            if (settings.world_bounds.TestPoint(body->transform.p) == false)
-            {
-                BufferDestroy(body);
-            }
-            else
-            {
-                for (Collider* collider = body->colliderList; collider; collider = collider->next)
-                {
-                    constraintGraph.UpdateCollider(collider, transform0, body->transform);
-                }
-            }
-        }
-
-        MuliProfileZoneEnd(sync_transforms);
-    }
+    MuliProfileZoneEnd(sleep_and_sync);
 
     MuliProfileZoneNC(finalize, "Finalize", color::finalize, true);
     ProfileScope profile_finalize{ &profile.finalize };
@@ -1431,8 +1423,8 @@ void World::Solve()
         }
         else
         {
-            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            bool awakeA = !bodyA->IsStatic() && !bodyA->IsSleeping();
+            bool awakeB = !bodyB->IsStatic() && !bodyB->IsSleeping();
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 
@@ -1470,8 +1462,8 @@ void World::Solve()
         }
         else
         {
-            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            bool awakeA = !bodyA->IsStatic() && !bodyA->IsSleeping();
+            bool awakeB = !bodyB->IsStatic() && !bodyB->IsSleeping();
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 
@@ -1516,8 +1508,8 @@ void World::Solve()
         }
         else
         {
-            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            bool awakeA = !bodyA->IsStatic() && !bodyA->IsSleeping();
+            bool awakeB = !bodyB->IsStatic() && !bodyB->IsSleeping();
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 
@@ -1559,8 +1551,8 @@ void World::Solve()
         }
         else
         {
-            bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
-            bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
+            bool awakeA = !bodyA->IsStatic() && !bodyA->IsSleeping();
+            bool awakeB = !bodyB->IsStatic() && !bodyB->IsSleeping();
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 

@@ -275,10 +275,15 @@ void Game::UpdateUI()
             float broadPhaseValues[profile_capacity]{};
             float narrowPhaseValues[profile_capacity]{};
             float buildIslandsValues[profile_capacity]{};
-            float solveIslandsValues[profile_capacity]{};
-            float syncTransformsValues[profile_capacity]{};
+            float integrateVelocitiesValues[profile_capacity]{};
+            float prepareConstraintsValues[profile_capacity]{};
+            float warmStartValues[profile_capacity]{};
+            float solveVelocitiesValues[profile_capacity]{};
+            float integratePositionsValues[profile_capacity]{};
+            float solvePositionsValues[profile_capacity]{};
+            float sleepAndSyncValues[profile_capacity]{};
             float finalizeValues[profile_capacity]{};
-            float deferredDestroyValues[profile_capacity]{};
+            float postSolveValues[profile_capacity]{};
 
             for (int32 i = 0; i < count; ++i)
             {
@@ -287,20 +292,30 @@ void Game::UpdateUI()
                 broadPhaseValues[i] = profile.broad_phase;
                 narrowPhaseValues[i] = profile.narrow_phase;
                 buildIslandsValues[i] = profile.build_islands;
-                solveIslandsValues[i] = profile.solve_islands;
-                syncTransformsValues[i] = profile.sync_transforms;
+                integrateVelocitiesValues[i] = profile.integrate_velocities;
+                prepareConstraintsValues[i] = profile.prepare_constraints;
+                warmStartValues[i] = profile.warm_start;
+                solveVelocitiesValues[i] = profile.solve_velocities;
+                integratePositionsValues[i] = profile.integrate_positions;
+                solvePositionsValues[i] = profile.solve_positions;
+                sleepAndSyncValues[i] = profile.sleep_and_sync;
                 finalizeValues[i] = profile.finalize;
-                deferredDestroyValues[i] = profile.deferred_destroy;
+                postSolveValues[i] = profile.post_solve;
             }
 
             ProfileGraphEntry entries[] = {
                 { "Broad phase", color::broad_phase, broadPhaseValues },
                 { "Narrow phase", color::narrow_phase, narrowPhaseValues },
                 { "Build islands", color::build_islands, buildIslandsValues },
-                { "Solve islands", color::solve, solveIslandsValues },
-                { "Sync transforms", color::sync_transforms, syncTransformsValues },
+                { "Integrate velocities", color::integrate_velocities, integrateVelocitiesValues },
+                { "Prepare constraints", color::prepare_constraints, prepareConstraintsValues },
+                { "Warm start", color::warm_start, warmStartValues },
+                { "Solve velocities", color::solve_velocities, solveVelocitiesValues },
+                { "Integrate positions", color::integrate_positions, integratePositionsValues },
+                { "Solve positions", color::solve_positions, solvePositionsValues },
+                { "Sleep and sync", color::sleep_and_sync, sleepAndSyncValues },
                 { "Finalize", color::finalize, finalizeValues },
-                { "Deferred destroy", color::deferred_destroy, deferredDestroyValues },
+                { "Post solve", color::post_solve, postSolveValues },
             };
 
             DrawProfileGraph(

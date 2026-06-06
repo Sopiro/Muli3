@@ -2,7 +2,7 @@
 
 #include "math.h"
 
-namespace muli3
+namespace muli3::color
 {
 
 constexpr inline float HueToRGB(float p, float q, float t)
@@ -60,4 +60,31 @@ constexpr inline uint32 RGBToHex(const Vec3& rgb)
 
     return (uint32(r) << 16) | (uint32(g) << 8) | uint32(b);
 }
-} // namespace muli3
+
+inline constexpr uint32 Random(uint32 seed)
+{
+    uint32 h = seed + 0x9E3779B9u;
+    h ^= h >> 16;
+    h *= 0x7FEB352Du;
+    h ^= h >> 15;
+    h *= 0x846CA68Bu;
+    h ^= h >> 16;
+
+    float r = h / float(UINT32_MAX);
+
+    return RGBToHex(HSLToRGB({ r, 0.9f, 0.6f }));
+}
+
+inline constexpr uint32 Random(const char* seed)
+{
+    uint32 h = 2166136261u;
+    while (*seed)
+    {
+        h ^= uint32(*seed++);
+        h *= 16777619u;
+    }
+
+    return Random(h);
+}
+
+} // namespace muli3::color

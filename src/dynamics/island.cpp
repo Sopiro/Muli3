@@ -100,7 +100,7 @@ void Island::Solve(World* world)
     }
 
     {
-        MuliProfileZoneNC(warm_start, "Warm Start", color::random(1235511), true);
+        MuliProfileZoneNC(warm_start, "Warm Start", color::warm_start, true);
 
         // Prepare constraints for solving step
         for (int32 i = 0; i < contactCount; ++i)
@@ -116,7 +116,7 @@ void Island::Solve(World* world)
     }
 
     {
-        MuliProfileZoneNC(solve_velocity, "Solve Velocity", color::solve_velocity, true);
+        MuliProfileZoneNC(solve_velocity, "Solve Velocity", color::solve_velocities, true);
 
         // Iteratively solve the violated velocity constraints
         // Solving contacts backward converges fast
@@ -158,7 +158,7 @@ void Island::Solve(World* world)
     }
 
     {
-        MuliProfileZoneNC(solve_position, "Solve Position", color::solve_position, true);
+        MuliProfileZoneNC(solve_position, "Solve Position", color::solve_positions, true);
 
         // Solve position constraints
         for (int32 i = 0; i < step.position_iterations; ++i)
