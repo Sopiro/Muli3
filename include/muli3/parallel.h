@@ -126,10 +126,8 @@ private:
     // Atomic counter for job update
     std::atomic<uint32> current_job = 0;
 
-    std::mutex mutex;
-    std::condition_variable job_list_condition;
-
     SpinLock job_lock;
+    std::condition_variable_any job_list_condition;
     ParallelJob* job_list = nullptr;
     ParallelJob* job_list_tail = nullptr;
 };
@@ -149,9 +147,15 @@ public:
 
     ~SpinScope()
     {
+        Close();
+    }
+
+    void Close()
+    {
         if (threadPool)
         {
             threadPool->SetSpinMode(oldSpinMode);
+            threadPool = nullptr;
         }
     }
 

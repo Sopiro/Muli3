@@ -29,7 +29,7 @@ Game::Game()
 
     workerCount = 8;
     RecreateThreadPool();
-    InitDemo(26);
+    InitDemo(5);
     Window::Get()->SetCursorHidden(false);
 }
 
@@ -137,13 +137,13 @@ void Game::UpdateUI()
                 static int32 ups = GetUpdateRate();
 
                 ImGui::SetNextItemWidth(120);
-                if (ImGui::SliderInt("Frame rate", &fps, 30, 300))
+                if (ImGui::SliderInt("Frame Rate", &fps, 30, 300))
                 {
                     SetFrameRate(fps);
                 }
 
                 ImGui::SetNextItemWidth(120);
-                if (ImGui::SliderInt("Update rate", &ups, 30, 300))
+                if (ImGui::SliderInt("Update Rate", &ups, 30, 300))
                 {
                     SetUpdateRate(ups);
                 }
@@ -153,29 +153,24 @@ void Game::UpdateUI()
                 ImGui::Separator();
 
                 ImGui::SetNextItemOpen(false, ImGuiCond_Once);
-                if (ImGui::CollapsingHeader("Debug options"))
+                if (ImGui::CollapsingHeader("Debug Options"))
                 {
-                    ImGui::Checkbox("Show profiler", &options.show_profiler);
-                    ImGui::Checkbox("Camera reset", &options.reset_camera);
-                    ImGui::Checkbox("Colorize island", &options.colorize_island);
-                    ImGui::Checkbox("Draw body", &options.draw_body);
-                    ImGui::Checkbox("Draw joint", &options.draw_joint);
-                    ImGui::Checkbox("Draw outlined", &options.draw_outlined);
+                    ImGui::Checkbox("Show Profiler", &options.show_profiler);
+                    ImGui::Checkbox("Camera Reset", &options.reset_camera);
+                    ImGui::Checkbox("Colorize Island", &options.colorize_island);
+                    ImGui::Checkbox("Draw Body", &options.draw_body);
+                    ImGui::Checkbox("Draw Joint", &options.draw_joint);
+                    ImGui::Checkbox("Draw Outlined", &options.draw_outlined);
                     ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);
-                    ImGui::Checkbox("Show contact point", &options.show_contact_point);
-                    ImGui::Checkbox("Show contact normal", &options.show_contact_normal);
+                    ImGui::Checkbox("Show Contact Point", &options.show_contact_point);
+                    ImGui::Checkbox("Show Contact Normal", &options.show_contact_normal);
                 }
 
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-                if (ImGui::CollapsingHeader("Simulation settings"))
+                if (ImGui::CollapsingHeader("Simulation Settings"))
                 {
-                    if (ImGui::Checkbox("Apply gravity", &settings.apply_gravity))
-                    {
-                        world.Awake();
-                    }
-
-                    ImGui::Text("Constraint solve iterations");
+                    ImGui::Text("Solver Iterations");
                     ImGui::SetNextItemWidth(120);
                     ImGui::SliderInt("Velocity", &settings.step.velocity_iterations, 0, 50);
                     ImGui::SetNextItemWidth(120);
@@ -185,15 +180,18 @@ void Game::UpdateUI()
                     {
                         RecreateThreadPool();
                     }
+                    if (ImGui::Checkbox("Apply Gravity", &settings.apply_gravity))
+                    {
+                        world.Awake();
+                    }
                     ImGui::Checkbox("Warm Starting", &settings.step.warm_starting);
                     ImGui::Checkbox("Sleeping", &settings.sleeping);
                 }
-
                 ImGui::Separator();
-                ImGui::Text("%s / %s", demoFrames[demoIndex].category, demoFrames[demoIndex].name);
+                ImGui::Text("%lld. %s", demoIndex, demoFrames[demoIndex].name);
                 ImGui::Text("Bodies: %d", world.GetBodyCount());
-                ImGui::Text("Sleeping dynamic bodies: %d", world.GetSleepingBodyCount());
-                ImGui::Text("Broad phase contacts: %d", world.GetContactCount());
+                ImGui::Text("Sleeping Dynamic Bodies: %d", world.GetSleepingBodyCount());
+                ImGui::Text("Broad Phase Contacts: %d", world.GetContactCount());
                 ImGui::Text("Steps: %lld", world.GetStepIndex());
                 ImGui::EndTabItem();
             }

@@ -121,7 +121,7 @@ void ThreadPool::WaitForNextJob(uint32 job)
     }
 
     // Workers sleep until a job/state change is published.
-    std::unique_lock<std::mutex> lock(mutex);
+    std::unique_lock<SpinLock> lock(job_lock);
     while (current_job.load(std::memory_order_acquire) == job && !shutdown.load(std::memory_order_acquire))
     {
         job_list_condition.wait(lock);

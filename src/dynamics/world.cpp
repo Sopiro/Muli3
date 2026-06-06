@@ -979,9 +979,9 @@ void World::Solve()
     profile_build_islands.Stop();
     MuliProfileZoneEnd(build_islands);
 
-    const Timestep& step = settings.step;
     SpinScope spinScope{ settings.thread_pool };
 
+    const Timestep& step = settings.step;
     const int32 minBodyRange = 64;
     const int32 minConstraintRange = 32;
 
@@ -1325,6 +1325,8 @@ void World::Solve()
         }
     }
     MuliProfileZoneEnd(solve_positions);
+
+    spinScope.Close();
 
     MuliProfileZoneNC(sleep_and_sync, "Sleep And Sync", color::sleep_and_sync, true);
     {
