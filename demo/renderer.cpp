@@ -6,12 +6,15 @@
 namespace muli3
 {
 
-constexpr int g_shadowMapSize = 2048;
+constexpr int g_shadowMapSize = 4096;
 constexpr size_t g_maxShapeBatchCount = 4096;
 constexpr int32 g_maxVertexCount = 1024 * 3;
 constexpr int32 g_colorCount = 10;
 constexpr int32 g_fillPass = 0;
 constexpr int32 g_outlinePass = 1;
+constexpr float g_shadowViewDistance = 50.0f;
+constexpr float g_shadowBoundsPadding = 1.0f;
+constexpr float g_shadowDepthPadding = 32.0f;
 
 Vec4 g_colors[g_colorCount];
 Vec4 g_colors2[constraint_color_count];
@@ -60,7 +63,7 @@ in vec4 vShadowPosition;
 in vec3 vBaseColor;
 
 uniform vec3 uLightDirection;
-uniform sampler2D uShadowMap;
+uniform sampler2DShadow uShadowMap;
 
 out vec4 FragColor;
 
@@ -88,8 +91,7 @@ float ComputeShadow(vec3 normal, vec3 lightDir)
     {
         for (int x = -1; x <= 1; ++x)
         {
-            float closestDepth = texture(uShadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
-            visibility += (projCoords.z - bias) <= closestDepth ? 1.0 : 0.0;
+            visibility += texture(uShadowMap, vec3(projCoords.xy + vec2(x, y) * texelSize, projCoords.z - bias));
         }
     }
 
@@ -171,12 +173,90 @@ void main()
 }
 )";
 
-Mat4 ComputeLightViewProjection(const Vec3& lightDirection)
+void ComputeCameraFrustumCorners(const Camera& camera, float aspectRatio, Vec3* corners)
 {
-    const Vec3 sceneCenter{ 0.0f, 2.0f, 0.0f };
-    const Vec3 lightPosition = sceneCenter - lightDirection * 22.0f;
-    const Mat4 lightView = Mat4::LookAt(lightPosition, sceneCenter, Vec3{ 0.0f, 1.0f, 0.0f });
-    const Mat4 lightProjection = Mat4::Orth(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 64.0f);
+    float zNear = 0.1f;
+    float zFar = g_shadowViewDistance;
+    float tanHalfFov = std::tan(DegToRad(camera.fovDegrees) * 0.5f);
+
+    float nearY = zNear * tanHalfFov;
+    float nearX = nearY * aspectRatio;
+    float farY = zFar * tanHalfFov;
+    float farX = farY * aspectRatio;
+
+    Vec3 position = camera.GetPosition();
+    Vec3 forward = camera.GetForward();
+    Vec3 right = camera.GetRight();
+    Vec3 up = camera.GetUp();
+
+    Vec3 nearCenter = position + forward * zNear;
+    Vec3 farCenter = position + forward * zFar;
+
+    corners[0] = nearCenter - right * nearX - up * nearY;
+    corners[1] = nearCenter + right * nearX - up * nearY;
+    corners[2] = nearCenter - right * nearX + up * nearY;
+    corners[3] = nearCenter + right * nearX + up * nearY;
+    corners[4] = farCenter - right * farX - up * farY;
+    corners[5] = farCenter + right * farX - up * farY;
+    corners[6] = farCenter - right * farX + up * farY;
+    corners[7] = farCenter + right * farX + up * farY;
+}
+
+Mat4 ComputeLightViewProjection(const Camera& camera, float aspectRatio, const Vec3& lightDirection)
+{
+    Vec3 frustumCorners[8];
+    ComputeCameraFrustumCorners(camera, aspectRatio, frustumCorners);
+
+    Vec3 frustumCenter = Vec3::zero;
+    for (int32 i = 0; i < 8; ++i)
+    {
+        frustumCenter += frustumCorners[i];
+    }
+    frustumCenter /= 8.0f;
+
+    float frustumRadius = 0.0f;
+    for (int32 i = 0; i < 8; ++i)
+    {
+        frustumRadius = Max(frustumRadius, Length(frustumCorners[i] - frustumCenter));
+    }
+
+    Vec3 lightPosition = frustumCenter - lightDirection * (frustumRadius + g_shadowDepthPadding);
+    Mat4 lightView = Mat4::LookAt(lightPosition, frustumCenter, y_axis);
+
+    Vec3 lightMin{ max_float };
+    Vec3 lightMax{ -max_float };
+    for (int32 i = 0; i < 8; ++i)
+    {
+        Vec4 p = lightView * Vec4{ frustumCorners[i], 1.0f };
+        lightMin = Min(lightMin, Vec3{ p.x, p.y, p.z });
+        lightMax = Max(lightMax, Vec3{ p.x, p.y, p.z });
+    }
+
+    float halfWidth = Max((lightMax.x - lightMin.x) * 0.5f + g_shadowBoundsPadding, 8.0f);
+    float halfHeight = Max((lightMax.y - lightMin.y) * 0.5f + g_shadowBoundsPadding, 8.0f);
+
+    Vec2 center{ (lightMin.x + lightMax.x) * 0.5f, (lightMin.y + lightMax.y) * 0.5f };
+
+    float zNear = Max(-lightMax.z - g_shadowDepthPadding, 0.1f);
+    float zFar = Max(-lightMin.z + g_shadowBoundsPadding, zNear + 1.0f);
+    Mat4 lightProjection =
+        Mat4::Orth(center.x - halfWidth, center.x + halfWidth, center.y - halfHeight, center.y + halfHeight, zNear, zFar);
+
+    // Snap the final shadow matrix to texel increments so camera movement does not shimmer the map.
+    Mat4 lightViewProjection = lightProjection * lightView;
+    Vec4 shadowOrigin = lightViewProjection * Vec4{ Vec3::zero, 1.0f };
+    shadowOrigin *= g_shadowMapSize * 0.5f;
+
+    Vec4 roundedOrigin{
+        std::floor(shadowOrigin.x + 0.5f),
+        std::floor(shadowOrigin.y + 0.5f),
+        shadowOrigin.z,
+        shadowOrigin.w,
+    };
+    Vec4 roundOffset = (roundedOrigin - shadowOrigin) * (2.0f / g_shadowMapSize);
+    lightProjection.ew.x += roundOffset.x;
+    lightProjection.ew.y += roundOffset.y;
+
     return lightProjection * lightView;
 }
 
@@ -447,12 +527,14 @@ bool Renderer::CreateShadowResources()
 
     glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, g_shadowMapSize, g_shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, g_shadowMapSize, g_shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
     );
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
     const float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
     glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
@@ -1083,7 +1165,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     const Mat4 view = camera.GetViewMatrix();
     const Mat4 projection = camera.GetProjectionMatrix(aspectRatio);
     const Vec3 lightDirection = Normalize(Vec3{ 0.45f, -1.0f, -0.35f });
-    const Mat4 lightViewProjection = ComputeLightViewProjection(lightDirection);
+    const Mat4 lightViewProjection = ComputeLightViewProjection(camera, aspectRatio, lightDirection);
     SetViewMatrix(view);
     SetProjectionMatrix(projection);
 
