@@ -1,4 +1,4 @@
-#include "muli3/rigidbody.h"
+#include "muli3/body.h"
 #include "muli3/callbacks.h"
 #include "muli3/collider.h"
 #include "muli3/shape.h"

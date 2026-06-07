@@ -1,9 +1,10 @@
 #include "muli3/contact_solver.h"
+#include "muli3/body.h"
 #include "muli3/contact.h"
 #include "muli3/frame.h"
 #include "muli3/joints.h" // IWYU pragma: keep
-#include "muli3/rigidbody.h"
 #include "muli3/solver_states.h"
+
 
 namespace muli3
 {

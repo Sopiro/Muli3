@@ -1,12 +1,13 @@
 #pragma once
 
+#include "body.h"
 #include "callbacks.h"
 #include "constraint_graph.h"
 #include "contact.h"
 #include "joints.h"
 #include "profile.h"
-#include "rigidbody.h"
 #include "settings.h"
+
 
 #include "linear_allocator.h"
 #include "pool_allocator.h"

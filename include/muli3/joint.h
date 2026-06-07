@@ -1,8 +1,9 @@
 #pragma once
 
+#include "body.h"
 #include "common.h"
 #include "dynamic_dispatcher.h"
-#include "rigidbody.h"
+
 
 namespace muli3
 {

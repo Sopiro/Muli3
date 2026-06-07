@@ -1,10 +1,11 @@
 #pragma once
 
+#include "body.h"
 #include "collider.h"
 #include "collision.h"
 #include "contact_solver.h"
-#include "rigidbody.h"
 #include "solver_states.h"
+
 
 namespace muli3
 {

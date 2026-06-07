@@ -2,6 +2,7 @@
 
 #include "settings.h"             // IWYU pragma: export
 
+#include "body.h"                 // IWYU pragma: export
 #include "callbacks.h"            // IWYU pragma: export
 #include "collider.h"             // IWYU pragma: export
 #include "collision.h"            // IWYU pragma: export
@@ -11,9 +12,9 @@
 #include "material.h"             // IWYU pragma: export
 #include "profile.h"              // IWYU pragma: export
 #include "raycast.h"              // IWYU pragma: export
-#include "rigidbody.h"            // IWYU pragma: export
 #include "shapes.h"               // IWYU pragma: export
 #include "world.h"                // IWYU pragma: export
+
 
 #include "ball_socket_joint.h"    // IWYU pragma: export
 #include "cone_swing_joint.h"     // IWYU pragma: export

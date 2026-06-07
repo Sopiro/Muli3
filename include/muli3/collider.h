@@ -1,9 +1,10 @@
 #pragma once
 
+#include "body.h"
 #include "collision_filter.h"
 #include "material.h"
-#include "rigidbody.h"
 #include "shape.h"
+
 
 namespace muli3
 {
