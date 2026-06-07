@@ -3,7 +3,7 @@
 namespace muli3
 {
 
-BallSocketJoint::BallSocketJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
+BallSocketJoint::BallSocketJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
     : Joint(ball_socket_joint, bodyA, bodyB, frequency, dampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
 {

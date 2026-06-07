@@ -15,11 +15,11 @@ public:
     ConeSwingJointDemo(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
-        RigidBody* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, RigidBody::static_body);
+        Body* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, Body::static_body);
 
-        RigidBody* arm = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 3.5f, 0.0f } });
+        Body* arm = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 3.5f, 0.0f } });
         arm->CreateBoxCollider(0.25f, 2.0f, 0.25f);
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });

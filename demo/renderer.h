@@ -71,7 +71,7 @@ private:
     void DestroyPrimitiveResources();
     void DestroyShapeResources();
 
-    void DrawBody(const RigidBody& body, const Vec4& color, bool wireframe, const Shader& shader);
+    void DrawBody(const Body& body, const Vec4& color, bool wireframe, const Shader& shader);
     void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushQueuedShapes(const Shader& shader, bool wireframe);

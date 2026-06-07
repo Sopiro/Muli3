@@ -187,7 +187,7 @@ void SetInstanceAttribute(GLuint index, GLint size, GLsizei stride, size_t offse
     glVertexAttribDivisor(index, 1);
 }
 
-static bool IsSameBodyPair(const Joint* joint, const RigidBody* bodyA, const RigidBody* bodyB)
+static bool IsSameBodyPair(const Joint* joint, const Body* bodyA, const Body* bodyB)
 {
     return (joint->GetBodyA() == bodyA && joint->GetBodyB() == bodyB) ||
            (joint->GetBodyA() == bodyB && joint->GetBodyB() == bodyA);
@@ -195,8 +195,8 @@ static bool IsSameBodyPair(const Joint* joint, const RigidBody* bodyA, const Rig
 
 static Vec3 GetAngularJointAnchor(const World& world, const Joint* joint)
 {
-    const RigidBody* bodyA = joint->GetBodyA();
-    const RigidBody* bodyB = joint->GetBodyB();
+    const Body* bodyA = joint->GetBodyA();
+    const Body* bodyB = joint->GetBodyB();
 
     for (const Joint* other = world.GetJoints(); other; other = other->GetNext())
     {
@@ -243,7 +243,7 @@ void InitializeColors()
     g_colorsInitialized = true;
 }
 
-Vec4 GetBodyColor(const RigidBody& body, const DebugOptions& options)
+Vec4 GetBodyColor(const Body& body, const DebugOptions& options)
 {
     if (body.IsStatic())
     {
@@ -660,7 +660,7 @@ void Renderer::ClearMeshCache()
     convexMeshes.clear();
 }
 
-void Renderer::DrawBody(const RigidBody& body, const Vec4& color, bool wireframe, const Shader& shader)
+void Renderer::DrawBody(const Body& body, const Vec4& color, bool wireframe, const Shader& shader)
 {
     for (const Collider* collider = body.GetColliderList(); collider; collider = collider->GetNext())
     {
@@ -1102,7 +1102,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body)
     {
-        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
         {
             DrawBody(*body, default_white, false, shadowShader);
         }
@@ -1127,7 +1127,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
     {
         if (options.draw_outlined == false)
         {
-            for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+            for (Body* body = world.GetBodyList(); body; body = body->GetNext())
             {
                 DrawBody(*body, GetBodyColor(*body, options), false, shapeShader);
             }
@@ -1137,7 +1137,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
 
     if (options.draw_body && options.draw_outlined)
     {
-        for (RigidBody* body = world.GetBodyList(); body; body = body->GetNext())
+        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
         {
             DrawBody(*body, default_black, true, shapeShader);
         }
@@ -1152,7 +1152,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             {
             case Joint::grab_joint:
             {
-                const RigidBody* body = joint->GetBodyA();
+                const Body* body = joint->GetBodyA();
                 const GrabJoint* grabJoint = (const GrabJoint*)joint;
                 Vec3 anchor = Mul(body->GetTransform(), grabJoint->GetLocalAnchor());
                 DrawPoint(anchor);
@@ -1162,7 +1162,7 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::fixed_rotation_joint:
             {
-                const RigidBody* body = joint->GetBodyA();
+                const Body* body = joint->GetBodyA();
                 const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
                 Vec3 position = body->GetPosition();
                 DrawPoint(position);
@@ -1171,8 +1171,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::cone_swing_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
 
                 Vec3 positionA = bodyA->GetPosition();
@@ -1185,8 +1185,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::revolute_angle_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const RevoluteAngleJoint* revoluteAngleJoint = (const RevoluteAngleJoint*)joint;
                 Vec3 anchor = GetAngularJointAnchor(world, joint);
                 Vec3 axisA = bodyA->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisA());
@@ -1206,8 +1206,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::revolute_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const RevoluteJoint* revoluteJoint = (const RevoluteJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), revoluteJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), revoluteJoint->GetLocalAnchorB());
@@ -1236,8 +1236,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::twist_angle_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const TwistAngleJoint* twistAngleJoint = (const TwistAngleJoint*)joint;
                 Vec3 anchor = GetAngularJointAnchor(world, joint);
                 Vec3 axisA = bodyA->GetRotation().Rotate(twistAngleJoint->GetLocalAxisA());
@@ -1256,8 +1256,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::ball_socket_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
@@ -1269,8 +1269,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::distance_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const DistanceJoint* distanceJoint = (const DistanceJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), distanceJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), distanceJoint->GetLocalAnchorB());
@@ -1289,8 +1289,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::weld_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const WeldJoint* weldJoint = (const WeldJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), weldJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), weldJoint->GetLocalAnchorB());
@@ -1302,8 +1302,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::line_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const LineJoint* lineJoint = (const LineJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), lineJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), lineJoint->GetLocalAnchorB());
@@ -1314,8 +1314,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::prismatic_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const PrismaticJoint* prismaticJoint = (const PrismaticJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), prismaticJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), prismaticJoint->GetLocalAnchorB());
@@ -1326,8 +1326,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::pulley_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const PulleyJoint* pulleyJoint = (const PulleyJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), pulleyJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), pulleyJoint->GetLocalAnchorB());
@@ -1341,8 +1341,8 @@ void Renderer::Render(const World& world, const Camera& camera, float aspectRati
             break;
             case Joint::motor_joint:
             {
-                const RigidBody* bodyA = joint->GetBodyA();
-                const RigidBody* bodyB = joint->GetBodyB();
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
                 const MotorJoint* motorJoint = (const MotorJoint*)joint;
                 Vec3 anchorA = Mul(bodyA->GetTransform(), motorJoint->GetLocalAnchorA());
                 Vec3 anchorB = Mul(bodyB->GetTransform(), motorJoint->GetLocalAnchorB());

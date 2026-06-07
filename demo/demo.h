@@ -10,7 +10,8 @@ namespace muli3
 class Game;
 class Renderer;
 
-class Demo : public JointDestroyCallback, NonCopyable
+class Demo : public JointDestroyCallback,
+             NonCopyable
 {
 public:
     Demo(Game& game);
@@ -26,7 +27,7 @@ public:
     World& GetWorld();
     WorldSettings& GetWorldSettings();
     Camera& GetCamera();
-    RigidBody* GetTargetBody();
+    Body* GetTargetBody();
     Collider* GetTargetCollider();
 
 protected:
@@ -52,7 +53,7 @@ protected:
     float dt = 0.0f;
     Vec2 cursorPos{ 0.0f, 0.0f };
     Vec2 screenBounds{ 0.0f, 0.0f };
-    RigidBody* targetBody = nullptr;
+    Body* targetBody = nullptr;
     Collider* targetCollider = nullptr;
     Vec3 targetPoint = Vec3::zero;
 
@@ -82,7 +83,7 @@ inline void Demo::OnJointDestroy(Joint* me)
     cursorJoint = nullptr;
 }
 
-inline RigidBody* Demo::GetTargetBody()
+inline Body* Demo::GetTargetBody()
 {
     return targetBody;
 }

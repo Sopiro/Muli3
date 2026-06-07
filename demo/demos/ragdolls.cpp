@@ -20,7 +20,7 @@ public:
     Ragdolls(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(50.0f, 0.2f, 50.0f, identity, RigidBody::static_body);
+        Body* ground = world->CreateBox(50.0f, 0.2f, 50.0f, identity, Body::static_body);
 
         CreateRagdoll(world, Vec3{ 0, 4, 0 }, 1.0f, 1, 10.0f);
 
@@ -29,7 +29,7 @@ public:
 
         // Srand(123);
 
-        RigidBody* c = world->CreateSphere(0.6f);
+        Body* c = world->CreateSphere(0.6f);
         Vec3 p = SampleUniformHemisphere(RandVec2());
         p *= 8.0f;
 

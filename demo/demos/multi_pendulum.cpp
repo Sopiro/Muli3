@@ -15,7 +15,7 @@ public:
     MultiPendulum(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(40.0f, 0.5f, 40.0f, identity, RigidBody::static_body);
+        Body* ground = world->CreateBox(40.0f, 0.5f, 40.0f, identity, Body::static_body);
 
         float xStart = 0.0f;
         float yStart = 5.0f;
@@ -23,13 +23,13 @@ public:
         float sizeH = 0.15f;
         float gap = 0.1f;
 
-        RigidBody* bodyA = world->CreateBox(sizeW, sizeH, sizeH, Transform{ Vec3{ xStart - (gap + sizeW), yStart, 0.0f } });
+        Body* bodyA = world->CreateBox(sizeW, sizeH, sizeH, Transform{ Vec3{ xStart - (gap + sizeW), yStart, 0.0f } });
         world->CreateBallSocketJoint(ground, bodyA, Vec3{ xStart, yStart, 0.0f }, -1.0f);
 
         int32 count = 12;
         for (int32 i = 1; i < count; ++i)
         {
-            RigidBody* bodyB =
+            Body* bodyB =
                 world->CreateBox(sizeW, sizeH, sizeH, Transform{ Vec3{ xStart - (gap + sizeW) * (i + 1), yStart, 0.0f } });
 
             world->CreateBallSocketJoint(

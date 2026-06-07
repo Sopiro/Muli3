@@ -59,8 +59,8 @@ static float GetAngle(const Vec3& frameX, const Vec3& frameY, const Vec3& frameZ
 }
 
 RevoluteJoint::RevoluteJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
+    Body* bodyA,
+    Body* bodyB,
     const Vec3& anchor,
     const Vec3& axis,
     float jointMinAngle,

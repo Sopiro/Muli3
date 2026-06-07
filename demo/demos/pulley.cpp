@@ -10,13 +10,13 @@ public:
     Pulley(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         groundAnchorA = Vec3{ -1.0f, 5.0f, 0.0f };
         groundAnchorB = Vec3{ 1.0f, 5.0f, 0.0f };
         localAnchorOffset = Vec3{ 0.0f, 0.25f, 0.0f };
 
-        world->CreateBox(2.4f, 0.12f, 0.12f, Transform{ Vec3{ 0.0f, 5.0f, 0.0f } }, RigidBody::static_body);
+        world->CreateBox(2.4f, 0.12f, 0.12f, Transform{ Vec3{ 0.0f, 5.0f, 0.0f } }, Body::static_body);
 
         bodyA = world->CreateBox(0.5f, Transform{ Vec3{ -1.0f, 3.0f, 0.0f } });
         bodyB = world->CreateBox(0.5f, Transform{ Vec3{ 1.0f, 3.0f, 0.0f } });
@@ -38,8 +38,8 @@ public:
     }
 
 private:
-    RigidBody* bodyA = nullptr;
-    RigidBody* bodyB = nullptr;
+    Body* bodyA = nullptr;
+    Body* bodyB = nullptr;
     PulleyJoint* pulleyJoint = nullptr;
     Vec3 groundAnchorA = Vec3::zero;
     Vec3 groundAnchorB = Vec3::zero;

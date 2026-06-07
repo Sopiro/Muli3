@@ -145,7 +145,7 @@ void Demo::EnableBodyCreate()
     Vec3 forward = cam.GetForward();
     Vec3 position = cam.GetPosition() + forward * 1.4f;
     Transform transform{ position, Quat::FromEuler(cam.rotation) };
-    RigidBody* body = nullptr;
+    Body* body = nullptr;
 
     if (createSphere)
     {
@@ -189,7 +189,7 @@ bool Demo::EnableBodyGrab()
 
     if (targetBody && Input::IsMousePressed(GLFW_MOUSE_BUTTON_LEFT))
     {
-        if (targetBody->GetType() == RigidBody::dynamic_body)
+        if (targetBody->GetType() == Body::dynamic_body)
         {
             targetBody->Awake();
             cursorJoint = world->CreateGrabJoint(targetBody, targetPoint, targetPoint, 4.0f, 0.5f);

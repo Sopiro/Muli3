@@ -116,8 +116,8 @@ void ConstraintGraph::EvaluateContacts()
 
         if (graphContact)
         {
-            RigidBody* bodyA = contact->GetBodyA();
-            RigidBody* bodyB = contact->GetBodyB();
+            Body* bodyA = contact->GetBodyA();
+            Body* bodyB = contact->GetBodyB();
 
             if (!bodyA->IsStatic() && bodyA->IsSleeping())
             {
@@ -164,13 +164,13 @@ void ConstraintGraph::EvaluateContacts()
 
 void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
 {
-    RigidBody* bodyA = colliderA->body;
-    RigidBody* bodyB = colliderB->body;
+    Body* bodyA = colliderA->body;
+    Body* bodyB = colliderB->body;
 
     MuliAssert(bodyA != bodyB);
     MuliAssert(colliderA->GetType() >= colliderB->GetType());
 
-    if (bodyA->GetType() != RigidBody::dynamic_body && bodyB->GetType() != RigidBody::dynamic_body)
+    if (bodyA->GetType() != Body::dynamic_body && bodyB->GetType() != Body::dynamic_body)
     {
         return;
     }
@@ -245,8 +245,8 @@ void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
 
 void ConstraintGraph::Destroy(Contact* c)
 {
-    RigidBody* bodyA = c->GetBodyA();
-    RigidBody* bodyB = c->GetBodyB();
+    Body* bodyA = c->GetBodyA();
+    Body* bodyB = c->GetBodyB();
 
     if (c->prev) c->prev->next = c->next;
     if (c->next) c->next->prev = c->prev;
@@ -284,7 +284,7 @@ void ConstraintGraph::RemoveCollider(Collider* collider)
     broadPhase.Remove(collider);
     collider->node = AABBTree::nullNode;
 
-    RigidBody* body = collider->body;
+    Body* body = collider->body;
     ContactEdge* edge = body->contactList;
     while (edge)
     {
@@ -298,8 +298,8 @@ void ConstraintGraph::RemoveCollider(Collider* collider)
         {
             bool touching = contact->IsTouching();
             bool enabled = contact->IsEnabled();
-            RigidBody* bodyA = colliderA->body;
-            RigidBody* bodyB = colliderB->body;
+            Body* bodyA = colliderA->body;
+            Body* bodyB = colliderB->body;
 
             Destroy(contact);
 
@@ -355,7 +355,7 @@ const JointState* ConstraintGraph::GetJointState(const Joint* joint) const
     return &batches[joint->colorIndex].jointStates[joint->localIndex];
 }
 
-int32 ConstraintGraph::AssignColor(RigidBody* bodyA, RigidBody* bodyB)
+int32 ConstraintGraph::AssignColor(Body* bodyA, Body* bodyB)
 {
     MuliAssert(constraint_overflow_index < 32);
 
@@ -386,7 +386,7 @@ int32 ConstraintGraph::AssignColor(RigidBody* bodyA, RigidBody* bodyB)
     }
 }
 
-void ConstraintGraph::AddColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIndex)
+void ConstraintGraph::AddColor(Body* bodyA, Body* bodyB, int32 colorIndex)
 {
     if (colorIndex == constraint_overflow_index)
     {
@@ -404,7 +404,7 @@ void ConstraintGraph::AddColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIn
     }
 }
 
-void ConstraintGraph::RemoveColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIndex)
+void ConstraintGraph::RemoveColor(Body* bodyA, Body* bodyB, int32 colorIndex)
 {
     if (colorIndex == constraint_overflow_index)
     {

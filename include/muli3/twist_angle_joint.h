@@ -11,13 +11,7 @@ class TwistAngleJoint : public Joint
 {
 public:
     TwistAngleJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        const Vec3& axis,
-        float minAngle,
-        float maxAngle,
-        float frequency,
-        float dampingRatio
+        Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
     );
 
     void Prepare(const Timestep& step);

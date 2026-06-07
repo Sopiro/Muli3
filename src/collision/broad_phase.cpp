@@ -62,7 +62,7 @@ struct BroadPhase::TreeCallback
 
     NodeIndex nodeA;
     Collider* colliderA;
-    RigidBody* bodyA;
+    Body* bodyA;
     Shape::Type typeA;
 
     MoveResult* moveResult;
@@ -74,7 +74,7 @@ struct BroadPhase::TreeCallback
             return true;
         }
 
-        RigidBody* bodyB = colliderB->body;
+        Body* bodyB = colliderB->body;
         if (bodyA == bodyB)
         {
             return true;
@@ -132,7 +132,7 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
             }
 
             Collider* colliderA = tree.GetData(node);
-            RigidBody* bodyA = colliderA->body;
+            Body* bodyA = colliderA->body;
             Shape::Type tfA = colliderA->GetType();
 
             const AABB& treeAABB = tree.GetAABB(node);

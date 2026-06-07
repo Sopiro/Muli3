@@ -8,7 +8,6 @@
 #include "profile.h"
 #include "settings.h"
 
-
 #include "linear_allocator.h"
 #include "pool_allocator.h"
 
@@ -27,88 +26,80 @@ public:
     float Step(float dt);
     void Reset();
 
-    void Destroy(RigidBody* body);
-    void Destroy(std::span<RigidBody*> bodies);
+    void Destroy(Body* body);
+    void Destroy(std::span<Body*> bodies);
     void Destroy(Joint* joint);
     void Destroy(std::span<Joint*> joints);
 
-    void BufferDestroy(RigidBody* body);
-    void BufferDestroy(std::span<RigidBody*> bodies);
+    void BufferDestroy(Body* body);
+    void BufferDestroy(std::span<Body*> bodies);
     void BufferDestroy(Joint* joint);
     void BufferDestroy(std::span<Joint*> joints);
 
-    RigidBody* CreateEmptyBody(const Transform& transform = identity, RigidBody::Type type = RigidBody::dynamic_body);
-    RigidBody* CreateSphere(
-        float radius,
-        const Transform& transform = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
-        float density = default_density
+    Body* CreateEmptyBody(const Transform& transform = identity, Body::Type type = Body::dynamic_body);
+    Body* CreateSphere(
+        float radius, const Transform& transform = identity, Body::Type type = Body::dynamic_body, float density = default_density
     );
-    RigidBody* CreateCapsule(
+    Body* CreateCapsule(
         float height,
         float radius,
         const Transform& transform = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
+        Body::Type type = Body::dynamic_body,
         float density = default_density
     );
-    RigidBody* CreateCapsule(
+    Body* CreateCapsule(
         const Vec3& point1,
         const Vec3& point2,
         float radius,
         const Transform& tf = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
+        Body::Type type = Body::dynamic_body,
         bool resetPosition = false,
         float density = default_density
     );
-    RigidBody* CreateBox(
+    Body* CreateBox(
         float width,
         float height,
         float depth,
         const Transform& transform = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
+        Body::Type type = Body::dynamic_body,
         float radius = default_radius,
         float density = default_density
     );
-    RigidBody* CreateBox(
+    Body* CreateBox(
         const Vec3& size,
         const Transform& transform = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
+        Body::Type type = Body::dynamic_body,
         float radius = default_radius,
         float density = default_density
     );
-    RigidBody* CreateBox(
+    Body* CreateBox(
         float size,
         const Transform& transform = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
+        Body::Type type = Body::dynamic_body,
         float radius = default_radius,
         float density = default_density
     );
-    RigidBody* CreateConvex(
+    Body* CreateConvex(
         std::span<const Vec3> vertices,
         const Transform& transform = identity,
-        RigidBody::Type type = RigidBody::dynamic_body,
+        Body::Type type = Body::dynamic_body,
         float radius = default_radius,
         float density = default_density
     );
 
     GrabJoint* CreateGrabJoint(
-        RigidBody* body, const Vec3& anchor, const Vec3& target, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* body, const Vec3& anchor, const Vec3& target, float frequency = 10.0f, float dampingRatio = 1.0f
     );
-    FixedRotationJoint* CreateFixedRotationJoint(RigidBody* body, float frequency = -1.0f, float dampingRatio = 1.0f);
+    FixedRotationJoint* CreateFixedRotationJoint(Body* body, float frequency = -1.0f, float dampingRatio = 1.0f);
     ConeSwingJoint* CreateConeSwingJoint(
-        RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float maxAngle, float frequency = -1.0f, float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency = -1.0f, float dampingRatio = 1.0f
     );
     RevoluteJoint* CreateRevoluteJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        const Vec3& anchor,
-        const Vec3& axis,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& axis, float frequency = 10.0f, float dampingRatio = 1.0f
     );
     RevoluteJoint* CreateLimitedRevoluteJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchor,
         const Vec3& axis,
         float minAngle,
@@ -117,11 +108,11 @@ public:
         float dampingRatio = 1.0f
     );
     RevoluteAngleJoint* CreateRevoluteAngleJoint(
-        RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& axis, float frequency = 10.0f, float dampingRatio = 1.0f
     );
     RevoluteAngleJoint* CreateLimitedRevoluteAngleJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& axis,
         float minAngle,
         float maxAngle,
@@ -129,8 +120,8 @@ public:
         float dampingRatio = 1.0f
     );
     TwistAngleJoint* CreateTwistAngleJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& axis,
         float minAngle,
         float maxAngle,
@@ -138,11 +129,11 @@ public:
         float dampingRatio = 1.0f
     );
     BallSocketJoint* CreateBallSocketJoint(
-        RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency = 10.0f, float dampingRatio = 1.0f
     );
     DistanceJoint* CreateDistanceJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchorA,
         const Vec3& anchorB,
         float length = -1.0f,
@@ -150,11 +141,11 @@ public:
         float dampingRatio = 1.0f
     );
     DistanceJoint* CreateDistanceJoint(
-        RigidBody* bodyA, RigidBody* bodyB, float length = -1.0f, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, float length = -1.0f, float frequency = 10.0f, float dampingRatio = 1.0f
     );
     DistanceJoint* CreateLimitedDistanceJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchorA,
         const Vec3& anchorB,
         float minLength = -1.0f,
@@ -162,30 +153,18 @@ public:
         float frequency = 10.0f,
         float dampingRatio = 1.0f
     );
-    WeldJoint* CreateWeldJoint(
-        RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency = -1.0f, float dampingRatio = 1.0f
-    );
+    WeldJoint* CreateWeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency = -1.0f, float dampingRatio = 1.0f);
     LineJoint* CreateLineJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        const Vec3& anchor,
-        const Vec3& dir,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency = 10.0f, float dampingRatio = 1.0f
     );
-    LineJoint* CreateLineJoint(RigidBody* bodyA, RigidBody* bodyB, float frequency = 10.0f, float dampingRatio = 1.0f);
+    LineJoint* CreateLineJoint(Body* bodyA, Body* bodyB, float frequency = 10.0f, float dampingRatio = 1.0f);
     PrismaticJoint* CreatePrismaticJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        const Vec3& anchor,
-        const Vec3& dir,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency = 10.0f, float dampingRatio = 1.0f
     );
-    PrismaticJoint* CreatePrismaticJoint(RigidBody* bodyA, RigidBody* bodyB, float frequency = -1.0f, float dampingRatio = 1.0f);
+    PrismaticJoint* CreatePrismaticJoint(Body* bodyA, Body* bodyB, float frequency = -1.0f, float dampingRatio = 1.0f);
     PulleyJoint* CreatePulleyJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchorA,
         const Vec3& anchorB,
         const Vec3& groundAnchorA,
@@ -195,8 +174,8 @@ public:
         float dampingRatio = 1.0f
     );
     MotorJoint* CreateMotorJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchor,
         float maxForce = 1000.0f,
         float maxTorque = 1000.0f,
@@ -240,7 +219,7 @@ public:
         std::function<void(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
     ) const;
 
-    RigidBody* GetBodyList() const;
+    Body* GetBodyList() const;
     int32 GetBodyCount() const;
 
     Joint* GetJoints() const;
@@ -262,7 +241,7 @@ public:
     void Awake();
 
 private:
-    friend class RigidBody;
+    friend class Body;
     friend class Collider;
     friend class BroadPhase;
     friend class ConstraintGraph;
@@ -271,8 +250,8 @@ private:
 
     void Solve();
 
-    void AddBody(RigidBody* body);
-    void FreeBody(RigidBody* body);
+    void AddBody(Body* body);
+    void FreeBody(Body* body);
 
     void AddJoint(Joint* joint);
     void FreeJoint(Joint* joint);
@@ -280,9 +259,9 @@ private:
     Shape* CloneShape(const Shape* shape, const Transform& transform = identity);
     void FreeShape(Shape* shape);
 
-    BodyState* AddBodyState(RigidBody* body, SolverSetIndex setIndex);
-    void RemoveBodyState(RigidBody* body);
-    void TransferBody(RigidBody* body, SolverSetIndex targetSet);
+    BodyState* AddBodyState(Body* body, SolverSetIndex setIndex);
+    void RemoveBodyState(Body* body);
+    void TransferBody(Body* body, SolverSetIndex targetSet);
 
     ContactState* AddContactState(Contact* contact, SolverSetIndex setIndex);
     void RemoveContactState(Contact* contact);
@@ -292,11 +271,11 @@ private:
     void RemoveJointState(Joint* joint);
     void TransferJoint(Joint* joint, SolverSetIndex targetSet);
 
-    void WakeBody(RigidBody* body);
-    void SleepBody(RigidBody* body);
+    void WakeBody(Body* body);
+    void SleepBody(Body* body);
 
-    void WakeIsland(RigidBody* body);
-    void SleepIsland(RigidBody* body);
+    void WakeIsland(Body* body);
+    void SleepIsland(Body* body);
 
     void Validate() const;
 
@@ -305,8 +284,8 @@ private:
 
     uint64 stepIndex = 0;
 
-    RigidBody* bodyList = nullptr;
-    RigidBody* bodyListTail = nullptr;
+    Body* bodyList = nullptr;
+    Body* bodyListTail = nullptr;
     int32 bodyCount = 0;
 
     Joint* jointList = nullptr;
@@ -320,14 +299,14 @@ private:
     int32 islandCount = 0;
     int32 sleepingBodyCount = 0;
 
-    std::vector<RigidBody*> destroyBodyBuffer;
+    std::vector<Body*> destroyBodyBuffer;
     std::vector<Joint*> destroyJointBuffer;
 
     LinearAllocator linearAllocator;
     PoolAllocator poolAllocator;
 };
 
-inline RigidBody* World::GetBodyList() const
+inline Body* World::GetBodyList() const
 {
     return bodyList;
 }
@@ -389,7 +368,7 @@ inline uint64 World::GetStepIndex() const
 
 inline void World::Awake()
 {
-    for (RigidBody* b = bodyList; b; b = b->next)
+    for (Body* b = bodyList; b; b = b->next)
     {
         b->Awake();
     }

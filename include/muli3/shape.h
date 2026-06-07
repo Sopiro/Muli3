@@ -53,7 +53,7 @@ public:
     bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const;
 
 protected:
-    friend class RigidBody;
+    friend class Body;
     friend class ConstraintGraph;
 
     Shape(Type type, float radius);

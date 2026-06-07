@@ -9,7 +9,7 @@ public:
     CapsuleStacking(Game& game)
         : Demo(game)
     {
-        world->CreateBox(28.0f, 0.5f, 18.0f, identity, RigidBody::static_body);
+        world->CreateBox(28.0f, 0.5f, 18.0f, identity, Body::static_body);
 
         int32 verticalCount = 10;
         int32 horizontalCount = 10;
@@ -26,7 +26,7 @@ public:
             float x = -4.0f;
             float z = 0.0f;
 
-            RigidBody* b = world->CreateCapsule(height, radius, Vec3{ x, y, z }, RigidBody::dynamic_body);
+            Body* b = world->CreateCapsule(height, radius, Vec3{ x, y, z }, Body::dynamic_body);
             b->SetGyroscopicTorqueEnabled(true);
         }
 
@@ -40,8 +40,8 @@ public:
             float x = 4.0f;
             float z = 0.0f;
 
-            RigidBody* b = world->CreateCapsule(
-                height, radius, Transform{ Vec3{ x, y, z }, alongX ? horizontalX : horizontalZ }, RigidBody::dynamic_body
+            Body* b = world->CreateCapsule(
+                height, radius, Transform{ Vec3{ x, y, z }, alongX ? horizontalX : horizontalZ }, Body::dynamic_body
             );
             b->SetGyroscopicTorqueEnabled(true);
         }

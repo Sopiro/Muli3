@@ -8,7 +8,7 @@
 namespace muli3
 {
 
-RigidBody::RigidBody(const Transform& tf, Type type)
+Body::Body(const Transform& tf, Type type)
     : OnDestroy{ nullptr }
     , UserData{ nullptr }
     , world{ nullptr }
@@ -30,7 +30,7 @@ RigidBody::RigidBody(const Transform& tf, Type type)
 {
 }
 
-RigidBody::~RigidBody()
+Body::~Body()
 {
     if (OnDestroy)
     {
@@ -40,27 +40,27 @@ RigidBody::~RigidBody()
     world = nullptr;
 }
 
-BodyState* RigidBody::GetBodyState()
+BodyState* Body::GetBodyState()
 {
     return &world->solverSets[setIndex].bodyStates[localIndex];
 }
 
-const BodyState* RigidBody::GetBodyState() const
+const BodyState* Body::GetBodyState() const
 {
     return &world->solverSets[setIndex].bodyStates[localIndex];
 }
 
-void RigidBody::Awake()
+void Body::Awake()
 {
     world->WakeBody(this);
 }
 
-void RigidBody::Sleep()
+void Body::Sleep()
 {
     world->SleepBody(this);
 }
 
-void RigidBody::SetTransform(const Transform& newTransform)
+void Body::SetTransform(const Transform& newTransform)
 {
     transform = newTransform;
 
@@ -74,7 +74,7 @@ void RigidBody::SetTransform(const Transform& newTransform)
     SynchronizeColliders();
 }
 
-void RigidBody::SetPosition(float x, float y, float z)
+void Body::SetPosition(float x, float y, float z)
 {
     transform.p.Set(x, y, z);
 
@@ -86,7 +86,7 @@ void RigidBody::SetPosition(float x, float y, float z)
     SynchronizeColliders();
 }
 
-void RigidBody::SetRotation(const Quat& rotation)
+void Body::SetRotation(const Quat& rotation)
 {
     transform.q = rotation;
 
@@ -100,17 +100,17 @@ void RigidBody::SetRotation(const Quat& rotation)
     SynchronizeColliders();
 }
 
-void RigidBody::SetRotation(float x, float y, float z)
+void Body::SetRotation(float x, float y, float z)
 {
     SetRotation(Quat::FromEuler({ x, y, z }));
 }
 
-void RigidBody::Translate(const Vec3& delta)
+void Body::Translate(const Vec3& delta)
 {
     Translate(delta.x, delta.y, delta.z);
 }
 
-void RigidBody::Translate(float dx, float dy, float dz)
+void Body::Translate(float dx, float dy, float dz)
 {
     transform.p += Vec3(dx, dy, dz);
 
@@ -122,7 +122,7 @@ void RigidBody::Translate(float dx, float dy, float dz)
     SynchronizeColliders();
 }
 
-void RigidBody::Rotate(const Quat& delta)
+void Body::Rotate(const Quat& delta)
 {
     transform.q = delta * transform.q;
     transform.q.Normalize();
@@ -137,12 +137,12 @@ void RigidBody::Rotate(const Quat& delta)
     SynchronizeColliders();
 }
 
-void RigidBody::Rotate(const Vec3& eulerAngles)
+void Body::Rotate(const Vec3& eulerAngles)
 {
     Rotate(Quat::FromEuler(eulerAngles));
 }
 
-Collider* RigidBody::CreateCollider(Shape* shape, const Transform& tf, float density, const Material& material)
+Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density, const Material& material)
 {
     MuliAssert(world != nullptr);
     if (world == nullptr || shape == nullptr)
@@ -167,7 +167,7 @@ Collider* RigidBody::CreateCollider(Shape* shape, const Transform& tf, float den
     return collider;
 }
 
-void RigidBody::DestroyCollider(Collider* collider)
+void Body::DestroyCollider(Collider* collider)
 {
     if (collider == nullptr)
     {
@@ -199,21 +199,19 @@ void RigidBody::DestroyCollider(Collider* collider)
     ResetMassData();
 }
 
-Collider* RigidBody::CreateSphereCollider(float radius, const Transform& tf, float density, const Material& material)
+Collider* Body::CreateSphereCollider(float radius, const Transform& tf, float density, const Material& material)
 {
     SphereShape sphere{ radius };
     return CreateCollider(&sphere, tf, density, material);
 }
 
-Collider* RigidBody::CreateCapsuleCollider(
-    float height, float radius, const Transform& tf, float density, const Material& material
-)
+Collider* Body::CreateCapsuleCollider(float height, float radius, const Transform& tf, float density, const Material& material)
 {
     CapsuleShape capsule{ height, radius };
     return CreateCollider(&capsule, tf, density, material);
 }
 
-Collider* RigidBody::CreateCapsuleCollider(
+Collider* Body::CreateCapsuleCollider(
     const Vec3& p1, const Vec3& p2, float radius, const Transform& tf, float density, const Material& material
 )
 {
@@ -221,7 +219,7 @@ Collider* RigidBody::CreateCapsuleCollider(
     return CreateCollider(&capsule, tf, density, material);
 }
 
-Collider* RigidBody::CreateBoxCollider(
+Collider* Body::CreateBoxCollider(
     float width, float height, float depth, const Transform& tf, float radius, float density, const Material& material
 )
 {
@@ -229,19 +227,17 @@ Collider* RigidBody::CreateBoxCollider(
     return CreateCollider(&box, tf, density, material);
 }
 
-Collider* RigidBody::CreateBoxCollider(
-    const Vec3& size, const Transform& tf, float radius, float density, const Material& material
-)
+Collider* Body::CreateBoxCollider(const Vec3& size, const Transform& tf, float radius, float density, const Material& material)
 {
     return CreateBoxCollider(size.x, size.y, size.z, tf, radius, density, material);
 }
 
-Collider* RigidBody::CreateBoxCollider(float size, const Transform& tf, float radius, float density, const Material& material)
+Collider* Body::CreateBoxCollider(float size, const Transform& tf, float radius, float density, const Material& material)
 {
     return CreateBoxCollider(size, size, size, tf, radius, density, material);
 }
 
-Collider* RigidBody::CreateConvexCollider(
+Collider* Body::CreateConvexCollider(
     std::span<const Vec3> vertices, const Transform& tf, float radius, float density, const Material& material
 )
 {
@@ -249,7 +245,7 @@ Collider* RigidBody::CreateConvexCollider(
     return CreateCollider(&convex, tf, density, material);
 }
 
-bool RigidBody::TestPoint(const Vec3& q) const
+bool Body::TestPoint(const Vec3& q) const
 {
     MuliAssert(colliderCount > 0);
 
@@ -264,7 +260,7 @@ bool RigidBody::TestPoint(const Vec3& q) const
     return false;
 }
 
-Vec3 RigidBody::GetClosestPoint(const Vec3& q) const
+Vec3 Body::GetClosestPoint(const Vec3& q) const
 {
     MuliAssert(colliderCount > 0);
 
@@ -295,7 +291,7 @@ Vec3 RigidBody::GetClosestPoint(const Vec3& q) const
     return cp0;
 }
 
-void RigidBody::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
+void Body::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
 {
     RayCastInput input;
     input.from = from;
@@ -321,7 +317,7 @@ void RigidBody::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCa
     }
 }
 
-bool RigidBody::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const
+bool Body::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const
 {
     struct TempCallback : RayCastAnyCallback
     {
@@ -355,7 +351,7 @@ bool RigidBody::RayCastClosest(const Vec3& from, const Vec3& to, float radius, R
     return false;
 }
 
-void RigidBody::RayCastAny(
+void Body::RayCastAny(
     const Vec3& from,
     const Vec3& to,
     float radius,
@@ -386,7 +382,7 @@ void RigidBody::RayCastAny(
     }
 }
 
-bool RigidBody::RayCastClosest(
+bool Body::RayCastClosest(
     const Vec3& from,
     const Vec3& to,
     float radius,
@@ -425,7 +421,7 @@ bool RigidBody::RayCastClosest(
     return false;
 }
 
-void RigidBody::SetType(RigidBody::Type newType)
+void Body::SetType(Body::Type newType)
 {
     if (type == newType)
     {
@@ -464,8 +460,8 @@ void RigidBody::SetType(RigidBody::Type newType)
     for (JointEdge* je = jointList; je; je = je->next)
     {
         Joint* joint = je->joint;
-        RigidBody* bodyA = joint->GetBodyA();
-        RigidBody* bodyB = joint->GetBodyB();
+        Body* bodyA = joint->GetBodyA();
+        Body* bodyB = joint->GetBodyB();
 
         SolverSetIndex targetSet;
         if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
@@ -503,7 +499,7 @@ void RigidBody::SetType(RigidBody::Type newType)
     islandIndex = 0;
 }
 
-void RigidBody::SetEnabled(bool enabled)
+void Body::SetEnabled(bool enabled)
 {
     if (enabled == IsEnabled())
     {
@@ -534,8 +530,8 @@ void RigidBody::SetEnabled(bool enabled)
         for (JointEdge* je = jointList; je; je = je->next)
         {
             Joint* joint = je->joint;
-            RigidBody* bodyA = joint->GetBodyA();
-            RigidBody* bodyB = joint->GetBodyB();
+            Body* bodyA = joint->GetBodyA();
+            Body* bodyB = joint->GetBodyB();
 
             if (bodyA->IsEnabled() && bodyB->IsEnabled())
             {
@@ -584,7 +580,7 @@ void RigidBody::SetEnabled(bool enabled)
     }
 }
 
-void RigidBody::SetCollisionFilter(const CollisionFilter& filter) const
+void Body::SetCollisionFilter(const CollisionFilter& filter) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -592,7 +588,7 @@ void RigidBody::SetCollisionFilter(const CollisionFilter& filter) const
     }
 }
 
-void RigidBody::SetFriction(float friction) const
+void Body::SetFriction(float friction) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -600,7 +596,7 @@ void RigidBody::SetFriction(float friction) const
     }
 }
 
-void RigidBody::SetRestitution(float restitution) const
+void Body::SetRestitution(float restitution) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -608,7 +604,7 @@ void RigidBody::SetRestitution(float restitution) const
     }
 }
 
-void RigidBody::SetRestitutionThreshold(float threshold) const
+void Body::SetRestitutionThreshold(float threshold) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -616,7 +612,7 @@ void RigidBody::SetRestitutionThreshold(float threshold) const
     }
 }
 
-void RigidBody::SetSurfaceSpeed(const Vec2& surfaceSpeed) const
+void Body::SetSurfaceSpeed(const Vec2& surfaceSpeed) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -624,7 +620,7 @@ void RigidBody::SetSurfaceSpeed(const Vec2& surfaceSpeed) const
     }
 }
 
-void RigidBody::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, bool awake)
+void Body::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -644,7 +640,7 @@ void RigidBody::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse
     }
 }
 
-void RigidBody::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, bool awake)
+void Body::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -664,7 +660,7 @@ void RigidBody::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impu
     }
 }
 
-void RigidBody::ApplyAngularImpulse(const Vec3& impulse, bool awake)
+void Body::ApplyAngularImpulse(const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -682,13 +678,13 @@ void RigidBody::ApplyAngularImpulse(const Vec3& impulse, bool awake)
     }
 }
 
-Vec3 RigidBody::GetVelocityAtWorldSpace(const Vec3& point) const
+Vec3 Body::GetVelocityAtWorldSpace(const Vec3& point) const
 {
     const BodyState* s = GetBodyState();
     return s->linearVelocity + Cross(s->angularVelocity, point - s->motion.c);
 }
 
-void RigidBody::ResetMassData()
+void Body::ResetMassData()
 {
     BodyState* s = GetBodyState();
 
@@ -741,7 +737,7 @@ void RigidBody::ResetMassData()
     s->linearVelocity += Cross(s->angularVelocity, s->motion.c - oldCenter);
 }
 
-void RigidBody::SynchronizeColliders()
+void Body::SynchronizeColliders()
 {
     if (world == nullptr || IsEnabled() == false)
     {

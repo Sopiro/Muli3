@@ -16,7 +16,7 @@ public:
     {
         options.draw_outlined = false;
 
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         float start = 1.2f;
         float size = 0.6f;
@@ -36,7 +36,7 @@ public:
 
             px += d * error;
 
-            RigidBody* body = world->CreateBox(size, Transform{ Vec3{ px, start + i * (size + gap), 0.0f } });
+            Body* body = world->CreateBox(size, Transform{ Vec3{ px, start + i * (size + gap), 0.0f } });
             world->CreateFixedRotationJoint(body, jointFrequency, dampingRatio);
         }
 
@@ -53,7 +53,7 @@ public:
             return;
         }
 
-        if (targetBody == nullptr || targetBody->GetType() != RigidBody::dynamic_body)
+        if (targetBody == nullptr || targetBody->GetType() != Body::dynamic_body)
         {
             return;
         }
@@ -103,7 +103,7 @@ public:
     }
 
 private:
-    FixedRotationJoint* FindFixedRotationJoint(RigidBody* body) const
+    FixedRotationJoint* FindFixedRotationJoint(Body* body) const
     {
         for (Joint* joint = world->GetJoints(); joint; joint = joint->GetNext())
         {

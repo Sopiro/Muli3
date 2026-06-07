@@ -9,7 +9,7 @@ public:
     SphereStacking(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         constexpr int size = 10;
         constexpr float radius = 0.5f;
@@ -34,7 +34,7 @@ public:
                                 zStart + (float)z * xzStep,
                             },
                         },
-                        RigidBody::dynamic_body
+                        Body::dynamic_body
                     );
                 }
             }

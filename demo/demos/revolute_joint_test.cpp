@@ -18,14 +18,14 @@ public:
     {
         options.draw_outlined = false;
 
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
-        RigidBody* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, RigidBody::static_body);
+        Body* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, Body::static_body);
 
         Quat armRotation{ DegToRad(0.0f), z_axis };
         Vec3 armCenter = base->GetPosition() - armRotation.Rotate(y_axis);
 
-        RigidBody* arm = world->CreateEmptyBody(Transform{ armCenter, armRotation });
+        Body* arm = world->CreateEmptyBody(Transform{ armCenter, armRotation });
         arm->CreateBoxCollider(0.25f, 2.0f, 0.25f);
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
@@ -71,7 +71,6 @@ public:
             {
                 game.RestartDemo();
             }
-
         }
         ImGui::End();
     }

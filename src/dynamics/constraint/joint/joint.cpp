@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-Joint::Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio)
+Joint::Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio)
     : DynamicDispatcher(int32(type))
     , OnDestroy{ nullptr }
     , UserData{ nullptr }

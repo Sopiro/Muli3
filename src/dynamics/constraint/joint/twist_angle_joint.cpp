@@ -81,13 +81,7 @@ static float GetTwistAngle(const Vec3& frameX, const Vec3& frameY, const Vec3& f
 }
 
 TwistAngleJoint::TwistAngleJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& worldAxis,
-    float jointMinAngle,
-    float jointMaxAngle,
-    float frequency,
-    float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& worldAxis, float jointMinAngle, float jointMaxAngle, float frequency, float dampingRatio
 )
     : Joint(twist_angle_joint, bodyA, bodyB, frequency, dampingRatio)
     , angleOffset{ 0.0f }

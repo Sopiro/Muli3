@@ -5,7 +5,6 @@
 #include "muli3/joints.h" // IWYU pragma: keep
 #include "muli3/solver_states.h"
 
-
 namespace muli3
 {
 
@@ -229,8 +228,8 @@ void PrepareContact(ContactState* s)
 {
     Contact* contact = s->contact;
 
-    RigidBody* bodyA = contact->GetBodyA();
-    RigidBody* bodyB = contact->GetBodyB();
+    Body* bodyA = contact->GetBodyA();
+    Body* bodyB = contact->GetBodyB();
 
     if (s->manifold.featureFlipped)
     {
@@ -292,8 +291,8 @@ bool SolveContactPositionConstraints(ContactState* s)
 
     PositionCorrection correction{};
 
-    RigidBody* bodyA = s->s1->body;
-    RigidBody* bodyB = s->s2->body;
+    Body* bodyA = s->s1->body;
+    Body* bodyB = s->s2->body;
 
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();

@@ -15,7 +15,7 @@ World::World(const WorldSettings& settings)
     : settings{ settings }
     , constraintGraph{ this }
 {
-    poolAllocator.Register<RigidBody>(512);
+    poolAllocator.Register<Body>(512);
     poolAllocator.Register<Collider>(512);
     poolAllocator.Register<Contact>(1024);
 }
@@ -60,38 +60,32 @@ void World::Reset()
     stepIndex = 0;
 }
 
-RigidBody* World::CreateEmptyBody(const Transform& transform, RigidBody::Type type)
+Body* World::CreateEmptyBody(const Transform& transform, Body::Type type)
 {
-    RigidBody* b = poolAllocator.New<RigidBody>(transform, type);
+    Body* b = poolAllocator.New<Body>(transform, type);
     AddBody(b);
     return b;
 }
 
-RigidBody* World::CreateSphere(float radius, const Transform& transform, RigidBody::Type type, float density)
+Body* World::CreateSphere(float radius, const Transform& transform, Body::Type type, float density)
 {
-    RigidBody* b = CreateEmptyBody(transform, type);
+    Body* b = CreateEmptyBody(transform, type);
     b->CreateSphereCollider(radius, identity, density);
     return b;
 }
 
-RigidBody* World::CreateCapsule(float height, float radius, const Transform& transform, RigidBody::Type type, float density)
+Body* World::CreateCapsule(float height, float radius, const Transform& transform, Body::Type type, float density)
 {
-    RigidBody* b = CreateEmptyBody(transform, type);
+    Body* b = CreateEmptyBody(transform, type);
     b->CreateCapsuleCollider(height, radius, identity, density);
     return b;
 }
 
-RigidBody* World::CreateCapsule(
-    const Vec3& point1,
-    const Vec3& point2,
-    float radius,
-    const Transform& tf,
-    RigidBody::Type type,
-    bool resetPosition,
-    float density
+Body* World::CreateCapsule(
+    const Vec3& point1, const Vec3& point2, float radius, const Transform& tf, Body::Type type, bool resetPosition, float density
 )
 {
-    RigidBody* b = CreateEmptyBody(tf, type);
+    Body* b = CreateEmptyBody(tf, type);
 
     Vec3 center = (point1 + point2) * 0.5f;
     CapsuleShape capsule = CapsuleShape{ point1 - center, point2 - center, radius };
@@ -105,30 +99,30 @@ RigidBody* World::CreateCapsule(
     return b;
 }
 
-RigidBody* World::CreateBox(
-    float width, float height, float depth, const Transform& transform, RigidBody::Type type, float radius, float density
+Body* World::CreateBox(
+    float width, float height, float depth, const Transform& transform, Body::Type type, float radius, float density
 )
 {
-    RigidBody* b = CreateEmptyBody(transform, type);
+    Body* b = CreateEmptyBody(transform, type);
     b->CreateBoxCollider(width, height, depth, identity, radius, density);
     return b;
 }
 
-RigidBody* World::CreateBox(const Vec3& size, const Transform& transform, RigidBody::Type type, float radius, float density)
+Body* World::CreateBox(const Vec3& size, const Transform& transform, Body::Type type, float radius, float density)
 {
     return CreateBox(size.x, size.y, size.z, transform, type, radius, density);
 }
 
-RigidBody* World::CreateBox(float size, const Transform& transform, RigidBody::Type type, float radius, float density)
+Body* World::CreateBox(float size, const Transform& transform, Body::Type type, float radius, float density)
 {
     return CreateBox(size, size, size, transform, type, radius, density);
 }
 
-RigidBody* World::CreateConvex(
-    std::span<const Vec3> vertices, const Transform& transform, RigidBody::Type type, float radius, float density
+Body* World::CreateConvex(
+    std::span<const Vec3> vertices, const Transform& transform, Body::Type type, float radius, float density
 )
 {
-    RigidBody* b = CreateEmptyBody(transform, type);
+    Body* b = CreateEmptyBody(transform, type);
     b->CreateConvexCollider(vertices, identity, radius, density);
     return b;
 }
@@ -178,7 +172,7 @@ float World::Step(float dt)
         ProfileScope profile_destroy_buffer{ &profile.post_solve };
         MuliProfileZoneNC(post_solve, "Post Solve", color::post_solve, true);
 
-        for (RigidBody* body : destroyBodyBuffer)
+        for (Body* body : destroyBodyBuffer)
         {
             Destroy(body);
         }
@@ -196,7 +190,7 @@ float World::Step(float dt)
     return 1.0f;
 }
 
-void World::Destroy(RigidBody* body)
+void World::Destroy(Body* body)
 {
     if (body == nullptr)
     {
@@ -231,13 +225,13 @@ void World::Destroy(RigidBody* body)
     FreeBody(body);
 }
 
-void World::Destroy(std::span<RigidBody*> bodies)
+void World::Destroy(std::span<Body*> bodies)
 {
-    std::unordered_set<RigidBody*> destroyed;
+    std::unordered_set<Body*> destroyed;
 
     for (size_t i = 0; i < bodies.size(); ++i)
     {
-        RigidBody* b = bodies[i];
+        Body* b = bodies[i];
 
         if (!destroyed.contains(b))
         {
@@ -247,15 +241,15 @@ void World::Destroy(std::span<RigidBody*> bodies)
     }
 }
 
-void World::BufferDestroy(RigidBody* body)
+void World::BufferDestroy(Body* body)
 {
     MuliAssert(body != nullptr);
     destroyBodyBuffer.push_back(body);
 }
 
-void World::BufferDestroy(std::span<RigidBody*> bodies)
+void World::BufferDestroy(std::span<Body*> bodies)
 {
-    for (RigidBody* body : bodies)
+    for (Body* body : bodies)
     {
         BufferDestroy(body);
     }
@@ -263,8 +257,8 @@ void World::BufferDestroy(std::span<RigidBody*> bodies)
 
 void World::Destroy(Joint* joint)
 {
-    RigidBody* bodyA = joint->bodyA;
-    RigidBody* bodyB = joint->bodyB;
+    Body* bodyA = joint->bodyA;
+    Body* bodyB = joint->bodyB;
 
     // Remove from the world
     if (joint->prev) joint->prev->next = joint->next;
@@ -845,7 +839,7 @@ void World::Solve()
     };
 
     int32 stackPointer = 0;
-    RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
+    Body** stack = (Body**)linearAllocator.Allocate(bodyCount * sizeof(Body*));
 
     islandCount = 0;
     Island* islands = (Island*)linearAllocator.Allocate(bodyCount * sizeof(Island));
@@ -861,8 +855,8 @@ void World::Solve()
 
     for (size_t i = 0; i < awakeSet.bodyStates.size(); ++i)
     {
-        RigidBody* b = awakeSet.bodyStates[i].body;
-        if (b->flag & RigidBody::flag_island)
+        Body* b = awakeSet.bodyStates[i].body;
+        if (b->flag & Body::flag_island)
         {
             continue;
         }
@@ -873,11 +867,11 @@ void World::Solve()
 
         MuliProfileZoneN(build_island, "Build Island", true);
         stack[stackPointer++] = b;
-        b->flag |= RigidBody::flag_island;
+        b->flag |= Body::flag_island;
 
         while (stackPointer > 0)
         {
-            RigidBody* t = stack[--stackPointer];
+            Body* t = stack[--stackPointer];
 
             islandBodies[bodyIndex++] = t->GetBodyState();
             t->islandIndex = islandCount;
@@ -901,12 +895,12 @@ void World::Solve()
                     continue;
                 }
 
-                RigidBody* other = ce->other;
+                Body* other = ce->other;
 
                 islandContacts[contactIndex++] = c;
                 c->flag |= Contact::flag_island;
 
-                if (other->flag & RigidBody::flag_island)
+                if (other->flag & Body::flag_island)
                 {
                     continue;
                 }
@@ -918,7 +912,7 @@ void World::Solve()
 
                 MuliAssert(stackPointer < bodyCount);
                 stack[stackPointer++] = other;
-                other->flag |= RigidBody::flag_island;
+                other->flag |= Body::flag_island;
             }
 
             for (JointEdge* je = t->jointList; je; je = je->next)
@@ -930,7 +924,7 @@ void World::Solve()
                     continue;
                 }
 
-                RigidBody* other = je->other;
+                Body* other = je->other;
 
                 if (other->IsEnabled() == false)
                 {
@@ -940,7 +934,7 @@ void World::Solve()
                 islandJoints[jointIndex++] = j;
                 j->flagIsland = true;
 
-                if (other->flag & RigidBody::flag_island)
+                if (other->flag & Body::flag_island)
                 {
                     continue;
                 }
@@ -952,7 +946,7 @@ void World::Solve()
 
                 MuliAssert(stackPointer < bodyCount);
                 stack[stackPointer++] = other;
-                other->flag |= RigidBody::flag_island;
+                other->flag |= Body::flag_island;
             }
         }
 
@@ -996,12 +990,12 @@ void World::Solve()
                 for (int32 i = i0; i < i1; ++i)
                 {
                     BodyState* s = islandBodies[i];
-                    RigidBody* b = s->body;
+                    Body* b = s->body;
                     s->motion.c0 = s->motion.c;
                     s->motion.q0 = s->motion.q;
                     s->motion.alpha0 = 0.0f;
 
-                    b->flag &= ~RigidBody::flag_sleeping;
+                    b->flag &= ~Body::flag_sleeping;
 
                     if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
                         Length2(s->linearVelocity) > settings.rest_linear_tolerance || Length2(s->torque) > 0.0f ||
@@ -1010,7 +1004,7 @@ void World::Solve()
                         s->resting = 0.0f;
                     }
 
-                    if (b->GetType() == RigidBody::dynamic_body)
+                    if (b->GetType() == Body::dynamic_body)
                     {
                         if (settings.apply_gravity)
                         {
@@ -1250,8 +1244,8 @@ void World::Solve()
                 if (SolveJointPositionConstraints(&state, step) == false)
                 {
                     Joint* joint = state.joint;
-                    RigidBody* bodyA = joint->GetBodyA();
-                    RigidBody* bodyB = joint->GetBodyB();
+                    Body* bodyA = joint->GetBodyA();
+                    Body* bodyB = joint->GetBodyB();
                     if (!bodyA->IsStatic())
                     {
                         bodyA->GetBodyState()->resting = 0.0f;
@@ -1302,8 +1296,8 @@ void World::Solve()
                             if (SolveJointPositionConstraints(state, step) == false)
                             {
                                 Joint* joint = state->joint;
-                                RigidBody* bodyA = joint->GetBodyA();
-                                RigidBody* bodyB = joint->GetBodyB();
+                                Body* bodyA = joint->GetBodyA();
+                                Body* bodyB = joint->GetBodyB();
                                 if (!bodyA->IsStatic())
                                 {
                                     bodyA->GetBodyState()->resting = 0.0f;
@@ -1344,7 +1338,7 @@ void World::Solve()
                     awakeIsland = true;
                 }
 
-                RigidBody* body = s->body;
+                Body* body = s->body;
                 MuliAssert(body->IsStatic() == false);
 
                 Transform transform0;
@@ -1398,7 +1392,7 @@ void World::Solve()
                 s->linearVelocity = Vec3::zero;
                 s->angularVelocity = Vec3::zero;
                 s->resting = max_float;
-                s->body->flag |= RigidBody::flag_sleeping;
+                s->body->flag |= Body::flag_sleeping;
             }
         }
     }
@@ -1412,8 +1406,8 @@ void World::Solve()
     {
         Contact* contact = islandContacts[i];
 
-        RigidBody* bodyA = contact->GetBodyA();
-        RigidBody* bodyB = contact->GetBodyB();
+        Body* bodyA = contact->GetBodyA();
+        Body* bodyB = contact->GetBodyB();
 
         contact->flag &= ~Contact::flag_island;
 
@@ -1453,8 +1447,8 @@ void World::Solve()
             continue;
         }
 
-        RigidBody* bodyA = contact->GetBodyA();
-        RigidBody* bodyB = contact->GetBodyB();
+        Body* bodyA = contact->GetBodyA();
+        Body* bodyB = contact->GetBodyB();
 
         SolverSetIndex targetSet;
         if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
@@ -1493,8 +1487,8 @@ void World::Solve()
     {
         Joint* joint = islandJoints[i];
 
-        RigidBody* bodyA = joint->GetBodyA();
-        RigidBody* bodyB = joint->GetBodyB();
+        Body* bodyA = joint->GetBodyA();
+        Body* bodyB = joint->GetBodyB();
 
         joint->flagIsland = false;
 
@@ -1538,8 +1532,8 @@ void World::Solve()
             continue;
         }
 
-        RigidBody* bodyA = joint->GetBodyA();
-        RigidBody* bodyB = joint->GetBodyB();
+        Body* bodyA = joint->GetBodyA();
+        Body* bodyB = joint->GetBodyB();
 
         SolverSetIndex targetSet;
         if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
@@ -1581,10 +1575,10 @@ void World::Solve()
     // so iterate the set itself backward and use flag_island to find bodies solved this step.
     for (int32 i = int32(awakeSet.bodyStates.size()) - 1; i >= 0; --i)
     {
-        RigidBody* body = awakeSet.bodyStates[i].body;
-        if (body->flag & RigidBody::flag_island)
+        Body* body = awakeSet.bodyStates[i].body;
+        if (body->flag & Body::flag_island)
         {
-            body->flag &= ~RigidBody::flag_island;
+            body->flag &= ~Body::flag_island;
             if (body->IsEnabled() == false)
             {
                 TransferBody(body, disabled_set);
@@ -1605,13 +1599,13 @@ void World::Solve()
     linearAllocator.Free(islandContacts, constraintGraph.contactCount * sizeof(Contact*));
     linearAllocator.Free(islandBodies, bodyCount * sizeof(BodyState*));
     linearAllocator.Free(islands, bodyCount * sizeof(Island));
-    linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
+    linearAllocator.Free(stack, bodyCount * sizeof(Body*));
     MuliProfileZoneEnd(finalize);
 }
 
 // Joint factory functions
 
-GrabJoint* World::CreateGrabJoint(RigidBody* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio)
+GrabJoint* World::CreateGrabJoint(Body* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio)
 {
     if (body->world != this)
     {
@@ -1624,7 +1618,7 @@ GrabJoint* World::CreateGrabJoint(RigidBody* body, const Vec3& anchor, const Vec
     return gj;
 }
 
-FixedRotationJoint* World::CreateFixedRotationJoint(RigidBody* body, float frequency, float dampingRatio)
+FixedRotationJoint* World::CreateFixedRotationJoint(Body* body, float frequency, float dampingRatio)
 {
     if (body->world != this)
     {
@@ -1638,7 +1632,7 @@ FixedRotationJoint* World::CreateFixedRotationJoint(RigidBody* body, float frequ
 }
 
 ConeSwingJoint* World::CreateConeSwingJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1653,15 +1647,15 @@ ConeSwingJoint* World::CreateConeSwingJoint(
 }
 
 RevoluteJoint* World::CreateRevoluteJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& axis, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& axis, float frequency, float dampingRatio
 )
 {
     return CreateLimitedRevoluteJoint(bodyA, bodyB, anchor, axis, -pi, pi, frequency, dampingRatio);
 }
 
 RevoluteJoint* World::CreateLimitedRevoluteJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
+    Body* bodyA,
+    Body* bodyB,
     const Vec3& anchor,
     const Vec3& axis,
     float minAngle,
@@ -1682,14 +1676,14 @@ RevoluteJoint* World::CreateLimitedRevoluteJoint(
 }
 
 RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& axis, float frequency, float dampingRatio
 )
 {
     return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, -pi, pi, frequency, dampingRatio);
 }
 
 RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1705,7 +1699,7 @@ RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
 }
 
 TwistAngleJoint* World::CreateTwistAngleJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1719,9 +1713,7 @@ TwistAngleJoint* World::CreateTwistAngleJoint(
     return taj;
 }
 
-BallSocketJoint* World::CreateBallSocketJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio
-)
+BallSocketJoint* World::CreateBallSocketJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
 {
     if (bodyA->world != this || bodyB->world != this)
     {
@@ -1735,13 +1727,7 @@ BallSocketJoint* World::CreateBallSocketJoint(
 }
 
 DistanceJoint* World::CreateDistanceJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchorA,
-    const Vec3& anchorB,
-    float length,
-    float frequency,
-    float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchorA, const Vec3& anchorB, float length, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1755,14 +1741,14 @@ DistanceJoint* World::CreateDistanceJoint(
     return dj;
 }
 
-DistanceJoint* World::CreateDistanceJoint(RigidBody* bodyA, RigidBody* bodyB, float length, float frequency, float dampingRatio)
+DistanceJoint* World::CreateDistanceJoint(Body* bodyA, Body* bodyB, float length, float frequency, float dampingRatio)
 {
     return CreateDistanceJoint(bodyA, bodyB, bodyA->GetPosition(), bodyB->GetPosition(), length, frequency, dampingRatio);
 }
 
 DistanceJoint* World::CreateLimitedDistanceJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
+    Body* bodyA,
+    Body* bodyB,
     const Vec3& anchorA,
     const Vec3& anchorB,
     float minLength,
@@ -1783,7 +1769,7 @@ DistanceJoint* World::CreateLimitedDistanceJoint(
     return dj;
 }
 
-WeldJoint* World::CreateWeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
+WeldJoint* World::CreateWeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
 {
     if (bodyA->world != this || bodyB->world != this)
     {
@@ -1797,7 +1783,7 @@ WeldJoint* World::CreateWeldJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3
 }
 
 LineJoint* World::CreateLineJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1811,7 +1797,7 @@ LineJoint* World::CreateLineJoint(
     return lj;
 }
 
-LineJoint* World::CreateLineJoint(RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio)
+LineJoint* World::CreateLineJoint(Body* bodyA, Body* bodyB, float frequency, float dampingRatio)
 {
     return CreateLineJoint(
         bodyA, bodyB, bodyA->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), frequency, dampingRatio
@@ -1819,7 +1805,7 @@ LineJoint* World::CreateLineJoint(RigidBody* bodyA, RigidBody* bodyB, float freq
 }
 
 PrismaticJoint* World::CreatePrismaticJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1833,7 +1819,7 @@ PrismaticJoint* World::CreatePrismaticJoint(
     return pj;
 }
 
-PrismaticJoint* World::CreatePrismaticJoint(RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio)
+PrismaticJoint* World::CreatePrismaticJoint(Body* bodyA, Body* bodyB, float frequency, float dampingRatio)
 {
     return CreatePrismaticJoint(
         bodyA, bodyB, bodyB->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), frequency, dampingRatio
@@ -1841,8 +1827,8 @@ PrismaticJoint* World::CreatePrismaticJoint(RigidBody* bodyA, RigidBody* bodyB, 
 }
 
 PulleyJoint* World::CreatePulleyJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
+    Body* bodyA,
+    Body* bodyB,
     const Vec3& anchorA,
     const Vec3& anchorB,
     const Vec3& groundAnchorA,
@@ -1866,7 +1852,7 @@ PulleyJoint* World::CreatePulleyJoint(
 }
 
 MotorJoint* World::CreateMotorJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float maxForce, float maxTorque, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, float maxForce, float maxTorque, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1880,7 +1866,7 @@ MotorJoint* World::CreateMotorJoint(
     return mj;
 }
 
-void World::AddBody(RigidBody* body)
+void World::AddBody(Body* body)
 {
     body->world = this;
     body->prev = bodyListTail;
@@ -1889,8 +1875,8 @@ void World::AddBody(RigidBody* body)
     body->colliderCount = 0;
     body->contactList = nullptr;
     body->jointList = nullptr;
-    body->flag &= ~RigidBody::flag_island;
-    body->flag |= RigidBody::flag_enabled;
+    body->flag &= ~Body::flag_island;
+    body->flag |= Body::flag_enabled;
 
     // Connect to tail
     if (bodyListTail)
@@ -1903,12 +1889,12 @@ void World::AddBody(RigidBody* body)
     }
     bodyListTail = body;
 
-    SolverSetIndex setIndex = body->type == RigidBody::static_body ? static_set : awake_set;
+    SolverSetIndex setIndex = body->type == Body::static_body ? static_set : awake_set;
     AddBodyState(body, setIndex);
     ++bodyCount;
 }
 
-void World::FreeBody(RigidBody* body)
+void World::FreeBody(Body* body)
 {
     poolAllocator.Delete(body);
 }
@@ -2112,7 +2098,7 @@ void World::FreeShape(Shape* shape)
     }
 }
 
-BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex)
+BodyState* World::AddBodyState(Body* body, SolverSetIndex setIndex)
 {
     SolverSet& set = solverSets[setIndex];
     body->setIndex = setIndex;
@@ -2135,7 +2121,7 @@ BodyState* World::AddBodyState(RigidBody* body, SolverSetIndex setIndex)
     return &set.bodyStates.back();
 }
 
-void World::RemoveBodyState(RigidBody* body)
+void World::RemoveBodyState(Body* body)
 {
     SolverSet& set = solverSets[body->setIndex];
     int32 index = body->localIndex;
@@ -2152,7 +2138,7 @@ void World::RemoveBodyState(RigidBody* body)
     body->localIndex = null_index;
 }
 
-void World::TransferBody(RigidBody* body, SolverSetIndex targetSet)
+void World::TransferBody(Body* body, SolverSetIndex targetSet)
 {
     if (body->setIndex == targetSet)
     {
@@ -2363,7 +2349,7 @@ void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
     }
 }
 
-void World::WakeBody(RigidBody* body)
+void World::WakeBody(Body* body)
 {
     if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
     {
@@ -2375,7 +2361,7 @@ void World::WakeBody(RigidBody* body)
         return;
     }
 
-    body->flag &= ~RigidBody::flag_sleeping;
+    body->flag &= ~Body::flag_sleeping;
     body->GetBodyState()->resting = 0.0f;
 
     TransferBody(body, awake_set);
@@ -2383,7 +2369,7 @@ void World::WakeBody(RigidBody* body)
     for (ContactEdge* ce = body->contactList; ce; ce = ce->next)
     {
         Contact* contact = ce->contact;
-        RigidBody* other = ce->other;
+        Body* other = ce->other;
 
         if (other->IsEnabled() == false)
         {
@@ -2396,7 +2382,7 @@ void World::WakeBody(RigidBody* body)
     for (JointEdge* je = body->jointList; je; je = je->next)
     {
         Joint* joint = je->joint;
-        RigidBody* other = je->other;
+        Body* other = je->other;
 
         if (other->IsEnabled() == false)
         {
@@ -2407,7 +2393,7 @@ void World::WakeBody(RigidBody* body)
     }
 }
 
-void World::SleepBody(RigidBody* body)
+void World::SleepBody(Body* body)
 {
     if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
     {
@@ -2427,7 +2413,7 @@ void World::SleepBody(RigidBody* body)
     state->angularVelocity = Vec3::zero;
 }
 
-void World::WakeIsland(RigidBody* body)
+void World::WakeIsland(Body* body)
 {
     if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
     {
@@ -2439,12 +2425,12 @@ void World::WakeIsland(RigidBody* body)
         return;
     }
 
-    GrowableArray<RigidBody*, 64> stack;
+    GrowableArray<Body*, 64> stack;
     stack.push_back(body);
 
     while (stack.size() > 0)
     {
-        RigidBody* b = stack.back();
+        Body* b = stack.back();
         stack.pop_back();
 
         if (b->IsStatic() || b->IsEnabled() == false || (b->IsSleeping() == false && b->setIndex == awake_set))
@@ -2452,14 +2438,14 @@ void World::WakeIsland(RigidBody* body)
             continue;
         }
 
-        b->flag &= ~RigidBody::flag_sleeping;
+        b->flag &= ~Body::flag_sleeping;
         b->GetBodyState()->resting = 0.0f;
         TransferBody(b, awake_set);
 
         for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
         {
             Contact* contact = ce->contact;
-            RigidBody* other = ce->other;
+            Body* other = ce->other;
 
             if (other->IsEnabled() == false)
             {
@@ -2482,7 +2468,7 @@ void World::WakeIsland(RigidBody* body)
         for (JointEdge* je = b->jointList; je; je = je->next)
         {
             Joint* joint = je->joint;
-            RigidBody* other = je->other;
+            Body* other = je->other;
 
             if (other->IsEnabled() == false)
             {
@@ -2499,7 +2485,7 @@ void World::WakeIsland(RigidBody* body)
     }
 }
 
-void World::SleepIsland(RigidBody* body)
+void World::SleepIsland(Body* body)
 {
     if (body == nullptr || body->IsStatic() || body->IsEnabled() == false)
     {
@@ -2511,52 +2497,52 @@ void World::SleepIsland(RigidBody* body)
         return;
     }
 
-    GrowableArray<RigidBody*, 64> stack;
-    GrowableArray<RigidBody*, 64> bodies;
+    GrowableArray<Body*, 64> stack;
+    GrowableArray<Body*, 64> bodies;
 
     stack.push_back(body);
-    body->flag |= RigidBody::flag_island;
+    body->flag |= Body::flag_island;
 
     while (stack.size() > 0)
     {
-        RigidBody* b = stack.back();
+        Body* b = stack.back();
         stack.pop_back();
         bodies.push_back(b);
 
         for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
         {
             Contact* contact = ce->contact;
-            RigidBody* other = ce->other;
+            Body* other = ce->other;
 
             if ((contact->flag & Contact::flag_touching) == 0 || (contact->flag & Contact::flag_enabled) == 0)
             {
                 continue;
             }
 
-            if (other->IsStatic() || other->IsEnabled() == false || (other->flag & RigidBody::flag_island))
+            if (other->IsStatic() || other->IsEnabled() == false || (other->flag & Body::flag_island))
             {
                 continue;
             }
 
-            other->flag |= RigidBody::flag_island;
+            other->flag |= Body::flag_island;
             stack.push_back(other);
         }
 
         for (JointEdge* je = b->jointList; je; je = je->next)
         {
-            RigidBody* other = je->other;
+            Body* other = je->other;
 
-            if (other->IsStatic() || other->IsEnabled() == false || (other->flag & RigidBody::flag_island))
+            if (other->IsStatic() || other->IsEnabled() == false || (other->flag & Body::flag_island))
             {
                 continue;
             }
 
-            other->flag |= RigidBody::flag_island;
+            other->flag |= Body::flag_island;
             stack.push_back(other);
         }
     }
 
-    for (RigidBody* b : bodies)
+    for (Body* b : bodies)
     {
         BodyState* state = b->GetBodyState();
         state->resting = max_float;
@@ -2565,16 +2551,16 @@ void World::SleepIsland(RigidBody* body)
         state->linearVelocity = Vec3::zero;
         state->angularVelocity = Vec3::zero;
 
-        b->flag |= RigidBody::flag_sleeping;
+        b->flag |= Body::flag_sleeping;
     }
 
-    for (RigidBody* b : bodies)
+    for (Body* b : bodies)
     {
         for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
         {
             Contact* contact = ce->contact;
-            RigidBody* bodyA = contact->GetBodyA();
-            RigidBody* bodyB = contact->GetBodyB();
+            Body* bodyA = contact->GetBodyA();
+            Body* bodyB = contact->GetBodyB();
 
             SolverSetIndex targetSet;
             if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
@@ -2594,8 +2580,8 @@ void World::SleepIsland(RigidBody* body)
         for (JointEdge* je = b->jointList; je; je = je->next)
         {
             Joint* joint = je->joint;
-            RigidBody* bodyA = joint->GetBodyA();
-            RigidBody* bodyB = joint->GetBodyB();
+            Body* bodyA = joint->GetBodyA();
+            Body* bodyB = joint->GetBodyB();
 
             SolverSetIndex targetSet;
             if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
@@ -2617,9 +2603,9 @@ void World::SleepIsland(RigidBody* body)
         }
     }
 
-    for (RigidBody* b : bodies)
+    for (Body* b : bodies)
     {
-        b->flag &= ~RigidBody::flag_island;
+        b->flag &= ~Body::flag_island;
         TransferBody(b, sleeping_set);
     }
 }
@@ -2635,7 +2621,7 @@ void World::Validate() const
 
         for (int32 i = 0; i < int32(set.bodyStates.size()); ++i)
         {
-            RigidBody* body = set.bodyStates[i].body;
+            Body* body = set.bodyStates[i].body;
             MuliAssert(body->setIndex == setIndex);
             MuliAssert(body->localIndex == i);
             MuliNotUsed(body);
@@ -2670,8 +2656,8 @@ void World::Validate() const
             MuliAssert(contact->colorIndex == null_index);
             MuliAssert(contact->localIndex == i);
 
-            RigidBody* bodyA = contact->GetBodyA();
-            RigidBody* bodyB = contact->GetBodyB();
+            Body* bodyA = contact->GetBodyA();
+            Body* bodyB = contact->GetBodyB();
             if (setIndex == static_set)
             {
                 MuliAssert(bodyA->IsStatic() && bodyB->IsStatic());
@@ -2703,8 +2689,8 @@ void World::Validate() const
             MuliAssert(joint->colorIndex == null_index);
             MuliAssert(joint->localIndex == i);
 
-            RigidBody* bodyA = joint->GetBodyA();
-            RigidBody* bodyB = joint->GetBodyB();
+            Body* bodyA = joint->GetBodyA();
+            Body* bodyB = joint->GetBodyB();
             if (setIndex == static_set)
             {
                 MuliAssert(bodyA->IsStatic() && bodyB->IsStatic());
@@ -2728,7 +2714,7 @@ void World::Validate() const
     for (int32 colorIndex = 0; colorIndex < constraint_color_count; ++colorIndex)
     {
         const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
-        std::unordered_set<RigidBody*> colorBodies;
+        std::unordered_set<Body*> colorBodies;
         uint32 colorBit = colorIndex == constraint_overflow_index ? 0 : 1u << colorIndex;
         MuliNotUsed(colorBit);
 
@@ -2742,8 +2728,8 @@ void World::Validate() const
             MuliAssert(contact->IsEnabled());
             MuliAssert(contact->IsTouching());
 
-            RigidBody* bodyA = contact->GetBodyA();
-            RigidBody* bodyB = contact->GetBodyB();
+            Body* bodyA = contact->GetBodyA();
+            Body* bodyB = contact->GetBodyB();
             MuliAssert(bodyA->IsEnabled());
             MuliAssert(bodyB->IsEnabled());
 
@@ -2778,8 +2764,8 @@ void World::Validate() const
             MuliAssert(joint->localIndex == i);
             MuliAssert(joint->IsEnabled());
 
-            RigidBody* bodyA = joint->GetBodyA();
-            RigidBody* bodyB = joint->GetBodyB();
+            Body* bodyA = joint->GetBodyA();
+            Body* bodyB = joint->GetBodyB();
             MuliAssert(bodyA->IsEnabled());
             MuliAssert(bodyB->IsEnabled());
 
@@ -2826,7 +2812,7 @@ void World::Validate() const
     MuliAssert(jointCount == this->jointCount);
     MuliNotUsed(jointCount);
 
-    for (RigidBody* body = bodyList; body; body = body->next)
+    for (Body* body = bodyList; body; body = body->next)
     {
         if (body->IsStatic())
         {

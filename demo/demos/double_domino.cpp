@@ -23,9 +23,9 @@ public:
 
         for (int32 x = 0; x < rows; ++x)
         {
-            RigidBody* b = world->CreateBox(
+            Body* b = world->CreateBox(
                 boxWidth, boxHeight, boxDepth, Transform{ Vec3{ xStart + x * (boxWidth + xGap), yStart, 0.0f } },
-                RigidBody::dynamic_body
+                Body::dynamic_body
             );
 
             if (x == 0)
@@ -37,7 +37,7 @@ public:
         }
 
         float w = Max(15.0f, (float)rows) * (boxWidth + xGap) - xGap;
-        world->CreateBox(w + 30, 0.5f, 20.0f, identity, RigidBody::static_body);
+        world->CreateBox(w + 30, 0.5f, 20.0f, identity, Body::static_body);
 
         camera.SetPosition(Vec3{ 0.0f, w / 5.0f, w * 0.75f });
         camera.SetRotation(-90.0f, -16.0f);

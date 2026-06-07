@@ -339,7 +339,7 @@ void Game::UpdateUI()
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_AlwaysAutoResize |
             ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoBackground
     );
-    RigidBody* targetBody = demo->GetTargetBody();
+    Body* targetBody = demo->GetTargetBody();
     if (targetBody)
     {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4{ 12 / 255.0f, 11 / 255.0f, 14 / 255.0f, 1.0f });

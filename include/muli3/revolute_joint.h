@@ -11,8 +11,8 @@ class RevoluteJoint : public Joint
 {
 public:
     RevoluteJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchor,
         const Vec3& axis,
         float minAngle,

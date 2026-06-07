@@ -11,7 +11,7 @@ public:
     {
         options.draw_outlined = false;
 
-        world->CreateBox(28.0f, 0.5f, 28.0f, identity, RigidBody::static_body);
+        world->CreateBox(28.0f, 0.5f, 28.0f, identity, Body::static_body);
 
         const std::array<Vec3, 8> hullA = {
             Vec3{ -0.45f, -0.40f, -0.30f }, Vec3{ 0.42f, -0.35f, -0.26f }, Vec3{ 0.36f, -0.38f, 0.32f },
@@ -37,13 +37,13 @@ public:
         {
             float y = 1.0f + i * 1.35f;
 
-            RigidBody* bodyA = world->CreateConvex(hullA, Transform{ Vec3{ -2.4f, y, 0.0f } });
+            Body* bodyA = world->CreateConvex(hullA, Transform{ Vec3{ -2.4f, y, 0.0f } });
             bodyA->SetRotation(Quat::FromEuler(Vec3{ 0.18f * i, 0.11f * i, 0.07f * i }));
 
-            RigidBody* bodyB = world->CreateConvex(hullB, Transform{ Vec3{ 0.0f, y, 0.0f } });
+            Body* bodyB = world->CreateConvex(hullB, Transform{ Vec3{ 0.0f, y, 0.0f } });
             bodyB->SetRotation(Quat::FromEuler(Vec3{ 0.09f * i, 0.23f * i, 0.05f * i }));
 
-            RigidBody* bodyC = world->CreateConvex(hullC, Transform{ Vec3{ 2.4f, y, 0.0f } });
+            Body* bodyC = world->CreateConvex(hullC, Transform{ Vec3{ 2.4f, y, 0.0f } });
             bodyC->SetRotation(Quat::FromEuler(Vec3{ 0.14f * i, 0.08f * i, 0.19f * i }));
         }
 

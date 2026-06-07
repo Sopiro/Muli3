@@ -5,7 +5,6 @@
 #include "material.h"
 #include "shape.h"
 
-
 namespace muli3
 {
 
@@ -18,8 +17,8 @@ public:
     Collider(const Collider&) = delete;
     Collider& operator=(const Collider&) = delete;
 
-    RigidBody* GetBody();
-    const RigidBody* GetBody() const;
+    Body* GetBody();
+    const Body* GetBody() const;
 
     Collider* GetNext();
     const Collider* GetNext() const;
@@ -68,16 +67,16 @@ private:
     friend class BroadPhase;
     friend class Contact;
     friend class ConstraintGraph;
-    friend class RigidBody;
+    friend class Body;
     friend class World;
 
     Collider();
     ~Collider();
 
-    void Create(RigidBody* body, Shape* shape, const Transform& transform, float density, const Material& material);
+    void Create(Body* body, Shape* shape, const Transform& transform, float density, const Material& material);
     void Destroy(World* world);
 
-    RigidBody* body;
+    Body* body;
     Collider* next;
     Shape* shape;
 
@@ -89,12 +88,12 @@ private:
     bool enabled;
 };
 
-inline RigidBody* Collider::GetBody()
+inline Body* Collider::GetBody()
 {
     return body;
 }
 
-inline const RigidBody* Collider::GetBody() const
+inline const Body* Collider::GetBody() const
 {
     return body;
 }

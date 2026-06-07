@@ -9,12 +9,12 @@ namespace muli3
 
 class Contact;
 class Joint;
-class RigidBody;
+class Body;
 struct Timestep;
 
 struct BodyState
 {
-    RigidBody* body;
+    Body* body;
 
     Motion motion;
 

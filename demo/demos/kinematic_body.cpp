@@ -20,19 +20,11 @@ public:
         float wallHeight = 1.0f;
         float groundHeight = 0.4f;
 
-        world->CreateBox(size, groundHeight, size, Transform{ Vec3{ 0.0f, -groundHeight * 0.5f, 0.0f } }, RigidBody::static_body);
-        world->CreateBox(
-            wallWidth, wallHeight, size, Transform{ Vec3{ -halfSize, wallHeight * 0.5f, 0.0f } }, RigidBody::static_body
-        );
-        world->CreateBox(
-            wallWidth, wallHeight, size, Transform{ Vec3{ halfSize, wallHeight * 0.5f, 0.0f } }, RigidBody::static_body
-        );
-        world->CreateBox(
-            size, wallHeight, wallWidth, Transform{ Vec3{ 0.0f, wallHeight * 0.5f, -halfSize } }, RigidBody::static_body
-        );
-        world->CreateBox(
-            size, wallHeight, wallWidth, Transform{ Vec3{ 0.0f, wallHeight * 0.5f, halfSize } }, RigidBody::static_body
-        );
+        world->CreateBox(size, groundHeight, size, Transform{ Vec3{ 0.0f, -groundHeight * 0.5f, 0.0f } }, Body::static_body);
+        world->CreateBox(wallWidth, wallHeight, size, Transform{ Vec3{ -halfSize, wallHeight * 0.5f, 0.0f } }, Body::static_body);
+        world->CreateBox(wallWidth, wallHeight, size, Transform{ Vec3{ halfSize, wallHeight * 0.5f, 0.0f } }, Body::static_body);
+        world->CreateBox(size, wallHeight, wallWidth, Transform{ Vec3{ 0.0f, wallHeight * 0.5f, -halfSize } }, Body::static_body);
+        world->CreateBox(size, wallHeight, wallWidth, Transform{ Vec3{ 0.0f, wallHeight * 0.5f, halfSize } }, Body::static_body);
 
         float r = 0.22f;
         float range = size - wallWidth * 3.0f;
@@ -42,12 +34,12 @@ public:
             float x = Rand(0.0f, range) - range * 0.5f;
             float z = Rand(0.0f, range) - range * 0.5f;
 
-            RigidBody* b = world->CreateSphere(r, Transform{ Vec3{ x, r, z } }, RigidBody::dynamic_body);
+            Body* b = world->CreateSphere(r, Transform{ Vec3{ x, r, z } }, Body::dynamic_body);
             b->SetRotation(Quat::FromEuler(RandVec3(Vec3{ 0.0f, 0.0f, 0.0f }, Vec3{ two_pi, two_pi, two_pi })));
             // b->SetGyroscopicTorqueEnabled(true);
         }
 
-        k = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 0.25f, 0.0f } }, RigidBody::kinematic_body);
+        k = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 0.25f, 0.0f } }, Body::kinematic_body);
         k->CreateCapsuleCollider(Vec3{ -size * 0.45f, 0.0f, 0.0f }, Vec3{ size * 0.45f, 0.0f, 0.0f }, 0.15f);
         k->CreateCapsuleCollider(Vec3{ 0.0f, 0.0f, -size * 0.45f }, Vec3{ 0.0f, 0.0f, size * 0.45f }, 0.15f);
         k->SetAngularVelocity(0.0f, DegToRad(speed), 0.0f);
@@ -72,7 +64,7 @@ public:
     }
 
 private:
-    RigidBody* k = nullptr;
+    Body* k = nullptr;
 };
 
 static Demo* CreateKinematicBody(Game& game)

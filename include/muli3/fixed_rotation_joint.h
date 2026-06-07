@@ -10,7 +10,7 @@ namespace muli3
 class FixedRotationJoint : public Joint
 {
 public:
-    FixedRotationJoint(RigidBody* body, float frequency, float dampingRatio);
+    FixedRotationJoint(Body* body, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

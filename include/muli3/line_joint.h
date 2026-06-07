@@ -10,14 +10,7 @@ namespace muli3
 class LineJoint : public Joint
 {
 public:
-    LineJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        const Vec3& anchor,
-        const Vec3& dir,
-        float frequency,
-        float dampingRatio
-    );
+    LineJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

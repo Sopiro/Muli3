@@ -9,13 +9,13 @@ public:
     CompoundShape(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         for (int32 i = 0; i < 10; ++i)
         {
             float y = 1.0f + i * 1.15f;
 
-            RigidBody* body = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, y, 0.0f } });
+            Body* body = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, y, 0.0f } });
             body->CreateBoxCollider(1.1f, 0.25f, 0.25f);
             body->CreateBoxCollider(0.25f, 1.1f, 0.25f);
             body->CreateBoxCollider(0.25f, 0.25f, 1.1f);

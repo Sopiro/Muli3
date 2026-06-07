@@ -25,11 +25,11 @@ public:
         camera.SetRotation(-90.0f, 0.0f);
         camera.speed = 0.35f;
 
-        RigidBody* body;
+        Body* body;
         body = world->CreateSphere(0.3f, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
         body = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } });
-        body = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, RigidBody::dynamic_body);
-        body = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, RigidBody::dynamic_body);
+        body = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        body = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, Body::dynamic_body);
     }
 
     void UpdateInput() override

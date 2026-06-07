@@ -6,7 +6,6 @@
 #include "contact_solver.h"
 #include "solver_states.h"
 
-
 namespace muli3
 {
 
@@ -14,7 +13,7 @@ class Contact;
 
 struct ContactEdge
 {
-    RigidBody* other;
+    Body* other;
     Contact* contact;
     ContactEdge* prev;
     ContactEdge* next;
@@ -29,11 +28,11 @@ public:
     Collider* GetColliderA() const;
     Collider* GetColliderB() const;
 
-    RigidBody* GetBodyA() const;
-    RigidBody* GetBodyB() const;
+    Body* GetBodyA() const;
+    Body* GetBodyB() const;
 
-    RigidBody* GetReferenceBody() const;
-    RigidBody* GetIncidentBody() const;
+    Body* GetReferenceBody() const;
+    Body* GetIncidentBody() const;
 
     const Contact* GetNext() const;
     const Contact* GetPrev() const;
@@ -105,23 +104,23 @@ inline Collider* Contact::GetColliderB() const
     return colliderB;
 }
 
-inline RigidBody* Contact::GetBodyA() const
+inline Body* Contact::GetBodyA() const
 {
     return colliderA->GetBody();
 }
 
-inline RigidBody* Contact::GetBodyB() const
+inline Body* Contact::GetBodyB() const
 {
     return colliderB->GetBody();
 }
 
-inline RigidBody* Contact::GetReferenceBody() const
+inline Body* Contact::GetReferenceBody() const
 {
     const ContactState* s = GetContactState();
     return s->manifold.featureFlipped ? GetBodyB() : GetBodyA();
 }
 
-inline RigidBody* Contact::GetIncidentBody() const
+inline Body* Contact::GetIncidentBody() const
 {
     const ContactState* s = GetContactState();
     return s->manifold.featureFlipped ? GetBodyA() : GetBodyB();

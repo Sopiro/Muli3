@@ -22,7 +22,7 @@ static float ClampImpulse(float impulse, int32 limitState)
 }
 
 ConeSwingJoint::ConeSwingJoint(
-    RigidBody* bodyA, RigidBody* bodyB, const Vec3& worldAxis, float jointMaxAngle, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& worldAxis, float jointMaxAngle, float frequency, float dampingRatio
 )
     : Joint(cone_swing_joint, bodyA, bodyB, frequency, dampingRatio)
     , maxAngle{ Clamp(jointMaxAngle, 0.0f, pi) }

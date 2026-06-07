@@ -10,7 +10,7 @@ namespace muli3
 class BallSocketJoint : public Joint
 {
 public:
-    BallSocketJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, float frequency, float dampingRatio);
+    BallSocketJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

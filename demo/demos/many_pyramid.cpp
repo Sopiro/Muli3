@@ -39,7 +39,7 @@ public:
                     {
                         world->CreateBox(
                             size, Vec3{ origin.x + xStart + y * xzStep * 0.5f + i * xzStep, yStart + y * yStep, origin.z },
-                            RigidBody::dynamic_body
+                            Body::dynamic_body
                         );
                     }
                 }
@@ -51,7 +51,7 @@ public:
         float h = Max(12.0f, (float)rows * yStep);
         float r = Max(groundHalfX, groundHalfZ);
 
-        world->CreateBox(groundHalfX * 2.0f, 0.5f, groundHalfZ * 2.0f, identity, RigidBody::static_body);
+        world->CreateBox(groundHalfX * 2.0f, 0.5f, groundHalfZ * 2.0f, identity, Body::static_body);
 
         camera.SetPosition(Vec3{ 0.0f, Max(h * 0.9f, r * 0.7f), r * 2.1f });
         camera.SetRotation(-90.0f, -18.0f);

@@ -9,9 +9,9 @@ public:
     PrismaticJointTest(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
-        RigidBody* body = world->CreateBox(0.5f, Transform{ Vec3{ 0.0f, 2.0f, 0.0f } });
+        Body* body = world->CreateBox(0.5f, Transform{ Vec3{ 0.0f, 2.0f, 0.0f } });
         world->CreatePrismaticJoint(ground, body, body->GetPosition(), Vec3::zero);
         world->CreateLimitedDistanceJoint(ground, body, ground->GetPosition(), body->GetPosition(), 1.0f, 8.0f);
 

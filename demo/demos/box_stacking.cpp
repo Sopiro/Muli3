@@ -14,7 +14,7 @@ public:
     BoxStacking(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, RigidBody::static_body);
+        Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         float size = 1.0f;
         float gap = 0.1f;
@@ -25,7 +25,7 @@ public:
             float x = std::sin((float)i * 12.9898f) * error;
             float z = std::sin((float)i * 78.2330f) * error;
 
-            RigidBody* b = world->CreateBox(size, Transform{ Vec3{ x, start + i * (size + gap), z } }, RigidBody::dynamic_body);
+            Body* b = world->CreateBox(size, Transform{ Vec3{ x, start + i * (size + gap), z } }, Body::dynamic_body);
         }
 
         float h = Max(12.0f, (float)count * (size + gap));

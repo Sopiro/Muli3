@@ -4,8 +4,8 @@ namespace muli3
 {
 
 PulleyJoint::PulleyJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
+    Body* bodyA,
+    Body* bodyB,
     const Vec3& anchorA,
     const Vec3& anchorB,
     const Vec3& inGroundAnchorA,

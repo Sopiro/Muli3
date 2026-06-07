@@ -4,7 +4,6 @@
 #include "common.h"
 #include "dynamic_dispatcher.h"
 
-
 namespace muli3
 {
 
@@ -28,7 +27,7 @@ using Joints = TypePack<
 
 struct JointEdge
 {
-    RigidBody* other;
+    Body* other;
     Joint* joint;
     JointEdge* prev;
     JointEdge* next;
@@ -98,8 +97,8 @@ public:
     void SolveVelocityConstraints(const Timestep& step);
     bool SolvePositionConstraints(const Timestep& step);
 
-    RigidBody* GetBodyA() const;
-    RigidBody* GetBodyB() const;
+    Body* GetBodyA() const;
+    Body* GetBodyB() const;
 
     float GetFrequency() const;
     void SetFrequency(float frequency);
@@ -122,15 +121,15 @@ public:
     void* UserData;
 
 protected:
-    Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio);
+    Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio);
 
     void ComputeBetaAndGamma(float effectiveMass, float dt);
 
     JointState* GetJointState();
     const JointState* GetJointState() const;
 
-    RigidBody* bodyA;
-    RigidBody* bodyB;
+    Body* bodyA;
+    Body* bodyB;
 
 private:
     friend class World;
@@ -223,12 +222,12 @@ inline bool Joint::IsEnabled() const
     return bodyA->IsEnabled() || bodyB->IsEnabled();
 }
 
-inline RigidBody* Joint::GetBodyA() const
+inline Body* Joint::GetBodyA() const
 {
     return bodyA;
 }
 
-inline RigidBody* Joint::GetBodyB() const
+inline Body* Joint::GetBodyB() const
 {
     return bodyB;
 }

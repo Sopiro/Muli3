@@ -10,14 +10,7 @@ namespace muli3
 class PrismaticJoint : public Joint
 {
 public:
-    PrismaticJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        const Vec3& anchor,
-        const Vec3& dir,
-        float frequency,
-        float dampingRatio
-    );
+    PrismaticJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

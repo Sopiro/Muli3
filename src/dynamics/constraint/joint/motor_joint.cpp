@@ -4,13 +4,7 @@ namespace muli3
 {
 
 MotorJoint::MotorJoint(
-    RigidBody* bodyA,
-    RigidBody* bodyB,
-    const Vec3& anchor,
-    float maxJointForce,
-    float maxJointTorque,
-    float frequency,
-    float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, float maxJointForce, float maxJointTorque, float frequency, float dampingRatio
 )
     : Joint(motor_joint, bodyA, bodyB, frequency, dampingRatio)
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }

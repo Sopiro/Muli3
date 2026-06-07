@@ -14,12 +14,12 @@ public:
     SinglePendulum(Game& game)
         : Demo(game)
     {
-        RigidBody* ground = world->CreateBox(40.0f, 0.5f, 40.0f, identity, RigidBody::static_body);
+        Body* ground = world->CreateBox(40.0f, 0.5f, 40.0f, identity, Body::static_body);
 
         Vec3 anchor{ 0.0f, 6.0f, 0.0f };
         Vec3 position{ -2.4f, 3.8f, 1.6f };
 
-        RigidBody* body = world->CreateBox(0.45f, Transform{ position });
+        Body* body = world->CreateBox(0.45f, Transform{ position });
         body->SetAngularVelocity(0.8f, -0.35f, 0.45f);
 
         world->CreateBallSocketJoint(body, ground, anchor, frequency, dampingRatio);

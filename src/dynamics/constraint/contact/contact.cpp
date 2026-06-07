@@ -83,8 +83,8 @@ void Contact::Update()
         flag &= ~Contact::flag_was_touching;
     }
 
-    RigidBody* bodyA = colliderA->GetBody();
-    RigidBody* bodyB = colliderB->GetBody();
+    Body* bodyA = colliderA->GetBody();
+    Body* bodyB = colliderB->GetBody();
 
     bool touching =
         collideFunction(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifold);

@@ -11,8 +11,8 @@ class MotorJoint : public Joint
 {
 public:
     MotorJoint(
-        RigidBody* bodyA,
-        RigidBody* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchor,
         float maxJointForce,
         float maxJointTorque,

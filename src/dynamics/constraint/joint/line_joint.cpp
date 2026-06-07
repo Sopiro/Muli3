@@ -4,7 +4,7 @@
 namespace muli3
 {
 
-LineJoint::LineJoint(RigidBody* bodyA, RigidBody* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
+LineJoint::LineJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
     : Joint(line_joint, bodyA, bodyB, frequency, dampingRatio)
     , impulseSum{ 0.0f }
 {

@@ -37,7 +37,7 @@ public:
 
 private:
     friend class World;
-    friend class RigidBody;
+    friend class Body;
     friend class Contact;
     friend class Joint;
     friend class BroadPhase;
@@ -47,9 +47,9 @@ private:
     void UpdateCollider(Collider* collider, const Transform& transform);
     void UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1);
 
-    int32 AssignColor(RigidBody* bodyA, RigidBody* bodyB);
-    void AddColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIndex);
-    void RemoveColor(RigidBody* bodyA, RigidBody* bodyB, int32 colorIndex);
+    int32 AssignColor(Body* bodyA, Body* bodyB);
+    void AddColor(Body* bodyA, Body* bodyB, int32 colorIndex);
+    void RemoveColor(Body* bodyA, Body* bodyB, int32 colorIndex);
 
     ContactState* AddContactToGraph(Contact* contact, const ContactState& source);
     void RemoveContactFromGraph(Contact* contact);
