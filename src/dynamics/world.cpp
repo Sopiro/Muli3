@@ -1325,57 +1325,157 @@ void World::Solve()
     {
         ProfileScope profile_sleep_and_sync{ &profile.sleep_and_sync };
 
+        // Collider updates are computed in parallel and committed to the tree in order.
+        struct ColliderSync
+        {
+            Collider* collider;
+            AABB aabb;
+            Vec3 displacement;
+            bool reset;
+        };
+
+        // Build per-body collider spans(prefix sums) so workers can write without synchronization.
+        int32* colliderStarts = (int32*)linearAllocator.Allocate((bodyIndex + 1) * sizeof(int32));
+        int32 colliderSyncCount = 0;
+        for (int32 i = 0; i < bodyIndex; ++i)
+        {
+            Body* body = islandBodies[i]->body;
+            colliderStarts[i] = colliderSyncCount;
+            colliderSyncCount += body->GetColliderCount();
+        }
+        colliderStarts[bodyIndex] = colliderSyncCount;
+
+        ColliderSync* colliderSyncs = (ColliderSync*)linearAllocator.Allocate(colliderSyncCount * sizeof(ColliderSync));
+
+        int32 workerCount = settings.thread_pool ? settings.thread_pool->WorkerCount() : 1;
+        int32 islandWordCount = (islandCount + 63) / 64;
+        int32 bodyWordCount = (bodyIndex + 63) / 64;
+
+        int32 awakeIslandBitSize = workerCount * islandWordCount * sizeof(uint64);
+        int32 destroyBodyBitSize = workerCount * bodyWordCount * sizeof(uint64);
+
+        // Worker-local bits avoid atomics while collecting body results.
+        uint64* awakeIslandBits = (uint64*)linearAllocator.Allocate(awakeIslandBitSize);
+        uint64* destroyBodyBits = (uint64*)linearAllocator.Allocate(destroyBodyBitSize);
+        std::memset(awakeIslandBits, 0, awakeIslandBitSize);
+        std::memset(destroyBodyBits, 0, destroyBodyBitSize);
+
+        auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
+        auto GetBit = [](const uint64* bits, int32 bit) { return (bits[bit >> 6] & (uint64(1) << (bit & 63))) != 0; };
+
+        // Compute body transforms and collider bounds in parallel.
+        // The broad phase tree is updated below in order.
+        ParallelFor(
+            0, bodyIndex, minBodyRange,
+            [&](int32 i0, int32 i1, int32 workerIndex) {
+                MuliProfileZoneN(sync_bodies, "Sync Bodies", true);
+                MuliAssert(workerIndex < workerCount);
+
+                uint64* awakeBits = awakeIslandBits + workerIndex * islandWordCount;
+                uint64* destroyBits = destroyBodyBits + workerIndex * bodyWordCount;
+
+                for (int32 i = i0; i < i1; ++i)
+                {
+                    BodyState* s = islandBodies[i];
+                    Body* body = s->body;
+                    MuliAssert(body->IsStatic() == false);
+
+                    if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
+                        Length2(s->linearVelocity) > settings.rest_linear_tolerance)
+                    {
+                        SetBit(awakeBits, body->islandIndex);
+                    }
+
+                    Transform transform0;
+                    s->motion.GetTransform(0.0f, &transform0);
+                    body->SynchronizeTransform();
+
+                    if (settings.world_bounds.TestPoint(body->transform.p) == false)
+                    {
+                        SetBit(destroyBits, i);
+                        continue;
+                    }
+
+                    int32 syncIndex = colliderStarts[i];
+                    bool rested = s->resting > settings.sleeping_time;
+                    for (Collider* collider = body->colliderList; collider; collider = collider->next)
+                    {
+                        AABB aabb0;
+                        AABB aabb1;
+                        collider->GetShape()->ComputeAABB(transform0, &aabb0);
+                        collider->GetShape()->ComputeAABB(body->transform, &aabb1);
+
+                        Vec3 prediction = aabb1.GetCenter() - aabb0.GetCenter();
+                        aabb1.min += prediction;
+                        aabb1.max += prediction;
+
+                        ColliderSync* sync = colliderSyncs + syncIndex++;
+                        sync->collider = collider;
+                        sync->aabb = AABB::Union(aabb0, aabb1);
+                        sync->displacement = prediction;
+                        sync->reset = rested;
+                    }
+                }
+
+                MuliProfileZoneEnd(sync_bodies);
+            },
+            settings.thread_pool
+        );
+
+        // Merge worker-local results into worker 0 storage.
+        uint64* awakeBits = awakeIslandBits;
+        uint64* destroyBits = destroyBodyBits;
+        for (int32 worker = 1; worker < workerCount; ++worker)
+        {
+            uint64* otherAwakeBits = awakeIslandBits + worker * islandWordCount;
+            for (int32 i = 0; i < islandWordCount; ++i)
+            {
+                awakeBits[i] |= otherAwakeBits[i];
+            }
+
+            uint64* otherDestroyBits = destroyBodyBits + worker * bodyWordCount;
+            for (int32 i = 0; i < bodyWordCount; ++i)
+            {
+                destroyBits[i] |= otherDestroyBits[i];
+            }
+        }
+
+        // The broad phase tree and move buffer are not thread-safe, so commit serially.
+        MuliProfileZoneNR(sync_colliders, "Sync Colliders", true);
         for (int32 i = 0; i < islandCount; ++i)
         {
             Island* island = islands + i;
-            bool awakeIsland = false;
+            bool awakeIsland = GetBit(awakeBits, i);
+            bool sleeping = settings.sleeping && awakeIsland == false;
+
             for (int32 j = 0; j < island->bodyCount; ++j)
             {
-                BodyState* s = islandBodies[island->bodyStart + j];
-                if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
-                    Length2(s->linearVelocity) > settings.rest_linear_tolerance)
-                {
-                    awakeIsland = true;
-                }
-
+                int32 b = island->bodyStart + j;
+                BodyState* s = islandBodies[b];
                 Body* body = s->body;
-                MuliAssert(body->IsStatic() == false);
 
-                Transform transform0;
-                s->motion.GetTransform(0.0f, &transform0);
-                body->SynchronizeTransform();
-
-                if (settings.world_bounds.TestPoint(body->transform.p) == false)
+                if (GetBit(destroyBits, b))
                 {
                     BufferDestroy(body);
                 }
                 else
                 {
-                    MuliProfileZoneNR(sync, "Sync Transforms", true);
-                    for (Collider* collider = body->colliderList; collider; collider = collider->next)
+                    for (int32 k = colliderStarts[b]; k < colliderStarts[b + 1]; ++k)
                     {
-                        constraintGraph.UpdateCollider(collider, transform0, body->transform);
+                        const ColliderSync& sync = colliderSyncs[k];
+                        constraintGraph.broadPhase.Update(sync.collider, sync.aabb, sync.displacement, sync.reset);
                     }
-                    MuliProfileZoneEnd(sync);
                 }
-            }
 
-            if (awakeIsland)
-            {
-                for (int32 j = 0; j < island->bodyCount; ++j)
+                if (awakeIsland)
                 {
-                    islandBodies[island->bodyStart + j]->resting = 0.0f;
+                    s->resting = 0.0f;
                 }
-
-                continue;
-            }
-
-            bool sleeping = settings.sleeping;
-            for (int32 j = 0; j < island->bodyCount; ++j)
-            {
-                BodyState* s = islandBodies[island->bodyStart + j];
-                s->resting += step.dt;
-                sleeping &= s->resting > settings.sleeping_time;
+                else
+                {
+                    s->resting += step.dt;
+                    sleeping &= s->resting > settings.sleeping_time;
+                }
             }
 
             if (sleeping == false)
@@ -1395,6 +1495,12 @@ void World::Solve()
                 s->body->flag |= Body::flag_sleeping;
             }
         }
+        MuliProfileZoneEnd(sync_colliders);
+
+        linearAllocator.Free(destroyBodyBits, destroyBodyBitSize);
+        linearAllocator.Free(awakeIslandBits, awakeIslandBitSize);
+        linearAllocator.Free(colliderSyncs, colliderSyncCount * sizeof(ColliderSync));
+        linearAllocator.Free(colliderStarts, (bodyIndex + 1) * sizeof(int32));
     }
     MuliProfileZoneEnd(sleep_and_sync);
 
