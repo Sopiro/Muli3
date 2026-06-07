@@ -60,9 +60,7 @@ inline float ConeSwingJoint::GetJointMaxAngle() const
 
 inline void ConeSwingJoint::SetJointMaxAngle(float newMaxAngle)
 {
-    maxAngle = Clamp(newMaxAngle, 0.0f, pi);
-    bodyA->Awake();
-    bodyB->Awake();
+    maxAngle = std::clamp(newMaxAngle, 0.0f, pi);
 }
 
 } // namespace muli3

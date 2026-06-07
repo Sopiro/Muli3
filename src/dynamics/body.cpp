@@ -52,7 +52,7 @@ const BodyState* Body::GetBodyState() const
 
 void Body::Awake()
 {
-    world->WakeBody(this);
+    world->WakeIsland(this);
 }
 
 void Body::Sleep()

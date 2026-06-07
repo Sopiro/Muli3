@@ -120,8 +120,6 @@ inline void RevoluteJoint::SetJointAngle(float newAngle)
 {
     minAngle = newAngle;
     maxAngle = newAngle;
-    bodyA->Awake();
-    bodyB->Awake();
 }
 
 inline float RevoluteJoint::GetJointMinAngle() const
@@ -133,8 +131,6 @@ inline void RevoluteJoint::SetJointMinAngle(float newMinAngle)
 {
     minAngle = newMinAngle;
     maxAngle = Max(minAngle, maxAngle);
-    bodyA->Awake();
-    bodyB->Awake();
 }
 
 inline float RevoluteJoint::GetJointMaxAngle() const
@@ -146,8 +142,6 @@ inline void RevoluteJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = newMaxAngle;
     minAngle = Min(minAngle, maxAngle);
-    bodyA->Awake();
-    bodyB->Awake();
 }
 
 } // namespace muli3

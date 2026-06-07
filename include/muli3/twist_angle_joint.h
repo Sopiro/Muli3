@@ -74,8 +74,6 @@ inline void TwistAngleJoint::SetJointAngle(float newAngle)
 {
     minAngle = newAngle;
     maxAngle = newAngle;
-    bodyA->Awake();
-    bodyB->Awake();
 }
 
 inline float TwistAngleJoint::GetJointMinAngle() const
@@ -87,8 +85,6 @@ inline void TwistAngleJoint::SetJointMinAngle(float newMinAngle)
 {
     minAngle = newMinAngle;
     maxAngle = Max(minAngle, maxAngle);
-    bodyA->Awake();
-    bodyB->Awake();
 }
 
 inline float TwistAngleJoint::GetJointMaxAngle() const
@@ -100,8 +96,6 @@ inline void TwistAngleJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = newMaxAngle;
     minAngle = Min(minAngle, maxAngle);
-    bodyA->Awake();
-    bodyB->Awake();
 }
 
 } // namespace muli3
