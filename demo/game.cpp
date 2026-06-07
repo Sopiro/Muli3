@@ -188,7 +188,7 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Sleeping", &settings.sleeping);
                 }
                 ImGui::Separator();
-                ImGui::Text("%lld. %s", demoIndex, demoFrames[demoIndex].name);
+                ImGui::Text("%lld.%s", demoIndex, demoFrames[demoIndex].name);
                 ImGui::Text("Bodies: %d", world.GetBodyCount());
                 ImGui::Text("Sleeping Dynamic Bodies: %d", world.GetSleepingBodyCount());
                 ImGui::Text("Broad Phase Contacts: %d", world.GetContactCount());
