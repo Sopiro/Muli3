@@ -35,6 +35,7 @@ public:
 
     const Material& GetMaterial() const;
     void SetMaterial(const Material& material);
+
     float GetFriction() const;
     void SetFriction(float friction);
     float GetRestitution() const;
@@ -78,9 +79,11 @@ private:
     RigidBody* body;
     Collider* next;
     Shape* shape;
+
     float density;
     Material material;
     CollisionFilter filter;
+
     int32 node;
     bool enabled;
 };

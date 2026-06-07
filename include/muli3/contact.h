@@ -22,15 +22,6 @@ struct ContactEdge
 class Contact
 {
 public:
-    enum
-    {
-        flag_enabled = 1,
-        flag_touching = 1 << 1,
-        flag_was_touching = 1 << 2,
-        flag_island = 1 << 3,
-        flag_disjoint = 1 << 4,
-    };
-
     Contact(Collider* colliderA, Collider* colliderB);
     ~Contact() = default;
 
@@ -64,13 +55,21 @@ public:
 
 private:
     friend class World;
-    friend class Island;
     friend class ConstraintGraph;
     friend class BroadPhase;
     friend class ContactSolverNormal;
     friend class ContactSolverTangent;
     friend class PositionSolver;
     friend struct ContactState;
+
+    enum
+    {
+        flag_enabled = 1,
+        flag_touching = 1 << 1,
+        flag_was_touching = 1 << 2,
+        flag_island = 1 << 3,
+        flag_disjoint = 1 << 4,
+    };
 
     void Update();
     void TriggerCallbacks();

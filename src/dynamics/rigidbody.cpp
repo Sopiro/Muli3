@@ -100,6 +100,11 @@ void RigidBody::SetRotation(const Quat& rotation)
     SynchronizeColliders();
 }
 
+void RigidBody::SetRotation(float x, float y, float z)
+{
+    SetRotation(Quat::FromEuler({ x, y, z }));
+}
+
 void RigidBody::Translate(const Vec3& delta)
 {
     Translate(delta.x, delta.y, delta.z);

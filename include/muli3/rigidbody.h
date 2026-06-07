@@ -9,16 +9,17 @@
 namespace muli3
 {
 
-class BodyDestroyCallback;
-class Collider;
-class RayCastAnyCallback;
-class RayCastClosestCallback;
-class Shape;
 class World;
+class Collider;
+class Shape;
 class Contact;
 class Joint;
 struct ContactEdge;
 struct JointEdge;
+
+class BodyDestroyCallback;
+class RayCastAnyCallback;
+class RayCastClosestCallback;
 
 class RigidBody
 {
@@ -48,10 +49,11 @@ public:
 
     const Quat& GetRotation() const;
     void SetRotation(const Quat& rotation);
+    void SetRotation(float eulerX, float eulerY, float eulerZ);
 
     float GetMass() const;
     const Mat3& GetInertiaTensor() const;
-    Mat3 GetInertiaTensorLocalOrigin() const;
+    Mat3 GetInertiaTensorCenterOfMass() const;
 
     float GetLinearDamping() const;
     void SetLinearDamping(float linearDamping);
@@ -69,6 +71,7 @@ public:
     const Vec3& GetLinearVelocity() const;
     void SetLinearVelocity(const Vec3& linearVelocity);
     void SetLinearVelocity(float vx, float vy, float vz);
+
     const Vec3& GetAngularVelocity() const;
     void SetAngularVelocity(const Vec3& angularVelocity);
     void SetAngularVelocity(float vx, float vy, float vz);
@@ -91,9 +94,14 @@ public:
 
     void SetEnabled(bool enabled);
     bool IsEnabled() const;
-    bool IsStatic() const;
+
     void SetSleeping(bool sleeping);
     bool IsSleeping() const;
+
+    bool IsDynamic() const;
+    bool IsKinematic() const;
+    bool IsStatic() const;
+
     void Awake();
     void Sleep();
 
@@ -206,18 +214,11 @@ public:
 
 private:
     friend class World;
-    friend class Island;
-
     friend class AABBTree;
     friend class BroadPhase;
-    friend class ConstraintGraph;
-
     friend class Collider;
-
+    friend class ConstraintGraph;
     friend class Contact;
-    friend class ContactSolverNormal;
-    friend class ContactSolverTangent;
-    friend class PositionSolver;
 
     friend class Joint;
     friend class FixedRotationJoint;
@@ -312,7 +313,7 @@ inline const Mat3& RigidBody::GetInertiaTensor() const
     return inertia;
 }
 
-inline Mat3 RigidBody::GetInertiaTensorLocalOrigin() const
+inline Mat3 RigidBody::GetInertiaTensorCenterOfMass() const
 {
     const BodyState* s = GetBodyState();
     const Vec3& c = s->motion.localCenter;
@@ -353,11 +354,6 @@ inline void RigidBody::SetGyroscopicTorqueEnabled(bool enabled)
     else
     {
         flag &= ~flag_gyroscopic_torque;
-    }
-
-    if (type != static_body)
-    {
-        Awake();
     }
 }
 
@@ -502,6 +498,16 @@ inline RigidBody::Type RigidBody::GetType() const
 inline bool RigidBody::IsEnabled() const
 {
     return (flag & flag_enabled) == flag_enabled;
+}
+
+inline bool RigidBody::IsDynamic() const
+{
+    return type == dynamic_body;
+}
+
+inline bool RigidBody::IsKinematic() const
+{
+    return type == kinematic_body;
 }
 
 inline bool RigidBody::IsStatic() const

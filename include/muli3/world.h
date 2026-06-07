@@ -263,11 +263,10 @@ public:
 private:
     friend class RigidBody;
     friend class Collider;
+    friend class BroadPhase;
+    friend class ConstraintGraph;
     friend class Contact;
     friend class Joint;
-    friend class Island;
-    friend class ConstraintGraph;
-    friend class BroadPhase;
 
     void Solve();
 

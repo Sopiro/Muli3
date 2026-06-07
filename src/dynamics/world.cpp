@@ -2,7 +2,6 @@
 #include "muli3/callbacks.h"
 #include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
-#include "muli3/island.h"
 #include "muli3/parallel_for.h"
 #include "muli3/raycast.h"
 #include "muli3/shapes.h"
@@ -835,7 +834,7 @@ void World::Solve()
         return;
     }
 
-    struct StepIsland
+    struct Island
     {
         int32 bodyStart;
         int32 contactStart;
@@ -849,7 +848,7 @@ void World::Solve()
     RigidBody** stack = (RigidBody**)linearAllocator.Allocate(bodyCount * sizeof(RigidBody*));
 
     islandCount = 0;
-    StepIsland* islands = (StepIsland*)linearAllocator.Allocate(bodyCount * sizeof(StepIsland));
+    Island* islands = (Island*)linearAllocator.Allocate(bodyCount * sizeof(Island));
 
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
@@ -961,7 +960,7 @@ void World::Solve()
         int32 islandBodyCount = bodyIndex - bodyIndex0;
         int32 islandJointCount = jointIndex - jointIndex0;
 
-        StepIsland* island = &islands[islandCount++];
+        Island* island = &islands[islandCount++];
         island->bodyStart = bodyIndex0;
         island->contactStart = contactIndex0;
         island->jointStart = jointIndex0;
@@ -1334,7 +1333,7 @@ void World::Solve()
 
         for (int32 i = 0; i < islandCount; ++i)
         {
-            StepIsland* island = islands + i;
+            Island* island = islands + i;
             bool awakeIsland = false;
             for (int32 j = 0; j < island->bodyCount; ++j)
             {
@@ -1605,7 +1604,7 @@ void World::Solve()
     linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
     linearAllocator.Free(islandContacts, constraintGraph.contactCount * sizeof(Contact*));
     linearAllocator.Free(islandBodies, bodyCount * sizeof(BodyState*));
-    linearAllocator.Free(islands, bodyCount * sizeof(StepIsland));
+    linearAllocator.Free(islands, bodyCount * sizeof(Island));
     linearAllocator.Free(stack, bodyCount * sizeof(RigidBody*));
     MuliProfileZoneEnd(finalize);
 }

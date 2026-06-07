@@ -10,17 +10,16 @@ struct ContactState;
 struct JointState;
 struct Timestep;
 
-struct ContactJacobian
-{
-    Vec3 va; // -dir
-    Vec3 wa; // -Cross(ra, dir)
-    Vec3 vb; //  dir
-    Vec3 wb; //  Cross(rb, dir)
-};
-
 struct SolverContact
 {
-    ContactJacobian j;
+    struct Jacobian
+    {
+        Vec3 va;   // -dir
+        Vec3 wa;   // -Cross(ra, dir)
+        Vec3 vb;   //  dir
+        Vec3 wb;   //  Cross(rb, dir)
+    } j;
+
     float m;       // effective mass
     float bias;
     float impulse; // impulse sum

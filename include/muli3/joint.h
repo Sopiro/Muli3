@@ -121,15 +121,7 @@ public:
     void* UserData;
 
 protected:
-    // clang-format off
-    Joint(
-        Joint::Type type,
-        RigidBody* bodyA,
-        RigidBody* bodyB,
-        float frequency,
-        float dampingRatio
-    );
-    // clang-format on
+    Joint(Joint::Type type, RigidBody* bodyA, RigidBody* bodyB, float frequency, float dampingRatio);
 
     void ComputeBetaAndGamma(float effectiveMass, float dt);
 
