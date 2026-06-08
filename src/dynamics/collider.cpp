@@ -1,6 +1,7 @@
 #include "muli3/collider.h"
 #include "muli3/aabb_tree.h"
 #include "muli3/callbacks.h"
+#include "muli3/contact.h"
 #include "muli3/world.h"
 
 namespace muli3
@@ -44,6 +45,73 @@ void Collider::Destroy(World* world)
 {
     world->FreeShape(shape);
     shape = nullptr;
+}
+
+void Collider::SetEnabled(bool newEnabled)
+{
+    if (enabled == newEnabled)
+    {
+        return;
+    }
+
+    enabled = newEnabled;
+
+    if (body->IsEnabled() == false)
+    {
+        return;
+    }
+
+    ConstraintGraph& graph = body->world->constraintGraph;
+    if (enabled)
+    {
+        graph.AddCollider(this);
+    }
+    else
+    {
+        graph.RemoveCollider(this);
+    }
+
+    body->Awake();
+}
+
+void Collider::SetFilter(const CollisionFilter& newFilter)
+{
+    filter = newFilter;
+
+    if (body->IsEnabled() == false || enabled == false)
+    {
+        return;
+    }
+
+    ConstraintGraph& graph = body->world->constraintGraph;
+    ContactEdge* edge = body->contactList;
+    while (edge)
+    {
+        Contact* contact = edge->contact;
+        edge = edge->next;
+
+        if (contact->GetColliderA() != this && contact->GetColliderB() != this)
+        {
+            continue;
+        }
+
+        bool touching = contact->IsTouching();
+        bool contactEnabled = contact->IsEnabled();
+
+        Body* bodyA = contact->GetBodyA();
+        Body* bodyB = contact->GetBodyB();
+
+        graph.Destroy(contact);
+
+        if (touching && contactEnabled)
+        {
+            bodyA->Awake();
+            bodyB->Awake();
+        }
+    }
+
+    graph.broadPhase.Refresh(this);
+    body->Awake();
 }
 
 } // namespace muli3

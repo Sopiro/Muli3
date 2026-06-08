@@ -176,9 +176,9 @@ float World::Step(float dt)
         {
             Destroy(body);
         }
-        for (Joint* j : destroyJointBuffer)
+        for (Joint* joint : destroyJointBuffer)
         {
-            Destroy(j);
+            Destroy(joint);
         }
 
         destroyBodyBuffer.clear();
@@ -502,8 +502,8 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
     tempCallback.translation = translation;
 
     AABBCastInput input;
-    input.from = tf.p;
-    input.to = tf.p + translation;
+    input.from = aabb.GetCenter();
+    input.to = input.from + translation;
     input.maxFraction = 1.0f;
     input.halfExtents = aabb.GetExtents() * 0.5f;
 
@@ -719,8 +719,8 @@ void World::ShapeCastAny(
     shape->ComputeAABB(tf, &aabb);
 
     AABBCastInput input;
-    input.from = tf.p;
-    input.to = tf.p + translation;
+    input.from = aabb.GetCenter();
+    input.to = input.from + translation;
     input.maxFraction = 1.0f;
     input.halfExtents = aabb.GetExtents() * 0.5f;
 
@@ -2282,11 +2282,6 @@ ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
     ContactState state{};
     state.contact = contact;
     state.manifold.contactCount = 0;
-    state.friction = MixFriction(contact->colliderA->GetFriction(), contact->colliderB->GetFriction());
-    state.restitution = MixRestitution(contact->colliderA->GetRestitution(), contact->colliderB->GetRestitution());
-    state.restitutionThreshold =
-        MixRestitutionTreshold(contact->colliderA->GetRestitutionTreshold(), contact->colliderB->GetRestitutionTreshold());
-    state.surfaceSpeed = contact->colliderB->GetSurfaceSpeed() + contact->colliderA->GetSurfaceSpeed();
 
     set.contactStates.push_back(state);
     return &set.contactStates.back();

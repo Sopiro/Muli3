@@ -26,6 +26,8 @@ private:
     {
         int8* data;
         int32 size;
+        int32 index;
+        int32 allocationSize;
         bool mallocUsed;
     };
 

@@ -200,19 +200,9 @@ inline const CollisionFilter& Collider::GetFilter() const
     return filter;
 }
 
-inline void Collider::SetFilter(const CollisionFilter& newFilter)
-{
-    filter = newFilter;
-}
-
 inline bool Collider::IsEnabled() const
 {
     return enabled;
-}
-
-inline void Collider::SetEnabled(bool newEnabled)
-{
-    enabled = newEnabled;
 }
 
 inline AABB Collider::GetAABB() const

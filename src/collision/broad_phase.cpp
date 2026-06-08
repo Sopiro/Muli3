@@ -123,7 +123,7 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
             NodeIndex node = moveBuffer[i];
 
             MoveResult* moveResult = moveResults + i;
-            moveResult->pairs.reset();
+            moveResult->pairs = {};
 
             if (node == AABBTree::nullNode)
             {
@@ -151,14 +151,14 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
     // Sequential iteration guarantees deterministic contact ordering
     for (int32 i = 0; i < moveCount; ++i)
     {
-        const MoveResult& result = moveResults[i];
+        MoveResult& result = moveResults[i];
         for (int32 j = 0; j < result.pairs.size(); ++j)
         {
             const ColliderPair& pair = result.pairs[j];
             graph->OnNewContact(pair.colliderA, pair.colliderB);
         }
 
-        result.pairs.~GrowableArray();
+        result.pairs.reset();
     }
 
     MuliProfileZoneEnd(contact_creation);

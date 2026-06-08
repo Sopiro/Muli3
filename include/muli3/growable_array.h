@@ -31,10 +31,7 @@ public:
     {
         if (this != &other)
         {
-            Release();
-            array = stackArray;
-            count = 0;
-            capacity = N;
+            reset();
             MoveFrom(std::move(other));
         }
 
@@ -43,7 +40,10 @@ public:
 
     ~GrowableArray()
     {
-        Release();
+        if (array != stackArray)
+        {
+            muli3::Free(array);
+        }
     }
 
     template <typename... Args>
@@ -88,6 +88,10 @@ public:
 
     void reset()
     {
+        if (array != stackArray)
+        {
+            muli3::Free(array);
+        }
         array = stackArray;
         count = 0;
         capacity = N;
@@ -172,15 +176,6 @@ public:
     }
 
 private:
-    void Release()
-    {
-        if (array != stackArray)
-        {
-            muli3::Free(array);
-            array = nullptr;
-        }
-    }
-
     void MoveFrom(GrowableArray&& other)
     {
         count = other.count;

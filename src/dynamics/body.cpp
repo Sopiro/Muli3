@@ -524,7 +524,10 @@ void Body::SetEnabled(bool enabled)
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->constraintGraph.AddCollider(collider);
+            if (collider->IsEnabled())
+            {
+                world->constraintGraph.AddCollider(collider);
+            }
         }
 
         for (JointEdge* je = jointList; je; je = je->next)
@@ -748,7 +751,10 @@ void Body::SynchronizeColliders()
     {
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->constraintGraph.UpdateCollider(collider, transform);
+            if (collider->IsEnabled())
+            {
+                world->constraintGraph.UpdateCollider(collider, transform);
+            }
         }
     }
     else
@@ -759,7 +765,10 @@ void Body::SynchronizeColliders()
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {
-            world->constraintGraph.UpdateCollider(collider, transform0, transform);
+            if (collider->IsEnabled())
+            {
+                world->constraintGraph.UpdateCollider(collider, transform0, transform);
+            }
         }
     }
 }

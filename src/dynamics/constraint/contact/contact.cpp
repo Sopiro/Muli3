@@ -54,6 +54,11 @@ void Contact::Update()
 {
     ContactState* s = GetContactState();
 
+    s->friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
+    s->restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
+    s->restitutionThreshold = MixRestitutionTreshold(colliderA->GetRestitutionTreshold(), colliderB->GetRestitutionTreshold());
+    s->surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
+
     // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.
     // Writes are strictly isolated to this contact instance, and read accesses to rigidbody transforms are read-only.
     flag |= Contact::flag_enabled;
@@ -120,7 +125,7 @@ void Contact::Update()
 
 void Contact::TriggerCallbacks()
 {
-    // Safely execute all user contact listener callbacks sequentially on the main thread during serial state integration.
+    // Execute all user contact listener callbacks sequentially on the main thread during serial state integration.
     if (colliderA->ContactListener == nullptr && colliderB->ContactListener == nullptr)
     {
         return;

@@ -219,7 +219,7 @@ inline const Joint* Joint::GetNext() const
 
 inline bool Joint::IsEnabled() const
 {
-    return bodyA->IsEnabled() || bodyB->IsEnabled();
+    return bodyA->IsEnabled() && bodyB->IsEnabled();
 }
 
 inline Body* Joint::GetBodyA() const

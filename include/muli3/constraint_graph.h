@@ -38,6 +38,7 @@ public:
 private:
     friend class World;
     friend class Body;
+    friend class Collider;
     friend class Contact;
     friend class Joint;
     friend class BroadPhase;

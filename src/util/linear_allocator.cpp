@@ -36,20 +36,28 @@ void* LinearAllocator::Allocate(int32 size)
     MemoryEntry* entry = entries + entryCount;
     entry->size = size;
 
-    if (index + size > capacity)
+    int32 alignment = int32(alignof(std::max_align_t));
+    int32 mask = alignment - 1;
+    int32 alignedIndex = (index + mask) & ~mask;
+
+    if (alignedIndex + size > capacity)
     {
         entry->data = (int8*)muli3::Alloc(size);
+        entry->index = index;
+        entry->allocationSize = size;
         entry->mallocUsed = true;
     }
     else
     {
-        entry->data = mem + index;
+        entry->data = mem + alignedIndex;
+        entry->index = index;
+        entry->allocationSize = alignedIndex + size - index;
         entry->mallocUsed = false;
-        index += size;
+        index = alignedIndex + size;
     }
 
     ++entryCount;
-    allocation += size;
+    allocation += entry->allocationSize;
     maxAllocation = Max(maxAllocation, allocation);
 
     return entry->data;
@@ -69,10 +77,10 @@ void LinearAllocator::Free(void* p, int32 size)
     }
     else
     {
-        index -= size;
+        index = entry->index;
     }
 
-    allocation -= size;
+    allocation -= entry->allocationSize;
     --entryCount;
 }
 

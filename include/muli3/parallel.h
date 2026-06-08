@@ -169,13 +169,13 @@ class ThreadLocal
 {
 public:
     ThreadLocal()
-        : hash_table{ 4 * std::thread::hardware_concurrency() }
+        : hash_table{ std::max<uint32>(4 * std::thread::hardware_concurrency(), 4) }
         , createFcn{ []() { return T(); } }
     {
     }
 
     ThreadLocal(std::function<T(void)> createFcn)
-        : hash_table{ 4 * std::thread::hardware_concurrency() }
+        : hash_table{ std::max<uint32>(4 * std::thread::hardware_concurrency(), 4) }
         , createFcn{ std::move(createFcn) }
     {
     }
