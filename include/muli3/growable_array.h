@@ -54,7 +54,7 @@ public:
         return *new (array + count++) T{ std::forward<Args>(args)... };
     }
 
-    void push_back(T& v)
+    void push_back(const T& v)
     {
         emplace_back(v);
     }
@@ -81,9 +81,11 @@ public:
         return capacity;
     }
 
-    void clear()
+    void init()
     {
+        array = stackArray;
         count = 0;
+        capacity = N;
     }
 
     void reset()
@@ -92,9 +94,12 @@ public:
         {
             muli3::Free(array);
         }
-        array = stackArray;
+        init();
+    }
+
+    void clear()
+    {
         count = 0;
-        capacity = N;
     }
 
     void reserve(int32 newCapacity)

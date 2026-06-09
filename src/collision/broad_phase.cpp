@@ -123,7 +123,7 @@ void BroadPhase::FindNewContacts(ConstraintGraph* graph)
             NodeIndex node = moveBuffer[i];
 
             MoveResult* moveResult = moveResults + i;
-            moveResult->pairs = {};
+            moveResult->pairs.init();
 
             if (node == AABBTree::nullNode)
             {

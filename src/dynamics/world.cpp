@@ -1360,8 +1360,8 @@ void World::Solve()
         std::memset(awakeIslandBits, 0, awakeIslandBitSize);
         std::memset(destroyBodyBits, 0, destroyBodyBitSize);
 
-        auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
-        auto GetBit = [](const uint64* bits, int32 bit) { return (bits[bit >> 6] & (uint64(1) << (bit & 63))) != 0; };
+        const auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
+        const auto GetBit = [](const uint64* bits, int32 bit) { return (bits[bit >> 6] & (uint64(1) << (bit & 63))) != 0; };
 
         // Compute body transforms and collider bounds in parallel.
         // The broad phase tree is updated below in order.

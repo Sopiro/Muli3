@@ -87,6 +87,8 @@ private:
     ContactEdge nodeA;
     ContactEdge nodeB;
 
+    int32 id;
+
     int32 setIndex;
     int32 colorIndex;
     int32 localIndex;

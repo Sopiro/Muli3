@@ -9,6 +9,7 @@ class PoolAllocator
 {
 public:
     using PoolId = int32;
+    using SlotId = int32;
 
     PoolAllocator(int32 defaultChunkByteSize = 16 * 1024);
     ~PoolAllocator();
@@ -20,26 +21,36 @@ public:
 
     template <typename T>
     T* Allocate();
-
     template <typename T>
     void Free(T* p);
 
     template <typename T, typename... Args>
     T* New(Args&&... args);
-
     template <typename T>
     void Delete(T* p);
+
+    template <typename T>
+    T* Get(SlotId id);
+    template <typename T>
+    SlotId GetId(T* p);
+
+    template <typename T>
+    int32 GetSlotCount();
 
     int32 GetPoolCount() const;
 
 private:
+    struct PoolChunk
+    {
+        Block* blocks;
+    };
+
     struct Pool
     {
         int32 stride;
-        int32 initialChunkCapacity;
         int32 chunkCapacity;
         int32 allocationCount;
-        Chunk* chunks;
+        std::vector<PoolChunk> chunks;
         Block* freeList;
     };
 
@@ -56,6 +67,11 @@ private:
 
     void* AllocateFromPool(PoolId poolId);
     void FreeFromPool(PoolId poolId, void* p);
+
+    void* GetFromPool(PoolId poolId, SlotId id);
+    SlotId GetIdFromPool(PoolId poolId, const void* p);
+
+    int32 GetSlotCount(PoolId poolId);
 
     PoolId GetPool(int32 elementSize, int32 alignment, const void* key, int32 chunkCapacity);
     void GrowPool(PoolId poolId);
@@ -106,6 +122,24 @@ inline void PoolAllocator::Delete(T* p)
 
     p->~T();
     Free(p);
+}
+
+template <typename T>
+inline T* PoolAllocator::Get(SlotId id)
+{
+    return (T*)GetFromPool(GetPool<T>(), id);
+}
+
+template <typename T>
+inline PoolAllocator::SlotId PoolAllocator::GetId(T* p)
+{
+    return GetIdFromPool(GetPool<T>(), p);
+}
+
+template <typename T>
+inline int32 PoolAllocator::GetSlotCount()
+{
+    return GetSlotCount(GetPool<T>());
 }
 
 template <typename T>

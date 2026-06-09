@@ -25,23 +25,33 @@ void ConstraintGraph::EvaluateContacts()
     MuliProfileZoneNR(gather_contacts, "Gather Contacts", true);
     SolverSet& awakeSet = world->solverSets[awake_set];
 
-    // TODO: Optimize
-    std::vector<Contact*> contacts;
-    contacts.reserve(contactCount);
+    struct ContactSpan
+    {
+        ContactState* states;
+        int32 count;
+        int32 start;
+    };
+
+    int32 spanCount = 0;
+    int32 activeCount = 0;
+    ContactSpan spans[constraint_color_count + 1];
+
     for (int32 i = 0; i < constraint_color_count; ++i)
     {
-        for (ContactState& state : batches[i].contactStates)
+        int32 count = int32(batches[i].contactStates.size());
+        if (count > 0)
         {
-            contacts.push_back(state.contact);
+            spans[spanCount++] = { batches[i].contactStates.data(), count, activeCount };
+            activeCount += count;
         }
     }
 
-    for (ContactState& state : awakeSet.contactStates)
+    int32 awakeContactCount = int32(awakeSet.contactStates.size());
+    if (awakeContactCount > 0)
     {
-        contacts.push_back(state.contact);
+        spans[spanCount++] = { awakeSet.contactStates.data(), awakeContactCount, activeCount };
+        activeCount += awakeContactCount;
     }
-
-    int32 activeCount = int32(contacts.size());
 
     if (activeCount == 0)
     {
@@ -49,31 +59,61 @@ void ConstraintGraph::EvaluateContacts()
         return;
     }
 
+    int32 workerCount = world->settings.thread_pool ? world->settings.thread_pool->WorkerCount() : 1;
+    int32 contactSlotCount = world->poolAllocator.GetSlotCount<Contact>();
+    int32 contactWordCount = (contactSlotCount + 63) / 64;
+    int32 contactBitSize = workerCount * contactWordCount * int32(sizeof(uint64));
+
+    uint64* contactBits = (uint64*)world->linearAllocator.Allocate(contactBitSize);
+    memset(contactBits, 0, contactBitSize);
+
+    const auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
+
     MuliProfileZoneEnd(gather_contacts);
 
     // 1. Parallel Stage: Update manifolds in parallel.
     // The broad-phase overlap test (AABB query) and narrow-phase collision math (manifold calculations)
     // are strictly thread-safe as they read from body transforms and write only to their own Contact instances.
     ParallelFor(
-        0, activeCount,
-        [this, &contacts](int32 begin, int32 end) {
+        0, activeCount, 64,
+        [&](int32 begin, int32 end, int32 workerIndex) {
+            MuliAssert(workerIndex < workerCount);
+            uint64* changedBits = contactBits + workerIndex * contactWordCount;
+
+            int32 spanIndex = 0;
+            while (spanIndex + 1 < spanCount && spans[spanIndex + 1].start <= begin)
+            {
+                ++spanIndex;
+            }
+
+            MuliProfileZoneNR(narrow_phase_collision, "Collide", true);
             for (int32 i = begin; i < end; ++i)
             {
-                MuliProfileZoneNR(narrow_phase_collision, "Collide", true);
-                Contact* contact = contacts[i];
+                while (spanIndex + 1 < spanCount && spans[spanIndex + 1].start <= i)
+                {
+                    ++spanIndex;
+                }
+
+                Contact* contact = spans[spanIndex].states[i - spans[spanIndex].start].contact;
 
                 // Perform broad phase overlap test.
                 if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
                 {
                     contact->flag |= Contact::flag_disjoint;
-                    MuliProfileZoneEnd(narrow_phase_collision);
+                    SetBit(changedBits, contact->id);
                     continue;
                 }
 
                 // Compute contact manifold and warm starting impulses.
                 contact->Update();
-                MuliProfileZoneEnd(narrow_phase_collision);
+                bool graphContact = contact->IsTouching() && contact->IsEnabled();
+                bool inGraph = contact->colorIndex != null_index;
+                if (graphContact != inGraph)
+                {
+                    SetBit(changedBits, contact->id);
+                }
             }
+            MuliProfileZoneEnd(narrow_phase_collision);
         },
         world->settings.thread_pool
     );
@@ -82,83 +122,120 @@ void ConstraintGraph::EvaluateContacts()
 
     // 2. Serial Stage: Integrate states, execute user callbacks, and destroy disjoint contacts.
     // Sequential execution on the main thread guarantees deterministic order of events.
-    for (int32 i = 0; i < activeCount; ++i)
-    {
-        Contact* contact = contacts[i];
+    uint64* changedBits = contactBits;
 
-        if ((contact->flag & Contact::flag_disjoint) == 0)
+    for (int32 s = 0; s < spanCount; ++s)
+    {
+        ContactSpan& span = spans[s];
+        for (int32 i = 0; i < span.count; ++i)
         {
+            Contact* contact = span.states[i].contact;
+
+            if ((contact->flag & Contact::flag_disjoint) != 0)
+            {
+                continue;
+            }
+
             // Trigger contact begin/end/touching listener callbacks sequentially.
             contact->TriggerCallbacks();
+
+            bool graphContact = contact->IsTouching() && contact->IsEnabled();
+            bool inGraph = contact->colorIndex != null_index;
+
+            if (graphContact != inGraph)
+            {
+                SetBit(changedBits, contact->id);
+            }
         }
     }
 
-    // Destroy from the back because Destroy() swap-removes from contact state arrays.
-    for (int32 i = activeCount - 1; i >= 0; --i)
+    // Merge worker-local contact state changes into worker 0 storage.
+    for (int32 worker = 1; worker < workerCount; ++worker)
     {
-        Contact* contact = contacts[i];
-
-        // Destroy disjoint contacts
-        if ((contact->flag & Contact::flag_disjoint) != 0)
+        uint64* otherBits = contactBits + worker * contactWordCount;
+        for (int32 i = 0; i < contactWordCount; ++i)
         {
-            contact->flag &= ~Contact::flag_disjoint;
-            Destroy(contact);
-            continue;
-        }
-
-        bool graphContact = contact->IsTouching() && contact->IsEnabled();
-        bool inGraph = contact->colorIndex != null_index;
-
-        if (graphContact == inGraph)
-        {
-            continue;
-        }
-
-        if (graphContact)
-        {
-            Body* bodyA = contact->GetBodyA();
-            Body* bodyB = contact->GetBodyB();
-
-            if (!bodyA->IsStatic() && bodyA->IsSleeping())
-            {
-                world->WakeIsland(bodyA);
-            }
-
-            if (!bodyB->IsStatic() && bodyB->IsSleeping())
-            {
-                world->WakeIsland(bodyB);
-            }
-
-            // The contact just became active while it was stored as an awake non-touching contact.
-            // Move state into the constraint graph so the solver can color it.
-            int32 sourceIndex = contact->localIndex;
-            ContactState state = awakeSet.contactStates[sourceIndex];
-
-            int32 last = int32(awakeSet.contactStates.size() - 1);
-            if (sourceIndex != last)
-            {
-                awakeSet.contactStates[sourceIndex] = awakeSet.contactStates[last];
-                awakeSet.contactStates[sourceIndex].contact->localIndex = sourceIndex;
-            }
-            awakeSet.contactStates.pop_back();
-
-            AddContactToGraph(contact, state);
-        }
-        else
-        {
-            // The contact is still awake, but no longer contributes constraints.
-            // Keep it in awakeSet so the narrow phase can continue testing it.
-            ContactState state = batches[contact->colorIndex].contactStates[contact->localIndex];
-            RemoveContactFromGraph(contact);
-
-            int32 newIndex = int32(awakeSet.contactStates.size());
-            awakeSet.contactStates.push_back(state);
-            contact->setIndex = awake_set;
-            contact->colorIndex = null_index;
-            contact->localIndex = newIndex;
+            changedBits[i] |= otherBits[i];
         }
     }
 
+    for (int32 word = 0; word < contactWordCount; ++word)
+    {
+        uint64 bits = changedBits[word];
+        while (bits != 0)
+        {
+            int32 bit = int32(std::countr_zero(bits));
+            int32 contactId = 64 * word + bit;
+            Contact* contact = world->poolAllocator.Get<Contact>(contactId);
+
+            // Destroy disjoint contacts
+            if ((contact->flag & Contact::flag_disjoint) != 0)
+            {
+                contact->flag &= ~Contact::flag_disjoint;
+                Destroy(contact);
+
+                bits &= bits - 1;
+                continue;
+            }
+
+            bool graphContact = contact->IsTouching() && contact->IsEnabled();
+            bool inGraph = contact->colorIndex != null_index;
+
+            if (graphContact == inGraph)
+            {
+                bits &= bits - 1;
+                continue;
+            }
+
+            if (graphContact)
+            {
+                Body* bodyA = contact->GetBodyA();
+                Body* bodyB = contact->GetBodyB();
+
+                if (!bodyA->IsStatic() && bodyA->IsSleeping())
+                {
+                    world->WakeIsland(bodyA);
+                }
+
+                if (!bodyB->IsStatic() && bodyB->IsSleeping())
+                {
+                    world->WakeIsland(bodyB);
+                }
+
+                // The contact just became active while it was stored as an awake non-touching contact.
+                // Move state into the constraint graph so the solver can color it.
+                int32 sourceIndex = contact->localIndex;
+                ContactState state = awakeSet.contactStates[sourceIndex];
+
+                int32 last = int32(awakeSet.contactStates.size() - 1);
+                if (sourceIndex != last)
+                {
+                    awakeSet.contactStates[sourceIndex] = awakeSet.contactStates[last];
+                    awakeSet.contactStates[sourceIndex].contact->localIndex = sourceIndex;
+                }
+                awakeSet.contactStates.pop_back();
+
+                AddContactToGraph(contact, state);
+            }
+            else
+            {
+                // The contact is still awake, but no longer contributes constraints.
+                // Keep it in awakeSet so the narrow phase can continue testing it.
+                ContactState state = batches[contact->colorIndex].contactStates[contact->localIndex];
+                RemoveContactFromGraph(contact);
+
+                int32 newIndex = int32(awakeSet.contactStates.size());
+                awakeSet.contactStates.push_back(state);
+                contact->setIndex = awake_set;
+                contact->colorIndex = null_index;
+                contact->localIndex = newIndex;
+            }
+
+            bits &= bits - 1;
+        }
+    }
+
+    world->linearAllocator.Free(contactBits, contactBitSize);
     MuliProfileZoneEnd(post_narrow_phase);
 }
 
@@ -198,6 +275,7 @@ void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
     }
 
     Contact* c = world->poolAllocator.New<Contact>(colliderA, colliderB);
+    c->id = world->poolAllocator.GetId(c);
 
     c->prev = nullptr;
     c->next = contactList;

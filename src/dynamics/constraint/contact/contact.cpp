@@ -13,6 +13,7 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     , colliderB{ colliderB }
     , prev{ nullptr }
     , next{ nullptr }
+    , id{ null_index }
     , setIndex{ null_index }
     , colorIndex{ null_index }
     , localIndex{ null_index }
