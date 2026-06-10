@@ -4,13 +4,14 @@
 #include "profile_graph.h"
 #include "window.h"
 
-extern muli3::int32 GetFrameRate();
-extern void SetFrameRate(muli3::int32 newFrameRate);
-extern muli3::int32 GetUpdateRate();
-extern void SetUpdateRate(muli3::int32 newUpdateRate);
-
 namespace muli3
 {
+
+extern int32 GetFrameRate();
+extern void SetFrameRate(int32 newFrameRate);
+extern int32 GetUpdateRate();
+extern void SetUpdateRate(int32 newUpdateRate);
+extern Vec4 g_colors2[constraint_color_count];
 
 Game::Game()
 {
@@ -374,7 +375,6 @@ void Game::UpdateUI()
                         }
                     }
 
-                    const AABBTree& tree = world.GetDynamicTree();
                     if (ImGui::BeginTable("CountersLayout", 2, ImGuiTableFlags_SizingFixedFit))
                     {
                         ImGui::TableSetupColumn("Bodies", ImGuiTableColumnFlags_WidthFixed, 220.0f);
@@ -421,8 +421,6 @@ void Game::UpdateUI()
                                 {
                                     continue;
                                 }
-
-                                extern Vec4 g_colors2[constraint_color_count];
 
                                 float segmentWidth = barWidth * count * invTotal;
                                 uint32 color = color::RGBToHex(g_colors2[i]);
