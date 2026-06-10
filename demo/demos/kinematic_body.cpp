@@ -72,6 +72,6 @@ static Demo* CreateKinematicBody(Game& game)
     return new KinematicBody(game);
 }
 
-static int32 kinematic_body = register_demo("Dynamics", "Kinematic body", CreateKinematicBody, 4);
+// static int32 kinematic_body = register_demo("Dynamics", "Kinematic body", CreateKinematicBody, 4);
 
 } // namespace muli3
