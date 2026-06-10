@@ -230,6 +230,7 @@ public:
 
     int32 GetSleepingBodyCount() const;
     int32 GetAwakeIslandCount() const;
+    int32 GetConstraintCount(int32 colorIndex) const;
 
     const AABBTree& GetDynamicTree() const;
 
@@ -344,6 +345,13 @@ inline int32 World::GetSleepingBodyCount() const
 inline int32 World::GetAwakeIslandCount() const
 {
     return islandCount;
+}
+
+inline int32 World::GetConstraintCount(int32 colorIndex) const
+{
+    MuliAssert(0 <= colorIndex && colorIndex < constraint_color_count);
+    const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
+    return int32(batch.contactStates.size() + batch.jointStates.size());
 }
 
 inline const AABBTree& World::GetDynamicTree() const

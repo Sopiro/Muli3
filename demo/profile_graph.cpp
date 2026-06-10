@@ -86,22 +86,24 @@ void DrawProfileGraph(
     ImU32 borderColor = IM_COL32(190, 205, 205, 255);
     ImU32 gridColor = IM_COL32(80, 105, 110, 90);
     float axisLabelWidth = showAxisLabels ? 32.0f : 0.0f;
-    ImVec2 graphMin{ plotMin.x + axisLabelWidth, plotMin.y };
-    ImVec2 graphMax = plotMax;
+    float axisLabelMargin = showAxisLabels ? ImGui::GetTextLineHeight() * 0.5f : 0.0f;
+    ImVec2 graphMin{ plotMin.x + axisLabelWidth, plotMin.y + axisLabelMargin };
+    ImVec2 graphMax{ plotMax.x, plotMax.y - axisLabelMargin };
+    float graphHeight = graphMax.y - graphMin.y;
 
     drawList->AddRectFilled(graphMin, graphMax, backgroundColor);
     drawList->AddRect(graphMin, graphMax, borderColor);
 
     for (int32 i = 1; i < 4; ++i)
     {
-        float y = graphMax.y - plotSize.y * (float)i / 4.0f;
+        float y = graphMax.y - graphHeight * (float)i / 4.0f;
         drawList->AddLine(ImVec2{ graphMin.x, y }, ImVec2{ graphMax.x, y }, gridColor);
     }
 
     for (int32 i = 0; i <= 4 && showAxisLabels; ++i)
     {
         float t = (float)i / 4.0f;
-        float y = graphMax.y - plotSize.y * t;
+        float y = graphMax.y - graphHeight * t;
         float value = maxValue * t;
         char text[32];
         std::snprintf(text, sizeof(text), "%.2f", value);
@@ -112,7 +114,7 @@ void DrawProfileGraph(
     float graphWidth = graphMax.x - graphMin.x;
     float columnStep = graphWidth / (float)profileCapacity;
     float barWidth = (std::max)(1.0f, columnStep - 1.0f);
-    float scale = plotSize.y / (maxValue - minValue);
+    float scale = graphHeight / (maxValue - minValue);
     float innerLeft = graphMin.x + 1.0f;
     float innerRight = graphMax.x - 1.0f;
     float innerTop = graphMin.y + 1.0f;
@@ -133,8 +135,8 @@ void DrawProfileGraph(
                 continue;
             }
 
-            float y0 = plotMax.y - ((stack + value) - minValue) * scale;
-            float y1 = plotMax.y - (stack - minValue) * scale;
+            float y0 = graphMax.y - ((stack + value) - minValue) * scale;
+            float y1 = graphMax.y - (stack - minValue) * scale;
             y0 = Clamp(y0, innerTop, innerBottom);
             y1 = Clamp(y1, innerTop, innerBottom);
             drawList->AddRectFilled(ImVec2{ x0, y0 }, ImVec2{ x1, y1 }, ToImColor(entries[j].color));
@@ -185,7 +187,7 @@ void DrawProfileGraph(
         ImU32 entryColor = ToImColor(entries[i].color);
         float lineY = legendY + textHeight * 0.5f;
         float ratio = (stack + value * 0.5f - minValue) / (maxValue - minValue);
-        float stackY = graphMax.y - ratio * plotSize.y;
+        float stackY = graphMax.y - ratio * graphHeight;
         stackY = Clamp(stackY, graphMin.y, graphMax.y);
 
         drawList->AddLine(ImVec2{ graphMax.x, stackY }, ImVec2{ legendMin.x - 3.0f, lineY }, entryColor, 1.0f);

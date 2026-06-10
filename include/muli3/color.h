@@ -61,6 +61,15 @@ constexpr inline uint32 RGBToHex(const Vec3& rgb)
     return (uint32(r) << 16) | (uint32(g) << 8) | uint32(b);
 }
 
+constexpr inline uint32 RGBToHex(const Vec4& rgb)
+{
+    uint32 r = std::min<uint32>(uint32(rgb.x * 256), 255);
+    uint32 g = std::min<uint32>(uint32(rgb.y * 256), 255);
+    uint32 b = std::min<uint32>(uint32(rgb.z * 256), 255);
+
+    return (uint32(r) << 16) | (uint32(g) << 8) | uint32(b);
+}
+
 inline constexpr uint32 Random(uint32 seed)
 {
     uint32 h = seed + 0x9E3779B9u;

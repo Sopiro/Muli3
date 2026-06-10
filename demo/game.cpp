@@ -189,10 +189,6 @@ void Game::UpdateUI()
                 }
                 ImGui::Separator();
                 ImGui::Text("%lld.%s", demoIndex, demoFrames[demoIndex].name);
-                ImGui::Text("Bodies: %d", world.GetBodyCount());
-                ImGui::Text("Sleeping Dynamic Bodies: %d", world.GetSleepingBodyCount());
-                ImGui::Text("Broad Phase Contacts: %d", world.GetContactCount());
-                ImGui::Text("Steps: %lld", world.GetStepIndex());
                 ImGui::EndTabItem();
             }
 
@@ -267,68 +263,209 @@ void Game::UpdateUI()
     if (options.show_profiler)
     {
         ImGui::SetNextWindowSize({ 720.0f, 280.0f }, ImGuiCond_Once);
-        if (ImGui::Begin("Profile", &options.show_profiler, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::Begin("Profiler", &options.show_profiler, ImGuiWindowFlags_None))
         {
-            int count = (int)(profileWriteIndex - profileReadIndex);
-            float broadPhaseValues[profile_capacity]{};
-            float narrowPhaseValues[profile_capacity]{};
-            float buildIslandsValues[profile_capacity]{};
-            float integrateVelocitiesValues[profile_capacity]{};
-            float prepareConstraintsValues[profile_capacity]{};
-            float warmStartValues[profile_capacity]{};
-            float solveVelocitiesValues[profile_capacity]{};
-            float integratePositionsValues[profile_capacity]{};
-            float solvePositionsValues[profile_capacity]{};
-            float sleepAndSyncValues[profile_capacity]{};
-            float finalizeValues[profile_capacity]{};
-            float postSolveValues[profile_capacity]{};
-
-            for (int32 i = 0; i < count; ++i)
+            if (ImGui::BeginTabBar("ProfilerTabs"))
             {
-                int32 index = (int32)((profileReadIndex + i) & (profile_capacity - 1));
-                const WorldProfile& profile = profiles[index];
-                broadPhaseValues[i] = profile.broad_phase;
-                narrowPhaseValues[i] = profile.narrow_phase;
-                buildIslandsValues[i] = profile.build_islands;
-                integrateVelocitiesValues[i] = profile.integrate_velocities;
-                prepareConstraintsValues[i] = profile.prepare_constraints;
-                warmStartValues[i] = profile.warm_start;
-                solveVelocitiesValues[i] = profile.solve_velocities;
-                integratePositionsValues[i] = profile.integrate_positions;
-                solvePositionsValues[i] = profile.solve_positions;
-                sleepAndSyncValues[i] = profile.sleep_and_sync;
-                finalizeValues[i] = profile.finalize;
-                postSolveValues[i] = profile.post_solve;
+                if (ImGui::BeginTabItem("Frame Profile"))
+                {
+                    int count = (int)(profileWriteIndex - profileReadIndex);
+                    float broadPhaseValues[profile_capacity]{};
+                    float narrowPhaseValues[profile_capacity]{};
+                    float buildIslandsValues[profile_capacity]{};
+                    float integrateVelocitiesValues[profile_capacity]{};
+                    float prepareConstraintsValues[profile_capacity]{};
+                    float warmStartValues[profile_capacity]{};
+                    float solveVelocitiesValues[profile_capacity]{};
+                    float integratePositionsValues[profile_capacity]{};
+                    float solvePositionsValues[profile_capacity]{};
+                    float sleepAndSyncValues[profile_capacity]{};
+                    float finalizeValues[profile_capacity]{};
+                    float postSolveValues[profile_capacity]{};
+
+                    for (int32 i = 0; i < count; ++i)
+                    {
+                        int32 index = (int32)((profileReadIndex + i) & (profile_capacity - 1));
+                        const WorldProfile& profile = profiles[index];
+                        broadPhaseValues[i] = profile.broad_phase;
+                        narrowPhaseValues[i] = profile.narrow_phase;
+                        buildIslandsValues[i] = profile.build_islands;
+                        integrateVelocitiesValues[i] = profile.integrate_velocities;
+                        prepareConstraintsValues[i] = profile.prepare_constraints;
+                        warmStartValues[i] = profile.warm_start;
+                        solveVelocitiesValues[i] = profile.solve_velocities;
+                        integratePositionsValues[i] = profile.integrate_positions;
+                        solvePositionsValues[i] = profile.solve_positions;
+                        sleepAndSyncValues[i] = profile.sleep_and_sync;
+                        finalizeValues[i] = profile.finalize;
+                        postSolveValues[i] = profile.post_solve;
+                    }
+
+                    ProfileGraphEntry entries[] = {
+                        { "Broad phase", color::broad_phase, broadPhaseValues },
+                        { "Narrow phase", color::narrow_phase, narrowPhaseValues },
+                        { "Build islands", color::build_islands, buildIslandsValues },
+                        { "Integrate velocities", color::integrate_velocities, integrateVelocitiesValues },
+                        { "Prepare constraints", color::prepare_constraints, prepareConstraintsValues },
+                        { "Warm start", color::warm_start, warmStartValues },
+                        { "Solve velocities", color::solve_velocities, solveVelocitiesValues },
+                        { "Integrate positions", color::integrate_positions, integratePositionsValues },
+                        { "Solve positions", color::solve_positions, solvePositionsValues },
+                        { "Sleep and sync", color::sleep_and_sync, sleepAndSyncValues },
+                        { "Finalize", color::finalize, finalizeValues },
+                        { "Post solve", color::post_solve, postSolveValues },
+                    };
+
+                    DrawProfileGraph(
+                        "", { -1.0f, -1.0f }, profile_capacity, count, entries, (int32)(sizeof(entries) / sizeof(entries[0])),
+                        true, profileShowOverlay, profileShowAverage
+                    );
+
+                    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 32.0f);
+                    ImGui::Checkbox("Stop", &profileStopped);
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Overlay", &profileShowOverlay);
+                    ImGui::SameLine();
+                    if (ImGui::Button("Clear")) ClearProfiles();
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Average", &profileShowAverage);
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Counters"))
+                {
+                    int32 staticBodyCount = 0;
+                    int32 dynamicBodyCount = 0;
+                    int32 kinematicBodyCount = 0;
+                    int32 awakeDynamicBodyCount = 0;
+                    int32 enabledBodyCount = 0;
+                    int32 colliderCount = 0;
+
+                    for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+                    {
+                        colliderCount += body->GetColliderCount();
+                        enabledBodyCount += body->IsEnabled();
+
+                        if (body->IsStatic())
+                        {
+                            ++staticBodyCount;
+                        }
+                        else if (body->IsKinematic())
+                        {
+                            ++kinematicBodyCount;
+                        }
+                        else
+                        {
+                            ++dynamicBodyCount;
+                            awakeDynamicBodyCount += body->IsSleeping() == false;
+                        }
+                    }
+
+                    int32 constraintCounts[constraint_color_count];
+                    int32 normalConstraintCount = 0;
+                    int32 totalConstraintCount = 0;
+                    for (int32 i = 0; i < constraint_color_count; ++i)
+                    {
+                        constraintCounts[i] = world.GetConstraintCount(i);
+                        totalConstraintCount += constraintCounts[i];
+                        if (i != constraint_overflow_index)
+                        {
+                            normalConstraintCount += constraintCounts[i];
+                        }
+                    }
+
+                    const AABBTree& tree = world.GetDynamicTree();
+                    if (ImGui::BeginTable("CountersLayout", 2, ImGuiTableFlags_SizingFixedFit))
+                    {
+                        ImGui::TableSetupColumn("Bodies", ImGuiTableColumnFlags_WidthFixed, 220.0f);
+                        ImGui::TableSetupColumn("Simulation", ImGuiTableColumnFlags_WidthStretch);
+                        ImGui::TableHeadersRow();
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::Text("Bodies: %d", world.GetBodyCount());
+                        // ImGui::Text("Enabled: %d", enabledBodyCount);
+                        ImGui::Text("Static: %d", staticBodyCount);
+                        ImGui::Text("Kinematic: %d", kinematicBodyCount);
+                        ImGui::Text("Dynamic: %d", dynamicBodyCount);
+                        ImGui::Text("Awake Dynamic: %d", awakeDynamicBodyCount);
+                        ImGui::Text("Sleeping Dynamic: %d", world.GetSleepingBodyCount());
+
+                        ImGui::TableNextColumn();
+                        ImGui::Text("Colliders: %d", colliderCount);
+                        ImGui::Text("Contacts: %d", world.GetContactCount());
+                        ImGui::Text("Joints: %d", world.GetJointCount());
+                        ImGui::Text("Awake Islands: %d", world.GetAwakeIslandCount());
+                        ImGui::Text("Steps: %lld", world.GetStepIndex());
+
+                        ImGui::Spacing();
+                        ImGui::Text("%d Constraints across %d color batches", totalConstraintCount, constraint_overflow_index);
+
+                        float barWidth = ImGui::GetContentRegionAvail().x;
+                        float barHeight = 2.0f * ImGui::GetFontSize();
+                        ImVec2 barMin = ImGui::GetCursorScreenPos();
+                        ImGui::InvisibleButton("ConstraintColors", ImVec2{ barWidth, barHeight });
+
+                        ImDrawList* drawList = ImGui::GetWindowDrawList();
+                        drawList->AddRectFilled(
+                            barMin, ImVec2{ barMin.x + barWidth, barMin.y + barHeight }, IM_COL32(40, 40, 40, 255)
+                        );
+
+                        float x = barMin.x;
+                        if (normalConstraintCount > 0)
+                        {
+                            float invTotal = 1.0f / (float)normalConstraintCount;
+                            for (int32 i = 0; i < constraint_overflow_index; ++i)
+                            {
+                                int32 count = constraintCounts[i];
+                                if (count == 0)
+                                {
+                                    continue;
+                                }
+
+                                extern Vec4 g_colors2[constraint_color_count];
+
+                                float segmentWidth = barWidth * count * invTotal;
+                                uint32 color = color::RGBToHex(g_colors2[i]);
+                                ImU32 imColor = IM_COL32((color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff, 255);
+                                drawList->AddRectFilled(
+                                    ImVec2{ x, barMin.y }, ImVec2{ x + segmentWidth, barMin.y + barHeight }, imColor
+                                );
+                                x += segmentWidth;
+                            }
+                        }
+
+                        if (ImGui::IsItemHovered() && normalConstraintCount > 0)
+                        {
+                            float mouseX = ImGui::GetIO().MousePos.x;
+                            float segmentX = barMin.x;
+                            for (int32 i = 0; i < constraint_overflow_index; ++i)
+                            {
+                                int32 count = constraintCounts[i];
+                                float segmentWidth = barWidth * count / (float)normalConstraintCount;
+                                if (count > 0 && mouseX < segmentX + segmentWidth)
+                                {
+                                    ImGui::SetTooltip("Color %d: %d constraints", i, count);
+                                    break;
+                                }
+                                segmentX += segmentWidth;
+                            }
+                        }
+
+                        int32 overflowCount = constraintCounts[constraint_overflow_index];
+                        float overflowFraction = totalConstraintCount > 0 ? overflowCount / (float)totalConstraintCount : 0.0f;
+                        char overflowText[32];
+                        std::snprintf(overflowText, sizeof(overflowText), "Overflow %d", overflowCount);
+                        ImGui::PushStyleColor(ImGuiCol_PlotHistogram, IM_COL32(220, 60, 60, 255));
+                        ImGui::ProgressBar(overflowFraction, ImVec2{ -FLT_MIN, 0.0f }, overflowText);
+                        ImGui::PopStyleColor();
+                        ImGui::EndTable();
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                ImGui::EndTabBar();
             }
-
-            ProfileGraphEntry entries[] = {
-                { "Broad phase", color::broad_phase, broadPhaseValues },
-                { "Narrow phase", color::narrow_phase, narrowPhaseValues },
-                { "Build islands", color::build_islands, buildIslandsValues },
-                { "Integrate velocities", color::integrate_velocities, integrateVelocitiesValues },
-                { "Prepare constraints", color::prepare_constraints, prepareConstraintsValues },
-                { "Warm start", color::warm_start, warmStartValues },
-                { "Solve velocities", color::solve_velocities, solveVelocitiesValues },
-                { "Integrate positions", color::integrate_positions, integratePositionsValues },
-                { "Solve positions", color::solve_positions, solvePositionsValues },
-                { "Sleep and sync", color::sleep_and_sync, sleepAndSyncValues },
-                { "Finalize", color::finalize, finalizeValues },
-                { "Post solve", color::post_solve, postSolveValues },
-            };
-
-            DrawProfileGraph(
-                "", { -1.0f, -1.0f }, profile_capacity, count, entries, (int32)(sizeof(entries) / sizeof(entries[0])), true,
-                profileShowOverlay, profileShowAverage
-            );
-
-            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 32.0f);
-            ImGui::Checkbox("Stop", &profileStopped);
-            ImGui::SameLine();
-            ImGui::Checkbox("Overlay", &profileShowOverlay);
-            ImGui::SameLine();
-            if (ImGui::Button("Clear")) ClearProfiles();
-            ImGui::SameLine();
-            ImGui::Checkbox("Average", &profileShowAverage);
         }
         ImGui::End();
     }
