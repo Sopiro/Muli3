@@ -19,14 +19,14 @@ void BallSocketJoint::Prepare(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Compute Jacobian J and effective mass W
-    // J = [-I, -skew(ra), I, skew(rb)]
-    // W = (J * M^-1 * J^t)^-1
+    // C = pb - pa keeps the two anchor points coincident. Since the velocity
+    // of an offset point is v + w x r, differentiating C gives
+    // J = [-I, skew(ra), I, -skew(rb)] for V = [vA, wA, vB, wB].
 
     ra = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     rb = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
 
-    // K = Ma^-1 + Mb^-1 + skew(ra)^T * Ia^-1 * skew(ra) + skew(rb)^T * Ib^-1 * skew(rb)
+    // K = J * M^-1 * J^T is the inverse effective mass at the anchors.
     Mat3 skewRA = Skew(ra);
     Mat3 skewRB = Skew(rb);
 
@@ -66,13 +66,10 @@ void BallSocketJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Compute corrective impulse: Pc
-    // Pc = J^t * lambda
-    // lambda = (J * M^-1 * J^t)^-1 * -(J*v+b)
-
+    // Solve K * lambda = -(J * V + bias + gamma * impulseSum).
     Vec3 jv = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
 
-    // You don't have to clamp the impulse. It's equality constraint!
+    // This is an equality constraint, so lambda need no clamping.
     Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
 
     ApplyImpulse(lambda);
@@ -81,8 +78,7 @@ void BallSocketJoint::SolveVelocityConstraints(const Timestep& step)
 
 void BallSocketJoint::ApplyImpulse(const Vec3& lambda)
 {
-    // V2 = V2' + M^-1 * Pc
-    // Pc = J^t * lambda
+    // Apply the generalized impulse J^T * lambda.
 
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();

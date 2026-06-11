@@ -135,6 +135,9 @@ void TwistAngleJoint::Prepare(const Timestep& step)
         twistAxis = axisA;
     }
 
+    // C is the signed twist angle around the common axis.
+    // After removing the swing between axisA and axisB, Cdot is the relative angular velocity
+    // projected onto twistAxis, so J = [0, -twistAxis, 0, twistAxis].
     float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
 
     ComputeBetaAndGamma(&beta, &gamma, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
@@ -142,6 +145,8 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     angleK += gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
+    // Transport B's reference axis onto A's twist plane before measuring the
+    // signed angle. This removes swing from the twist measurement.
     currentAngle = GetTwistAngle(refAxisA, binormalA, axisA, axisB, refAxisB) - angleOffset;
 
     if (minAngle == maxAngle)

@@ -40,7 +40,8 @@ void MotorJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
-    // Linear effective mass
+    // Linear constraint: C = pb - pa + linearOffset. Differentiating the two
+    // anchor positions gives Jl = [-I, skew(ra), I, -skew(rb)].
     // clang-format off
     Mat3 linearK = Mat3(sA->invMass + sB->invMass)
                  + skewRA.GetTranspose() * s->invIA * skewRA
@@ -55,7 +56,9 @@ void MotorJoint::Prepare(const Timestep& step)
 
     linearM = linearK.GetInverse();
 
-    // Angular effective mass
+    // Angular constraint: C is the rotation vector from the target relative
+    // orientation to qB. Its small-angle derivative is wb - wa, hence
+    // Ja = [0, -I, 0, I].
     Mat3 angularK = s->invIA + s->invIB;
     ComputeBetaAndGamma(&angularBeta, &angularGamma, angularK.TraceInverse() / 3.0f, step.dt);
     angularK.ex.x += angularGamma;
@@ -64,12 +67,11 @@ void MotorJoint::Prepare(const Timestep& step)
 
     angularM = angularK.GetInverse();
 
-    // Linear bias
+    // Biases are beta / dt times the position-level constraints.
     Vec3 pa = sA->motion.c + ra;
     Vec3 pb = sB->motion.c + rb;
     linearBias = (pb - pa + linearOffset) * linearBeta * step.inv_dt;
 
-    // Angular bias
     Quat qTarget = sA->motion.q * orientationOffset;
     Quat qError = sB->motion.q * qTarget.GetConjugate();
     if (qError.w < 0.0f)
@@ -90,12 +92,11 @@ void MotorJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Linear
+    // Solve K * lambda = -(J * V + bias + gamma * impulseSum) for each block.
     Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
 
     Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
 
-    // Angular
     Vec3 angularJV = sB->angularVelocity - sA->angularVelocity;
     Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * angularGamma);
 

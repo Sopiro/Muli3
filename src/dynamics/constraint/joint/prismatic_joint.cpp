@@ -43,6 +43,9 @@ void PrismaticJoint::Prepare(const Timestep& step)
     Vec3 worldAxis = bodyA->GetRotation().Rotate(localAxis);
     CoordinateSystem(worldAxis, &t1, &t2);
 
+    // Translation along worldAxis is free. For Ci = dot(ti, pb - pa), the
+    // rotating basis on A gives Ji = [-ti, -sa_i, ti, sb_i], where
+    // sa_i = (ra + d) x ti and sb_i = rb x ti.
     sa1 = Cross(ra0 + d, t1);
     sb1 = Cross(rb0, t1);
     sa2 = Cross(ra0 + d, t2);
@@ -51,7 +54,7 @@ void PrismaticJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
-    // Linear part (2 DOF)
+    // The two transverse rows form the coupled 2x2 effective mass.
     Mat2 lk;
     lk[0][0] = sA->invMass + sB->invMass + Dot(sa1, s->invIA * sa1) + Dot(sb1, s->invIB * sb1);
     lk[1][1] = sA->invMass + sB->invMass + Dot(sa2, s->invIA * sa2) + Dot(sb2, s->invIB * sb2);
@@ -65,7 +68,8 @@ void PrismaticJoint::Prepare(const Timestep& step)
 
     linearM = lk.GetInverse();
 
-    // Angular part (3 DOF)
+    // Relative orientation is fixed: Cdot = wb - wa and
+    // Ja = [0, -I, 0, I]. This removes all three rotational DOFs.
     Mat3 ak = s->invIA + s->invIB;
     ComputeBetaAndGamma(&angularBeta, &angularGamma, ak.TraceInverse() / 3.0f, step.dt);
     ak.ex.x += angularGamma;
@@ -74,11 +78,10 @@ void PrismaticJoint::Prepare(const Timestep& step)
 
     angularM = ak.GetInverse();
 
-    // Linear bias
+    // Biases are beta / dt times the position-level constraints.
     linearBias.Set(Dot(d, t1), Dot(d, t2));
     linearBias *= linearBeta * step.inv_dt;
 
-    // Angular bias
     Quat qTarget = sA->motion.q * orientationOffset;
     Quat qError = sB->motion.q * qTarget.GetConjugate();
     if (qError.w < 0.0f)
@@ -100,7 +103,7 @@ void PrismaticJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Linear
+    // Evaluate J * V for the two transverse rows.
     Vec3 dv = sB->linearVelocity - sA->linearVelocity;
     Vec2 linearJV;
     linearJV.x = Dot(t1, dv) + Dot(sb1, sB->angularVelocity) - Dot(sa1, sA->angularVelocity);
@@ -108,7 +111,7 @@ void PrismaticJoint::SolveVelocityConstraints(const Timestep& step)
 
     Vec2 linearLambda = Mul(linearM, -(linearJV + linearBias + linearImpulseSum * linearGamma));
 
-    // Angular
+    // Evaluate the angular row block Ja * V.
     Vec3 angularJV = sB->angularVelocity - sA->angularVelocity;
     Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * angularGamma);
 

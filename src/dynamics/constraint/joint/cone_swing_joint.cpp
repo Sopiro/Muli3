@@ -71,7 +71,9 @@ void ConeSwingJoint::Prepare(const Timestep& step)
         return;
     }
 
-    // The swing correction acts around the axis perpendicular to both body axes.
+    // C = angle(axisA, axisB) - maxAngle. A relative angular velocity around
+    // normalize(axisA x axisB) changes this angle directly, so
+    // J = [0, -swingAxis, 0, swingAxis].
     if (axisLength == 0.0f)
     {
         CoordinateSystem(axisA, &swingAxis);
@@ -84,6 +86,7 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
+    // K = J * M^-1 * J^T for the one-dimensional angular constraint.
     float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis);
     ComputeBetaAndGamma(&beta, &gamma, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
 
@@ -112,6 +115,8 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
         return;
     }
 
+    // The upper limit is unilateral. A non-positive impulse can only reduce
+    // the separation angle, never push the axes farther apart.
     float jv = Dot(swingAxis, sB->angularVelocity - sA->angularVelocity);
     float lambda = m * -(jv + bias + impulseSum * gamma);
     float newImpulseSum = ClampImpulse(impulseSum + lambda, limitState);

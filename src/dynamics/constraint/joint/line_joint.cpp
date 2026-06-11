@@ -38,6 +38,10 @@ void LineJoint::Prepare(const Timestep& step)
     Vec3 worldAxis = bodyA->GetRotation().Rotate(localAxis);
     CoordinateSystem(worldAxis, &t1, &t2);
 
+    // The point on B may move only along worldAxis. The two scalar constraints
+    // are Ci = dot(ti, pb - pa) = 0. Because ti rotates with body A,
+    // Cidot = dot(ti, vb - va) + dot(sb_i, wb) - dot(sa_i, wa), where
+    // sa_i = (ra + d) x ti and sb_i = rb x ti.
     sa1 = Cross(ra0 + d, t1);
     sb1 = Cross(rb0, t1);
     sa2 = Cross(ra0 + d, t2);
@@ -46,6 +50,8 @@ void LineJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
+    // Each Jacobian row is Ji = [-ti, -sa_i, ti, sb_i].
+    // The 2x2 matrix below is K = J * M^-1 * J^T, including coupling between t1 and t2.
     Mat2 k;
     k[0][0] = sA->invMass + sB->invMass + Dot(sa1, s->invIA * sa1) + Dot(sb1, s->invIB * sb1);
     k[1][1] = sA->invMass + sB->invMass + Dot(sa2, s->invIA * sa2) + Dot(sb2, s->invIB * sb2);

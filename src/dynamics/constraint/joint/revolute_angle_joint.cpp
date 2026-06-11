@@ -105,9 +105,9 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
-    // Swing part:
-    // Keep the two hinge axes aligned, but do not constrain twist around them.
-    // The corrective torque acts around axisA x axisB.
+    // Swing constraint: C = angle(axisA, axisB).
+    // Rotation around normalize(axisA x axisB) changes C while leaving twist free, so
+    // J_swing = [0, -swingAxis, 0, swingAxis].
     float axisDot = Clamp(Dot(axisA, axisB), -1.0f, 1.0f);
     float swingAngle = std::acos(axisDot);
 
@@ -145,9 +145,9 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
 
     swingBias = Min(swingAngle, max_joint_angular_correction) * swingBeta * step.inv_dt;
 
-    // Twist part:
-    // Once the hinge axes are aligned, only the relative rotation around that axis remains.
-    // Use the averaged axis when possible for better symmetry.
+    // Twist constraint: after swing is removed, the remaining angle changes
+    // with relative angular velocity along the common hinge axis. Thus
+    // J_twist = [0, -twistAxis, 0, twistAxis].
     twistAxis = axisA + axisB;
     if (twistAxis.Normalize() == 0)
     {
@@ -162,12 +162,9 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     angleK += angleGamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
-    // Measure the signed twist angle of body B around body A's hinge axis.
-    // Project B's reference axis onto A's hinge plane and compare it against A's reference frame { refAxisA, binormalA }.
+    // Project B's reference axis onto A's hinge plane. atan2 against
+    // { refAxisA, binormalA } then gives the signed twist angle.
     currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
-
-    // Twist limit around the hinge axis.
-    // J = [0 -twistAxis 0 twistAxis]
 
     if (minAngle == maxAngle)
     {
@@ -227,10 +224,7 @@ void RevoluteAngleJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // First solve the swing constraint so the hinge axes line up while leaving
-    // the twist angle free.
-    // Pc = J^t * lambda
-    // lambda = (J * M^-1 * J^t)^-1 * -(J*v+b)
+    // Solve swing first so the axis used by the twist limit is well defined.
 
     float swingJV = Dot(swingAxis, sB->angularVelocity - sA->angularVelocity);
     float swingLambda = swingM * -(swingJV + swingBias + swingImpulseSum * swingGamma);
@@ -243,7 +237,7 @@ void RevoluteAngleJoint::SolveVelocityConstraints(const Timestep& step)
         return;
     }
 
-    // Then solve the remaining twist limit around the aligned hinge axis.
+    // The twist limit is unilateral unless minAngle == maxAngle.
     float angleJV = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
     float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * angleGamma);
 
@@ -265,8 +259,7 @@ void RevoluteAngleJoint::SolveVelocityConstraints(const Timestep& step)
 
 void RevoluteAngleJoint::ApplySwingImpulse(float lambda)
 {
-    // V2 = V2' + M^-1 * Pc
-    // Pc = J^t * lambda
+    // Apply J_swing^T * lambda.
 
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
@@ -286,8 +279,7 @@ void RevoluteAngleJoint::ApplySwingImpulse(float lambda)
 
 void RevoluteAngleJoint::ApplyAngleImpulse(float lambda)
 {
-    // V2 = V2' + M^-1 * Pc
-    // Pc = J^t * lambda
+    // Apply J_twist^T * lambda.
 
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();

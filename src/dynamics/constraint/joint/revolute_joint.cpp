@@ -117,7 +117,9 @@ void RevoluteJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
-    // Linear part: keep the world anchor points together.
+    // Anchor constraint: C_linear = pb - pa.
+    // Differentiating the offset point velocities gives
+    // J_linear = [-I, skew(ra), I, -skew(rb)].
     // clang-format off
     Mat3 linearK = Mat3(sA->invMass + sB->invMass)
                  + skewRA.GetTranspose() * s->invIA * skewRA
@@ -137,7 +139,9 @@ void RevoluteJoint::Prepare(const Timestep& step)
 
     linearBias = (pb - pa) * linearBeta * step.inv_dt;
 
-    // Angular part: align the hinge axes while leaving twist free.
+    // Swing constraint: C = angle(axisA, axisB).
+    // Relative rotation around normalize(axisA x axisB) changes this angle, giving
+    // J_swing = [0, -swingAxis, 0, swingAxis]. Twist remains free.
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
     Vec3 axisB = bodyB->GetRotation().Rotate(localAxisB);
     Vec3 refAxisA = bodyA->GetRotation().Rotate(localNormalAxisA);
@@ -184,6 +188,8 @@ void RevoluteJoint::Prepare(const Timestep& step)
         twistAxis = axisA;
     }
 
+    // Twist limit: the signed hinge angle changes with relative angular
+    // velocity along twistAxis, so Jt = [0, -twistAxis, 0, twistAxis].
     float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
     ComputeBetaAndGamma(&angleBeta, &angleGamma, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
     angleK += angleGamma;
@@ -247,6 +253,8 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
+    // Solve the three blocks in order: anchor position, axis alignment, then
+    // the optional twist limit around the aligned hinge axis.
     Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
     Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
     ApplyLinearImpulse(linearLambda);

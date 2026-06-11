@@ -18,10 +18,8 @@ void GrabJoint::Prepare(const Timestep& step)
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
-    // Compute Jacobian J and effective mass W
-    // J = [I, skew(r)]
-    // W = (J · M^-1 · J^t)^-1
-
+    // C = p - target fixes one body point in world space. From pdot = v + w x r,
+    // J = [I, -skew(r)] for V = [v, w].
     r = bodyA->GetRotation().Rotate(localAnchor - bodyA->GetLocalCenter());
     Vec3 p = sA->motion.c + r;
 
@@ -48,10 +46,7 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 
     BodyState* sA = bodyA->GetBodyState();
 
-    // Compute corrective impulse: Pc
-    // Pc = J^t · λ (λ: lagrangian multiplier)
-    // λ = (J · M^-1 · J^t)^-1 * -(J·v+b)
-
+    // Solve K * lambda = -(J * V + bias + gamma * impulseSum).
     Vec3 jv = sA->linearVelocity + Cross(sA->angularVelocity, r);
 
     Vec3 lambda = m * -(jv + bias + impulseSum * gamma);

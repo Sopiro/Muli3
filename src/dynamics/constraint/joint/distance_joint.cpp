@@ -56,10 +56,6 @@ void DistanceJoint::Prepare(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Compute Jacobian J and effective mass W
-    // J = [-d, -d×ra, d, d×rb] ( d = (anchorB-anchorA) / ||anchorB-anchorA|| )
-    // W = (J · M^-1 · J^t)^-1
-
     ra = bodyA->GetRotation().Rotate(localAnchorA - bodyA->GetLocalCenter());
     rb = bodyB->GetRotation().Rotate(localAnchorB - bodyB->GetLocalCenter());
 
@@ -76,6 +72,10 @@ void DistanceJoint::Prepare(const Timestep& step)
     {
         d = x_axis;
     }
+
+    // C = |pb - pa| - L. Its gradient uses d = (pb - pa) / |pb - pa|,
+    // so Cdot = dot(d, vb + wb x rb - va - wa x ra) and
+    // J = [-d, d x ra, d, -(d x rb)].
 
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
@@ -138,9 +138,8 @@ void DistanceJoint::SolveVelocityConstraints(const Timestep& step)
         return;
     }
 
-    // Compute corrective impulse: Pc
-    // Pc = J^t · λ (λ: lagrangian multiplier)
-    // λ = (J · M^-1 · J^t)^-1 ⋅ -(J·v+b)
+    // Solve the scalar constraint along d. Limit states clamp the accumulated
+    // impulse so a lower limit can only push and an upper limit can only pull.
 
     float jv =
         Dot((sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra)), d);
@@ -165,8 +164,7 @@ void DistanceJoint::SolveVelocityConstraints(const Timestep& step)
 
 void DistanceJoint::ApplyImpulse(float lambda)
 {
-    // V2 = V2' + M^-1 ⋅ Pc
-    // Pc = J^t ⋅ λ
+    // Apply the generalized impulse J^T * lambda.
 
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();

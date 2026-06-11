@@ -17,6 +17,8 @@ void FixedRotationJoint::Prepare(const Timestep& step)
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
+    // C is the rotation vector from targetOrientation to qA. For a small
+    // rotation, C = 2 * qError.xyz and Cdot = wA, so J = [0, I].
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
 
     Mat3 k = s->invIA;

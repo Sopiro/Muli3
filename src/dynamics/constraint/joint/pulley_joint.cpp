@@ -68,10 +68,12 @@ void PulleyJoint::Prepare(const Timestep& step)
     Vec3 rua = Cross(ra, ua);
     Vec3 rub = Cross(rb, ub);
 
-    // clang-format off
-    float k = sA->invMass + Dot(rua, s->invIA * rua)
-            + (sB->invMass + Dot(rub, s->invIB * rub)) * ratio * ratio;
-    // clang-format on
+    // C = L - (lengthA + ratio * lengthB).
+    // Differentiating the segment lengths gives
+    // J = [-ua, -(ra x ua), -ratio * ub, -ratio * (rb x ub)].
+    // The ratio therefore enters K quadratically for body B.
+
+    float k = sA->invMass + Dot(rua, s->invIA * rua) + (sB->invMass + Dot(rub, s->invIB * rub)) * ratio * ratio;
 
     ComputeBetaAndGamma(&beta, &gamma, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
     k += gamma;
@@ -94,6 +96,7 @@ void PulleyJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
+    // J * V is the negative rate of change of the weighted rope length.
     float jv =
         -(ratio * Dot(ub, sB->linearVelocity + Cross(sB->angularVelocity, rb)) +
           Dot(ua, sA->linearVelocity + Cross(sA->angularVelocity, ra)));
@@ -113,6 +116,8 @@ void PulleyJoint::ApplyImpulse(float lambda)
     Vec3 pa = -lambda * ua;
     Vec3 pb = -ratio * lambda * ub;
 
+    // pa and pb are the linear parts of J^T * lambda. Their moments about
+    // each center of mass produce the corresponding angular impulses.
     if (!bodyA->IsStatic())
     {
         sA->linearVelocity += pa * sA->invMass;

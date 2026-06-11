@@ -56,6 +56,11 @@ const JointState* Joint::GetJointState() const
 
 void Joint::ComputeBetaAndGamma(float* outBeta, float* outGamma, float effectiveMass, float dt)
 {
+    // The velocity solver uses K = J * M^-1 * J^T and solves
+    // (K + gamma * I) * deltaLambda = -(J * V + beta / dt * C + gamma * accumulatedLambda).
+    // beta and gamma are the implicit spring-damper coefficients obtained by
+    // discretizing m * Cddot + d * Cdot + k * C = 0 over one time step.
+
     // If the frequency is less than or equal to zero, make this joint rigid
     if (frequency <= 0.0f || effectiveMass <= 0.0f)
     {
