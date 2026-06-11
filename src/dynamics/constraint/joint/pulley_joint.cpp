@@ -15,7 +15,10 @@ PulleyJoint::PulleyJoint(
     float dampingRatio
 )
     : Joint(pulley_joint, bodyA, bodyB, frequency, dampingRatio)
+    , m{ 0.0f }
     , impulseSum{ 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchorA);
     localAnchorB = MulT(bodyB->GetTransform(), anchorB);
@@ -23,7 +26,7 @@ PulleyJoint::PulleyJoint(
     groundAnchorB = inGroundAnchorB;
 
     ratio = pulleyRatio;
-    length = Length(anchorA - groundAnchorA) + Length(anchorB - groundAnchorB);
+    length = Length(anchorA - groundAnchorA) + ratio * Length(anchorB - groundAnchorB);
 }
 
 void PulleyJoint::Prepare(const Timestep& step)
@@ -70,16 +73,13 @@ void PulleyJoint::Prepare(const Timestep& step)
             + (sB->invMass + Dot(rub, s->invIB * rub)) * ratio * ratio;
     // clang-format on
 
-    ComputeBetaAndGamma(k > 0.0f ? 1.0f / k : 0.0f, step.dt);
-    k += s->gamma;
+    ComputeBetaAndGamma(&beta, &gamma, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
+    k += gamma;
 
-    if (k != 0.0f)
-    {
-        m = 1.0f / k;
-    }
+    m = k != 0.0f ? 1.0f / k : 0.0f;
 
-    float error = length - (lengthA + lengthB);
-    bias = error * s->beta * step.inv_dt;
+    float error = length - (lengthA + ratio * lengthB);
+    bias = error * beta * step.inv_dt;
 }
 
 void PulleyJoint::WarmStart()
@@ -91,7 +91,6 @@ void PulleyJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -99,7 +98,7 @@ void PulleyJoint::SolveVelocityConstraints(const Timestep& step)
         -(ratio * Dot(ub, sB->linearVelocity + Cross(sB->angularVelocity, rb)) +
           Dot(ua, sA->linearVelocity + Cross(sA->angularVelocity, ra)));
 
-    float lambda = m * -(jv + bias + impulseSum * s->gamma);
+    float lambda = m * -(jv + bias + impulseSum * gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;

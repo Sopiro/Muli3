@@ -33,11 +33,15 @@ private:
     Mat2 linearM;
     Vec2 linearBias;
     Vec2 linearImpulseSum;
+    float linearBeta;
+    float linearGamma;
 
     // For angular part (3 DOF)
     Mat3 angularM;
     Vec3 angularBias;
     Vec3 angularImpulseSum;
+    float angularBeta;
+    float angularGamma;
 
     void ApplyImpulse(const Vec2& linearLambda, const Vec3& angularLambda);
 };

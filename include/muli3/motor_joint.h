@@ -56,6 +56,10 @@ private:
 
     Vec3 linearImpulseSum;
     Vec3 angularImpulseSum;
+    float linearBeta;
+    float linearGamma;
+    float angularBeta;
+    float angularGamma;
 
     void ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda);
 };

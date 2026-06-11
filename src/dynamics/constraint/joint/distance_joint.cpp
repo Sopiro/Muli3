@@ -39,6 +39,8 @@ DistanceJoint::DistanceJoint(
     : Joint(distance_joint, bodyA, bodyB, frequency, dampingRatio)
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
     , limitState{ distance_limit_inactive }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchorA);
@@ -87,25 +89,25 @@ void DistanceJoint::Prepare(const Timestep& step)
             + Dot(crossDB, s->invIB * crossDB);
     // clang-format on
 
-    m = k != 0.0f ? 1.0f / k : 0.0f;
-    ComputeBetaAndGamma(m, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, k != 0.0f ? 1.0f / k : 0.0f, step.dt);
 
-    k += s->gamma;
+    k += gamma;
+    m = k != 0.0f ? 1.0f / k : 0.0f;
 
     if (minLength == maxLength)
     {
         limitState = distance_limit_equal;
-        bias = (currentLength - minLength) * s->beta * step.inv_dt;
+        bias = (currentLength - minLength) * beta * step.inv_dt;
     }
     else if (currentLength < minLength)
     {
         limitState = distance_limit_at_lower;
-        bias = (currentLength - minLength) * s->beta * step.inv_dt;
+        bias = (currentLength - minLength) * beta * step.inv_dt;
     }
     else if (currentLength > maxLength)
     {
         limitState = distance_limit_at_upper;
-        bias = (currentLength - maxLength) * s->beta * step.inv_dt;
+        bias = (currentLength - maxLength) * beta * step.inv_dt;
     }
     else
     {
@@ -128,7 +130,6 @@ void DistanceJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -144,7 +145,7 @@ void DistanceJoint::SolveVelocityConstraints(const Timestep& step)
     float jv =
         Dot((sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra)), d);
 
-    float lambda = m * -(jv + bias + impulseSum * s->gamma);
+    float lambda = m * -(jv + bias + impulseSum * gamma);
 
     float newImpulseSum;
     if (limitState == distance_limit_equal)

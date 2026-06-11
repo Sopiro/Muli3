@@ -32,6 +32,8 @@ private:
 
     Vec2 bias;
     Vec2 impulseSum;
+    float beta;
+    float gamma;
 
     void ApplyImpulse(const Vec2& lambda);
 };

@@ -123,7 +123,7 @@ public:
 protected:
     Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio);
 
-    void ComputeBetaAndGamma(float effectiveMass, float dt);
+    void ComputeBetaAndGamma(float* outBeta, float* outGamma, float effectiveMass, float dt);
 
     JointState* GetJointState();
     const JointState* GetJointState() const;

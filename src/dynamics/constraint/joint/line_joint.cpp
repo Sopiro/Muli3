@@ -7,6 +7,8 @@ namespace muli3
 LineJoint::LineJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
     : Joint(line_joint, bodyA, bodyB, frequency, dampingRatio)
     , impulseSum{ 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
     localAnchorB = MulT(bodyB->GetTransform(), anchor);
@@ -50,15 +52,15 @@ void LineJoint::Prepare(const Timestep& step)
     k[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     k[1][0] = k[0][1];
 
-    ComputeBetaAndGamma(k.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 2.0f, step.dt);
 
-    k[0][0] += s->gamma;
-    k[1][1] += s->gamma;
+    k[0][0] += gamma;
+    k[1][1] += gamma;
 
     m = k.GetInverse();
 
     bias.Set(Dot(d, t1), Dot(d, t2));
-    bias *= s->beta * step.inv_dt;
+    bias *= beta * step.inv_dt;
 }
 
 void LineJoint::WarmStart()
@@ -70,7 +72,6 @@ void LineJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -79,7 +80,7 @@ void LineJoint::SolveVelocityConstraints(const Timestep& step)
     jv.x = Dot(t1, dv) + Dot(sb1, sB->angularVelocity) - Dot(sa1, sA->angularVelocity);
     jv.y = Dot(t2, dv) + Dot(sb2, sB->angularVelocity) - Dot(sa2, sA->angularVelocity);
 
-    Vec2 lambda = Mul(m, -(jv + bias + impulseSum * s->gamma));
+    Vec2 lambda = Mul(m, -(jv + bias + impulseSum * gamma));
 
     ApplyImpulse(lambda);
     impulseSum += lambda;

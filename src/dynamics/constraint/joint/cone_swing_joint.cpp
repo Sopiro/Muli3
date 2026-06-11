@@ -30,6 +30,8 @@ ConeSwingJoint::ConeSwingJoint(
     , m{ 0.0f }
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
     , limitState{ cone_limit_inactive }
 {
     Vec3 axis = Length2(worldAxis) > epsilon ? Normalize(worldAxis) : y_axis;
@@ -83,13 +85,13 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis);
-    ComputeBetaAndGamma(k > 0.0f ? 1.0f / k : 0.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
 
-    k += s->gamma;
+    k += gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;
 
     float error = Min(currentAngle - (maxAngle + angular_slop), max_joint_angular_correction);
-    bias = error * s->beta * step.inv_dt;
+    bias = error * beta * step.inv_dt;
     impulseSum = ClampImpulse(impulseSum, limitState);
 }
 
@@ -102,7 +104,6 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -112,7 +113,7 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
     }
 
     float jv = Dot(swingAxis, sB->angularVelocity - sA->angularVelocity);
-    float lambda = m * -(jv + bias + impulseSum * s->gamma);
+    float lambda = m * -(jv + bias + impulseSum * gamma);
     float newImpulseSum = ClampImpulse(impulseSum + lambda, limitState);
 
     lambda = newImpulseSum - impulseSum;

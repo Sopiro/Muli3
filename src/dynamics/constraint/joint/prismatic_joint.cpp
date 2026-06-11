@@ -7,7 +7,11 @@ namespace muli3
 PrismaticJoint::PrismaticJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
     : Joint(prismatic_joint, bodyA, bodyB, frequency, dampingRatio)
     , linearImpulseSum{ 0.0f }
+    , linearBeta{ 0.0f }
+    , linearGamma{ 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
+    , angularBeta{ 0.0f }
+    , angularGamma{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
     localAnchorB = MulT(bodyB->GetTransform(), anchor);
@@ -54,24 +58,25 @@ void PrismaticJoint::Prepare(const Timestep& step)
     lk[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     lk[1][0] = lk[0][1];
 
-    ComputeBetaAndGamma(lk.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, lk.TraceInverse() / 2.0f, step.dt);
 
-    lk[0][0] += s->gamma;
-    lk[1][1] += s->gamma;
+    lk[0][0] += linearGamma;
+    lk[1][1] += linearGamma;
 
     linearM = lk.GetInverse();
 
     // Angular part (3 DOF)
     Mat3 ak = s->invIA + s->invIB;
-    ak.ex.x += s->gamma;
-    ak.ey.y += s->gamma;
-    ak.ez.z += s->gamma;
+    ComputeBetaAndGamma(&angularBeta, &angularGamma, ak.TraceInverse() / 3.0f, step.dt);
+    ak.ex.x += angularGamma;
+    ak.ey.y += angularGamma;
+    ak.ez.z += angularGamma;
 
     angularM = ak.GetInverse();
 
     // Linear bias
     linearBias.Set(Dot(d, t1), Dot(d, t2));
-    linearBias *= s->beta * step.inv_dt;
+    linearBias *= linearBeta * step.inv_dt;
 
     // Angular bias
     Quat qTarget = sA->motion.q * orientationOffset;
@@ -80,7 +85,7 @@ void PrismaticJoint::Prepare(const Timestep& step)
     {
         qError = -qError;
     }
-    angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
+    angularBias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * angularBeta * step.inv_dt;
 }
 
 void PrismaticJoint::WarmStart()
@@ -92,7 +97,6 @@ void PrismaticJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -102,11 +106,11 @@ void PrismaticJoint::SolveVelocityConstraints(const Timestep& step)
     linearJV.x = Dot(t1, dv) + Dot(sb1, sB->angularVelocity) - Dot(sa1, sA->angularVelocity);
     linearJV.y = Dot(t2, dv) + Dot(sb2, sB->angularVelocity) - Dot(sa2, sA->angularVelocity);
 
-    Vec2 linearLambda = Mul(linearM, -(linearJV + linearBias + linearImpulseSum * s->gamma));
+    Vec2 linearLambda = Mul(linearM, -(linearJV + linearBias + linearImpulseSum * linearGamma));
 
     // Angular
     Vec3 angularJV = sB->angularVelocity - sA->angularVelocity;
-    Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * s->gamma);
+    Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * angularGamma);
 
     ApplyImpulse(linearLambda, angularLambda);
     linearImpulseSum += linearLambda;

@@ -45,11 +45,15 @@ private:
     float swingM;
     float swingBias;
     float swingImpulseSum;
+    float swingBeta;
+    float swingGamma;
 
     Vec3 twistAxis;
     float angleM;
     float angleBias;
     float angleImpulseSum;
+    float angleBeta;
+    float angleGamma;
     int32 limitState;
 
     void ApplySwingImpulse(float lambda);

@@ -45,6 +45,8 @@ private:
     float angleM;
     float angleBias;
     float angleImpulseSum;
+    float beta;
+    float gamma;
     int32 limitState;
 
     void ApplyAngleImpulse(float lambda);

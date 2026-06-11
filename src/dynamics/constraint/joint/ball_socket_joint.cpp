@@ -6,6 +6,8 @@ namespace muli3
 BallSocketJoint::BallSocketJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
     : Joint(ball_socket_joint, bodyA, bodyB, frequency, dampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
 {
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
     localAnchorB = MulT(bodyB->GetTransform(), anchor);
@@ -37,11 +39,11 @@ void BallSocketJoint::Prepare(const Timestep& step)
            + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    ComputeBetaAndGamma(k.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 3.0f, step.dt);
 
-    k.ex.x += s->gamma;
-    k.ey.y += s->gamma;
-    k.ez.z += s->gamma;
+    k.ex.x += gamma;
+    k.ey.y += gamma;
+    k.ez.z += gamma;
 
     m = k.GetInverse();
 
@@ -49,7 +51,7 @@ void BallSocketJoint::Prepare(const Timestep& step)
     Vec3 pb = sB->motion.c + rb;
 
     Vec3 error = pb - pa;
-    bias = error * s->beta * step.inv_dt;
+    bias = error * beta * step.inv_dt;
 }
 
 void BallSocketJoint::WarmStart()
@@ -61,7 +63,6 @@ void BallSocketJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -72,7 +73,7 @@ void BallSocketJoint::SolveVelocityConstraints(const Timestep& step)
     Vec3 jv = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
 
     // You don't have to clamp the impulse. It's equality constraint!
-    Vec3 lambda = m * -(jv + bias + impulseSum * s->gamma);
+    Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;

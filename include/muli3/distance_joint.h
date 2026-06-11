@@ -48,6 +48,8 @@ private:
 
     float bias;
     float impulseSum;
+    float beta;
+    float gamma;
     int32 limitState;
 
     void ApplyImpulse(float lambda);

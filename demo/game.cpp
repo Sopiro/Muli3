@@ -365,10 +365,15 @@ void Game::UpdateUI()
                     int32 constraintCounts[constraint_color_count];
                     int32 normalConstraintCount = 0;
                     int32 totalConstraintCount = 0;
+                    int32 colorCount = 0;
                     for (int32 i = 0; i < constraint_color_count; ++i)
                     {
                         constraintCounts[i] = world.GetConstraintCount(i);
-                        totalConstraintCount += constraintCounts[i];
+                        if (constraintCounts[i] > 0)
+                        {
+                            ++colorCount;
+                            totalConstraintCount += constraintCounts[i];
+                        }
                         if (i != constraint_overflow_index)
                         {
                             normalConstraintCount += constraintCounts[i];
@@ -398,7 +403,7 @@ void Game::UpdateUI()
                         ImGui::Text("Steps: %lld", world.GetStepIndex());
 
                         ImGui::Spacing();
-                        ImGui::Text("%d Constraints across %d color batches", totalConstraintCount, constraint_overflow_index);
+                        ImGui::Text("%d Constraints across %d color batches", totalConstraintCount, colorCount);
 
                         float barWidth = ImGui::GetContentRegionAvail().x;
                         float barHeight = 2.0f * ImGui::GetFontSize();
@@ -442,7 +447,7 @@ void Game::UpdateUI()
                                 float segmentWidth = barWidth * count / (float)normalConstraintCount;
                                 if (count > 0 && mouseX < segmentX + segmentWidth)
                                 {
-                                    ImGui::SetTooltip("Color %d: %d constraints", i, count);
+                                    ImGui::SetTooltip("Color %d: %d Constraints", i, count);
                                     break;
                                 }
                                 segmentX += segmentWidth;

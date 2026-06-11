@@ -7,6 +7,8 @@ FixedRotationJoint::FixedRotationJoint(Body* body, float frequency, float dampin
     : Joint(fixed_rotation_joint, body, body, frequency, dampingRatio)
     , targetOrientation{ body->GetRotation() }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
 {
 }
 
@@ -18,11 +20,11 @@ void FixedRotationJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
 
     Mat3 k = s->invIA;
-    ComputeBetaAndGamma(k.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 3.0f, step.dt);
 
-    k.ex.x += s->gamma;
-    k.ey.y += s->gamma;
-    k.ez.z += s->gamma;
+    k.ex.x += gamma;
+    k.ey.y += gamma;
+    k.ez.z += gamma;
 
     m = k.GetInverse();
 
@@ -32,7 +34,7 @@ void FixedRotationJoint::Prepare(const Timestep& step)
         qError = -qError;
     }
 
-    bias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * s->beta * step.inv_dt;
+    bias = Vec3{ qError.x, qError.y, qError.z } * 2.0f * beta * step.inv_dt;
 }
 
 void FixedRotationJoint::WarmStart()
@@ -44,11 +46,10 @@ void FixedRotationJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
     Vec3 jv = sA->angularVelocity;
-    Vec3 lambda = m * -(jv + bias + impulseSum * s->gamma);
+    Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;

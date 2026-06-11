@@ -54,15 +54,13 @@ const JointState* Joint::GetJointState() const
     }
 }
 
-void Joint::ComputeBetaAndGamma(float effectiveMass, float dt)
+void Joint::ComputeBetaAndGamma(float* outBeta, float* outGamma, float effectiveMass, float dt)
 {
-    JointState* s = GetJointState();
-
     // If the frequency is less than or equal to zero, make this joint rigid
     if (frequency <= 0.0f || effectiveMass <= 0.0f)
     {
-        s->beta = 1.0f;
-        s->gamma = 0.0f;
+        *outBeta = 1.0f;
+        *outGamma = 0.0f;
     }
     else
     {
@@ -71,8 +69,8 @@ void Joint::ComputeBetaAndGamma(float effectiveMass, float dt)
         float k = effectiveMass * omega * omega;               // Spring constant
         float h = dt;
 
-        s->beta = h * k / (d + h * k);
-        s->gamma = 1.0f / ((d + h * k) * h);
+        *outBeta = h * k / (d + h * k);
+        *outGamma = 1.0f / ((d + h * k) * h);
     }
 }
 

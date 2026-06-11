@@ -25,6 +25,8 @@ private:
     Mat3 m;
     Vec3 bias;
     Vec3 impulseSum;
+    float beta;
+    float gamma;
 
     void ApplyImpulse(const Vec3& lambda);
 };

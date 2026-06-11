@@ -2068,8 +2068,6 @@ void World::AddJoint(Joint* joint)
     state.joint = joint;
     state.invIA = Mat3::zero;
     state.invIB = Mat3::zero;
-    state.beta = 0.0f;
-    state.gamma = 0.0f;
 
     joint->setIndex = setIndex;
     if (setIndex == awake_set)
@@ -2370,8 +2368,6 @@ JointState* World::AddJointState(Joint* joint, SolverSetIndex setIndex)
     state.joint = joint;
     state.invIA = Mat3::zero;
     state.invIB = Mat3::zero;
-    state.beta = 0.0f;
-    state.gamma = 0.0f;
 
     set.jointStates.push_back(state);
     return &set.jointStates.back();

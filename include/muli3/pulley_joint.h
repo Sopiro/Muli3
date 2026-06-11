@@ -49,6 +49,8 @@ private:
 
     float bias;
     float impulseSum;
+    float beta;
+    float gamma;
 
     void ApplyImpulse(float lambda);
 };

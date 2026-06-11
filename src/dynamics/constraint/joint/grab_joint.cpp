@@ -6,6 +6,8 @@ namespace muli3
 GrabJoint::GrabJoint(Body* body, const Vec3& anchor, const Vec3& targetPosition, float frequency, float dampingRatio)
     : Joint(grab_joint, body, body, frequency, dampingRatio)
     , impulseSum{ 0.0f, 0.0f, 0.0f }
+    , beta{ 0.0f }
+    , gamma{ 0.0f }
 {
     localAnchor = MulT(body->GetTransform(), anchor);
     target = targetPosition;
@@ -28,23 +30,22 @@ void GrabJoint::Prepare(const Timestep& step)
 
     Mat3 k = Mat3(sA->invMass) + skewR.GetTranspose() * s->invIA * skewR;
 
-    ComputeBetaAndGamma(k.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 3.0f, step.dt);
 
-    k.ex.x += s->gamma;
-    k.ey.y += s->gamma;
-    k.ez.z += s->gamma;
+    k.ex.x += gamma;
+    k.ey.y += gamma;
+    k.ez.z += gamma;
 
     m = k.GetInverse();
 
     Vec3 error = p - target;
-    bias = error * s->beta * step.inv_dt;
+    bias = error * beta * step.inv_dt;
 }
 
 void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
-    JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
     // Compute corrective impulse: Pc
@@ -53,7 +54,7 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
 
     Vec3 jv = sA->linearVelocity + Cross(sA->angularVelocity, r);
 
-    Vec3 lambda = m * -(jv + bias + impulseSum * s->gamma);
+    Vec3 lambda = m * -(jv + bias + impulseSum * gamma);
 
     ApplyImpulse(lambda);
     impulseSum += lambda;

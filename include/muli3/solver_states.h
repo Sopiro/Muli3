@@ -62,9 +62,6 @@ struct JointState
 
     Mat3 invIA;
     Mat3 invIB;
-
-    float beta;
-    float gamma;
 };
 
 enum SolverSetIndex
