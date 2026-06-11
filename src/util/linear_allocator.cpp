@@ -70,6 +70,7 @@ void LinearAllocator::Free(void* p, int32 size)
     MemoryEntry* entry = entries + entryCount - 1;
     MuliAssert(entry->data == p);
     MuliAssert(entry->size == size);
+    MuliNotUsed(size);
 
     if (entry->mallocUsed)
     {

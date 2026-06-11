@@ -445,17 +445,17 @@ void Body::SetType(Body::Type newType)
         SynchronizeColliders();
     }
 
-    SolverSetIndex setIndex = static_set;
+    SolverSetIndex newIndex = static_set;
     if (IsEnabled() == false)
     {
-        setIndex = disabled_set;
+        newIndex = disabled_set;
     }
     else if (type != static_body)
     {
-        setIndex = IsSleeping() ? sleeping_set : awake_set;
+        newIndex = IsSleeping() ? sleeping_set : awake_set;
     }
 
-    world->TransferBody(this, setIndex);
+    world->TransferBody(this, newIndex);
 
     for (JointEdge* je = jointList; je; je = je->next)
     {
@@ -514,13 +514,13 @@ void Body::SetEnabled(bool enabled)
             flag &= ~flag_sleeping;
         }
 
-        SolverSetIndex setIndex = static_set;
+        SolverSetIndex newIndex = static_set;
         if (type != static_body)
         {
-            setIndex = IsSleeping() ? sleeping_set : awake_set;
+            newIndex = IsSleeping() ? sleeping_set : awake_set;
         }
 
-        world->TransferBody(this, setIndex);
+        world->TransferBody(this, newIndex);
 
         for (Collider* collider = colliderList; collider; collider = collider->next)
         {

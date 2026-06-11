@@ -198,14 +198,14 @@ bool BoxShape::RayCast(const Transform& transform, const RayCastInput& input, Ra
 
     for (int32 i = 0; i < 3; ++i)
     {
-        float pi = p1[i];
+        float p = p1[i];
         float di = d[i];
         float min = -extents[i];
         float max = extents[i];
 
         if (Abs(di) <= epsilon)
         {
-            if (pi < min || pi > max)
+            if (p < min || p > max)
             {
                 return false;
             }
@@ -214,8 +214,8 @@ bool BoxShape::RayCast(const Transform& transform, const RayCastInput& input, Ra
         }
 
         float invD = 1.0f / di;
-        float t0 = (min - pi) * invD;
-        float t1 = (max - pi) * invD;
+        float t0 = (min - p) * invD;
+        float t1 = (max - p) * invD;
         float normalSign = -1.0f;
 
         if (t1 < t0)

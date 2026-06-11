@@ -189,7 +189,7 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Sleeping", &settings.sleeping);
                 }
                 ImGui::Separator();
-                ImGui::Text("%lld.%s", demoIndex, demoFrames[demoIndex].name);
+                ImGui::Text("%zu.%s", demoIndex, demoFrames[demoIndex].name);
                 ImGui::EndTabItem();
             }
 

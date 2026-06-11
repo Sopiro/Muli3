@@ -2,11 +2,10 @@
 #include "muli3/callbacks.h"
 #include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
+#include "muli3/contact_solver.h"
 #include "muli3/parallel_for.h"
 #include "muli3/raycast.h"
 #include "muli3/shapes.h"
-
-#include "muli3/contact_solver.h"
 
 namespace muli3
 {
@@ -2893,25 +2892,25 @@ void World::Validate() const
         }
     }
 
-    int32 contactCount = 0;
+    int32 numContacts = 0;
     for (Contact* contact = constraintGraph.contactList; contact; contact = contact->next)
     {
         MuliAssert(seenContacts.contains(contact));
-        ++contactCount;
+        ++numContacts;
     }
-    MuliAssert(contactCount == int32(seenContacts.size()));
-    MuliAssert(contactCount == constraintGraph.contactCount);
-    MuliNotUsed(contactCount);
+    MuliAssert(numContacts == int32(seenContacts.size()));
+    MuliAssert(numContacts == constraintGraph.contactCount);
+    MuliNotUsed(numContacts);
 
-    int32 jointCount = 0;
+    int32 numJoints = 0;
     for (Joint* joint = jointList; joint; joint = joint->next)
     {
         MuliAssert(seenJoints.contains(joint));
-        ++jointCount;
+        ++numJoints;
     }
-    MuliAssert(jointCount == int32(seenJoints.size()));
-    MuliAssert(jointCount == this->jointCount);
-    MuliNotUsed(jointCount);
+    MuliAssert(numJoints == int32(seenJoints.size()));
+    MuliAssert(numJoints == this->jointCount);
+    MuliNotUsed(numJoints);
 
     for (Body* body = bodyList; body; body = body->next)
     {

@@ -5,7 +5,8 @@
 #include "game.h"
 #include "window.h"
 
-using namespace muli3;
+namespace muli3
+{
 
 static Window* window;
 static Game* game;
@@ -107,8 +108,12 @@ static void MainLoop()
     }
 }
 
+} // namespace muli3
+
 int main()
 {
+    using namespace muli3;
+
     ProfileStartup();
 
 #if defined(_WIN32) && defined(_DEBUG)
