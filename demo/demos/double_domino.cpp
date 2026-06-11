@@ -31,7 +31,7 @@ public:
             if (x == 0)
             {
                 b->ApplyLinearImpulseLocal(
-                    { boxWidth / 2.0f, boxHeight / 2.0f, 0.0f }, Vec3{ 1.0f, 0.0f, 0.0f } * b->GetMass(), true
+                    { boxWidth / 2.0f, boxHeight / 2.0f, 0.0f }, Vec3{ 2.0f, 0.0f, 0.0f } * b->GetMass(), true
                 );
             }
         }

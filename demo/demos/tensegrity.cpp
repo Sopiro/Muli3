@@ -36,15 +36,11 @@ public:
             top[i] = Vec3{ prismX + radius * std::cos(angle + twist), topHeight, radius * std::sin(angle + twist) };
         }
 
-        CollisionFilter strutFilter;
-        strutFilter.group = -1;
-
         // Each compression strut skips one top vertex, producing the characteristic twisted prism.
         for (int32 i = 0; i < count; ++i)
         {
             int32 topIndex = (i + 1) % count;
             Body* strut = world->CreateCapsule(bottom[i], top[topIndex], 0.12f);
-            strut->SetCollisionFilter(strutFilter);
             strut->SetFriction(0.8f);
             strut->SetLinearDamping(0.08f);
             strut->SetAngularDamping(0.08f);
