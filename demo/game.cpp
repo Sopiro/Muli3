@@ -263,7 +263,7 @@ void Game::UpdateUI()
 
     if (options.show_profiler)
     {
-        ImGui::SetNextWindowSize({ 720.0f, 280.0f }, ImGuiCond_Once);
+        ImGui::SetNextWindowSize({ 600.0f, 240.0f }, ImGuiCond_Once);
         if (ImGui::Begin("Profiler", &options.show_profiler, ImGuiWindowFlags_None))
         {
             if (ImGui::BeginTabBar("ProfilerTabs"))

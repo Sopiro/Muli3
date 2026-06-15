@@ -70,7 +70,7 @@ void DrawProfileGraph(
 
     if (plotSize.y < 0.0f)
     {
-        plotSize.y = Clamp(plotSize.x * 0.38f, 120.0f, 220.0f);
+        plotSize.y = plotSize.x * 0.4f;
     }
 
     legendSize.y = plotSize.y;
