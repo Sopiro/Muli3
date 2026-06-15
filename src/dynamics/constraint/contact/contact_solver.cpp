@@ -94,6 +94,8 @@ static void PrepareTangentContact(SolverContact* t, ContactState* s, const Vec3&
     Vec3 ra = point - sA->motion.c;
     Vec3 rb = point - sB->motion.c;
 
+    // Project the relative contact velocity onto one tangent direction.
+    // J = [-t, -(ra x t), t, rb x t]
     t->j.va = -tangent;
     t->j.wa = -Cross(ra, tangent);
     t->j.vb = tangent;
@@ -105,44 +107,82 @@ static void PrepareTangentContact(SolverContact* t, ContactState* s, const Vec3&
     t->m = k > 0.0f ? 1.0f / k : 0.0f;
 }
 
-static void SolveTangentContact(SolverContact* t, ContactState* s, const SolverContact* n)
+static Vec2 ComputeTangentImpulse(Vec2* tangentVelocity, const SolverContact* t1, const SolverContact* t2, const ContactState* s)
+{
+    const BodyState* sA = s->s1;
+    const BodyState* sB = s->s2;
+
+    // Solve both tangent axes as single 2D constraint.
+
+    float jv1 = Dot(t1->j.va, sA->linearVelocity) + Dot(t1->j.wa, sA->angularVelocity) + Dot(t1->j.vb, sB->linearVelocity) +
+                Dot(t1->j.wb, sB->angularVelocity);
+    float jv2 = Dot(t2->j.va, sA->linearVelocity) + Dot(t2->j.wa, sA->angularVelocity) + Dot(t2->j.vb, sB->linearVelocity) +
+                Dot(t2->j.wb, sB->angularVelocity);
+
+    tangentVelocity->Set(jv1 + t1->bias, jv2 + t2->bias);
+
+    // K = J M^-1 J^T
+    float k11 = sA->invMass + Dot(t1->j.wa, s->invIA * t1->j.wa) + sB->invMass + Dot(t1->j.wb, s->invIB * t1->j.wb);
+    float k12 = Dot(t1->j.wa, s->invIA * t2->j.wa) + Dot(t1->j.wb, s->invIB * t2->j.wb);
+    float k22 = sA->invMass + Dot(t2->j.wa, s->invIA * t2->j.wa) + sB->invMass + Dot(t2->j.wb, s->invIB * t2->j.wb);
+
+    Mat2 mass = Mat2(Vec2(k11, k12), Vec2(k12, k22)).GetInverse();
+    Vec2 deltaLambda = -Mul(mass, *tangentVelocity);
+
+    // The unconstrained accumulated impulse that would stop tangent motion is
+    // lambda_new = lambda_old + delta_lambda.
+    return Vec2(t1->impulse, t2->impulse) + deltaLambda;
+}
+
+static void SolveTangentContact(SolverContact* t1, SolverContact* t2, ContactState* s, const SolverContact* n)
 {
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
 
-    // Compute corrective impulse: Pc
-    // Pc = J^t * λ (λ: lagrangian multiplier)
-    // λ = (J · M^-1 · J^t)^-1 * -(J·v+b)
+    Vec2 tangentVelocity;
+    Vec2 impulse = ComputeTangentImpulse(&tangentVelocity, t1, t2, s);
 
-    // clang-format off
-    // Velocity constraint: C' = jv
-    float jv = Dot(t->j.va, sA->linearVelocity)
-             + Dot(t->j.wa, sA->angularVelocity)
-             + Dot(t->j.vb, sB->linearVelocity)
-             + Dot(t->j.wb, sB->angularVelocity);
-    // clang-format on
-
-    float lambda = t->m * -(jv + t->bias);
-
-    // Clamp impulse correctly and accumulate it
-    float oldImpulse = t->impulse;
+    // Coulomb friction limits the accumulated 2D tangent impulse lambda_t by |lambda_t| <= mu * lambda_n.
+    // A larger normal impulse lets the contact provide more friction.
+    // maxFriction = mu * lambda_n
     float maxFriction = s->friction * n->impulse;
-    t->impulse = Clamp(t->impulse + lambda, -maxFriction, maxFriction);
-    lambda = t->impulse - oldImpulse;
 
-    // Apply impulse
-    // V2 = V2' + M^-1 * Pc
-    // Pc = J^t * λ
+    // impulse is the lambda_t needed to make the tangent velocity zero.
+    // Test |lambda_t|^2 > (mu * lambda_n)^2 to avoid a square root.
+    // If it is inside the Coulomb circle, static friction can stop the contact and uses it as-is.
+    float impulse2 = Dot(impulse, impulse);
+    if (impulse2 > Sqr(maxFriction))
+    {
+        // The required impulse is outside the Coulomb circle, so the contact slides.
+        // Kinetic friction uses the maximum magnitude opposite to slip:
+        // lambda_t = -mu * lambda_n * v_t / |v_t|.
+        float velocity2 = Dot(tangentVelocity, tangentVelocity);
+        if (velocity2 > Sqr(epsilon))
+        {
+            impulse = -tangentVelocity * (maxFriction / std::sqrt(velocity2));
+        }
+        else
+        {
+            // v_t / |v_t| is undefined near zero.
+            // Preserve the candidate direction and project only its length onto the Coulomb circle.
+            impulse *= maxFriction / std::sqrt(impulse2);
+        }
+    }
+
+    // Only apply the change from the previously accumulated 2D impulse.
+    Vec2 deltaLambda = impulse - Vec2(t1->impulse, t2->impulse);
+    t1->impulse = impulse.x;
+    t2->impulse = impulse.y;
 
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity += t->j.va * (sA->invMass * lambda);
-        sA->angularVelocity += s->invIA * t->j.wa * lambda;
+        sA->linearVelocity += (t1->j.va * deltaLambda.x + t2->j.va * deltaLambda.y) * sA->invMass;
+        sA->angularVelocity += s->invIA * (t1->j.wa * deltaLambda.x + t2->j.wa * deltaLambda.y);
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += t->j.vb * (sB->invMass * lambda);
-        sB->angularVelocity += s->invIB * t->j.wb * lambda;
+        sB->linearVelocity += (t1->j.vb * deltaLambda.x + t2->j.vb * deltaLambda.y) * sB->invMass;
+        sB->angularVelocity += s->invIB * (t1->j.wb * deltaLambda.x + t2->j.wb * deltaLambda.y);
     }
 }
 
@@ -275,8 +315,7 @@ void SolveContactVelocityConstraints(ContactState* s)
 {
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
     {
-        SolveTangentContact(s->tangentContact1 + i, s, s->normalContact + i);
-        SolveTangentContact(s->tangentContact2 + i, s, s->normalContact + i);
+        SolveTangentContact(s->tangentContact1 + i, s->tangentContact2 + i, s, s->normalContact + i);
     }
 
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
