@@ -147,6 +147,8 @@ static void SolveTangentContact(SolverContact* t1, SolverContact* t2, ContactSta
     // maxFriction = mu * lambda_n
     float maxFriction = s->friction * n->impulse;
 
+    const float kinetic_friction_threshold = Sqr(0.1f);
+
     // impulse is the lambda_t needed to make the tangent velocity zero.
     // Test |lambda_t|^2 > (mu * lambda_n)^2 to avoid a square root.
     // If it is inside the Coulomb circle, static friction can stop the contact and uses it as-is.
@@ -157,7 +159,7 @@ static void SolveTangentContact(SolverContact* t1, SolverContact* t2, ContactSta
         // Kinetic friction uses the maximum magnitude opposite to slip:
         // lambda_t = -mu * lambda_n * v_t / |v_t|.
         float velocity2 = Dot(tangentVelocity, tangentVelocity);
-        if (velocity2 > Sqr(epsilon))
+        if (velocity2 > Sqr(kinetic_friction_threshold))
         {
             impulse = -tangentVelocity * (maxFriction / std::sqrt(velocity2));
         }
