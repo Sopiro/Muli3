@@ -36,10 +36,9 @@ inline constexpr float default_angular_damping = 0.05f;
 
 struct Timestep
 {
-    int32 velocity_iterations = 4;
+    int32 velocity_iterations = 6;
     int32 position_iterations = 2;
 
-    bool warm_starting = true;
     float dt = 0.0f;
     float inv_dt = 0.0f;
 };

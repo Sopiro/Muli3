@@ -37,7 +37,7 @@ public:
 
         b->SetPosition(0.0f, 4.0f, 0.0f);
 
-        // Srand(123);
+        Srand(123);
 
         for (int32 i = 0; i < 100; ++i)
         {

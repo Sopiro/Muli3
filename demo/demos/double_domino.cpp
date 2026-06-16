@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-static int32 rows = 15;
+static int32 rows = 10;
 
 class DoubleDomino : public Demo
 {
@@ -17,7 +17,7 @@ public:
         float boxWidth = 1.0f;
         float boxHeight = boxWidth * 4.0f;
         float boxDepth = 2.4f;
-        float xGap = boxHeight - boxWidth * 0.95f;
+        float xGap = boxHeight - boxWidth * 0.96f;
         float xStart = -(rows - 1.0f) * (boxWidth + xGap) / 2.0f;
         float yStart = l + boxHeight / 2.0f;
 

@@ -3,10 +3,10 @@
 namespace muli3
 {
 
-class ConvexShapes : public Demo
+class ConvexShapeTest : public Demo
 {
 public:
-    ConvexShapes(Game& game)
+    ConvexShapeTest(Game& game)
         : Demo(game)
     {
         options.draw_outlined = false;
@@ -33,7 +33,7 @@ public:
             Vec3{ 0.08f, 0.46f, -0.18f },   Vec3{ -0.32f, 0.44f, -0.10f },  Vec3{ 0.28f, -0.02f, 0.46f },
         };
 
-        for (int32 i = 0; i < 7; ++i)
+        for (int32 i = 0; i < 10; ++i)
         {
             float y = 1.0f + i * 1.35f;
 
@@ -52,11 +52,11 @@ public:
     }
 };
 
-static Demo* CreateConvexShapes(Game& game)
+static Demo* CreateConvexShapeTest(Game& game)
 {
-    return new ConvexShapes(game);
+    return new ConvexShapeTest(game);
 }
 
-static int32 convex_shapes = register_demo("Shapes", "Convex shape", CreateConvexShapes, 1);
+static int32 convex_shapes = register_demo("Shapes", "Convex shape", CreateConvexShapeTest, 1);
 
 } // namespace muli3

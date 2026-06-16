@@ -185,7 +185,6 @@ void Game::UpdateUI()
                     {
                         world.Awake();
                     }
-                    ImGui::Checkbox("Warm Starting", &settings.step.warm_starting);
                     ImGui::Checkbox("Sleeping", &settings.sleeping);
                 }
                 ImGui::Separator();

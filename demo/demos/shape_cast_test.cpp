@@ -10,10 +10,12 @@ namespace muli3
 
 static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box" };
 
-class ShapeCastWorld : public Demo
+class ShapeCastTest : public Demo
 {
 public:
     Transform tf = identity;
+    Vec3 rot = Vec3::zero;
+
     std::unique_ptr<Shape> shape;
 
     Vec3 from{ -3.0f, 0.0, 0.0f };
@@ -22,7 +24,7 @@ public:
     bool closest = true;
     int32 item = 1;
 
-    ShapeCastWorld(Game& game)
+    ShapeCastTest(Game& game)
         : Demo(game)
     {
         settings.apply_gravity = false;
@@ -87,6 +89,7 @@ public:
             {
                 UpdateShape();
             }
+            ImGui::DragFloat3("Rot", &rot.x, 1.0f, -360.0f, 360.0f);
         }
         ImGui::End();
     }
@@ -98,7 +101,7 @@ public:
         Vec3 closestPoint = Vec3::zero;
         Vec3 closestNormal = Vec3::zero;
         tf.p = from;
-        tf.q = identity;
+        tf.q = Quat::FromEuler({ DegToRad(rot.x), DegToRad(rot.y), DegToRad(rot.z) });
         Vec3 translation = to - from;
 
         Renderer::DrawMode dm{};
@@ -185,7 +188,7 @@ private:
 
 static Demo* CreateShapeCastWorld(Game& game)
 {
-    return new ShapeCastWorld(game);
+    return new ShapeCastTest(game);
 }
 
 static int32 shape_cast_world = register_demo("Collision", "Shape casting", CreateShapeCastWorld, 3);

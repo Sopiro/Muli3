@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-static float jointFrequency = 15.0f;
+static float jointFrequency = 30.0f;
 static float dampingRatio = 1.0f;
 
 class FixedRotation : public Demo
