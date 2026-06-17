@@ -42,9 +42,8 @@ struct ContactState
 
     ContactManifold manifold;
 
-    SolverContact normalContact[max_contact_point_count];
-    SolverContact tangentContact1[max_contact_point_count];
-    SolverContact tangentContact2[max_contact_point_count];
+    SolverNormalContact normalContact[max_contact_point_count];
+    SolverTangentContact tangentContact[max_contact_point_count];
     SolverPosition positionContact[max_contact_point_count];
 
     Mat3 invIA;

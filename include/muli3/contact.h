@@ -184,7 +184,7 @@ inline float Contact::GetNormalImpulse(int32 index) const
 inline Vec2 Contact::GetTangentImpulse(int32 index) const
 {
     MuliAssert(0 <= index && index < max_contact_point_count);
-    return { GetContactState()->tangentContact1[index].impulse, GetContactState()->tangentContact2[index].impulse };
+    return GetContactState()->tangentContact[index].impulse;
 }
 
 inline float Contact::GetFriction() const

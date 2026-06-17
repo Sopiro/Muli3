@@ -67,16 +67,13 @@ void Contact::Update()
     ContactManifold oldManifold = s->manifold;
 
     float impulseSaveNormal[max_contact_point_count];
-    float impulseSaveTangent1[max_contact_point_count];
-    float impulseSaveTangent2[max_contact_point_count];
+    Vec2 impulseSaveTangent[max_contact_point_count];
     for (int32 i = 0; i < max_contact_point_count; ++i)
     {
         impulseSaveNormal[i] = s->normalContact[i].impulse;
-        impulseSaveTangent1[i] = s->tangentContact1[i].impulse;
-        impulseSaveTangent2[i] = s->tangentContact2[i].impulse;
+        impulseSaveTangent[i] = s->tangentContact[i].impulse;
         s->normalContact[i].impulse = 0.0f;
-        s->tangentContact1[i].impulse = 0.0f;
-        s->tangentContact2[i].impulse = 0.0f;
+        s->tangentContact[i].impulse = Vec2::zero;
     }
 
     bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
@@ -116,8 +113,7 @@ void Contact::Update()
             if (s->manifold.contactPoints[n].id == oldManifold.contactPoints[o].id)
             {
                 s->normalContact[n].impulse = impulseSaveNormal[o];
-                s->tangentContact1[n].impulse = impulseSaveTangent1[o];
-                s->tangentContact2[n].impulse = impulseSaveTangent2[o];
+                s->tangentContact[n].impulse = impulseSaveTangent[o];
                 break;
             }
         }

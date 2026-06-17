@@ -10,7 +10,7 @@ struct ContactState;
 struct JointState;
 struct Timestep;
 
-struct SolverContact
+struct SolverNormalContact
 {
     struct Jacobian
     {
@@ -23,6 +23,21 @@ struct SolverContact
     float m;       // effective mass
     float bias;
     float impulse; // impulse sum
+};
+
+struct SolverTangentContact
+{
+    struct Jacobian
+    {
+        Vec3 va;
+        Vec3 wa;
+        Vec3 vb;
+        Vec3 wb;
+    } j1, j2;
+
+    Mat2 m;       // effective mass
+    Vec2 bias;
+    Vec2 impulse; // impulse sum
 };
 
 struct SolverPosition
