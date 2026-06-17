@@ -86,9 +86,27 @@ void Demo::EnableKeyboardShortcut()
         return;
     }
 
-    if (Input::IsKeyPressed(GLFW_KEY_Y)) options.draw_body = !options.draw_body;
     if (Input::IsKeyPressed(GLFW_KEY_J)) options.draw_joint = !options.draw_joint;
-    if (Input::IsKeyPressed(GLFW_KEY_O)) options.draw_outlined = !options.draw_outlined;
+    if (Input::IsKeyPressed(GLFW_KEY_O))
+    {
+        if (options.draw_body == false && options.draw_outline)
+        {
+            options.draw_outline = false;
+        }
+        else if (options.draw_body == false)
+        {
+            options.draw_body = true;
+            options.draw_outline = false;
+        }
+        else if (options.draw_outline == false)
+        {
+            options.draw_outline = true;
+        }
+        else
+        {
+            options.draw_body = false;
+        }
+    }
     if (Input::IsKeyPressed(GLFW_KEY_L)) options.colorize_island = !options.colorize_island;
     if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
     if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;

@@ -16,7 +16,7 @@ public:
     TwistAngleJointDemo(Game& game)
         : Demo(game)
     {
-        options.draw_outlined = false;
+        options.draw_outline = false;
 
         world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 

@@ -9,7 +9,7 @@ public:
     ConvexShapeTest(Game& game)
         : Demo(game)
     {
-        options.draw_outlined = false;
+        options.draw_outline = false;
 
         world->CreateBox(28.0f, 0.5f, 28.0f, identity, Body::static_body);
 

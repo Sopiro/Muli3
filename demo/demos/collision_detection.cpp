@@ -139,8 +139,8 @@ public:
         renderer.SetPointSize(7.0f);
 
         Renderer::DrawMode mode;
-        mode.fill = !options.draw_outlined;
-        mode.outline = options.draw_outlined;
+        mode.fill = options.draw_body;
+        mode.outline = options.draw_outline;
         renderer.DrawShape(shape1.get(), tf1, mode);
         renderer.DrawShape(shape2.get(), tf2, mode);
 

@@ -9,7 +9,7 @@ struct DebugOptions
     bool step = false;
     bool draw_body = true;
     bool draw_joint = true;
-    bool draw_outlined = false;
+    bool draw_outline = false;
     bool show_bvh = false;
     bool show_aabb = false;
     bool show_profiler = true;

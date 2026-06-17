@@ -161,7 +161,7 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Colorize Island", &options.colorize_island);
                     ImGui::Checkbox("Draw Body", &options.draw_body);
                     ImGui::Checkbox("Draw Joint", &options.draw_joint);
-                    ImGui::Checkbox("Draw Outlined", &options.draw_outlined);
+                    ImGui::Checkbox("Draw Outline", &options.draw_outline);
                     ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);
                     ImGui::Checkbox("Show Contact Point", &options.show_contact_point);

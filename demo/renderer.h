@@ -93,6 +93,7 @@ private:
     GLuint shadowDepthTexture;
 
     GLuint primVAO, primVBO, shapeInstanceVBO;
+    int32 primitiveCapacity = 0;
     std::vector<ShapeInstance> sphereInstances[2];
     std::vector<ShapeInstance> capsuleTopInstances[2];
     std::vector<ShapeInstance> capsuleBottomInstances[2];
