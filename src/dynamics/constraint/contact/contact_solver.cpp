@@ -318,6 +318,9 @@ void WarmStartContact(ContactState* s)
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
     {
         WarmStartTangentContact(s->tangentContact + i, s);
+    }
+    for (int32 i = 0; i < s->manifold.contactCount; ++i)
+    {
         WarmStartNormalContact(s->normalContact + i, s);
     }
 }
@@ -328,7 +331,6 @@ void SolveContactVelocityConstraints(ContactState* s)
     {
         SolveTangentContact(s->tangentContact + i, s, s->normalContact + i);
     }
-
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
     {
         SolveNormalContact(s->normalContact + i, s);

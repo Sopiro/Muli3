@@ -305,120 +305,6 @@ static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, con
     }
 }
 
-static void ReduceContacts(const ClippedFace& face, const Vec3& normal, const Vec3& planePoint, int32* indices, int32* count)
-{
-    *count = 0;
-
-    int32 maxIndex = 0;
-    int32 minIndex = 0;
-    float maxSeparation = Dot(face.points[0].p - planePoint, normal);
-    float minSeparation = maxSeparation;
-
-    for (int32 i = 1; i < face.count; ++i)
-    {
-        float separation = Dot(face.points[i].p - planePoint, normal);
-        if (separation > maxSeparation)
-        {
-            minIndex = i;
-            maxSeparation = separation;
-        }
-        if (separation < minSeparation)
-        {
-            maxIndex = i;
-            minSeparation = separation;
-        }
-    }
-
-    uint16 selectedMask = 0;
-    if (minIndex == maxIndex)
-    {
-        indices[(*count)++] = minIndex;
-        selectedMask |= (uint16(1) << minIndex);
-    }
-    else
-    {
-        indices[(*count)++] = minIndex;
-        indices[(*count)++] = maxIndex;
-        selectedMask |= (uint16(1) << minIndex);
-        selectedMask |= (uint16(1) << maxIndex);
-    }
-
-    Vec3 tangent = Cross(normal, face.points[maxIndex].p - face.points[minIndex].p);
-    if (tangent.Normalize() == 0.0f)
-    {
-        CoordinateSystem(normal, &tangent);
-    }
-
-    int32 maxSpanIndex = 0;
-    int32 minSpanIndex = 0;
-    float maxSpan = Dot(face.points[0].p, tangent);
-    float minSpan = maxSpan;
-
-    for (int32 i = 1; i < face.count; ++i)
-    {
-        float span = Dot(face.points[i].p, tangent);
-
-        if (span > maxSpan)
-        {
-            maxSpanIndex = i;
-            maxSpan = span;
-        }
-        if (span < minSpan)
-        {
-            minSpanIndex = i;
-            minSpan = span;
-        }
-    }
-
-    if ((selectedMask & (uint16(1) << minSpanIndex)) == 0)
-    {
-        indices[(*count)++] = minSpanIndex;
-        selectedMask |= (uint16(1) << minSpanIndex);
-    }
-    if ((selectedMask & (uint16(1) << maxSpanIndex)) == 0)
-    {
-        indices[(*count)++] = maxSpanIndex;
-        selectedMask |= (uint16(1) << maxSpanIndex);
-    }
-
-    // Add the farthest vertices until the maximum face vertex count is reached
-    while (*count < max_contact_point_count)
-    {
-        int32 bestIndex = 0;
-        float bestDistance = -1.0f;
-
-        for (int32 i = 0; i < face.count; ++i)
-        {
-            // Skip points that have already been selected
-            if (selectedMask & (uint16(1) << i))
-            {
-                continue;
-            }
-
-            float minDistance = max_float;
-
-            for (int32 j = 0; j < *count; ++j)
-            {
-                minDistance = std::min(minDistance, Dist2(face.points[i].p, face.points[indices[j]].p));
-
-                // This candidate can no longer beat the current best one, so stop evaluating it early
-                if (minDistance <= bestDistance)
-                {
-                    break;
-                }
-            }
-
-            if (minDistance > bestDistance)
-            {
-                bestIndex = i;
-                bestDistance = minDistance;
-            }
-        }
-
-        indices[(*count)++] = bestIndex;
-    }
-}
-
 static void FindContactPoints(
     const Vec3& n, const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
 )
@@ -501,42 +387,10 @@ static void FindContactPoints(
         return;
     }
 
-    if (faces[output].count <= max_contact_point_count)
+    ContactPoint candidates[2 * max_face_vertices];
+    for (int32 i = 0; i < faces[output].count; ++i)
     {
-        for (int32 i = 0; i < faces[output].count; ++i)
-        {
-            Point point = faces[output].points[i];
-            float separation = Dot(point.p - planePoint, planeNormal);
-
-            Vec3 anchorA, anchorB;
-            if (flipped)
-            {
-                anchorA = point.p;
-                anchorB = point.p - planeNormal * separation;
-            }
-            else
-            {
-                anchorA = point.p - planeNormal * separation;
-                anchorB = point.p;
-            }
-
-            manifold->contactPoints[i].p = (anchorA + anchorB) * 0.5f;
-            manifold->contactPoints[i].anchorA = anchorA;
-            manifold->contactPoints[i].anchorB = anchorB;
-            manifold->contactPoints[i].separation = Dot(anchorB - anchorA, n);
-            manifold->contactPoints[i].id = faceA.points[i].id;
-        }
-        manifold->contactCount = faces[output].count;
-        return;
-    }
-
-    int32 indices[max_contact_point_count];
-    int32 contactCount;
-    ReduceContacts(faces[output], planeNormal, planePoint, indices, &contactCount);
-
-    for (int32 i = 0; i < contactCount; ++i)
-    {
-        Point point = faces[output].points[indices[i]];
+        Point point = faces[output].points[i];
         float separation = Dot(point.p - planePoint, planeNormal);
 
         Vec3 anchorA, anchorB;
@@ -551,10 +405,116 @@ static void FindContactPoints(
             anchorB = point.p;
         }
 
-        manifold->contactPoints[i].p = (anchorA + anchorB) * 0.5f;
-        manifold->contactPoints[i].anchorA = anchorA;
-        manifold->contactPoints[i].anchorB = anchorB;
-        manifold->contactPoints[i].separation = Dot(anchorB - anchorA, n);
+        candidates[i].p = (anchorA + anchorB) * 0.5f;
+        candidates[i].anchorA = anchorA;
+        candidates[i].anchorB = anchorB;
+        candidates[i].separation = Dot(anchorB - anchorA, n);
+    }
+
+    if (faces[output].count <= max_contact_point_count)
+    {
+        for (int32 i = 0; i < faces[output].count; ++i)
+        {
+            manifold->contactPoints[i] = candidates[i];
+            manifold->contactPoints[i].id = faceA.points[i].id;
+        }
+
+        manifold->contactCount = faces[output].count;
+        return;
+    }
+
+    // Reduce contact points
+
+    int32 indices[max_contact_point_count];
+    int32 contactCount = 0;
+
+    constexpr float minDepth2 = Sqr(linear_slop);
+
+    Vec3 centerA = Mul(tfA, a->GetCenter());
+    Vec3 projected[2 * max_face_vertices];
+    float depth2[2 * max_face_vertices];
+
+    // Work in the contact tangent plane around shape A.
+    for (int32 i = 0; i < faces[output].count; ++i)
+    {
+        Vec3 r = candidates[i].anchorA - centerA;
+        projected[i] = GramSchmidt(r, n);
+        depth2[i] = Max(minDepth2, Length2(candidates[i].anchorB - candidates[i].anchorA));
+    }
+
+    // Start with the point that is farthest from the center and deepest
+    int32 point1 = 0;
+    float value = Max(minDepth2, Length2(projected[0])) * depth2[0];
+    for (int32 i = 1; i < faces[output].count; ++i)
+    {
+        float v = Max(minDepth2, Length2(projected[i])) * depth2[i];
+        if (v > value)
+        {
+            point1 = i;
+            value = v;
+        }
+    }
+
+    // Use the farthest weighted point from point1 as the main patch axis
+    int32 point2 = -1;
+    value = -max_float;
+    for (int32 i = 0; i < faces[output].count; ++i)
+    {
+        if (i == point1)
+        {
+            continue;
+        }
+
+        float v = Max(minDepth2, Dist2(projected[i], projected[point1])) * depth2[i];
+        if (v > value)
+        {
+            point2 = i;
+            value = v;
+        }
+    }
+
+    int32 point3 = -1;
+    int32 point4 = -1;
+    float minSide = 0.0f;
+    float maxSide = 0.0f;
+    Vec3 perp = Cross(projected[point2] - projected[point1], n);
+
+    // Keep one point on each side of the main axis to maximize patch area
+    for (int32 i = 0; i < faces[output].count; ++i)
+    {
+        if (i == point1 || i == point2)
+        {
+            continue;
+        }
+
+        float side = Dot(perp, projected[i] - projected[point1]);
+        if (side < minSide)
+        {
+            point3 = i;
+            minSide = side;
+        }
+        else if (side > maxSide)
+        {
+            point4 = i;
+            maxSide = side;
+        }
+    }
+
+    // Emit points in polygon order around the selected patch
+    indices[contactCount++] = point1;
+    if (point3 != -1)
+    {
+        indices[contactCount++] = point3;
+    }
+    indices[contactCount++] = point2;
+    if (point4 != -1)
+    {
+        indices[contactCount++] = point4;
+    }
+
+    for (int32 i = 0; i < contactCount; ++i)
+    {
+        manifold->contactPoints[i] = candidates[indices[i]];
         manifold->contactPoints[i].id = faceA.points[i].id;
     }
 
