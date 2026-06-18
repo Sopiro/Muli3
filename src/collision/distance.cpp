@@ -57,6 +57,19 @@ float ComputeDistance(const Shape* a, const Transform& tfA, const Shape* b, cons
     return gjkResult.distance - radii;
 }
 
+Vec3 ClosestPointVsSegment(const Vec3& p, const Vec3& a, const Vec3& b)
+{
+    Vec3 ab = b - a;
+    float ab2 = Dot(ab, ab);
+    if (ab2 <= epsilon)
+    {
+        return a;
+    }
+
+    float t = Clamp(Dot(p - a, ab) / ab2, 0.0f, 1.0f);
+    return a + ab * t;
+}
+
 Vec3 ClosestPointVsTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c)
 {
     // Voronoi-region based closest-point query used by point tests and
@@ -114,6 +127,87 @@ Vec3 ClosestPointVsTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const V
     float v = vb * denom;
     float w = vc * denom;
     return a + ab * v + ac * w;
+}
+
+Vec3 ClosestPointVsTetrahedron(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d)
+{
+    float volume = Dot(b - a, Cross(c - a, d - a));
+    float wa = 0.0f;
+    float wb = 0.0f;
+    float wc = 0.0f;
+    float wd = 0.0f;
+
+    if (Abs(volume) > epsilon)
+    {
+        // Signed sub-volumes are unnormalized barycentric weights.
+        wb = Dot(p - a, Cross(c - a, d - a));
+        wc = Dot(b - a, Cross(p - a, d - a));
+        wd = Dot(b - a, Cross(c - a, p - a));
+        wa = volume - wb - wc - wd;
+
+        if ((volume > 0.0f && wa >= 0.0f && wb >= 0.0f && wc >= 0.0f && wd >= 0.0f) ||
+            (volume < 0.0f && wa <= 0.0f && wb <= 0.0f && wc <= 0.0f && wd <= 0.0f))
+        {
+            return p;
+        }
+    }
+
+    bool degenerate = Abs(volume) <= epsilon;
+    float bestDist2 = max_float;
+    Vec3 best = Vec3::zero;
+
+    // Only faces opposite negative weights can contain the closest point.
+    // Degenerate tetrahedra have no reliable inside test, so every face is checked.
+    if ((volume > 0.0f && wd < 0.0f) || (volume < 0.0f && wd > 0.0f) || degenerate)
+    {
+        Vec3 q = ClosestPointVsTriangle(p, a, b, c);
+        Vec3 r = q - p;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = q;
+        }
+    }
+
+    if ((volume > 0.0f && wc < 0.0f) || (volume < 0.0f && wc > 0.0f) || degenerate)
+    {
+        Vec3 q = ClosestPointVsTriangle(p, a, b, d);
+        Vec3 r = q - p;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = q;
+        }
+    }
+
+    if ((volume > 0.0f && wb < 0.0f) || (volume < 0.0f && wb > 0.0f) || degenerate)
+    {
+        Vec3 q = ClosestPointVsTriangle(p, a, c, d);
+        Vec3 r = q - p;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = q;
+        }
+    }
+
+    if ((volume > 0.0f && wa < 0.0f) || (volume < 0.0f && wa > 0.0f) || degenerate)
+    {
+        Vec3 q = ClosestPointVsTriangle(p, b, c, d);
+        Vec3 r = q - p;
+        float dist2 = Dot(r, r);
+        if (dist2 < bestDist2)
+        {
+            bestDist2 = dist2;
+            best = q;
+        }
+    }
+
+    MuliAssert(bestDist2 < max_float);
+    return best;
 }
 
 Vec2 ClosestSegmentVsSegment(const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1)

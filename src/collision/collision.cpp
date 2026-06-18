@@ -1,5 +1,4 @@
 #include "muli3/collision.h"
-#include "muli3/distance.h"
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
@@ -673,6 +672,8 @@ bool CapsuleVsSphere(
 
     return true;
 }
+
+extern Vec2 ClosestSegmentVsSegment(const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1);
 
 bool CapsuleVsCapsule(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold

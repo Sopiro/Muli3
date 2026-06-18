@@ -27,9 +27,8 @@ float ComputeDistance(
 );
 // clang-format on
 
+Vec3 ClosestPointVsSegment(const Vec3& p, const Vec3& a, const Vec3& b);
 Vec3 ClosestPointVsTriangle(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c);
-
-// Returns {s,t} coordinate
-Vec2 ClosestSegmentVsSegment(const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1);
+Vec3 ClosestPointVsTetrahedron(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d);
 
 } // namespace muli3
