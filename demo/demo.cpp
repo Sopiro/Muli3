@@ -89,23 +89,7 @@ void Demo::EnableKeyboardShortcut()
     if (Input::IsKeyPressed(GLFW_KEY_J)) options.draw_joint = !options.draw_joint;
     if (Input::IsKeyPressed(GLFW_KEY_O))
     {
-        if (options.draw_body == false && options.draw_outline)
-        {
-            options.draw_outline = false;
-        }
-        else if (options.draw_body == false)
-        {
-            options.draw_body = true;
-            options.draw_outline = false;
-        }
-        else if (options.draw_outline == false)
-        {
-            options.draw_outline = true;
-        }
-        else
-        {
-            options.draw_body = false;
-        }
+        options.body_draw_mode = (BodyDrawMode)((options.body_draw_mode + 1) % body_draw_mode_count);
     }
     if (Input::IsKeyPressed(GLFW_KEY_L)) options.colorize_island = !options.colorize_island;
     if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;

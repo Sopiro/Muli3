@@ -16,8 +16,6 @@ public:
     RevoluteAngleJointDemo(Game& game)
         : Demo(game)
     {
-        options.draw_outline = false;
-
         world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         Body* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, Body::static_body);

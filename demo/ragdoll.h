@@ -1,5 +1,7 @@
 #pragma once
 
+#include "options.h"
+
 namespace muli3
 {
 struct Bone
@@ -76,6 +78,10 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
         ConeSwingJoint* j2 = world->CreateConeSwingJoint(chest, head, y_axis, headAngle, headFrequency, headDamplingRatio);
         TwistAngleJoint* j3 =
             world->CreateTwistAngleJoint(chest, head, y_axis, -headTwistAngle, headTwistAngle, headFrequency, headDamplingRatio);
+        UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+        UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
+        UserFlag::SetFlag(j3, UserFlag::hide_joint, true);
+
         ragdoll.bones[Ragdoll::index_head] = Bone{ Ragdoll::index_chest, head };
     }
 
@@ -138,6 +144,9 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
                     chest, upperRightArm, x_axis, -armTwistAngle, armTwistAngle, armAngleFrequency, armDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j3, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_upperRightArm] = Bone{ Ragdoll::index_chest, upperRightArm };
             }
@@ -151,6 +160,8 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
                     upperRightArm, lowerRightArm, -y_axis, 0, elbowAngle, armAngleFrequency, armAngleDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_lowerRightArm] = Bone{ Ragdoll::index_upperRightArm, lowerRightArm };
             }
@@ -167,6 +178,9 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
                     chest, upperLeftArm, -x_axis, -armTwistAngle, armTwistAngle, armAngleFrequency, armDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j3, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_upperLeftArm] = Bone{ Ragdoll::index_chest, upperLeftArm };
             }
@@ -180,6 +194,8 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
                     upperLeftArm, lowerLeftArm, y_axis, 0, elbowAngle, armAngleFrequency, armAngleDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_lowerLeftArm] = Bone{ Ragdoll::index_upperLeftArm, lowerLeftArm };
             }
@@ -210,6 +226,8 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
         RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
             pelvis, chest, x_axis, -pelvisMinAngle, pelvisMaxAngle, pelvisAngleFrequency, pelvisAngleDampingRatio
         );
+        UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+        UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
 
         ragdoll.bones[Ragdoll::index_pelvis] = { -1, pelvis };
     }
@@ -272,6 +290,9 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
                     pelvis, upperRightLeg, -y_axis, -legTwistAngle, legTwistAngle, legAngleFrequency, legAngleDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j3, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_upperRightLeg] = Bone{ Ragdoll::index_pelvis, upperRightLeg };
             }
@@ -285,6 +306,8 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
                     upperRightLeg, lowerRightLeg, x_axis, 0, kneeAngle, legAngleFrequency, legAngleDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_lowerRightLeg] = Bone{ Ragdoll::index_upperRightLeg, lowerRightLeg };
             }
@@ -300,6 +323,9 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
                     pelvis, upperLeftLeg, y_axis, -legTwistAngle, legTwistAngle, legAngleFrequency, legAngleDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j3, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_upperLeftLeg] = Bone{ Ragdoll::index_pelvis, upperLeftLeg };
             }
@@ -313,6 +339,8 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                 RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
                     upperLeftLeg, lowerLeftLeg, x_axis, 0, kneeAngle, legAngleFrequency, legAngleDampingRatio
                 );
+                UserFlag::SetFlag(j1, UserFlag::hide_joint, true);
+                UserFlag::SetFlag(j2, UserFlag::hide_joint, true);
 
                 ragdoll.bones[Ragdoll::index_lowerLeftLeg] = Bone{ Ragdoll::index_upperLeftLeg, lowerLeftLeg };
             }

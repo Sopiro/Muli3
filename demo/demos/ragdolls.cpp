@@ -36,13 +36,6 @@ public:
         c->SetLinearVelocity(-p * Rand(4.0f, 8.0f) + Vec3{ 0.0f, Rand(5.0f, 15.0f), 0.0f });
         p.y += 0.5f;
         c->SetPosition(p);
-
-        options.draw_joint = false;
-    }
-
-    ~Ragdolls()
-    {
-        options.draw_joint = true;
     }
 };
 

@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-static int32 count = 20;
-static float error = 0.1f;
+static int32 count = 10;
+static float error = 0.0f;
 
 class BoxStacking : public Demo
 {

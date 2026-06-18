@@ -138,9 +138,19 @@ public:
         float prevSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
 
+        if (options.body_draw_mode == body_draw_depth_wireframe)
+        {
+            glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+            renderer.DrawShape(shape1.get(), tf1);
+            renderer.DrawShape(shape2.get(), tf2);
+            renderer.FlushShapes();
+            glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        }
+
         Renderer::DrawMode mode;
-        mode.fill = options.draw_body;
-        mode.outline = options.draw_outline;
+        mode.fill = options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe;
+        mode.outline = options.body_draw_mode == body_draw_solid_wireframe || options.body_draw_mode == body_draw_wireframe ||
+                       options.body_draw_mode == body_draw_depth_wireframe;
         renderer.DrawShape(shape1.get(), tf1, mode);
         renderer.DrawShape(shape2.get(), tf2, mode);
 

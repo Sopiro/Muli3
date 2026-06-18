@@ -1,3 +1,4 @@
+#include "muli3/frame.h"
 #include "muli3/parallel.h"
 
 #include "game.h"
@@ -12,6 +13,189 @@ extern void SetFrameRate(int32 newFrameRate);
 extern int32 GetUpdateRate();
 extern void SetUpdateRate(int32 newUpdateRate);
 extern Vec4 g_colors2[constraint_color_count];
+
+static Vec4 GetBodyColor(Renderer& renderer, const Body& body, const DebugOptions& options)
+{
+    if (body.IsStatic())
+    {
+        return Renderer::default_white;
+    }
+
+    if (options.colorize_island == false)
+    {
+        return body.IsSleeping() ? Vec4{ 0.9f, 0.9f, 0.9f, Renderer::default_white.w } : Renderer::default_white;
+    }
+
+    if (body.IsSleeping())
+    {
+        return Renderer::default_white;
+    }
+
+    int32 colorIndex = body.GetIslandIndex();
+    if (colorIndex < 0)
+    {
+        return Renderer::default_white;
+    }
+
+    return renderer.GetColor(colorIndex);
+}
+
+static Vec4 GetContactColor(const Contact* contact)
+{
+    int32 colorIndex = contact->GetColorIndex();
+    if (colorIndex < 0)
+    {
+        return Vec4{ 0.3f, 0.3f, 0.3f, 0.9f };
+    }
+
+    return g_colors2[colorIndex];
+}
+
+static bool IsSameBodyPair(const Joint* joint, const Body* bodyA, const Body* bodyB)
+{
+    return (joint->GetBodyA() == bodyA && joint->GetBodyB() == bodyB) ||
+           (joint->GetBodyA() == bodyB && joint->GetBodyB() == bodyA);
+}
+
+static Vec3 GetAngularJointAnchor(const World& world, const Joint* joint)
+{
+    const Body* bodyA = joint->GetBodyA();
+    const Body* bodyB = joint->GetBodyB();
+
+    for (const Joint* other = world.GetJoints(); other; other = other->GetNext())
+    {
+        if (other == joint || other->GetType() != Joint::ball_socket_joint)
+        {
+            continue;
+        }
+
+        if (IsSameBodyPair(other, bodyA, bodyB) == false)
+        {
+            continue;
+        }
+
+        const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)other;
+        Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
+        Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+        return (anchorA + anchorB) * 0.5f;
+    }
+
+    return (bodyA->GetPosition() + bodyB->GetPosition()) * 0.5f;
+}
+
+static void DrawBasis(Renderer& renderer, const Vec3& origin, const Quat& rotation, float scale, float alpha)
+{
+    renderer.DrawLine(origin, origin + rotation.Rotate(x_axis) * scale, Vec4{ 0.95f, 0.2f, 0.2f, alpha });
+    renderer.DrawLine(origin, origin + rotation.Rotate(y_axis) * scale, Vec4{ 0.2f, 0.85f, 0.2f, alpha });
+    renderer.DrawLine(origin, origin + rotation.Rotate(z_axis) * scale, Vec4{ 0.2f, 0.45f, 1.0f, alpha });
+}
+
+static void DrawAxis(Renderer& renderer, const Vec3& origin, const Vec3& axis, float halfLength, const Vec4& color)
+{
+    renderer.DrawLine(origin - axis * halfLength, origin + axis * halfLength, color);
+}
+
+static void DrawConeLimit(Renderer& renderer, const Vec3& origin, const Vec3& axis, float angle, float length, const Vec4& color)
+{
+    if (angle <= 0.0f)
+    {
+        return;
+    }
+
+    Frame frame = Frame::FromZ(axis);
+    float radius = std::tan(angle) * length;
+    Vec3 tip = origin + axis * length;
+    constexpr int32 segmentCount = 24;
+
+    Vec3 firstPoint = Vec3::zero;
+    Vec3 prevPoint = Vec3::zero;
+    for (int32 i = 0; i <= segmentCount; ++i)
+    {
+        float t = two_pi * (float)i / (float)segmentCount;
+        Vec3 point = tip + frame.x * std::cos(t) * radius + frame.y * std::sin(t) * radius;
+
+        if (i == 0)
+        {
+            firstPoint = point;
+        }
+        else
+        {
+            renderer.DrawLine(prevPoint, point, color);
+        }
+
+        if (i < segmentCount && (i % 6) == 0)
+        {
+            renderer.DrawLine(origin, point, color);
+        }
+
+        prevPoint = point;
+    }
+
+    renderer.DrawLine(prevPoint, firstPoint, color);
+}
+
+static void DrawCircle(Renderer& renderer, const Vec3& origin, const Vec3& normal, float radius, const Vec4& color)
+{
+    Frame frame = Frame::FromZ(normal);
+    constexpr int32 segmentCount = 40;
+
+    Vec3 firstPoint = origin + frame.x * radius;
+    Vec3 prevPoint = firstPoint;
+    for (int32 i = 1; i <= segmentCount; ++i)
+    {
+        float t = two_pi * (float)i / (float)segmentCount;
+        Vec3 point = origin + (frame.x * std::cos(t) + frame.y * std::sin(t)) * radius;
+        renderer.DrawLine(prevPoint, point, color);
+        prevPoint = point;
+    }
+}
+
+static void DrawTwistArc(
+    Renderer& renderer,
+    const Vec3& origin,
+    const Vec3& axis,
+    const Vec3& t1,
+    const Vec3& t2,
+    float radius,
+    float minAngle,
+    float maxAngle,
+    float currentAngle,
+    const Vec4& limitColor,
+    const Vec4& currentColor
+)
+{
+    constexpr int32 segmentCount = 32;
+    float span = maxAngle - minAngle;
+
+    if (span > 0.0f)
+    {
+        Vec3 prevPoint = origin + (t1 * std::cos(minAngle) + t2 * std::sin(minAngle)) * radius;
+        for (int32 i = 1; i <= segmentCount; ++i)
+        {
+            float angle = minAngle + span * (float)i / (float)segmentCount;
+            Vec3 point = origin + (t1 * std::cos(angle) + t2 * std::sin(angle)) * radius;
+            renderer.DrawLine(prevPoint, point, limitColor);
+            prevPoint = point;
+        }
+    }
+
+    Vec3 minDir = t1 * std::cos(minAngle) + t2 * std::sin(minAngle);
+    Vec3 maxDir = t1 * std::cos(maxAngle) + t2 * std::sin(maxAngle);
+    Vec3 currentDir = t1 * std::cos(currentAngle) + t2 * std::sin(currentAngle);
+
+    renderer.DrawLine(origin, origin + minDir * radius, limitColor);
+    renderer.DrawLine(origin, origin + maxDir * radius, limitColor);
+    renderer.DrawLine(origin - axis * 0.4f, origin + axis * 0.4f, Vec4{ 0.12f, 0.12f, 0.12f, 0.65f });
+    renderer.DrawLine(origin, origin + currentDir * radius, currentColor);
+}
+
+static void DrawBody(Renderer& renderer, const Body& body, const Vec4& color, bool wireframe)
+{
+    for (const Collider* collider = body.GetColliderList(); collider; collider = collider->GetNext())
+    {
+        renderer.DrawShape(collider->GetShape(), body.GetTransform(), color, wireframe);
+    }
+}
 
 Game::Game()
 {
@@ -30,7 +214,7 @@ Game::Game()
 
     workerCount = 8;
     RecreateThreadPool();
-    InitDemo(5);
+    InitDemo(25);
     Window::Get()->SetCursorHidden(false);
 }
 
@@ -78,8 +262,316 @@ void Game::Render()
     Window* window = Window::Get();
     Vec2 windowSize = window->GetWindowSize();
     float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
-    renderer.Render(demo->GetWorld(), demo->GetCamera(), aspectRatio, options);
+    World& world = demo->GetWorld();
+
+    renderer.BeginFrame(demo->GetCamera(), aspectRatio);
+
+    renderer.BeginShadowPass();
+    if (options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe)
+    {
+        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        {
+            DrawBody(renderer, *body, Renderer::default_white, false);
+        }
+    }
+    renderer.EndShadowPass();
+
+    renderer.BeginShapePass();
+    if (options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe)
+    {
+        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        {
+            DrawBody(renderer, *body, GetBodyColor(renderer, *body, options), false);
+        }
+        renderer.FlushShapes();
+    }
+    else if (options.body_draw_mode == body_draw_depth_wireframe)
+    {
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        {
+            DrawBody(renderer, *body, Renderer::default_white, false);
+        }
+        renderer.FlushShapes();
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+    }
+
+    if (options.body_draw_mode == body_draw_solid_wireframe || options.body_draw_mode == body_draw_wireframe ||
+        options.body_draw_mode == body_draw_depth_wireframe)
+    {
+        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        {
+            DrawBody(renderer, *body, Renderer::default_black, true);
+        }
+        renderer.FlushShapes();
+    }
+
+    if (options.draw_joint)
+    {
+        for (const Joint* joint = world.GetJoints(); joint; joint = joint->GetNext())
+        {
+            if (UserFlag::IsEnabled(joint, UserFlag::hide_joint))
+            {
+                continue;
+            }
+
+            switch (joint->GetType())
+            {
+            case Joint::grab_joint:
+            {
+                const Body* body = joint->GetBodyA();
+                const GrabJoint* grabJoint = (const GrabJoint*)joint;
+                Vec3 anchor = Mul(body->GetTransform(), grabJoint->GetLocalAnchor());
+                renderer.DrawPoint(anchor);
+                renderer.DrawPoint(grabJoint->GetTarget());
+                renderer.DrawLine(anchor, grabJoint->GetTarget());
+            }
+            break;
+            case Joint::fixed_rotation_joint:
+            {
+                const Body* body = joint->GetBodyA();
+                const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
+                Vec3 position = body->GetPosition();
+                renderer.DrawPoint(position);
+                DrawBasis(renderer, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.55f);
+            }
+            break;
+            case Joint::cone_swing_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
+
+                Vec3 positionA = bodyA->GetPosition();
+                Vec3 positionB = bodyB->GetPosition();
+                Vec3 axisA = bodyA->GetRotation().Rotate(coneSwingJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(coneSwingJoint->GetLocalAxisB());
+                DrawAxis(renderer, positionB, axisB, 0.7f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawConeLimit(
+                    renderer, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f }
+                );
+            }
+            break;
+            case Joint::revolute_angle_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const RevoluteAngleJoint* revoluteAngleJoint = (const RevoluteAngleJoint*)joint;
+                Vec3 anchor = GetAngularJointAnchor(world, joint);
+                Vec3 axisA = bodyA->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisB());
+                Vec3 t1, t2;
+                CoordinateSystem(axisA, &t1, &t2);
+
+                DrawCircle(renderer, anchor, axisA, 0.45f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(renderer, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(renderer, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    renderer, anchor, axisA, t1, t2, 0.45f, revoluteAngleJoint->GetJointMinAngle(),
+                    revoluteAngleJoint->GetJointMaxAngle(), revoluteAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
+            case Joint::revolute_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const RevoluteJoint* revoluteJoint = (const RevoluteJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), revoluteJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), revoluteJoint->GetLocalAnchorB());
+                Vec3 anchor = (anchorA + anchorB) * 0.5f;
+                Vec3 axisA = bodyA->GetRotation().Rotate(revoluteJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(revoluteJoint->GetLocalAxisB());
+                Vec3 refAxisA = bodyA->GetRotation().Rotate(revoluteJoint->GetLocalNormalAxisA());
+                Vec3 binormalA = Cross(axisA, refAxisA);
+                binormalA.Normalize();
+
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+                renderer.DrawLine(anchorA, bodyA->GetPosition());
+                renderer.DrawLine(anchorB, bodyB->GetPosition());
+                renderer.DrawLine(anchorA, anchorB, Vec4{ 0.12f, 0.12f, 0.12f, 0.35f });
+
+                DrawCircle(renderer, anchor, axisA, 0.45f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(renderer, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(renderer, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    renderer, anchor, axisA, refAxisA, binormalA, 0.45f, revoluteJoint->GetJointMinAngle(),
+                    revoluteJoint->GetJointMaxAngle(), revoluteJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
+            case Joint::twist_angle_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const TwistAngleJoint* twistAngleJoint = (const TwistAngleJoint*)joint;
+                Vec3 anchor = GetAngularJointAnchor(world, joint);
+                Vec3 axisA = bodyA->GetRotation().Rotate(twistAngleJoint->GetLocalAxisA());
+                Vec3 axisB = bodyB->GetRotation().Rotate(twistAngleJoint->GetLocalAxisB());
+                Vec3 t1, t2;
+                CoordinateSystem(axisA, &t1, &t2);
+
+                DrawCircle(renderer, anchor, axisA, 0.4f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(renderer, anchor, axisA, 0.5f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(renderer, anchor, axisB, 0.4f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    renderer, anchor, axisA, t1, t2, 0.4f, twistAngleJoint->GetJointMinAngle(),
+                    twistAngleJoint->GetJointMaxAngle(), twistAngleJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
+            case Joint::ball_socket_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+                renderer.DrawLine(anchorA, bodyA->GetPosition());
+                renderer.DrawLine(anchorB, bodyB->GetPosition());
+            }
+            break;
+            case Joint::distance_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const DistanceJoint* distanceJoint = (const DistanceJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), distanceJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), distanceJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+
+                Vec3 d = anchorB - anchorA;
+                if (d.Normalize() > 0.0f)
+                {
+                    renderer.DrawPoint(anchorA + d * distanceJoint->GetJointMinLength());
+                    renderer.DrawPoint(anchorA + d * distanceJoint->GetJointMaxLength());
+                }
+
+                renderer.DrawLine(anchorA, anchorB);
+            }
+            break;
+            case Joint::weld_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const WeldJoint* weldJoint = (const WeldJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), weldJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), weldJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+                renderer.DrawLine(anchorA, bodyA->GetPosition());
+                renderer.DrawLine(anchorB, bodyB->GetPosition());
+            }
+            break;
+            case Joint::line_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const LineJoint* lineJoint = (const LineJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), lineJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), lineJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+                renderer.DrawLine(anchorA, anchorB);
+            }
+            break;
+            case Joint::prismatic_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const PrismaticJoint* prismaticJoint = (const PrismaticJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), prismaticJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), prismaticJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+                renderer.DrawLine(anchorA, anchorB);
+            }
+            break;
+            case Joint::pulley_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const PulleyJoint* pulleyJoint = (const PulleyJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), pulleyJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), pulleyJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(pulleyJoint->GetGroundAnchorA());
+                renderer.DrawPoint(anchorB);
+                renderer.DrawPoint(pulleyJoint->GetGroundAnchorB());
+                renderer.DrawLine(anchorA, pulleyJoint->GetGroundAnchorA());
+                renderer.DrawLine(anchorB, pulleyJoint->GetGroundAnchorB());
+            }
+            break;
+            case Joint::motor_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const MotorJoint* motorJoint = (const MotorJoint*)joint;
+                Vec3 anchorA = Mul(bodyA->GetTransform(), motorJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(bodyB->GetTransform(), motorJoint->GetLocalAnchorB());
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+            }
+            break;
+            default:
+                break;
+            }
+        }
+    }
+
+    if (options.show_bvh || options.show_aabb)
+    {
+        const AABBTree& tree = world.GetDynamicTree();
+        tree.Traverse([&](const AABBTree::Node* node) -> void {
+            if (options.show_bvh == false && node->IsLeaf() == false)
+            {
+                return;
+            }
+
+            renderer.DrawAABB(node->aabb);
+        });
+    }
+
+    if (options.show_contact_point || options.show_contact_normal)
+    {
+        const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 0.9f };
+        for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
+        {
+            if (contact->IsEnabled() == false || contact->IsTouching() == false)
+            {
+                continue;
+            }
+
+            const ContactManifold& manifold = contact->GetContactManifold();
+            const Vec4 pointColor = GetContactColor(contact);
+
+            for (int32 i = 0; i < manifold.contactCount; ++i)
+            {
+                const Vec3 p1 = manifold.contactPoints[i].p;
+
+                if (options.show_contact_point)
+                {
+                    renderer.DrawPoint(p1, pointColor);
+                }
+
+                if (options.show_contact_normal)
+                {
+                    const Vec3 p2 = p1 + manifold.contactNormal * 0.18f;
+                    renderer.DrawLine(p1, p2, normalColor);
+                }
+            }
+        }
+    }
+
     demo->Render();
+    renderer.EndFrame();
 }
 
 void Game::UpdateInput()
@@ -159,9 +651,15 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Show Profiler", &options.show_profiler);
                     ImGui::Checkbox("Camera Reset", &options.reset_camera);
                     ImGui::Checkbox("Colorize Island", &options.colorize_island);
-                    ImGui::Checkbox("Draw Body", &options.draw_body);
                     ImGui::Checkbox("Draw Joint", &options.draw_joint);
-                    ImGui::Checkbox("Draw Outline", &options.draw_outline);
+                    const char* bodyDrawModes[] = { "Solid", "Solid + Wireframe", "Wireframe", "Depth Wireframe", "None" };
+                    int32 bodyDrawMode = (int32)options.body_draw_mode;
+                    ImGui::Text("Draw Body");
+                    ImGui::SetNextItemWidth(140.0f);
+                    if (ImGui::Combo("##Draw Body", &bodyDrawMode, bodyDrawModes, IM_ARRAYSIZE(bodyDrawModes)))
+                    {
+                        options.body_draw_mode = (BodyDrawMode)bodyDrawMode;
+                    }
                     ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);
                     ImGui::Checkbox("Show Contact Point", &options.show_contact_point);

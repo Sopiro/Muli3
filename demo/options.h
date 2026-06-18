@@ -3,13 +3,22 @@
 namespace muli3
 {
 
+enum BodyDrawMode
+{
+    body_draw_solid,
+    body_draw_solid_wireframe,
+    body_draw_wireframe,
+    body_draw_depth_wireframe,
+    body_draw_none,
+    body_draw_mode_count,
+};
+
 struct DebugOptions
 {
     bool pause = false;
     bool step = false;
-    bool draw_body = true;
+    BodyDrawMode body_draw_mode = body_draw_solid;
     bool draw_joint = true;
-    bool draw_outline = false;
     bool show_bvh = false;
     bool show_aabb = false;
     bool show_profiler = true;
@@ -18,5 +27,32 @@ struct DebugOptions
     bool reset_camera = false;
     bool colorize_island = true;
 };
+
+namespace UserFlag
+{
+
+enum Flag : size_t
+{
+    hide_joint = 1 << 0,
+};
+
+inline void SetFlag(Joint* joint, Flag flag, bool enabled)
+{
+    if (enabled)
+    {
+        joint->UserData = (void*)((size_t)joint->UserData | flag);
+    }
+    else
+    {
+        joint->UserData = (void*)((size_t)joint->UserData & ~flag);
+    }
+}
+
+inline bool IsEnabled(const Joint* joint, Flag flag)
+{
+    return ((size_t)joint->UserData & flag) == flag;
+}
+
+} // namespace UserFlag
 
 } // namespace muli3

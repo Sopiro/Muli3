@@ -2,7 +2,6 @@
 
 #include "camera.h"
 #include "mesh.h"
-#include "options.h"
 #include "shader.h"
 
 namespace muli3
@@ -33,12 +32,17 @@ public:
     bool Initialize();
     void Shutdown();
 
-    void Render(const World& world, const Camera& camera, float aspectRatio, const DebugOptions& options);
+    void BeginFrame(const Camera& camera, float aspectRatio);
+    void BeginShadowPass();
+    void EndShadowPass();
+    void BeginShapePass();
+    void EndFrame();
 
     float GetPointSize() const;
     float GetLineWidth() const;
     void SetPointSize(float size);
     void SetLineWidth(float lineWidth);
+    Vec4 GetColor(int32 colorIndex) const;
 
     void SetProjectionMatrix(const Mat4& projection);
     void SetViewMatrix(const Mat4& view);
@@ -48,8 +52,10 @@ public:
     void DrawLine(const Vertex& v1, const Vertex& v2);
     void DrawLine(const Vec3& p1, const Vec3& p2, const Vec4& color = default_black);
     void DrawAABB(const AABB& aabb);
+    void DrawShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe = false);
     void DrawShape(const Shape* shape, const Transform& transform);
     void DrawShape(const Shape* shape, const Transform& transform, const DrawMode& mode);
+    void FlushShapes();
     void ClearMeshCache();
 
     void FlushAll();
@@ -71,7 +77,6 @@ private:
     void DestroyPrimitiveResources();
     void DestroyShapeResources();
 
-    void DrawBody(const Body& body, const Vec4& color, bool wireframe, const Shader& shader);
     void QueueShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader);
     void DrawAABB(const AABB& aabb, const Vec4& color);
     void FlushQueuedShapes(const Shader& shader, bool wireframe);
@@ -108,6 +113,11 @@ private:
 
     Mat4 viewMatrix{ identity };
     Mat4 projectionMatrix{ identity };
+
+    Mat4 lightViewProjectionMatrix{ identity };
+    Vec3 lightDirection{ 0.0f, -1.0f, 0.0f };
+    Shader* currentShapeShader = nullptr;
+    GLint viewport[4]{};
 
     float pointSize = 5.0f;
     float lineWidth = 1.0f;

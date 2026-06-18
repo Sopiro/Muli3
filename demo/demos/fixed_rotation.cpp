@@ -14,8 +14,6 @@ public:
     FixedRotation(Game& game)
         : Demo(game)
     {
-        options.draw_outline = false;
-
         world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         float start = 1.2f;
