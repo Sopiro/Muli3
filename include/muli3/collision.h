@@ -2,17 +2,6 @@
 
 #include "simplex.h"
 
-/*
- *           \   A    /         ↑ <- Contact normal
- *            \      /          |
- *    ---------\----/-------------------------------  <- Reference face
- *              \  /
- *        B      \/  <- Incident point(Contact point)
- *
- *    A: Incident body
- *    B: Reference body
- */
-
 namespace muli3
 {
 
@@ -20,14 +9,21 @@ class Shape;
 
 constexpr int32 max_contact_point_count = 4;
 
+struct ContactPoint
+{
+    Vec3 p;
+    Vec3 anchorA;
+    Vec3 anchorB;
+    float separation;
+    int32 id;
+};
+
 struct ContactManifold
 {
-    Point contactPoints[max_contact_point_count];
-    Vec3 referencePoint;
-    Vec3 contactNormal;  // Contact normal is always pointing from reference body to incident body
-    float penetrationDepth;
     int32 contactCount;
-    bool featureFlipped; // Set to true if shape a is incident body
+    ContactPoint contactPoints[max_contact_point_count];
+    Vec3 contactNormal; // Contact normal is always pointing from shape A to shape B
+    float penetrationDepth;
 };
 
 // clang-format off
@@ -37,7 +33,8 @@ typedef bool CollideFunction(const Shape*, const Transform&,
 
 bool Collide(const Shape* a, const Transform& transformA,
              const Shape* b, const Transform& transformB,
-             ContactManifold* manifold = nullptr);
+             ContactManifold* manifold = nullptr,
+             bool* featureFlipped = nullptr);
 
 struct GJKResult
 {

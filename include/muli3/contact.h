@@ -31,9 +31,6 @@ public:
     Body* GetBodyA() const;
     Body* GetBodyB() const;
 
-    Body* GetReferenceBody() const;
-    Body* GetIncidentBody() const;
-
     const Contact* GetNext() const;
     const Contact* GetPrev() const;
 
@@ -114,18 +111,6 @@ inline Body* Contact::GetBodyA() const
 inline Body* Contact::GetBodyB() const
 {
     return colliderB->GetBody();
-}
-
-inline Body* Contact::GetReferenceBody() const
-{
-    const ContactState* s = GetContactState();
-    return s->manifold.featureFlipped ? GetBodyB() : GetBodyA();
-}
-
-inline Body* Contact::GetIncidentBody() const
-{
-    const ContactState* s = GetContactState();
-    return s->manifold.featureFlipped ? GetBodyA() : GetBodyB();
 }
 
 inline const Contact* Contact::GetPrev() const

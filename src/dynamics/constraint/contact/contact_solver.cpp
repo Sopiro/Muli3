@@ -18,9 +18,8 @@ static void PrepareNormalContact(SolverNormalContact* n, ContactState* s, int32 
     // W = (J · M^-1 · J^t)^-1
 
     Vec3 normal = s->manifold.contactNormal;
-    Vec3 point = s->manifold.contactPoints[index].p;
-    Vec3 ra = point - sA->motion.c;
-    Vec3 rb = point - sB->motion.c;
+    Vec3 ra = s->manifold.contactPoints[index].anchorA - sA->motion.c;
+    Vec3 rb = s->manifold.contactPoints[index].anchorB - sB->motion.c;
 
     // Setup jacobian
     n->j.va = -normal;
@@ -90,9 +89,8 @@ static void PrepareTangentContact(ContactState* s, const Vec3& tangent1, const V
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
 
-    Vec3 point = s->manifold.contactPoints[index].p;
-    Vec3 ra = point - sA->motion.c;
-    Vec3 rb = point - sB->motion.c;
+    Vec3 ra = s->manifold.contactPoints[index].p - sA->motion.c;
+    Vec3 rb = s->manifold.contactPoints[index].p - sB->motion.c;
 
     SolverTangentContact* t = s->tangentContact + index;
 
@@ -237,8 +235,8 @@ static void PreparePosition(SolverPosition* p, ContactState* s, int32 index)
     Quat qA = sA->motion.q;
     Quat qB = sB->motion.q;
 
-    p->localPlanePoint = qA.RotateInv(s->manifold.referencePoint - comA);
-    p->localClipPoint = qB.RotateInv(s->manifold.contactPoints[index].p - comB);
+    p->localPointA = qA.RotateInv(s->manifold.contactPoints[index].anchorA - comA);
+    p->localPointB = qB.RotateInv(s->manifold.contactPoints[index].anchorB - comB);
     p->localNormal = qA.RotateInv(s->manifold.contactNormal);
 }
 
@@ -258,14 +256,14 @@ static bool SolvePosition(PositionCorrection* r, const SolverPosition* p, const 
     Quat qA = sA->motion.q;
     Quat qB = sB->motion.q;
 
-    Vec3 planePoint = qA.Rotate(p->localPlanePoint) + comA;
-    Vec3 clipPoint = qB.Rotate(p->localClipPoint) + comB;
+    Vec3 pointA = qA.Rotate(p->localPointA) + comA;
+    Vec3 pointB = qB.Rotate(p->localPointB) + comB;
     Vec3 normal = qA.Rotate(p->localNormal);
 
-    float separation = Dot(clipPoint - planePoint, normal);
+    float separation = Dot(pointB - pointA, normal);
 
-    Vec3 ra = clipPoint - comA;
-    Vec3 rb = clipPoint - comB;
+    Vec3 ra = pointA - comA;
+    Vec3 rb = pointB - comB;
 
     Vec3 ran = Cross(ra, normal);
     Vec3 rbn = Cross(rb, normal);
@@ -294,16 +292,8 @@ void PrepareContact(ContactState* s)
     Body* bodyA = contact->GetBodyA();
     Body* bodyB = contact->GetBodyB();
 
-    if (s->manifold.featureFlipped)
-    {
-        s->s1 = bodyB->GetBodyState();
-        s->s2 = bodyA->GetBodyState();
-    }
-    else
-    {
-        s->s1 = bodyA->GetBodyState();
-        s->s2 = bodyB->GetBodyState();
-    }
+    s->s1 = bodyA->GetBodyState();
+    s->s2 = bodyB->GetBodyState();
 
     s->invIA = s->s1->body->GetWorldInverseInertiaTensor();
     s->invIB = s->s2->body->GetWorldInverseInertiaTensor();

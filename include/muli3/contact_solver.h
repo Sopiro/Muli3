@@ -42,8 +42,8 @@ struct SolverTangentContact
 
 struct SolverPosition
 {
-    Vec3 localPlanePoint;
-    Vec3 localClipPoint;
+    Vec3 localPointA;
+    Vec3 localPointB;
     Vec3 localNormal;
 };
 

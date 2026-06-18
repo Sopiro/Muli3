@@ -431,6 +431,7 @@ static void FindContactPoints(
 
     Face ref; // Reference face
     Face inc; // Incident face
+    bool flipped;
 
     float aParallelness = AbsDot(faceA.normal, n);
     float bParallelness = AbsDot(faceB.normal, n);
@@ -439,25 +440,22 @@ static void FindContactPoints(
     {
         ref = faceA;
         inc = faceB;
-        manifold->featureFlipped = false;
-        manifold->contactNormal = n;
+        flipped = false;
     }
     else if (bParallelness > aParallelness)
     {
         ref = faceB;
         inc = faceA;
-        manifold->featureFlipped = true;
-        manifold->contactNormal = -n;
+        flipped = true;
     }
     else
     {
         ref = faceA;
         inc = faceB;
-        manifold->featureFlipped = false;
-        manifold->contactNormal = n;
+        flipped = false;
     }
 
-    manifold->referencePoint = ref.points[0].p;
+    manifold->contactNormal = n;
 
     Vec3 planeNormal = ref.normal;
     Vec3 planePoint = ref.points[0].p;
@@ -465,6 +463,8 @@ static void FindContactPoints(
     ClippedFace faces[2];
     faces[0].count = inc.count;
     std::memcpy(faces[0].points, inc.points, inc.count * sizeof(Point));
+
+    // ping pong indices
     int32 input = 0;
     int32 output = 1;
 
@@ -501,14 +501,30 @@ static void FindContactPoints(
         return;
     }
 
-    Face* major = faceA.count > faceB.count ? &faceA : &faceB;
-
     if (faces[output].count <= max_contact_point_count)
     {
         for (int32 i = 0; i < faces[output].count; ++i)
         {
-            manifold->contactPoints[i].p = faces[output].points[i].p;
-            manifold->contactPoints[i].id = major->points[i].id;
+            Point point = faces[output].points[i];
+            float separation = Dot(point.p - planePoint, planeNormal);
+
+            Vec3 anchorA, anchorB;
+            if (flipped)
+            {
+                anchorA = point.p;
+                anchorB = point.p - planeNormal * separation;
+            }
+            else
+            {
+                anchorA = point.p - planeNormal * separation;
+                anchorB = point.p;
+            }
+
+            manifold->contactPoints[i].p = (anchorA + anchorB) * 0.5f;
+            manifold->contactPoints[i].anchorA = anchorA;
+            manifold->contactPoints[i].anchorB = anchorB;
+            manifold->contactPoints[i].separation = Dot(anchorB - anchorA, n);
+            manifold->contactPoints[i].id = faceA.points[i].id;
         }
         manifold->contactCount = faces[output].count;
         return;
@@ -520,10 +536,26 @@ static void FindContactPoints(
 
     for (int32 i = 0; i < contactCount; ++i)
     {
-        manifold->contactPoints[i] = faces[output].points[indices[i]];
+        Point point = faces[output].points[indices[i]];
+        float separation = Dot(point.p - planePoint, planeNormal);
 
-        // To ensure consistent warm starting, the contact point id is always set based on the face with more vertices.
-        manifold->contactPoints[i].id = major->points[i].id;
+        Vec3 anchorA, anchorB;
+        if (flipped)
+        {
+            anchorA = point.p;
+            anchorB = point.p - planeNormal * separation;
+        }
+        else
+        {
+            anchorA = point.p - planeNormal * separation;
+            anchorB = point.p;
+        }
+
+        manifold->contactPoints[i].p = (anchorA + anchorB) * 0.5f;
+        manifold->contactPoints[i].anchorA = anchorA;
+        manifold->contactPoints[i].anchorB = anchorB;
+        manifold->contactPoints[i].separation = Dot(anchorB - anchorA, n);
+        manifold->contactPoints[i].id = faceA.points[i].id;
     }
 
     manifold->contactCount = contactCount;
@@ -624,12 +656,13 @@ bool SphereVsSphere(
     }
 
     manifold->contactNormal = normal;
+    manifold->contactPoints[0].anchorA = pa + normal * ra;
+    manifold->contactPoints[0].anchorB = pb - normal * rb;
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = pb - normal * rb;
-    manifold->referencePoint = pa + normal * ra;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
-    manifold->featureFlipped = false;
 
     return true;
 }
@@ -693,12 +726,13 @@ bool CapsuleVsSphere(
     supportA.p = Mul(transformA, closest) + normal * ra;
 
     manifold->contactNormal = normal;
+    manifold->contactPoints[0].anchorA = supportA.p;
+    manifold->contactPoints[0].anchorB = centerB - normal * rb;
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = centerB - normal * rb;
-    manifold->referencePoint = supportA.p;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
-    manifold->featureFlipped = false;
 
     return true;
 }
@@ -759,12 +793,13 @@ bool CapsuleVsCapsule(
     }
 
     manifold->contactNormal = normal;
+    manifold->contactPoints[0].anchorA = pa + normal * ra;
+    manifold->contactPoints[0].anchorB = pb - normal * rb;
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = pb - normal * rb;
-    manifold->referencePoint = pa + normal * ra;
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - distance;
-    manifold->featureFlipped = false;
 
     return true;
 }
@@ -875,12 +910,13 @@ bool BoxVsSphere(
     }
 
     manifold->contactNormal = normal;
+    manifold->contactPoints[0].anchorA = closest + normal * a->GetRadius();
+    manifold->contactPoints[0].anchorB = c - normal * b->GetRadius();
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = contactID;
-    manifold->contactPoints[0].p = c - normal * b->GetRadius();
-    manifold->referencePoint = closest + normal * a->GetRadius();
     manifold->contactCount = 1;
     manifold->penetrationDepth = radii - separation;
-    manifold->featureFlipped = false;
 
     return true;
 }
@@ -1159,12 +1195,13 @@ bool ConvexVsSphere(
     }
 
     manifold->contactNormal = normal;
+    manifold->contactPoints[0].anchorA = closest;
+    manifold->contactPoints[0].anchorB = centerB - normal * rb;
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
-    manifold->contactPoints[0].p = centerB - normal * rb;
-    manifold->referencePoint = closest;
     manifold->contactCount = 1;
     manifold->penetrationDepth = penetrationDepth;
-    manifold->featureFlipped = false;
 
     return true;
 }
@@ -1201,11 +1238,13 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
             supportB.p -= normal * rb;
 
             manifold->contactNormal = normal;
-            manifold->contactPoints[0] = supportB;
+            manifold->contactPoints[0].anchorA = supportA.p;
+            manifold->contactPoints[0].anchorB = supportB.p;
+            manifold->contactPoints[0].p = (supportA.p + supportB.p) * 0.5f;
+            manifold->contactPoints[0].separation = Dot(supportB.p - supportA.p, normal);
+            manifold->contactPoints[0].id = 0;
             manifold->contactCount = 1;
-            manifold->referencePoint = supportA.p;
             manifold->penetrationDepth = radii - gjkResult.distance;
-            manifold->featureFlipped = false;
 
             return true;
         }
@@ -1330,7 +1369,9 @@ void InitializeDetectionFunctionMap()
     detection_function_initialized = true;
 }
 
-bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool Collide(
+    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold, bool* featureFlipped
+)
 {
     MuliAssert(a != nullptr);
     MuliAssert(b != nullptr);
@@ -1352,17 +1393,18 @@ bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transfo
 
     if (shapeB > shapeA)
     {
-        MuliAssert(collide_function_map[shapeB][shapeA] != nullptr);
-
-        bool collide = collide_function_map[shapeB][shapeA](b, tfB, a, tfA, manifold);
-        manifold->featureFlipped = !manifold->featureFlipped;
-
-        return collide;
+        if (featureFlipped)
+        {
+            *featureFlipped = true;
+        }
+        return collide_function_map[shapeB][shapeA](b, tfB, a, tfA, manifold);
     }
     else
     {
-        MuliAssert(collide_function_map[shapeA][shapeB] != nullptr);
-
+        if (featureFlipped)
+        {
+            *featureFlipped = false;
+        }
         return collide_function_map[shapeA][shapeB](a, tfA, b, tfB, manifold);
     }
 }
