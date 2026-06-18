@@ -1,4 +1,5 @@
 #include "muli3/collision.h"
+#include "muli3/distance.h"
 #include "muli3/frame.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
@@ -561,70 +562,6 @@ static void FindContactPoints(
     manifold->contactCount = contactCount;
 }
 
-static void ClosestSegmentVsSegment(float* outS, float* outT, const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1)
-{
-    // Compute the closest points on two segments.
-    // s and t are the interpolation parameters on segment A and B.
-    Vec3 da = a1 - a0;
-    Vec3 db = b1 - b0;
-    Vec3 r = a0 - b0;
-
-    float a = Dot(da, da);
-    float e = Dot(db, db);
-    float f = Dot(db, r);
-
-    float s = 0.0f;
-    float t = 0.0f;
-
-    if (a <= epsilon && e <= epsilon)
-    {
-        *outS = 0.0f;
-        *outT = 0.0f;
-        return;
-    }
-
-    if (a <= epsilon)
-    {
-        t = Clamp(f / e, 0.0f, 1.0f);
-    }
-    else
-    {
-        float c = Dot(da, r);
-        if (e <= epsilon)
-        {
-            s = Clamp(-c / a, 0.0f, 1.0f);
-        }
-        else
-        {
-            float b = Dot(da, db);
-            float denom = a * e - b * b;
-
-            // If denom is zero, the segments are parallel.
-            // Keep s at zero first, then clamp t and recompute s if needed.
-            if (denom > epsilon)
-            {
-                s = Clamp((b * f - c * e) / denom, 0.0f, 1.0f);
-            }
-
-            t = (b * s + f) / e;
-
-            if (t < 0.0f)
-            {
-                t = 0.0f;
-                s = Clamp(-c / a, 0.0f, 1.0f);
-            }
-            else if (t > 1.0f)
-            {
-                t = 1.0f;
-                s = Clamp((b - c) / a, 0.0f, 1.0f);
-            }
-        }
-    }
-
-    *outS = s;
-    *outT = t;
-}
-
 bool SphereVsSphere(
     const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
 )
@@ -749,11 +686,10 @@ bool CapsuleVsCapsule(
     Vec3 b0 = Mul(transformB, capsuleB->GetVertexA());
     Vec3 b1 = Mul(transformB, capsuleB->GetVertexB());
 
-    float s, t;
-    ClosestSegmentVsSegment(&s, &t, a0, a1, b0, b1);
+    Vec2 st = ClosestSegmentVsSegment(a0, a1, b0, b1);
 
-    Vec3 pa = a0 + (a1 - a0) * s;
-    Vec3 pb = b0 + (b1 - b0) * t;
+    Vec3 pa = a0 + (a1 - a0) * st[0];
+    Vec3 pb = b0 + (b1 - b0) * st[1];
     Vec3 normal = pb - pa;
     float distance = normal.Normalize();
 

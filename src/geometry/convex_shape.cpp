@@ -1,66 +1,8 @@
 #include "muli3/convex_shape.h"
+#include "muli3/distance.h"
 
 namespace muli3
 {
-
-static Vec3 ClosestPointOnTriangle(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& p)
-{
-    // Voronoi-region based closest-point query used by point tests and
-    // closest-point queries against triangulated hull faces.
-    Vec3 ab = b - a;
-    Vec3 ac = c - a;
-    Vec3 ap = p - a;
-
-    float d1 = Dot(ab, ap);
-    float d2 = Dot(ac, ap);
-    if (d1 <= 0.0f && d2 <= 0.0f)
-    {
-        return a;
-    }
-
-    Vec3 bp = p - b;
-    float d3 = Dot(ab, bp);
-    float d4 = Dot(ac, bp);
-    if (d3 >= 0.0f && d4 <= d3)
-    {
-        return b;
-    }
-
-    float vc = d1 * d4 - d3 * d2;
-    if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
-    {
-        float v = d1 / (d1 - d3);
-        return a + ab * v;
-    }
-
-    Vec3 cp = p - c;
-    float d5 = Dot(ab, cp);
-    float d6 = Dot(ac, cp);
-    if (d6 >= 0.0f && d5 <= d6)
-    {
-        return c;
-    }
-
-    float vb = d5 * d2 - d1 * d6;
-    if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
-    {
-        float w = d2 / (d2 - d6);
-        return a + ac * w;
-    }
-
-    float va = d3 * d6 - d5 * d4;
-    if (va <= 0.0f && d4 - d3 >= 0.0f && d5 - d6 >= 0.0f)
-    {
-        Vec3 bc = c - b;
-        float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
-        return b + bc * w;
-    }
-
-    float denom = 1.0f / (va + vb + vc);
-    float v = vb * denom;
-    float w = vc * denom;
-    return a + ab * v + ac * w;
-}
 
 static void FixFaceWinding(std::span<const Vec3> vertices, std::vector<ConvexFace>* faces)
 {
@@ -113,54 +55,65 @@ static void ComputeMassProperties(
     // Integrate the closed hull as a set of signed tetrahedra against the origin.
     // The resulting inertia tensor is expressed about the local origin and later
     // shifted by the rigid body mass aggregation path if needed.
-    float volume = 0.0f;
-    Vec3 center = Vec3::zero;
+    double volume = 0.0f;
 
-    float xx = 0.0f;
-    float yy = 0.0f;
-    float zz = 0.0f;
-    float xy = 0.0f;
-    float yz = 0.0f;
-    float zx = 0.0f;
+    // First moments
+    double mx = 0.0, my = 0.0, mz = 0.0; // \int x dV
+
+    // Second moments
+    double xx = 0.0, yy = 0.0, zz = 0.0; // \int x^2 dV
+    double xy = 0.0, yz = 0.0, zx = 0.0; // \int xy dV
+
+    using Vec3d = Vector3<double>;
 
     for (const ConvexFace& face : faces)
     {
-        const Vec3& a = vertices[face.indices[0]];
+        const Vec3d& a = vertices[face.indices[0]];
 
         for (int32 i = 1; i + 1 < face.count; ++i)
         {
-            const Vec3& b = vertices[face.indices[i]];
-            const Vec3& c = vertices[face.indices[i + 1]];
+            // Form a tetragedron {O A B C}
+            const Vec3d& b = vertices[face.indices[i]];
+            const Vec3d& c = vertices[face.indices[i + 1]];
 
-            float det = Dot(a, Cross(b, c));
-            float tetraVolume = det / 6.0f;
+            // \int_{actual_tetra} f(p) dV =
+            // \int_{standard_tetra} f(u a + v b + w c) det dudvdw
+
+            // Jacobian determinant for transformation of standard tetra space to actual tetra space
+            double det = Dot(a, Cross(b, c));
+            double tetraVolume = det / 6.0;
 
             volume += tetraVolume;
-            center += tetraVolume * (a + b + c);
 
-            xx += det * (a.x * a.x + b.x * b.x + c.x * c.x + a.x * b.x + b.x * c.x + c.x * a.x) / 60.0f;
-            yy += det * (a.y * a.y + b.y * b.y + c.y * c.y + a.y * b.y + b.y * c.y + c.y * a.y) / 60.0f;
-            zz += det * (a.z * a.z + b.z * b.z + c.z * c.z + a.z * b.z + b.z * c.z + c.z * a.z) / 60.0f;
+            mx += tetraVolume * (a.x + b.x + c.x);
+            my += tetraVolume * (a.y + b.y + c.y);
+            mz += tetraVolume * (a.z + b.z + c.z);
+
+            xx += det * (a.x * a.x + b.x * b.x + c.x * c.x + a.x * b.x + b.x * c.x + c.x * a.x) / 60.0;
+            yy += det * (a.y * a.y + b.y * b.y + c.y * c.y + a.y * b.y + b.y * c.y + c.y * a.y) / 60.0;
+            zz += det * (a.z * a.z + b.z * b.z + c.z * c.z + a.z * b.z + b.z * c.z + c.z * a.z) / 60.0;
 
             xy += det *
-                  (2.0f * (a.x * a.y + b.x * b.y + c.x * c.y) + a.x * b.y + a.y * b.x + a.x * c.y + a.y * c.x + b.x * c.y +
+                  (2.0 * (a.x * a.y + b.x * b.y + c.x * c.y) + a.x * b.y + a.y * b.x + a.x * c.y + a.y * c.x + b.x * c.y +
                    b.y * c.x) /
-                  120.0f;
+                  120.0;
             yz += det *
-                  (2.0f * (a.y * a.z + b.y * b.z + c.y * c.z) + a.y * b.z + a.z * b.y + a.y * c.z + a.z * c.y + b.y * c.z +
+                  (2.0 * (a.y * a.z + b.y * b.z + c.y * c.z) + a.y * b.z + a.z * b.y + a.y * c.z + a.z * c.y + b.y * c.z +
                    b.z * c.y) /
-                  120.0f;
+                  120.0;
             zx += det *
-                  (2.0f * (a.z * a.x + b.z * b.x + c.z * c.x) + a.z * b.x + a.x * b.z + a.z * c.x + a.x * c.z + b.z * c.x +
+                  (2.0 * (a.z * a.x + b.z * b.x + c.z * c.x) + a.z * b.x + a.x * b.z + a.z * c.x + a.x * c.z + b.z * c.x +
                    b.x * c.z) /
-                  120.0f;
+                  120.0;
         }
     }
 
-    if (volume < 0.0f)
+    if (volume < 0.0)
     {
         volume = -volume;
-        center = -center;
+        mx = -mx;
+        my = -my;
+        mz = -mz;
         xx = -xx;
         yy = -yy;
         zz = -zz;
@@ -177,11 +130,16 @@ static void ComputeMassProperties(
         return;
     }
 
-    center *= 1.0f / (4.0f * volume);
+    Vec3 center{ float(mx), float(my), float(mz) };
+    center /= (4 * volume);
 
     *outVolume = volume;
     *outCenter = center;
-    *outInertia = Mat3(Vec3{ yy + zz, -xy, -zx }, Vec3{ -xy, xx + zz, -yz }, Vec3{ -zx, -yz, xx + yy });
+    *outInertia = Mat3{
+        Vec3{ float(yy + zz), float(-xy), float(-zx) },
+        Vec3{ float(-xy), float(xx + zz), float(-yz) },
+        Vec3{ float(-zx), float(-yz), float(xx + yy) },
+    };
 }
 
 ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
@@ -295,7 +253,7 @@ Face ConvexShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) c
         }
     }
 
-    Face face;
+    Face face{};
     face.count = faces[index].count;
     face.normal = transform.q.Rotate(normals[index]);
 
@@ -356,7 +314,7 @@ Vec3 ConvexShape::GetClosestPointLocal(const Vec3& q) const
             const Vec3& b = vertices[face.indices[i]];
             const Vec3& c = vertices[face.indices[i + 1]];
 
-            Vec3 p = ClosestPointOnTriangle(a, b, c, q);
+            Vec3 p = ClosestPointVsTriangle(q, a, b, c);
             float distance2 = Dist2(q, p);
             if (distance2 < minDistance2)
             {
