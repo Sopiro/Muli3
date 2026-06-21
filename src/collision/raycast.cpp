@@ -1,23 +1,11 @@
 #include "muli3/raycast.h"
 #include "muli3/collision.h"
+#include "muli3/distance.h"
 #include "muli3/settings.h"
 #include "muli3/shapes.h"
 
 namespace muli3
 {
-
-static Vec3 ClosestPointOnSegment(const Vec3& a, const Vec3& b, const Vec3& p)
-{
-    Vec3 ab = b - a;
-    float ab2 = Dot(ab, ab);
-    if (ab2 <= epsilon)
-    {
-        return a;
-    }
-
-    float t = Clamp(Dot(p - a, ab) / ab2, 0.0f, 1.0f);
-    return a + ab * t;
-}
 
 bool RayCastSphere(const Vec3& p, float r, const RayCastInput& input, RayCastOutput* output)
 {
@@ -34,9 +22,7 @@ bool RayCastSphere(const Vec3& p, float r, const RayCastInput& input, RayCastOut
     float b = 2.0f * Dot(f, d);
     float c = Dot(f, f) - radii * radii;
 
-    // Quadratic equation discriminant
     float discriminant = b * b - 4.0f * a * c;
-
     if (discriminant < 0.0f)
     {
         return false;
@@ -69,7 +55,7 @@ bool RayCastCapsule(const Vec3& va, const Vec3& vb, float radius, const RayCastI
 
     float radii = radius + input.radius;
 
-    if (Dist2(p1, ClosestPointOnSegment(v1, v2, p1)) <= radii * radii)
+    if (Dist2(p1, ClosestPointVsSegment(v1, v2, p1)) <= radii * radii)
     {
         return false;
     }
@@ -130,6 +116,49 @@ bool RayCastCapsule(const Vec3& va, const Vec3& vb, float radius, const RayCastI
         *output = sphereOutput;
     }
 
+    return true;
+}
+
+bool RayCastTriangle(const Vec3& a, const Vec3& b, const Vec3& c, const RayCastInput& input, RayCastOutput* output)
+{
+    Vec3 d = input.to - input.from;
+    Vec3 ab = b - a;
+    Vec3 ac = c - a;
+    Vec3 n = Cross(ab, ac);
+    float area = n.Normalize();
+    if (area == 0.0f)
+    {
+        return false;
+    }
+
+    float denom = Dot(n, d);
+    if (Abs(denom) <= epsilon)
+    {
+        return false;
+    }
+
+    float t = Dot(n, a - input.from) / denom;
+    if (t < 0.0f || t > input.maxFraction)
+    {
+        return false;
+    }
+
+    Vec3 p = input.from + d * t;
+    if (Dot(Cross(b - a, p - a), n) < -linear_slop)
+    {
+        return false;
+    }
+    if (Dot(Cross(c - b, p - b), n) < -linear_slop)
+    {
+        return false;
+    }
+    if (Dot(Cross(a - c, p - c), n) < -linear_slop)
+    {
+        return false;
+    }
+
+    output->fraction = t;
+    output->normal = n;
     return true;
 }
 

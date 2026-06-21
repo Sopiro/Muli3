@@ -652,7 +652,7 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Camera Reset", &options.reset_camera);
                     ImGui::Checkbox("Colorize Island", &options.colorize_island);
                     ImGui::Checkbox("Draw Joint", &options.draw_joint);
-                    const char* bodyDrawModes[] = { "Solid", "Solid + Wireframe", "Wireframe", "Depth Wireframe", "None" };
+                    const char* bodyDrawModes[] = { "Solid", "Solid + Wireframe", "Wireframe", "Solid Wireframe", "None" };
                     int32 bodyDrawMode = (int32)options.body_draw_mode;
                     ImGui::Text("Draw Body");
                     ImGui::SetNextItemWidth(140.0f);

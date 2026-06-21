@@ -201,6 +201,16 @@ public:
         float density = default_density,
         const Material& material = default_material
     );
+    Collider* CreateHeightFieldCollider(
+        int32 sampleCountX,
+        int32 sampleCountZ,
+        std::span<const float> heightSamples,
+        float cellSizeX = 1.0f,
+        float cellSizeZ = 1.0f,
+        const Vec3& offset = Vec3{ 0.0f },
+        int32 blockSize = 8,
+        const Material& material = default_material
+    );
 
     BodyState* GetBodyState();
     const BodyState* GetBodyState() const;

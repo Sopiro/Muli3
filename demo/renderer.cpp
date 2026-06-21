@@ -524,8 +524,14 @@ void Renderer::ClearMeshCache()
         MuliNotUsed(shape);
         mesh.Destroy();
     }
+    for (auto& [shape, mesh] : heightFieldMeshes)
+    {
+        MuliNotUsed(shape);
+        mesh.Destroy();
+    }
 
     convexMeshes.clear();
+    heightFieldMeshes.clear();
 }
 
 void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe)
@@ -670,6 +676,10 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     {
         DrawConvex((const ConvexShape*)shape, transform, color, wireframe, shader);
     }
+    else if (shape->GetType() == Shape::height_field)
+    {
+        DrawHeightField((const HeightFieldShape*)shape, transform, color, wireframe, shader);
+    }
 }
 
 Mesh& Renderer::GetConvexMesh(const ConvexShape* shape)
@@ -696,12 +706,71 @@ Mesh& Renderer::GetConvexMesh(const ConvexShape* shape)
     return mesh;
 }
 
+Mesh& Renderer::GetHeightFieldMesh(const HeightFieldShape* shape)
+{
+    auto it = heightFieldMeshes.find(shape);
+    if (it != heightFieldMeshes.end())
+    {
+        return it->second;
+    }
+
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32> indices;
+    BuildHeightFieldMesh(&vertices, &indices, *shape);
+
+    Mesh& mesh = heightFieldMeshes[shape];
+    mesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    glBindVertexArray(mesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    return mesh;
+}
+
 void Renderer::DrawConvex(
     const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
 )
 {
     ShapeInstance instance{ Mat4(transform), color };
     Mesh& mesh = GetConvexMesh(shape);
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(ShapeInstance), &instance);
+    mesh.DrawInstanced(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+}
+
+void Renderer::DrawHeightField(
+    const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
+)
+{
+    ShapeInstance instance{ Mat4(transform), color };
+    Mesh& mesh = GetHeightFieldMesh(shape);
 
     GLint previousDepthFunc = GL_LESS;
     GLboolean cullFaceEnabled = GL_FALSE;

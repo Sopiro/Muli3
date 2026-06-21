@@ -1,30 +1,9 @@
 #include "muli3/capsule_shape.h"
+#include "muli3/distance.h"
 #include "muli3/frame.h"
 
 namespace muli3
 {
-
-static Vec3 ClosestPointOnSegment(const Vec3& a, const Vec3& b, const Vec3& p, float* outT)
-{
-    Vec3 ab = b - a;
-    float ab2 = Dot(ab, ab);
-    if (ab2 <= epsilon)
-    {
-        if (outT)
-        {
-            *outT = 0.0f;
-        }
-        return a;
-    }
-
-    float t = Clamp(Dot(p - a, ab) / ab2, 0.0f, 1.0f);
-    if (outT)
-    {
-        *outT = t;
-    }
-
-    return a + ab * t;
-}
 
 CapsuleShape::CapsuleShape(float height, float inRadius, const Transform& transform)
     : Shape{ Shape::capsule, inRadius * Max(Abs(transform.s.x), Abs(transform.s.z)) }
@@ -128,14 +107,14 @@ Face CapsuleShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) 
 bool CapsuleShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    Vec3 closest = ClosestPointOnSegment(va, vb, localQ, nullptr);
-    return Dist2(localQ, closest) <= radius * radius;
+    Vec3 closest = ClosestPointVsSegment(va, vb, localQ);
+    return Dist2(localQ, closest) <= Sqr(radius);
 }
 
 Vec3 CapsuleShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    Vec3 closest = ClosestPointOnSegment(va, vb, localQ, nullptr);
+    Vec3 closest = ClosestPointVsSegment(va, vb, localQ);
     Vec3 delta = localQ - closest;
 
     float distance = delta.Normalize();

@@ -1,9 +1,10 @@
 #include "shape.h"
 
-#include "box_shape.h"     // IWYU pragma: export
-#include "capsule_shape.h" // IWYU pragma: export
-#include "convex_shape.h"  // IWYU pragma: export
-#include "sphere_shape.h"  // IWYU pragma: export
+#include "box_shape.h"          // IWYU pragma: export
+#include "capsule_shape.h"      // IWYU pragma: export
+#include "convex_shape.h"       // IWYU pragma: export
+#include "height_field_shape.h" // IWYU pragma: export
+#include "sphere_shape.h"       // IWYU pragma: export
 
 namespace muli3
 {

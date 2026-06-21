@@ -38,6 +38,7 @@ struct ShapeCastOutput
 
 bool RayCastSphere(const Vec3& p, float r, const RayCastInput& input, RayCastOutput* output);
 bool RayCastCapsule(const Vec3& va, const Vec3& vb, float radius, const RayCastInput& input, RayCastOutput* output);
+bool RayCastTriangle(const Vec3& a, const Vec3& b, const Vec3& c, const RayCastInput& input, RayCastOutput* output);
 
 bool ShapeCast(
     const Shape* a,

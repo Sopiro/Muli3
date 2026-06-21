@@ -245,6 +245,23 @@ Collider* Body::CreateConvexCollider(
     return CreateCollider(&convex, tf, density, material);
 }
 
+Collider* Body::CreateHeightFieldCollider(
+    int32 sampleCountX,
+    int32 sampleCountZ,
+    std::span<const float> heightSamples,
+    float cellSizeX,
+    float cellSizeZ,
+    const Vec3& offset,
+    int32 blockSize,
+    const Material& material
+)
+{
+    MuliAssert(IsStatic() || "Behavior is undefined for non static body");
+
+    HeightFieldShape heightField{ sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize };
+    return CreateCollider(&heightField, identity, 0.0f, material);
+}
+
 bool Body::TestPoint(const Vec3& q) const
 {
     MuliAssert(colliderCount > 0);

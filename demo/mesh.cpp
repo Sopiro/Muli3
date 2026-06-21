@@ -1,4 +1,6 @@
 #include "mesh.h"
+#include "muli3/convex_shape.h"
+#include "muli3/height_field_shape.h"
 
 namespace muli3
 {
@@ -467,6 +469,43 @@ void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* ind
             Vec2 uv{ position.x, position.z };
             vertices->push_back(MeshVertex{ position, normal, uv });
             indices->push_back(uint32(indices->size()));
+        }
+    }
+}
+
+void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const HeightFieldShape& shape)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+
+    int32 cellCountX = shape.GetCellCountX();
+    int32 cellCountZ = shape.GetCellCountZ();
+    vertices->reserve(size_t(cellCountX) * size_t(cellCountZ) * 6);
+    indices->reserve(size_t(cellCountX) * size_t(cellCountZ) * 6);
+
+    for (int32 z = 0; z < cellCountZ; ++z)
+    {
+        for (int32 x = 0; x < cellCountX; ++x)
+        {
+            for (int32 t = 0; t < 2; ++t)
+            {
+                Vec3 a, b, c;
+                shape.GetTriangle(x, z, t, &a, &b, &c);
+                Vec3 normal = Cross(b - a, c - a);
+                normal.Normalize();
+
+                uint32 base = uint32(vertices->size());
+                vertices->push_back(MeshVertex{ a, normal, Vec2{ a.x, a.z } });
+                vertices->push_back(MeshVertex{ b, normal, Vec2{ b.x, b.z } });
+                vertices->push_back(MeshVertex{ c, normal, Vec2{ c.x, c.z } });
+
+                indices->push_back(base);
+                indices->push_back(base + 1);
+                indices->push_back(base + 2);
+            }
         }
     }
 }

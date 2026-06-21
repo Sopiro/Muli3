@@ -15,7 +15,7 @@ struct MassData
     Vec3 centerOfMass;
 };
 
-using Shapes = TypePack<class SphereShape, class CapsuleShape, class BoxShape, class ConvexShape>;
+using Shapes = TypePack<class SphereShape, class CapsuleShape, class BoxShape, class ConvexShape, class HeightFieldShape>;
 
 class Shape : public DynamicDispatcher<Shapes>
 {
@@ -29,6 +29,7 @@ public:
         capsule,
         box,
         convex,
+        height_field,
         shape_count,
     };
 

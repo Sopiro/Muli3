@@ -7,6 +7,8 @@
 namespace muli3
 {
 
+class HeightFieldShape;
+
 struct Vertex
 {
     Vec3 point;
@@ -86,7 +88,11 @@ private:
     void DrawConvex(
         const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
     );
+    void DrawHeightField(
+        const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
+    );
     Mesh& GetConvexMesh(const ConvexShape* shape);
+    Mesh& GetHeightFieldMesh(const HeightFieldShape* shape);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
@@ -105,6 +111,7 @@ private:
     std::vector<ShapeInstance> capsuleMidInstances[2];
     std::vector<ShapeInstance> boxInstances[2];
     std::unordered_map<const ConvexShape*, Mesh> convexMeshes;
+    std::unordered_map<const HeightFieldShape*, Mesh> heightFieldMeshes;
 
     int32 pointCount = 0;
     std::vector<Vertex> points;

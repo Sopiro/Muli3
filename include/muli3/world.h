@@ -86,6 +86,16 @@ public:
         float radius = default_radius,
         float density = default_density
     );
+    Body* CreateHeightField(
+        int32 sampleCountX,
+        int32 sampleCountZ,
+        std::span<const float> heightSamples,
+        float cellSizeX = 1.0f,
+        float cellSizeZ = 1.0f,
+        const Transform& transform = identity,
+        const Vec3& offset = Vec3{ 0.0f },
+        int32 blockSize = 4
+    );
 
     GrabJoint* CreateGrabJoint(
         Body* body, const Vec3& anchor, const Vec3& target, float frequency = 10.0f, float dampingRatio = 1.0f

@@ -126,6 +126,22 @@ Body* World::CreateConvex(
     return b;
 }
 
+Body* World::CreateHeightField(
+    int32 sampleCountX,
+    int32 sampleCountZ,
+    std::span<const float> heightSamples,
+    float cellSizeX,
+    float cellSizeZ,
+    const Transform& transform,
+    const Vec3& offset,
+    int32 blockSize
+)
+{
+    Body* b = CreateEmptyBody(transform, Body::static_body);
+    b->CreateHeightFieldCollider(sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize);
+    return b;
+}
+
 float World::Step(float dt)
 {
     profile = {};
@@ -2171,6 +2187,10 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
         return poolAllocator.New<ConvexShape>(*(const ConvexShape*)shape, transform);
     }
+    case Shape::height_field:
+    {
+        return poolAllocator.New<HeightFieldShape>(*(const HeightFieldShape*)shape, transform);
+    }
     default:
         MuliAssert(false);
         break;
@@ -2194,6 +2214,9 @@ void World::FreeShape(Shape* shape)
         break;
     case Shape::convex:
         poolAllocator.Delete((ConvexShape*)shape);
+        break;
+    case Shape::height_field:
+        poolAllocator.Delete((HeightFieldShape*)shape);
         break;
     default:
         MuliAssert(false);

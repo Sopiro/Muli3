@@ -6,6 +6,7 @@ namespace muli3
 {
 
 class ConvexShape;
+class HeightFieldShape;
 
 struct MeshVertex
 {
@@ -45,5 +46,6 @@ void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indice
 void BuildGridMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 halfExtent, float spacing);
 void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
 void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const ConvexShape& shape);
+void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const HeightFieldShape& shape);
 
 } // namespace muli3
