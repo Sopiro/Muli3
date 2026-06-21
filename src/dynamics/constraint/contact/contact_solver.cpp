@@ -93,11 +93,13 @@ static void PrepareTangentContact(ContactState* s, int32 index)
     Vec3 rb = s->manifold.contactPoints[index].p - sB->motion.c;
     Vec3 normal = s->manifold.contactPoints[index].normal;
 
-    Vec3 tangent1 = GramSchmidt(x_axis, normal);
-    if (tangent1.Normalize() == 0.0f)
+    Vec3 reference = Abs(normal.x) < Abs(normal.y) ? x_axis : y_axis;
+    if (Abs(normal.z) < AbsDot(reference, normal))
     {
-        tangent1 = Normalize(GramSchmidt(z_axis, normal));
+        reference = z_axis;
     }
+
+    Vec3 tangent1 = Normalize(GramSchmidt(reference, normal));
     Vec3 tangent2 = Cross(normal, tangent1);
 
     SolverTangentContact* t = s->tangentContact + index;
