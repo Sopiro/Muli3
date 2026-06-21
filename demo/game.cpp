@@ -563,7 +563,7 @@ void Game::Render()
 
                 if (options.show_contact_normal)
                 {
-                    const Vec3 p2 = p1 + manifold.contactNormal * 0.18f;
+                    const Vec3 p2 = p1 + manifold.contactPoints[i].normal * 0.18f;
                     renderer.DrawLine(p1, p2, normalColor);
                 }
             }

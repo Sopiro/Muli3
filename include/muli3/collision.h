@@ -14,6 +14,7 @@ struct ContactPoint
     Vec3 p;
     Vec3 anchorA;
     Vec3 anchorB;
+    Vec3 normal;
     float separation;
     int32 id;
 };
@@ -22,8 +23,6 @@ struct ContactManifold
 {
     int32 contactCount;
     ContactPoint contactPoints[max_contact_point_count];
-    Vec3 contactNormal; // Contact normal is always pointing from shape A to shape B
-    float penetrationDepth;
 };
 
 // clang-format off

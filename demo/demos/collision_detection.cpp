@@ -117,8 +117,6 @@ public:
             ImGui::Separator();
             ImGui::Text("Collide: %s", collide ? "true" : "false");
             ImGui::Text("Contacts: %d", manifold.contactCount);
-            ImGui::Text("Penetration: %.4f", manifold.penetrationDepth);
-            ImGui::Text("Normal: %.3f, %.3f, %.3f", manifold.contactNormal.x, manifold.contactNormal.y, manifold.contactNormal.z);
 
             if (changed)
             {
@@ -162,10 +160,11 @@ public:
             for (int32 i = 0; i < manifold.contactCount; ++i)
             {
                 Vec3 p1 = manifold.contactPoints[i].p;
-                Vec3 p2 = p1 + manifold.contactNormal * 0.35f;
-                Vec3 reference = Abs(manifold.contactNormal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
-                Vec3 tangent = NormalizeSafe(Cross(manifold.contactNormal, reference));
-                Vec3 arrowBase = p2 - manifold.contactNormal * 0.08f;
+                Vec3 normal = manifold.contactPoints[i].normal;
+                Vec3 p2 = p1 + normal * 0.35f;
+                Vec3 reference = Abs(normal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
+                Vec3 tangent = NormalizeSafe(Cross(normal, reference));
+                Vec3 arrowBase = p2 - normal * 0.08f;
                 Vec3 arrowA = arrowBase + tangent * 0.04f;
                 Vec3 arrowB = arrowBase - tangent * 0.04f;
 

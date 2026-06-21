@@ -119,9 +119,9 @@ inline void CoordinateSystem(const Vec3& v1, Vec3* v2, Vec3* v3)
     *v3 = Vec3(b, sign + (v1.y * v1.y) * a, -v1.y);
 }
 
-inline Vec3 GramSchmidt(const Vec3& v, const Vec3& w)
+inline Vec3 GramSchmidt(const Vec3& v, const Vec3& n)
 {
-    return v - Dot(v, w) * w;
+    return v - Dot(v, n) * n;
 }
 
 // Represents orthonormal coordinate frame

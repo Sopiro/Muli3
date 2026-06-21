@@ -17,7 +17,7 @@ static void PrepareNormalContact(SolverNormalContact* n, ContactState* s, int32 
     // J = [-n, -ra × n, n, rb × n]
     // W = (J · M^-1 · J^t)^-1
 
-    Vec3 normal = s->manifold.contactNormal;
+    Vec3 normal = s->manifold.contactPoints[index].normal;
     Vec3 ra = s->manifold.contactPoints[index].anchorA - sA->motion.c;
     Vec3 rb = s->manifold.contactPoints[index].anchorB - sB->motion.c;
 
@@ -84,13 +84,21 @@ static void SolveNormalContact(SolverNormalContact* n, ContactState* s)
     }
 }
 
-static void PrepareTangentContact(ContactState* s, const Vec3& tangent1, const Vec3& tangent2, int32 index)
+static void PrepareTangentContact(ContactState* s, int32 index)
 {
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
 
     Vec3 ra = s->manifold.contactPoints[index].p - sA->motion.c;
     Vec3 rb = s->manifold.contactPoints[index].p - sB->motion.c;
+    Vec3 normal = s->manifold.contactPoints[index].normal;
+
+    Vec3 tangent1 = GramSchmidt(x_axis, normal);
+    if (tangent1.Normalize() == 0.0f)
+    {
+        tangent1 = Normalize(GramSchmidt(z_axis, normal));
+    }
+    Vec3 tangent2 = Cross(normal, tangent1);
 
     SolverTangentContact* t = s->tangentContact + index;
 
@@ -222,7 +230,7 @@ static void PreparePosition(SolverPosition* p, ContactState* s, int32 index)
 
     p->localPointA = qA.RotateInv(s->manifold.contactPoints[index].anchorA - comA);
     p->localPointB = qB.RotateInv(s->manifold.contactPoints[index].anchorB - comB);
-    p->localNormal = qA.RotateInv(s->manifold.contactNormal);
+    p->localNormal = qA.RotateInv(s->manifold.contactPoints[index].normal);
 }
 
 struct PositionCorrection
@@ -283,16 +291,9 @@ void PrepareContact(ContactState* s)
     s->invIA = s->s1->body->GetWorldInverseInertiaTensor();
     s->invIB = s->s2->body->GetWorldInverseInertiaTensor();
 
-    Vec3 tangent1 = GramSchmidt(x_axis, s->manifold.contactNormal);
-    if (tangent1.Normalize() == 0)
-    {
-        tangent1 = Normalize(GramSchmidt(z_axis, s->manifold.contactNormal));
-    }
-    Vec3 tangent2 = Cross(s->manifold.contactNormal, tangent1);
-
     for (int32 i = 0; i < s->manifold.contactCount; ++i)
     {
-        PrepareTangentContact(s, tangent1, tangent2, i);
+        PrepareTangentContact(s, i);
         PrepareNormalContact(s->normalContact + i, s, i);
         PreparePosition(s->positionContact + i, s, i);
     }
