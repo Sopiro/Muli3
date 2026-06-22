@@ -10,8 +10,8 @@
 namespace muli3
 {
 
-World::World(const WorldSettings& settings)
-    : settings{ settings }
+World::World(const WorldSettings* settings)
+    : settings{ *settings }
     , constraintGraph{ this }
 {
     poolAllocator.Register<Body>(512);

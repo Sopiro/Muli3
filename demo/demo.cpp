@@ -12,7 +12,8 @@ Demo::Demo(Game& game)
     screenBounds = Window::Get()->GetWindowSize();
     settings.thread_pool = game.GetThreadPool();
     settings.world_bounds.min.y = -30;
-    world = new World(settings);
+
+    world = new World(&settings);
 
     camera.Reset();
     camera.position = Vec3{ 0.0f, 5.0f, 10.0f };

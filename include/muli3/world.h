@@ -17,7 +17,7 @@ namespace muli3
 class World
 {
 public:
-    World(const WorldSettings& settings);
+    World(const WorldSettings* settings);
     ~World();
 
     World(const World&) = delete;
