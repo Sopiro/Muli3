@@ -8,10 +8,10 @@
 
 ## Features
 
-Same API and architecture as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded to 3D and multi-threading support.
+Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded to 3D and multi-threading support.
 
 ### Collision
-  - Shapes: sphere, capsule, box and convex polyhedron
+  - Shapes: sphere, capsule, box, convex polyhedron and height field
   - Support for rounded shapes
   - Multiple colliders attached to a single body
   - Dynamic, static, and kinematic bodies
@@ -33,7 +33,8 @@ Same API and architecture as [Muli](https://github.com/Sopiro/Muli), with the dy
 
 ### Others
   - Cross platform library (C++20)
-  - Intuitive and straightforward API design
+  - Intuitive API design
+  - 30+ Demos
 
 ## Example
 
@@ -44,8 +45,12 @@ using namespace muli3;
 
 int main()
 {
+    ThreadPool pool(8);
+    
     WorldSettings settings;
-    World world(settings);
+    settings.thread_pool = &pool;
+
+    World world(&settings);
 
     Body* box = world.CreateBox(1.0f);
     box->SetPosition(0.0f, 5.0f, 0.0f);
