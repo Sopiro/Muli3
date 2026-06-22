@@ -291,9 +291,9 @@ private:
     void Validate() const;
 
     const WorldSettings& settings;
-    WorldProfile profile;
 
-    uint64 stepIndex = 0;
+    WorldProfile profile;
+    Timestep step;
 
     Body* bodyList = nullptr;
     Body* bodyListTail = nullptr;
@@ -304,7 +304,6 @@ private:
     int32 jointCount = 0;
 
     ConstraintGraph constraintGraph;
-
     SolverSet solverSets[solver_set_count];
 
     int32 islandCount = 0;
@@ -381,7 +380,7 @@ inline const WorldProfile& World::GetProfile() const
 
 inline uint64 World::GetStepIndex() const
 {
-    return stepIndex;
+    return step.index;
 }
 
 inline void World::Awake()

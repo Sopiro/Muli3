@@ -1,5 +1,4 @@
 #include "muli3/frame.h"
-#include "muli3/parallel.h"
 
 #include "game.h"
 #include "profile_graph.h"
@@ -671,9 +670,9 @@ void Game::UpdateUI()
                 {
                     ImGui::Text("Solver Iterations");
                     ImGui::SetNextItemWidth(120);
-                    ImGui::SliderInt("Velocity", &settings.step.velocity_iterations, 0, 50);
+                    ImGui::SliderInt("Velocity", &settings.velocity_iterations, 0, 50);
                     ImGui::SetNextItemWidth(120);
-                    ImGui::SliderInt("Position", &settings.step.position_iterations, 0, 50);
+                    ImGui::SliderInt("Position", &settings.position_iterations, 0, 50);
                     ImGui::SetNextItemWidth(120);
                     if (ImGui::SliderInt("Workers", &workerCount, 1, int32(std::max(1u, std::thread::hardware_concurrency()))))
                     {

@@ -40,8 +40,8 @@ public:
     void SetFriction(float friction);
     float GetRestitution() const;
     void SetRestitution(float restitution);
-    float GetRestitutionTreshold() const;
-    void SetRestitutionTreshold(float treshold);
+    float GetRestitutionThreshold() const;
+    void SetRestitutionThreshold(float threshold);
     Vec2 GetSurfaceSpeed() const;
     void SetSurfaceSpeed(const Vec2& surfaceSpeed);
 
@@ -175,14 +175,14 @@ inline void Collider::SetRestitution(float newRestitution)
     material.restitution = newRestitution;
 }
 
-inline float Collider::GetRestitutionTreshold() const
+inline float Collider::GetRestitutionThreshold() const
 {
-    return material.restitutionTreshold;
+    return material.restitutionThreshold;
 }
 
-inline void Collider::SetRestitutionTreshold(float newRestitutionTreshold)
+inline void Collider::SetRestitutionThreshold(float newRestitutionThreshold)
 {
-    material.restitutionTreshold = newRestitutionTreshold;
+    material.restitutionThreshold = newRestitutionThreshold;
 }
 
 inline Vec2 Collider::GetSurfaceSpeed() const

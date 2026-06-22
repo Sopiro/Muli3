@@ -57,7 +57,8 @@ void Contact::Update()
 
     s->friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
     s->restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
-    s->restitutionThreshold = MixRestitutionTreshold(colliderA->GetRestitutionTreshold(), colliderB->GetRestitutionTreshold());
+    s->restitutionThreshold =
+        MixRestitutionThreshold(colliderA->GetRestitutionThreshold(), colliderB->GetRestitutionThreshold());
     s->surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
 
     // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.

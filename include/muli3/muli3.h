@@ -1,5 +1,6 @@
 #pragma once
 
+#include "parallel.h"             // IWYU pragma: export
 #include "settings.h"             // IWYU pragma: export
 
 #include "body.h"                 // IWYU pragma: export
@@ -14,7 +15,6 @@
 #include "raycast.h"              // IWYU pragma: export
 #include "shapes.h"               // IWYU pragma: export
 #include "world.h"                // IWYU pragma: export
-
 
 #include "ball_socket_joint.h"    // IWYU pragma: export
 #include "cone_swing_joint.h"     // IWYU pragma: export

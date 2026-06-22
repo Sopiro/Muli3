@@ -10,7 +10,7 @@ struct Material
 {
     float friction = default_friction;
     float restitution = default_restitution;
-    float restitutionTreshold = default_restitution_treshold;
+    float restitutionThreshold = default_restitution_threshold;
     Vec2 surfaceSpeed = default_surface_speed;
 };
 
@@ -26,9 +26,9 @@ inline float MixRestitution(float restitutionA, float restitutionB)
     return Max(restitutionA, restitutionB);
 }
 
-inline float MixRestitutionTreshold(float tresholdA, float tresholdB)
+inline float MixRestitutionThreshold(float thresholdA, float thresholdB)
 {
-    return Min(tresholdA, tresholdB);
+    return Min(thresholdA, thresholdB);
 }
 
 } // namespace muli3

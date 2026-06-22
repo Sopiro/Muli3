@@ -47,7 +47,7 @@ public:
 
     float GetFriction() const;
     float GetRestitution() const;
-    float GetRestitutionTreshold() const;
+    float GetRestitutionThreshold() const;
     Vec2 GetSurfaceSpeed() const;
 
 private:
@@ -182,7 +182,7 @@ inline float Contact::GetRestitution() const
     return GetContactState()->restitution;
 }
 
-inline float Contact::GetRestitutionTreshold() const
+inline float Contact::GetRestitutionThreshold() const
 {
     return GetContactState()->restitutionThreshold;
 }

@@ -628,7 +628,7 @@ void Body::SetRestitutionThreshold(float threshold) const
 {
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
-        collider->SetRestitutionTreshold(threshold);
+        collider->SetRestitutionThreshold(threshold);
     }
 }
 

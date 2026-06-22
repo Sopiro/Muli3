@@ -56,7 +56,7 @@ void World::Reset()
         MuliAssert(constraintGraph.batches[i].jointStates.empty());
     }
 
-    stepIndex = 0;
+    step.index = 0;
 }
 
 Body* World::CreateEmptyBody(const Transform& transform, Body::Type type)
@@ -155,10 +155,9 @@ float World::Step(float dt)
         return 0.0f;
     }
 
-    ++stepIndex;
-
-    settings.step.dt = dt;
-    settings.step.inv_dt = 1 / dt;
+    step.index += 1;
+    step.dt = dt;
+    step.inv_dt = 1 / dt;
 
     linearAllocator.GrowMemory();
 
@@ -989,7 +988,6 @@ void World::Solve()
 
     SpinScope spinScope{ settings.thread_pool };
 
-    const Timestep& step = settings.step;
     const int32 minBodyRange = 64;
     const int32 minConstraintRange = 32;
 
@@ -1143,7 +1141,7 @@ void World::Solve()
     {
         ProfileScope profile_solve_velocities{ &profile.solve_velocities };
 
-        for (int32 i = 0; i < step.velocity_iterations; ++i)
+        for (int32 i = 0; i < settings.velocity_iterations; ++i)
         {
             ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
 
@@ -1230,7 +1228,7 @@ void World::Solve()
     {
         ProfileScope profile_solve_positions{ &profile.solve_positions };
 
-        for (int32 i = 0; i < step.position_iterations; ++i)
+        for (int32 i = 0; i < settings.position_iterations; ++i)
         {
             MuliProfileZoneN(solve_position, "Solve Position", true);
 
