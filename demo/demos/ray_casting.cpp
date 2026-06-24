@@ -11,6 +11,7 @@ class RayCasting : public Demo
 public:
     Vec3 from{ -3.0f, 0.0f, 0.0f };
     Vec3 to{ 3.0f, 0.5f, 0.0f };
+    Vec3 targetRot = Vec3::zero;
 
     bool closest = true;
     float radius = 0.0f;
@@ -25,11 +26,17 @@ public:
         camera.SetRotation(-90.0f, 0.0f);
         camera.speed = 0.35f;
 
-        Body* body;
-        body = world->CreateSphere(0.3f, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
-        body = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } });
-        body = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
-        body = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
+        targetBodies[1] = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } });
+        targetBodies[2] = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        targetBodies[3] = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+
+        Vec3 triangleVertices[3] = {
+            Vec3{ -0.35f, -0.3f, 0.0f },
+            Vec3{ 0.35f, -0.3f, 0.0f },
+            Vec3{ 0.0f, 0.35f, 0.0f },
+        };
+        targetBodies[4] = world->CreateTriangle(triangleVertices, Transform{ Vec3{ 2.3f, 0.0f, 0.0f } });
     }
 
     void UpdateInput() override
@@ -73,6 +80,10 @@ public:
         {
             ImGui::Checkbox("Closest", &closest);
             ImGui::DragFloat("Ray radius", &radius, 0.01f, 0.0f, 0.5f, "%.2f");
+            if (ImGui::DragFloat3("Target rot", &targetRot.x, 1.0f, -360.0f, 360.0f))
+            {
+                UpdateTargetRotation();
+            }
         }
         ImGui::End();
     }
@@ -131,6 +142,15 @@ public:
     }
 
 private:
+    void UpdateTargetRotation()
+    {
+        Quat q = Quat::FromEuler({ DegToRad(targetRot.x), DegToRad(targetRot.y), DegToRad(targetRot.z) });
+        for (Body* body : targetBodies)
+        {
+            body->SetRotation(q);
+        }
+    }
+
     bool GetMousePoint(Vec3* point) const
     {
         Ray ray = GetMouseRay();
@@ -150,6 +170,7 @@ private:
     }
 
     bool dragging = false;
+    Body* targetBodies[5] = {};
 };
 
 static Demo* CreateRayCasting(Game& game)

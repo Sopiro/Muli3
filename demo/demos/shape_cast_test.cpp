@@ -8,13 +8,14 @@
 namespace muli3
 {
 
-static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box" };
+static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box", "Triangle" };
 
 class ShapeCastTest : public Demo
 {
 public:
     Transform tf = identity;
     Vec3 rot = Vec3::zero;
+    Vec3 targetRot = Vec3::zero;
 
     std::unique_ptr<Shape> shape;
 
@@ -34,11 +35,17 @@ public:
         camera.SetRotation(-90.0f, 0.0f);
         camera.speed = 0.35f;
 
-        Body* body;
-        body = world->CreateSphere(0.3f, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
-        body = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } });
-        body = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
-        body = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
+        targetBodies[1] = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } });
+        targetBodies[2] = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        targetBodies[3] = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+
+        Vec3 triangleVertices[3] = {
+            Vec3{ -0.35f, -0.3f, 0.0f },
+            Vec3{ 0.35f, -0.3f, 0.0f },
+            Vec3{ 0.0f, 0.35f, 0.0f },
+        };
+        targetBodies[4] = world->CreateTriangle(triangleVertices, Transform{ Vec3{ 2.3f, 0.0f, 0.0f } });
 
         UpdateShape();
     }
@@ -90,6 +97,10 @@ public:
                 UpdateShape();
             }
             ImGui::DragFloat3("Rot", &rot.x, 1.0f, -360.0f, 360.0f);
+            if (ImGui::DragFloat3("Target rot", &targetRot.x, 1.0f, -360.0f, 360.0f))
+            {
+                UpdateTargetRotation();
+            }
         }
         ImGui::End();
     }
@@ -160,8 +171,25 @@ private:
         case 2:
             shape.reset(new BoxShape(0.3f));
             break;
+        case 3:
+            shape.reset(new TriangleShape(
+                Vec3{ -0.25f, -0.22f, 0.0f },
+                Vec3{ 0.25f, -0.22f, 0.0f },
+                Vec3{ 0.0f, 0.28f, 0.0f },
+                default_radius
+            ));
+            break;
         default:
             break;
+        }
+    }
+
+    void UpdateTargetRotation()
+    {
+        Quat q = Quat::FromEuler({ DegToRad(targetRot.x), DegToRad(targetRot.y), DegToRad(targetRot.z) });
+        for (Body* body : targetBodies)
+        {
+            body->SetRotation(q);
         }
     }
 
@@ -184,6 +212,7 @@ private:
     }
 
     bool dragging = false;
+    Body* targetBodies[5] = {};
 };
 
 static Demo* CreateShapeCastWorld(Game& game)
