@@ -245,6 +245,21 @@ Collider* Body::CreateConvexCollider(
     return CreateCollider(&convex, tf, density, material);
 }
 
+Collider* Body::CreateTriangleCollider(
+    const Vec3& a, const Vec3& b, const Vec3& c, const Transform& tf, float radius, float density, const Material& material
+)
+{
+    TriangleShape triangle{ a, b, c, radius };
+    return CreateCollider(&triangle, tf, density, material);
+}
+
+Collider* Body::CreateTriangleCollider(
+    const Vec3 vertices[3], const Transform& tf, float radius, float density, const Material& material
+)
+{
+    return CreateTriangleCollider(vertices[0], vertices[1], vertices[2], tf, radius, density, material);
+}
+
 Collider* Body::CreateHeightFieldCollider(
     int32 sampleCountX,
     int32 sampleCountZ,
@@ -253,13 +268,12 @@ Collider* Body::CreateHeightFieldCollider(
     float cellSizeZ,
     const Vec3& offset,
     int32 blockSize,
+    const Transform& tf,
     const Material& material
 )
 {
-    MuliAssert(IsStatic() || "Behavior is undefined for non static body");
-
     HeightFieldShape heightField{ sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize };
-    return CreateCollider(&heightField, identity, 0.0f, material);
+    return CreateCollider(&heightField, tf, 0.0f, material);
 }
 
 bool Body::TestPoint(const Vec3& q) const

@@ -7,8 +7,6 @@
 namespace muli3
 {
 
-class HeightFieldShape;
-
 struct Vertex
 {
     Vec3 point;
@@ -85,6 +83,7 @@ private:
     void FlushSpheres(const Shader& shader, bool wireframe);
     void FlushCapsules(const Shader& shader, bool wireframe);
     void FlushBoxes(const Shader& shader, bool wireframe);
+    void FlushTriangles(const Shader& shader, bool wireframe);
     void DrawConvex(
         const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
     );
@@ -98,7 +97,7 @@ private:
 
     bool initialized = false;
     Shader shapeShader, shadowShader, primitiveShader;
-    Mesh sphereMesh, capsuleTopMesh, capsuleBottomMesh, capsuleMidMesh, boxMesh;
+    Mesh sphereMesh, capsuleTopMesh, capsuleBottomMesh, capsuleMidMesh, boxMesh, triangleMesh;
 
     GLuint shadowFramebuffer;
     GLuint shadowDepthTexture;
@@ -110,6 +109,7 @@ private:
     std::vector<ShapeInstance> capsuleBottomInstances[2];
     std::vector<ShapeInstance> capsuleMidInstances[2];
     std::vector<ShapeInstance> boxInstances[2];
+    std::vector<ShapeInstance> triangleInstances[2];
     std::unordered_map<const ConvexShape*, Mesh> convexMeshes;
     std::unordered_map<const HeightFieldShape*, Mesh> heightFieldMeshes;
 

@@ -86,6 +86,22 @@ public:
         float radius = default_radius,
         float density = default_density
     );
+    Body* CreateTriangle(
+        const Vec3& a,
+        const Vec3& b,
+        const Vec3& c,
+        const Transform& transform = identity,
+        Body::Type type = Body::dynamic_body,
+        float radius = default_radius,
+        float density = default_density
+    );
+    Body* CreateTriangle(
+        const Vec3 vertices[3],
+        const Transform& transform = identity,
+        Body::Type type = Body::dynamic_body,
+        float radius = default_radius,
+        float density = default_density
+    );
     Body* CreateHeightField(
         int32 sampleCountX,
         int32 sampleCountZ,

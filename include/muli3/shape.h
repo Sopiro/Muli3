@@ -15,7 +15,13 @@ struct MassData
     Vec3 centerOfMass;
 };
 
-using Shapes = TypePack<class SphereShape, class CapsuleShape, class BoxShape, class ConvexShape, class HeightFieldShape>;
+using Shapes = TypePack<
+    class SphereShape,
+    class CapsuleShape,
+    class BoxShape,
+    class ConvexShape,
+    class TriangleShape,
+    class HeightFieldShape>;
 
 class Shape : public DynamicDispatcher<Shapes>
 {
@@ -29,6 +35,7 @@ public:
         capsule,
         box,
         convex,
+        triangle,
         height_field,
         shape_count,
     };
@@ -69,6 +76,7 @@ inline Shape::Shape(Type type, float radius)
     , center{ 0.0f }
     , radius{ radius }
 {
+    MuliAssert(radius > 0.0f);
 }
 
 inline Shape::Type Shape::GetType() const

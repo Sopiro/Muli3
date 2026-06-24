@@ -1218,11 +1218,530 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
     return manifold->contactCount > 0;
 }
 
+bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const TriangleShape* triangle = (const TriangleShape*)a;
+
+    Vec3 p = Mul(tfB, b->GetCenter());
+    Vec3 localP = MulT(tfA, p);
+
+    const Vec3* vertices = triangle->GetVertices();
+
+    Vec3 triangleNormal = triangle->GetNormal();
+    Vec3 closest = ClosestPointVsTriangle(localP, vertices[0], vertices[1], vertices[2]);
+
+    Vec3 normal = localP - closest;
+    float distance = normal.Normalize();
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    if (distance > ra + rb)
+    {
+        return false;
+    }
+
+    float separation = Dot(localP - vertices[0], triangleNormal);
+    if (distance <= epsilon)
+    {
+        normal = separation < 0.0f ? -triangleNormal : triangleNormal;
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    normal = tfA.q.Rotate(normal);
+    manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
+    manifold->contactPoints[0].anchorB = p - normal * rb;
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].normal = normal;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
+    manifold->contactPoints[0].id = 0;
+    manifold->contactCount = 1;
+
+    return true;
+}
+
+bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const TriangleShape* triangle = (const TriangleShape*)a;
+    const CapsuleShape* capsule = (const CapsuleShape*)b;
+
+    Vec3 triangleNormal = tfA.q.Rotate(triangle->GetNormal());
+    Vec3 verticesA[3] = {
+        Mul(tfA, triangle->GetVertex(0)),
+        Mul(tfA, triangle->GetVertex(1)),
+        Mul(tfA, triangle->GetVertex(2)),
+    };
+
+    // Shift along the triangle normal to keep plane projections near zero.
+    float planeOffset = Dot(verticesA[0], triangleNormal);
+    for (int32 i = 0; i < 3; ++i)
+    {
+        verticesA[i] -= triangleNormal * planeOffset;
+    }
+
+    Vec3 pointsB[2] = {
+        Mul(tfB, capsule->GetVertexA()) - triangleNormal * planeOffset,
+        Mul(tfB, capsule->GetVertexB()) - triangleNormal * planeOffset,
+    };
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = triangleNormal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 3; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(pointsB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 2; ++i)
+        {
+            float value = Dot(pointsB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            Vec3 axisNormal = positive ? n : -n;
+            normal = axisNormal;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(triangleNormal))
+    {
+        return false;
+    }
+
+    Vec3 segment = pointsB[1] - pointsB[0];
+    // Triangle edge vs capsule axis.
+    for (int32 i = 0; i < 3; ++i)
+    {
+        Vec3 edge = verticesA[(i + 1) % 3] - verticesA[i];
+        if (!TestAxis(Cross(edge, segment)))
+        {
+            return false;
+        }
+    }
+
+    // Capsule caps against triangle interior.
+    for (int32 i = 0; i < 2; ++i)
+    {
+        Vec3 closest = ClosestPointVsTriangle(pointsB[i], verticesA[0], verticesA[1], verticesA[2]);
+        if (!TestAxis(pointsB[i] - closest))
+        {
+            return false;
+        }
+    }
+
+    // Triangle vertices against the capsule segment.
+    for (int32 i = 0; i < 3; ++i)
+    {
+        Vec3 closest = ClosestPointVsSegment(verticesA[i], pointsB[0], pointsB[1]);
+        if (!TestAxis(closest - verticesA[i]))
+        {
+            return false;
+        }
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const TriangleShape* triangle = (const TriangleShape*)a;
+    const BoxShape* box = (const BoxShape*)b;
+
+    Vec3 triangleNormal = tfA.q.Rotate(triangle->GetNormal());
+    Vec3 verticesA[3] = {
+        Mul(tfA, triangle->GetVertex(0)),
+        Mul(tfA, triangle->GetVertex(1)),
+        Mul(tfA, triangle->GetVertex(2)),
+    };
+
+    // Shift along the triangle normal to keep plane projections near zero.
+    float planeOffset = Dot(verticesA[0], triangleNormal);
+    for (int32 i = 0; i < 3; ++i)
+    {
+        verticesA[i] -= triangleNormal * planeOffset;
+    }
+
+    Vec3 verticesB[8];
+    for (int32 i = 0; i < 8; ++i)
+    {
+        verticesB[i] = Mul(tfB, box->GetVertex(i)) - triangleNormal * planeOffset;
+    }
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = triangleNormal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 3; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(verticesB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 8; ++i)
+        {
+            float value = Dot(verticesB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            Vec3 axisNormal = positive ? n : -n;
+            normal = axisNormal;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(triangleNormal))
+    {
+        return false;
+    }
+
+    Quat qB = tfB.q * box->GetRotation();
+    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
+
+    // Box face normals.
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesB[i]))
+        {
+            return false;
+        }
+    }
+
+    // Triangle edge vs box edge axes.
+    for (int32 i = 0; i < 3; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
+        for (int32 j = 0; j < 3; ++j)
+        {
+            if (!TestAxis(Cross(edgeA, axesB[j])))
+            {
+                return false;
+            }
+        }
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    // would it be better to use GJK/EPA?
+    const TriangleShape* triangle = (const TriangleShape*)a;
+    const ConvexShape* convex = (const ConvexShape*)b;
+
+    Vec3 triangleNormal = tfA.q.Rotate(triangle->GetNormal());
+    Vec3 verticesA[3] = {
+        Mul(tfA, triangle->GetVertex(0)),
+        Mul(tfA, triangle->GetVertex(1)),
+        Mul(tfA, triangle->GetVertex(2)),
+    };
+
+    // Shift along the triangle normal to keep plane projections near zero.
+    float planeOffset = Dot(verticesA[0], triangleNormal);
+    for (int32 i = 0; i < 3; ++i)
+    {
+        verticesA[i] -= triangleNormal * planeOffset;
+    }
+
+    int32 vertexCountB = convex->GetVertexCount();
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = triangleNormal;
+
+    auto ProjectAxis = [&](Vec3 n, float* min, float* max) {
+        Vec3 p = Mul(tfB, convex->GetVertex(0)) - triangleNormal * planeOffset;
+        *min = Dot(p, n);
+        *max = *min;
+        for (int32 i = 1; i < vertexCountB; ++i)
+        {
+            p = Mul(tfB, convex->GetVertex(i)) - triangleNormal * planeOffset;
+            float value = Dot(p, n);
+            *min = Min(*min, value);
+            *max = Max(*max, value);
+        }
+    };
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 3; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB, maxB;
+        ProjectAxis(n, &minB, &maxB);
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            Vec3 axisNormal = positive ? n : -n;
+            normal = axisNormal;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(triangleNormal))
+    {
+        return false;
+    }
+
+    // Convex face normals.
+    for (Vec3 n : convex->GetFaceNormals())
+    {
+        if (!TestAxis(tfB.q.Rotate(n)))
+        {
+            return false;
+        }
+    }
+
+    // Triangle edge vs convex edge axes.
+    for (int32 i = 0; i < 3; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
+        for (const ConvexFace& face : convex->GetFaces())
+        {
+            for (int32 j = 0; j < face.count; ++j)
+            {
+                int32 i0 = face.indices[j];
+                int32 i1 = face.indices[(j + 1) % face.count];
+                Vec3 p0 = Mul(tfB, convex->GetVertex(i0)) - triangleNormal * planeOffset;
+                Vec3 p1 = Mul(tfB, convex->GetVertex(i1)) - triangleNormal * planeOffset;
+                if (!TestAxis(Cross(edgeA, p1 - p0)))
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const TriangleShape* triangleA = (const TriangleShape*)a;
+    const TriangleShape* triangleB = (const TriangleShape*)b;
+
+    Vec3 normalA = tfA.q.Rotate(triangleA->GetNormal());
+    Vec3 normalB = tfB.q.Rotate(triangleB->GetNormal());
+    Vec3 verticesA[3] = {
+        Mul(tfA, triangleA->GetVertex(0)),
+        Mul(tfA, triangleA->GetVertex(1)),
+        Mul(tfA, triangleA->GetVertex(2)),
+    };
+    Vec3 verticesB[3] = {
+        Mul(tfB, triangleB->GetVertex(0)),
+        Mul(tfB, triangleB->GetVertex(1)),
+        Mul(tfB, triangleB->GetVertex(2)),
+    };
+
+    // Shift along triangle A's normal to keep plane projections near zero.
+    float planeOffset = Dot(verticesA[0], normalA);
+    for (int32 i = 0; i < 3; ++i)
+    {
+        verticesA[i] -= normalA * planeOffset;
+        verticesB[i] -= normalA * planeOffset;
+    }
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = normalA;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 3; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(verticesB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 3; ++i)
+        {
+            float value = Dot(verticesB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            Vec3 axisNormal = positive ? n : -n;
+            normal = axisNormal;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(normalA))
+    {
+        return false;
+    }
+
+    // Triangle B face normal.
+    if (!TestAxis(normalB))
+    {
+        return false;
+    }
+
+    // Triangle edge vs triangle edge axes.
+    for (int32 i = 0; i < 3; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
+        for (int32 j = 0; j < 3; ++j)
+        {
+            Vec3 edgeB = verticesB[(j + 1) % 3] - verticesB[j];
+            if (!TestAxis(Cross(edgeA, edgeB)))
+            {
+                return false;
+            }
+        }
+    }
+
+    if (!manifold)
+    {
+        return true;
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
 struct HeightFieldContacts
 {
-    int32 count = 0;
-    ContactPoint contacts[2 * max_contact_point_count];
-
+    GrowableArray<ContactPoint, 8> contacts;
     Vec3 mean = Vec3::zero;
     Vec3 meanNormal = Vec3::zero;
 };
@@ -1245,66 +1764,44 @@ static void AddHeightFieldContact(
     candidate.separation = separation;
     candidate.id = id;
 
-    // Shallowest at root
-    const auto minHeap = [](const ContactPoint& a, const ContactPoint& b) { return -a.separation > -b.separation; };
-
-    if (candidates->count == 2 * max_contact_point_count)
-    {
-        if (-candidates->contacts[0].separation > -candidate.separation)
-        {
-            return;
-        }
-
-        std::pop_heap(candidates->contacts, candidates->contacts + candidates->count, minHeap);
-        candidates->mean -= candidates->contacts[candidates->count - 1].p;
-        candidates->meanNormal -= candidates->contacts[candidates->count - 1].normal;
-
-        candidates->contacts[candidates->count - 1] = candidate;
-    }
-    else
-    {
-        candidates->contacts[candidates->count++] = candidate;
-    }
-
+    candidates->contacts.push_back(candidate);
     candidates->mean += candidate.p;
     candidates->meanNormal += candidate.normal;
-    std::push_heap(candidates->contacts, candidates->contacts + candidates->count, minHeap);
 }
 
 static void BuildHeightFieldManifold(const HeightFieldContacts& candidates, ContactManifold* manifold)
 {
-    if (candidates.count == 0)
+    int32 candidateCount = int32(candidates.contacts.size());
+    if (candidateCount == 0)
     {
         manifold->contactCount = 0;
         return;
     }
 
-    const ContactPoint* contacts = candidates.contacts;
+    const ContactPoint* contacts = candidates.contacts.data();
 
-    if (candidates.count <= max_contact_point_count)
+    if (candidateCount <= max_contact_point_count)
     {
-        for (int32 i = 0; i < candidates.count; ++i)
+        for (int32 i = 0; i < candidateCount; ++i)
         {
             manifold->contactPoints[i] = contacts[i];
         }
 
-        manifold->contactCount = candidates.count;
+        manifold->contactCount = candidateCount;
         return;
     }
-
-    // Same manifold contact reduction logic as FindContactPoints
 
     int32 indices[max_contact_point_count];
     int32 contactCount = 0;
 
-    Vec3 projected[2 * max_contact_point_count];
-    float depth2[2 * max_contact_point_count];
+    std::vector<Vec3> projected(candidateCount);
+    std::vector<float> depth2(candidateCount);
 
     constexpr float minDepth2 = Sqr(linear_slop);
-    Vec3 center = candidates.mean / candidates.count;
-    Vec3 normal = Normalize(candidates.meanNormal / candidates.count);
+    Vec3 center = candidates.mean / candidateCount;
+    Vec3 normal = Normalize(candidates.meanNormal / candidateCount);
 
-    for (int32 i = 0; i < candidates.count; ++i)
+    for (int32 i = 0; i < candidateCount; ++i)
     {
         Vec3 r = contacts[i].anchorA - center;
         projected[i] = GramSchmidt(r, normal);
@@ -1313,7 +1810,7 @@ static void BuildHeightFieldManifold(const HeightFieldContacts& candidates, Cont
 
     int32 point1 = 0;
     float value = Max(minDepth2, Length2(projected[0])) * depth2[0];
-    for (int32 i = 1; i < candidates.count; ++i)
+    for (int32 i = 1; i < candidateCount; ++i)
     {
         float v = Max(minDepth2, Length2(projected[i])) * depth2[i];
         if (v > value)
@@ -1325,7 +1822,7 @@ static void BuildHeightFieldManifold(const HeightFieldContacts& candidates, Cont
 
     int32 point2 = -1;
     value = -max_float;
-    for (int32 i = 0; i < candidates.count; ++i)
+    for (int32 i = 0; i < candidateCount; ++i)
     {
         if (i == point1)
         {
@@ -1346,7 +1843,7 @@ static void BuildHeightFieldManifold(const HeightFieldContacts& candidates, Cont
     float maxSide = 0.0f;
     Vec3 perp = Cross(projected[point2] - projected[point1], normal);
 
-    for (int32 i = 0; i < candidates.count; ++i)
+    for (int32 i = 0; i < candidateCount; ++i)
     {
         if (i == point1 || i == point2)
         {
@@ -1379,138 +1876,13 @@ static void BuildHeightFieldManifold(const HeightFieldContacts& candidates, Cont
 
     for (int32 i = 0; i < contactCount; ++i)
     {
-        manifold->contactPoints[i] = candidates.contacts[indices[i]];
+        manifold->contactPoints[i] = contacts[indices[i]];
     }
 
     manifold->contactCount = contactCount;
 }
 
-bool HeightFieldVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const HeightFieldShape* heightField = (const HeightFieldShape*)a;
-
-    Vec3 localCenter = MulT(tfA, Mul(tfB, b->GetCenter()));
-    float sphereRadius = b->GetRadius();
-    AABB localAABB{ localCenter - Vec3{ sphereRadius }, localCenter + Vec3{ sphereRadius } };
-
-    HeightFieldContacts candidates;
-    heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
-        Vec3 closest = ClosestPointVsTriangle(localCenter, v0, v1, v2);
-        Vec3 n = localCenter - closest;
-        float distance = n.Normalize();
-
-        if (distance > sphereRadius)
-        {
-            return;
-        }
-
-        Vec3 triangleNormal = Cross(v1 - v0, v2 - v0);
-        triangleNormal.Normalize();
-        if (distance <= epsilon || Dot(n, triangleNormal) < 0.0f)
-        {
-            n = triangleNormal;
-        }
-
-        int32 id = ((z * heightField->GetCellCountX() + x) << 1) | triangle;
-        Vec3 anchorA = Mul(tfA, closest);
-        Vec3 anchorB = Mul(tfA, localCenter - n * sphereRadius);
-
-        AddHeightFieldContact(&candidates, tfA.q.Rotate(n), anchorA, anchorB, id);
-    });
-
-    if (candidates.count == 0)
-    {
-        return false;
-    }
-
-    if (!manifold)
-    {
-        return true;
-    }
-
-    BuildHeightFieldManifold(candidates, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool HeightFieldVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const HeightFieldShape* heightField = (const HeightFieldShape*)a;
-    const CapsuleShape* capsule = (const CapsuleShape*)b;
-
-    Vec3 va = MulT(tfA, Mul(tfB, capsule->GetVertexA()));
-    Vec3 vb = MulT(tfA, Mul(tfB, capsule->GetVertexB()));
-
-    float capsuleRadius = capsule->GetRadius();
-    AABB localAABB{ Min(va, vb) - Vec3{ capsuleRadius }, Max(va, vb) + Vec3{ capsuleRadius } };
-
-    HeightFieldContacts candidates;
-    heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
-        Vec3 bestSegmentPoint = va;
-        Vec3 bestTrianglePoint = ClosestPointVsTriangle(va, v0, v1, v2);
-        float bestDistance2 = Dist2(bestSegmentPoint, bestTrianglePoint);
-
-        auto TestSegmentPoint = [&](const Vec3& p) {
-            Vec3 q = ClosestPointVsTriangle(p, v0, v1, v2);
-            float d2 = Dist2(p, q);
-            if (d2 < bestDistance2)
-            {
-                bestDistance2 = d2;
-                bestSegmentPoint = p;
-                bestTrianglePoint = q;
-            }
-        };
-
-        auto TestTrianglePoint = [&](const Vec3& p) {
-            Vec3 q = ClosestPointVsSegment(p, va, vb);
-            float d2 = Dist2(p, q);
-            if (d2 < bestDistance2)
-            {
-                bestDistance2 = d2;
-                bestSegmentPoint = q;
-                bestTrianglePoint = p;
-            }
-        };
-
-        TestSegmentPoint(vb);
-        TestTrianglePoint(v0);
-        TestTrianglePoint(v1);
-        TestTrianglePoint(v2);
-
-        if (bestDistance2 > Sqr(capsuleRadius))
-        {
-            return;
-        }
-
-        Vec3 n = bestSegmentPoint - bestTrianglePoint;
-        float distance = n.Normalize();
-        Vec3 triangleNormal = Cross(v1 - v0, v2 - v0);
-        triangleNormal.Normalize();
-        if (distance <= epsilon || Dot(n, triangleNormal) < 0.0f)
-        {
-            n = triangleNormal;
-        }
-
-        int32 id = ((z * heightField->GetCellCountX() + x) << 1) | triangle;
-        AddHeightFieldContact(
-            &candidates, tfA.q.Rotate(n), Mul(tfA, bestTrianglePoint), Mul(tfA, bestSegmentPoint - n * capsuleRadius), id
-        );
-    });
-
-    if (candidates.count == 0)
-    {
-        return false;
-    }
-
-    if (!manifold)
-    {
-        return true;
-    }
-
-    BuildHeightFieldManifold(candidates, manifold);
-    return manifold->contactCount > 0;
-}
-
-static bool HeightFieldVsConvex(
+static bool HeightFieldVsShape(
     const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
 )
 {
@@ -1538,41 +1910,28 @@ static bool HeightFieldVsConvex(
         max = Max(max, corners[i]);
     }
 
-    AABB localAABB = AABB{ min, max };
-    float shapeRadius = b->GetRadius();
-    localAABB.min -= Vec3{ shapeRadius };
-    localAABB.max += Vec3{ shapeRadius };
-
     HeightFieldContacts candidates;
+    AABB localAABB = AABB{ min, max };
     heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
-        Vec3 n = Cross(v1 - v0, v2 - v0);
-        if (n.Normalize() == 0.0f)
+        TriangleShape triangleShape{ v0, v1, v2, 0.0f };
+
+        ContactManifold manifold;
+        bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
+        if (touching == false)
         {
             return;
         }
 
-        for (int32 i = 0; i < b->GetVertexCount(); ++i)
+        int32 triangleId = ((z * heightField->GetCellCountX() + x) << 1) | triangle;
+        for (int32 i = 0; i < manifold.contactCount; ++i)
         {
-            Vec3 vertex = MulT(tfA, Mul(tfB, b->GetVertex(i)));
-            float signedDistance = Dot(vertex - v0, n);
-            if (signedDistance > shapeRadius)
-            {
-                continue;
-            }
-
-            Vec3 projection = vertex - n * signedDistance;
-            Vec3 closest = ClosestPointVsTriangle(vertex, v0, v1, v2);
-            if (Dist2(projection, closest) > Sqr(Max(shapeRadius, linear_slop) * 2.0f))
-            {
-                continue;
-            }
-
-            int32 id = (((z * heightField->GetCellCountX() + x) << 1) | triangle) * b->GetVertexCount() + i;
-            AddHeightFieldContact(&candidates, tfA.q.Rotate(n), Mul(tfA, closest), Mul(tfA, vertex - n * shapeRadius), id);
+            ContactPoint contact = manifold.contactPoints[i];
+            contact.id = (triangleId << 8) | (contact.id & 0xff);
+            AddHeightFieldContact(&candidates, contact.normal, contact.anchorA, contact.anchorB, contact.id);
         }
     });
 
-    if (candidates.count == 0)
+    if (candidates.contacts.size() == 0)
     {
         return false;
     }
@@ -1607,10 +1966,17 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::convex][Shape::box] = ConvexVsConvex;
     collide_function_map[Shape::convex][Shape::convex] = ConvexVsConvex;
 
-    collide_function_map[Shape::height_field][Shape::sphere] = HeightFieldVsSphere;
-    collide_function_map[Shape::height_field][Shape::capsule] = HeightFieldVsCapsule;
-    collide_function_map[Shape::height_field][Shape::box] = HeightFieldVsConvex;
-    collide_function_map[Shape::height_field][Shape::convex] = HeightFieldVsConvex;
+    collide_function_map[Shape::triangle][Shape::sphere] = TriangleVsSphere;
+    collide_function_map[Shape::triangle][Shape::capsule] = TriangleVsCapsule;
+    collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
+    collide_function_map[Shape::triangle][Shape::convex] = TriangleVsConvex;
+    collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
+
+    collide_function_map[Shape::height_field][Shape::sphere] = HeightFieldVsShape;
+    collide_function_map[Shape::height_field][Shape::capsule] = HeightFieldVsShape;
+    collide_function_map[Shape::height_field][Shape::box] = HeightFieldVsShape;
+    collide_function_map[Shape::height_field][Shape::convex] = HeightFieldVsShape;
+    collide_function_map[Shape::height_field][Shape::triangle] = HeightFieldVsShape;
     collide_function_map[Shape::height_field][Shape::height_field] = nullptr;
 
     detection_function_initialized = true;

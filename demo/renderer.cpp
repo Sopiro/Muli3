@@ -391,6 +391,10 @@ bool Renderer::CreateShapeResources()
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     SetShapeInstanceAttributes();
 
+    glBindVertexArray(triangleMesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     return shapeInstanceVBO != 0;
@@ -474,6 +478,10 @@ bool Renderer::Initialize()
 
     BuildBoxMesh(&vertices, &indices);
     boxMesh.Upload(vertices, indices, GL_TRIANGLES);
+
+    BuildTriangleMesh(&vertices, &indices);
+    triangleMesh.Upload(vertices, indices, GL_TRIANGLES);
+
     if (!CreateShapeResources())
     {
         return false;
@@ -489,6 +497,8 @@ bool Renderer::Initialize()
     capsuleMidInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
     boxInstances[g_fillPass].reserve(g_maxShapeBatchCount);
     boxInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    triangleInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    triangleInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
     points.resize(g_maxVertexCount);
     lines.resize(g_maxVertexCount);
     initialized = true;
@@ -509,6 +519,7 @@ void Renderer::Shutdown()
     capsuleBottomMesh.Destroy();
     capsuleMidMesh.Destroy();
     boxMesh.Destroy();
+    triangleMesh.Destroy();
     shapeShader.Destroy();
     shadowShader.Destroy();
     DestroyShadowResources();
@@ -676,6 +687,26 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     {
         DrawConvex((const ConvexShape*)shape, transform, color, wireframe, shader);
     }
+    else if (shape->GetType() == Shape::triangle)
+    {
+        const TriangleShape* triangle = (const TriangleShape*)shape;
+        Vec3 a = Mul(transform, triangle->GetVertex(0));
+        Vec3 b = Mul(transform, triangle->GetVertex(1));
+        Vec3 c = Mul(transform, triangle->GetVertex(2));
+        Mat4 model{
+            Vec4{ b - a, 0.0f },
+            Vec4{ c - a, 0.0f },
+            Vec4{ transform.q.Rotate(triangle->GetNormal()), 0.0f },
+            Vec4{ a, 1.0f },
+        };
+
+        triangleInstances[pass].emplace_back(model, color);
+
+        if (triangleInstances[pass].size() == g_maxShapeBatchCount)
+        {
+            FlushTriangles(shader, wireframe);
+        }
+    }
     else if (shape->GetType() == Shape::height_field)
     {
         DrawHeightField((const HeightFieldShape*)shape, transform, color, wireframe, shader);
@@ -830,6 +861,7 @@ void Renderer::FlushQueuedShapes(const Shader& shader, bool wireframe)
     FlushSpheres(shader, wireframe);
     FlushCapsules(shader, wireframe);
     FlushBoxes(shader, wireframe);
+    FlushTriangles(shader, wireframe);
 }
 
 void Renderer::FlushSpheres(const Shader& shader, bool wireframe)
@@ -951,6 +983,44 @@ void Renderer::FlushBoxes(const Shader& shader, bool wireframe)
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
     boxMesh.DrawInstanced((GLsizei)instances.size());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    instances.clear();
+}
+
+void Renderer::FlushTriangles(const Shader& shader, bool wireframe)
+{
+    std::vector<ShapeInstance>& instances = triangleInstances[wireframe ? g_outlinePass : g_fillPass];
+    if (instances.empty())
+    {
+        return;
+    }
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
+    triangleMesh.DrawInstanced((GLsizei)instances.size());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     if (wireframe)

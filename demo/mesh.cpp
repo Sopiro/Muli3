@@ -473,6 +473,23 @@ void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* ind
     }
 }
 
+void BuildTriangleMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    *vertices = {
+        MeshVertex{ Vec3{ 0.0f, 0.0f, 0.0f }, z_axis, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ 1.0f, 0.0f, 0.0f }, z_axis, Vec2{ 1.0f, 0.0f } },
+        MeshVertex{ Vec3{ 0.0f, 1.0f, 0.0f }, z_axis, Vec2{ 0.0f, 1.0f } },
+        MeshVertex{ Vec3{ 0.0f, 0.0f, 0.0f }, -z_axis, Vec2{ 0.0f, 0.0f } },
+        MeshVertex{ Vec3{ 0.0f, 1.0f, 0.0f }, -z_axis, Vec2{ 0.0f, 1.0f } },
+        MeshVertex{ Vec3{ 1.0f, 0.0f, 0.0f }, -z_axis, Vec2{ 1.0f, 0.0f } },
+    };
+
+    *indices = { 0, 1, 2, 3, 4, 5 };
+}
+
 void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const HeightFieldShape& shape)
 {
     MuliAssert(vertices != nullptr);

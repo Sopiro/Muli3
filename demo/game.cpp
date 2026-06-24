@@ -829,7 +829,7 @@ void Game::UpdateUI()
                     ImGui::EndTabItem();
                 }
 
-                if (ImGui::BeginTabItem("Counters"))
+                if (ImGui::BeginTabItem("World Status"))
                 {
                     int32 staticBodyCount = 0;
                     int32 dynamicBodyCount = 0;
@@ -878,13 +878,14 @@ void Game::UpdateUI()
 
                     if (ImGui::BeginTable("CountersLayout", 2, ImGuiTableFlags_SizingFixedFit))
                     {
-                        ImGui::TableSetupColumn("Bodies", ImGuiTableColumnFlags_WidthFixed, 220.0f);
+                        ImGui::TableSetupColumn("Body", ImGuiTableColumnFlags_WidthFixed, 220.0f);
                         ImGui::TableSetupColumn("Simulation", ImGuiTableColumnFlags_WidthStretch);
                         ImGui::TableHeadersRow();
                         ImGui::TableNextRow();
                         ImGui::TableNextColumn();
                         ImGui::Text("Bodies: %d", world.GetBodyCount());
                         // ImGui::Text("Enabled: %d", enabledBodyCount);
+                        ImGui::Text("Colliders: %d", colliderCount);
                         ImGui::Text("Static: %d", staticBodyCount);
                         ImGui::Text("Kinematic: %d", kinematicBodyCount);
                         ImGui::Text("Dynamic: %d", dynamicBodyCount);
@@ -892,7 +893,6 @@ void Game::UpdateUI()
                         ImGui::Text("Sleeping Dynamic: %d", world.GetSleepingBodyCount());
 
                         ImGui::TableNextColumn();
-                        ImGui::Text("Colliders: %d", colliderCount);
                         ImGui::Text("Contacts: %d", world.GetContactCount());
                         ImGui::Text("Joints: %d", world.GetJointCount());
                         ImGui::Text("Awake Islands: %d", world.GetAwakeIslandCount());

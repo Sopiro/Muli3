@@ -126,6 +126,20 @@ Body* World::CreateConvex(
     return b;
 }
 
+Body* World::CreateTriangle(
+    const Vec3& a, const Vec3& b, const Vec3& c, const Transform& transform, Body::Type type, float radius, float density
+)
+{
+    Body* body = CreateEmptyBody(transform, type);
+    body->CreateTriangleCollider(a, b, c, identity, radius, density);
+    return body;
+}
+
+Body* World::CreateTriangle(const Vec3 vertices[3], const Transform& transform, Body::Type type, float radius, float density)
+{
+    return CreateTriangle(vertices[0], vertices[1], vertices[2], transform, type, radius, density);
+}
+
 Body* World::CreateHeightField(
     int32 sampleCountX,
     int32 sampleCountZ,
@@ -138,7 +152,7 @@ Body* World::CreateHeightField(
 )
 {
     Body* b = CreateEmptyBody(transform, Body::static_body);
-    b->CreateHeightFieldCollider(sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize);
+    b->CreateHeightFieldCollider(sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize, identity);
     return b;
 }
 
@@ -835,6 +849,9 @@ static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, f
 
 void World::Solve()
 {
+    islandCount = 0;
+    sleepingBodyCount = 0;
+
     SolverSet& awakeSet = solverSets[awake_set];
     int32 awakeBodyCount = int32(awakeSet.bodyStates.size());
     if (awakeBodyCount == 0)
@@ -855,7 +872,6 @@ void World::Solve()
     int32 stackPointer = 0;
     Body** stack = (Body**)linearAllocator.Allocate(bodyCount * sizeof(Body*));
 
-    islandCount = 0;
     Island* islands = (Island*)linearAllocator.Allocate(bodyCount * sizeof(Island));
 
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
@@ -2185,6 +2201,10 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
         return poolAllocator.New<ConvexShape>(*(const ConvexShape*)shape, transform);
     }
+    case Shape::triangle:
+    {
+        return poolAllocator.New<TriangleShape>(*(const TriangleShape*)shape, transform);
+    }
     case Shape::height_field:
     {
         return poolAllocator.New<HeightFieldShape>(*(const HeightFieldShape*)shape, transform);
@@ -2212,6 +2232,9 @@ void World::FreeShape(Shape* shape)
         break;
     case Shape::convex:
         poolAllocator.Delete((ConvexShape*)shape);
+        break;
+    case Shape::triangle:
+        poolAllocator.Delete((TriangleShape*)shape);
         break;
     case Shape::height_field:
         poolAllocator.Delete((HeightFieldShape*)shape);
