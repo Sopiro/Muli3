@@ -39,7 +39,6 @@ private:
     std::vector<Vec3> vertices;
     std::vector<ConvexFace> faces;
     std::vector<Vec3> normals;
-    Mat3 inertia;
 
     bool TestPointLocal(const Vec3& q) const;
     Vec3 GetClosestPointLocal(const Vec3& q) const;

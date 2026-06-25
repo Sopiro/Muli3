@@ -313,8 +313,8 @@ static void FindContactPoints(
     Face faceA = a->GetFeaturedFace(tfA, n);
     Face faceB = b->GetFeaturedFace(tfB, -n);
 
-    TranslateFace(&faceA, faceA.normal * a->GetRadius());
-    TranslateFace(&faceB, faceB.normal * b->GetRadius());
+    TranslateFace(&faceA, n * a->GetRadius());
+    TranslateFace(&faceB, -n * b->GetRadius());
 
     Face ref; // Reference face
     Face inc; // Incident face
@@ -539,11 +539,6 @@ bool SphereVsSphere(
         return false;
     }
 
-    if (!manifold)
-    {
-        return true;
-    }
-
     float distance = SafeSqrt(distance2);
     Vec3 normal = distance > epsilon ? d / distance : Vec3{ 1.0f, 0.0f, 0.0f };
     if (distance <= epsilon)
@@ -608,11 +603,6 @@ bool CapsuleVsSphere(
     if (distance > radii)
     {
         return false;
-    }
-
-    if (!manifold)
-    {
-        return true;
     }
 
     normal = transformA.q.Rotate(normal);
@@ -787,11 +777,6 @@ bool BoxVsSphere(
                 contactID |= 1 << (i * 2 + 1);
             }
         }
-    }
-
-    if (!manifold)
-    {
-        return true;
     }
 
     if (separation <= epsilon && !inside)
@@ -1069,11 +1054,6 @@ bool ConvexVsSphere(
         closest = centerB - normal * distance;
     }
 
-    if (!manifold)
-    {
-        return true;
-    }
-
     manifold->contactPoints[0].anchorA = closest;
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
@@ -1246,11 +1226,6 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
         normal = separation < 0.0f ? -triangleNormal : triangleNormal;
     }
 
-    if (!manifold)
-    {
-        return true;
-    }
-
     normal = tfA.q.Rotate(normal);
     manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
     manifold->contactPoints[0].anchorB = p - normal * rb;
@@ -1376,11 +1351,6 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
         }
     }
 
-    if (!manifold)
-    {
-        return true;
-    }
-
     FindContactPoints(normal, a, tfA, b, tfB, manifold);
     return manifold->contactCount > 0;
 }
@@ -1491,11 +1461,6 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
                 return false;
             }
         }
-    }
-
-    if (!manifold)
-    {
-        return true;
     }
 
     FindContactPoints(normal, a, tfA, b, tfB, manifold);
@@ -1617,11 +1582,6 @@ bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, cons
         }
     }
 
-    if (!manifold)
-    {
-        return true;
-    }
-
     FindContactPoints(normal, a, tfA, b, tfB, manifold);
     return manifold->contactCount > 0;
 }
@@ -1728,11 +1688,6 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
                 return false;
             }
         }
-    }
-
-    if (!manifold)
-    {
-        return true;
     }
 
     FindContactPoints(normal, a, tfA, b, tfB, manifold);
@@ -1934,11 +1889,6 @@ static bool HeightFieldVsShape(
     if (candidates.contacts.size() == 0)
     {
         return false;
-    }
-
-    if (!manifold)
-    {
-        return true;
     }
 
     BuildHeightFieldManifold(candidates, manifold);

@@ -150,7 +150,6 @@ Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density,
         return nullptr;
     }
 
-    // Shape radius(skin) must be greater than or equal to linear_slop * 2.0 for stable CCD
     MuliAssert(shape->GetRadius() >= minimum_radius);
 
     Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;

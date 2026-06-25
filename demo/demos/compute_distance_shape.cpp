@@ -8,7 +8,7 @@
 namespace muli3
 {
 
-static const char* distanceShapeItems[] = { "Sphere", "Capsule", "Box" };
+static const char* distanceShapeItems[] = { "Sphere", "Capsule", "Box", "Triangle" };
 
 class ComputeDistanceShape : public Demo
 {
@@ -195,6 +195,12 @@ private:
         case 2:
             shape1.reset(new BoxShape(size1, convexRadius1));
             break;
+        case 3:
+            shape1.reset(new TriangleShape(
+                Vec3{ -size1.x * 0.5f, -size1.y * 0.5f, 0.0f }, Vec3{ size1.x * 0.5f, -size1.y * 0.5f, 0.0f },
+                Vec3{ 0.0f, size1.y * 0.5f, 0.0f }, convexRadius1
+            ));
+            break;
         default:
             break;
         }
@@ -212,6 +218,12 @@ private:
             break;
         case 2:
             shape2.reset(new BoxShape(size2, convexRadius2));
+            break;
+        case 3:
+            shape2.reset(new TriangleShape(
+                Vec3{ -size2.x * 0.5f, -size2.y * 0.5f, 0.0f }, Vec3{ size2.x * 0.5f, -size2.y * 0.5f, 0.0f },
+                Vec3{ 0.0f, size2.y * 0.5f, 0.0f }, convexRadius2
+            ));
             break;
         default:
             break;

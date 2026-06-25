@@ -503,6 +503,8 @@ void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>
     vertices->reserve(size_t(cellCountX) * size_t(cellCountZ) * 6);
     indices->reserve(size_t(cellCountX) * size_t(cellCountZ) * 6);
 
+    float uvScale = 0.4f;
+
     for (int32 z = 0; z < cellCountZ; ++z)
     {
         for (int32 x = 0; x < cellCountX; ++x)
@@ -515,9 +517,9 @@ void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>
                 normal.Normalize();
 
                 uint32 base = uint32(vertices->size());
-                vertices->push_back(MeshVertex{ a, normal, Vec2{ a.x, a.z } });
-                vertices->push_back(MeshVertex{ b, normal, Vec2{ b.x, b.z } });
-                vertices->push_back(MeshVertex{ c, normal, Vec2{ c.x, c.z } });
+                vertices->push_back(MeshVertex{ a, normal, Vec2(a.x, a.z) * uvScale });
+                vertices->push_back(MeshVertex{ b, normal, Vec2(b.x, b.z) * uvScale });
+                vertices->push_back(MeshVertex{ c, normal, Vec2(c.x, c.z) * uvScale });
 
                 indices->push_back(base);
                 indices->push_back(base + 1);

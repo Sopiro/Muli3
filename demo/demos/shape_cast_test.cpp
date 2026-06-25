@@ -173,10 +173,7 @@ private:
             break;
         case 3:
             shape.reset(new TriangleShape(
-                Vec3{ -0.25f, -0.22f, 0.0f },
-                Vec3{ 0.25f, -0.22f, 0.0f },
-                Vec3{ 0.0f, 0.28f, 0.0f },
-                default_radius
+                Vec3{ -0.25f, -0.22f, 0.0f }, Vec3{ 0.25f, -0.22f, 0.0f }, Vec3{ 0.0f, 0.28f, 0.0f }, default_radius
             ));
             break;
         default:

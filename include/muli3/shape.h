@@ -4,6 +4,7 @@
 #include "dynamic_dispatcher.h"
 #include "primitives.h"
 #include "raycast.h"
+#include "settings.h"
 
 namespace muli3
 {
@@ -76,7 +77,7 @@ inline Shape::Shape(Type type, float radius)
     , center{ 0.0f }
     , radius{ radius }
 {
-    MuliAssert(radius > 0.0f);
+    MuliAssert(radius >= minimum_radius);
 }
 
 inline Shape::Type Shape::GetType() const

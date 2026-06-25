@@ -48,10 +48,63 @@ static void ComputeFaceNormals(std::span<const Vec3> vertices, std::span<const C
     }
 }
 
-static void ComputeMassProperties(
-    std::span<const Vec3> vertices, std::span<const ConvexFace> faces, float* outVolume, Vec3* outCenter, Mat3* outInertia
-)
+ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
+    : Shape{ Shape::convex, inRadius }
 {
+    ComputeConvexHull(inVertices, &vertices, &faces);
+
+    MuliAssert(vertices.size() >= 4);
+    MuliAssert(faces.size() > 0);
+
+    for (Vec3& vertex : vertices)
+    {
+        vertex = Mul(transform, vertex);
+    }
+
+    FixFaceWinding(vertices, &faces);
+    ComputeFaceNormals(vertices, faces, &normals);
+
+    MassData massData;
+    ComputeMass(1.0f, &massData);
+    center = massData.centerOfMass;
+    volume = massData.mass;
+}
+
+ConvexShape::ConvexShape(
+    std::span<const Vec3> inVertices, std::span<const ConvexFace> inFaces, float inRadius, const Transform& transform
+)
+    : Shape{ Shape::convex, inRadius }
+    , vertices{ inVertices.begin(), inVertices.end() }
+    , faces{ inFaces.begin(), inFaces.end() }
+{
+    // Behavior is undefined if vertices/faces do not describe a valid closed convex hull.
+
+    MuliAssert(vertices.size() >= 4);
+    MuliAssert(faces.size() > 0);
+
+    for (Vec3& vertex : vertices)
+    {
+        vertex = Mul(transform, vertex);
+    }
+
+    FixFaceWinding(vertices, &faces);
+    ComputeFaceNormals(vertices, faces, &normals);
+
+    MassData massData;
+    ComputeMass(1.0f, &massData);
+    center = massData.centerOfMass;
+    volume = massData.mass;
+}
+
+ConvexShape::ConvexShape(const ConvexShape& other, const Transform& transform)
+    : ConvexShape(other.vertices, other.faces, other.radius, transform)
+{
+}
+
+void ConvexShape::ComputeMass(float density, MassData* outMassData) const
+{
+    MuliAssert(outMassData != nullptr);
+
     // Integrate the closed hull as a set of signed tetrahedra against the origin.
     // The resulting inertia tensor is expressed about the local origin and later
     // shifted by the rigid body mass aggregation path if needed.
@@ -72,7 +125,7 @@ static void ComputeMassProperties(
 
         for (int32 i = 1; i + 1 < face.count; ++i)
         {
-            // Form a tetragedron {O A B C}
+            // Form a tetrahedron {O A B C}
             const Vec3d& b = vertices[face.indices[i]];
             const Vec3d& c = vertices[face.indices[i + 1]];
 
@@ -124,74 +177,20 @@ static void ComputeMassProperties(
 
     if (volume <= epsilon)
     {
-        *outVolume = 0.0f;
-        *outCenter = Vec3::zero;
-        *outInertia = Mat3::zero;
+        outMassData->mass = 0.0f;
+        outMassData->centerOfMass = Vec3::zero;
+        outMassData->inertia = Mat3::zero;
         return;
     }
 
     Vec3 center{ float(mx), float(my), float(mz) };
     center /= (4 * volume);
 
-    *outVolume = volume;
-    *outCenter = center;
-    *outInertia = Mat3{
+    Mat3 inertia{
         Vec3{ float(yy + zz), float(-xy), float(-zx) },
         Vec3{ float(-xy), float(xx + zz), float(-yz) },
         Vec3{ float(-zx), float(-yz), float(xx + yy) },
     };
-}
-
-ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
-    : Shape{ Shape::convex, inRadius }
-    , inertia{ 0.0f }
-{
-    ComputeConvexHull(inVertices, &vertices, &faces);
-
-    MuliAssert(vertices.size() >= 4);
-    MuliAssert(faces.size() > 0);
-
-    for (Vec3& vertex : vertices)
-    {
-        vertex = Mul(transform, vertex);
-    }
-
-    FixFaceWinding(vertices, &faces);
-    ComputeFaceNormals(vertices, faces, &normals);
-    ComputeMassProperties(vertices, faces, &volume, &center, &inertia);
-}
-
-ConvexShape::ConvexShape(
-    std::span<const Vec3> inVertices, std::span<const ConvexFace> inFaces, float inRadius, const Transform& transform
-)
-    : Shape{ Shape::convex, inRadius }
-    , vertices{ inVertices.begin(), inVertices.end() }
-    , faces{ inFaces.begin(), inFaces.end() }
-    , inertia{ 0.0f }
-{
-    // Behavior is undefined if vertices/faces do not describe a valid closed convex hull.
-
-    MuliAssert(vertices.size() >= 4);
-    MuliAssert(faces.size() > 0);
-
-    for (Vec3& vertex : vertices)
-    {
-        vertex = Mul(transform, vertex);
-    }
-
-    FixFaceWinding(vertices, &faces);
-    ComputeFaceNormals(vertices, faces, &normals);
-    ComputeMassProperties(vertices, faces, &volume, &center, &inertia);
-}
-
-ConvexShape::ConvexShape(const ConvexShape& other, const Transform& transform)
-    : ConvexShape(other.vertices, other.faces, other.radius, transform)
-{
-}
-
-void ConvexShape::ComputeMass(float density, MassData* outMassData) const
-{
-    MuliAssert(outMassData != nullptr);
 
     outMassData->mass = density * volume;
     outMassData->centerOfMass = center;
