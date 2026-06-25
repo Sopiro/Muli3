@@ -61,8 +61,16 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
     outMassData->centerOfMass = center;
 
     // BoxShape is the Minkowski sum of the core box and a sphere of radius r.
-    // The inertia is accumulated from the non-overlapping rounded-box pieces:
+    //
+    // The rounded box is decomposed into non-overlapping pieces:
     // core box, 6 face slabs, 12 edge quarter-cylinders, and 8 corner octants.
+    //
+    // Accumulate the second moment matrix M2 = \int x*x^T dV about the local box center.
+    // Because the rounded box is symmetric around all local axes, off-diagonal terms vanish.
+    // Inertia is computed from M2 at the end:
+    //
+    // I = \int (dot(x,x) Identity - x*x^T) dm = tr(M2) * Identity - M2
+
     float a = halfExtents.x;
     float b = halfExtents.y;
     float c = halfExtents.z;
@@ -72,7 +80,13 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
     float r4 = r2 * r2;
     float r5 = r4 * r;
 
-    // Second moments about the local box center: xx = int x^2 dV, etc.
+    // Core box.
+    //
+    // M2_x = \int_{-a}^{a} \int_{-b}^{b} \int_{-c}^{c} x^2 dz dy dx
+    //      = (2a^3 / 3) * (2b) * (2c)
+    //
+    // The y/z components are the same with axes permuted.
+    //
     Vec3 second{
         8.0f / 3.0f * a * a * a * b * c,
         8.0f / 3.0f * a * b * b * b * c,
@@ -85,7 +99,22 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
         float h1 = halfExtents[(axis + 1) % 3];
         float h2 = halfExtents[(axis + 2) % 3];
 
-        // Face slabs
+        // Face slabs for +/- axis.
+        //
+        // Let x0 be the slab axis and x1/x2 be the two in-plane axes.
+        // The two slabs have:
+        //
+        // x0 in [h0, h0 + r] and [-h0 - r, -h0]
+        // x1 in [-h1, h1]
+        // x2 in [-h2, h2]
+        //
+        // M2_0 = 2 * (2h1) * (2h2) * \int_{h0}^{h0+r} x0^2 dx0
+        //      = 8h1h2 * ((h0 + r)^3 - h0^3) / 3
+        //
+        // M2_1 = 2 * (2h2) * r * \int_{-h1}^{h1} x1^2 dx1
+        //      = 8h1^3h2r / 3
+        //
+        // M2_2 is the same with h1/h2 swapped.
         {
             float m0 = 8.0f * h1 * h2 * ((h0 + r) * (h0 + r) * (h0 + r) - h0 * h0 * h0) / 3.0f;
             float m1 = 8.0f / 3.0f * h1 * h1 * h1 * h2 * r;
@@ -96,7 +125,24 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
             second[(axis + 2) % 3] += m2;
         }
 
-        // Edge quarter cylinders
+        // Edge quarter-cylinders parallel to axis.
+        //
+        // There are four edges for the selected axis. For each edge:
+        //
+        // x0 = s, s in [-h0, h0]
+        // x1 = +/-h1 + u
+        // x2 = +/-h2 + v
+        // (u, v) is inside one quarter disk: u >= 0, v >= 0, u^2 + v^2 <= r^2
+        //
+        // Over all four edges the x1/x2 signs cancel the odd terms, and:
+        //
+        // M2_0 = 4 * (pi*r^2 / 4) * \int_{-h0}^{h0} s^2 ds
+        //      = 2*pi*r^2*h0^3 / 3
+        //
+        // M2_1 = length * 4 * \int_quarter (h1 + u)^2 dA
+        //      = length * (pi*h1^2*r^2 + 8*h1*r^3/3 + pi*r^4/4)
+        //
+        // M2_2 is the same with h1/h2 swapped.
         {
             float length = 2.0f * h0;
 
@@ -109,6 +155,15 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
         }
     }
 
+    // Corner octants.
+    //
+    // The 8 octants combine into one full sphere of radius r, with each octant
+    // translated to a box corner. By symmetry:
+    //
+    // M2_x = a^2 * V_sphere + \int_sphere q_x^2 dV
+    //      = a^2 * (4*pi*r^3/3) + 4*pi*r^5/15
+    //
+    // The y/z components are the same expression with b/c.
     float sphereVolume = 4.0f / 3.0f * pi * r3;
     float sphereSecond = 4.0f * pi * r5 / 15.0f;
     second.x += a * a * sphereVolume + sphereSecond;
