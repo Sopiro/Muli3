@@ -1,14 +1,18 @@
 #include "muli3/geometry.h"
-#include "muli3/frame.h"
-#include "muli3/settings.h"
 
 namespace muli3
 {
 
 struct HullFace
 {
-    std::vector<int32> indices;
+    int32 indices[3];
     Vec3 normal;
+};
+
+struct HullEdge
+{
+    int32 a;
+    int32 b;
 };
 
 static bool Contains(std::span<const int32> indices, int32 value)
@@ -24,36 +28,26 @@ static bool Contains(std::span<const int32> indices, int32 value)
     return false;
 }
 
-static bool HasFace(std::span<const HullFace> faces, std::span<const int32> indices)
+static void AddBoundaryEdge(std::vector<HullEdge>* edges, int32 a, int32 b)
 {
-    for (const HullFace& face : faces)
+    // An edge shared by two visible faces appears twice with opposite direction.
+    // Remove those internal edges and keep only the patch boundary.
+    for (int32 i = 0; i < int32(edges->size()); ++i)
     {
-        if (face.indices.size() != indices.size())
+        if ((*edges)[i].a == b && (*edges)[i].b == a)
         {
-            continue;
-        }
-
-        bool same = true;
-        for (size_t i = 0; i < indices.size(); ++i)
-        {
-            if (face.indices[i] != indices[i])
-            {
-                same = false;
-                break;
-            }
-        }
-
-        if (same)
-        {
-            return true;
+            edges->erase(edges->begin() + i);
+            return;
         }
     }
 
-    return false;
+    edges->push_back(HullEdge{ a, b });
 }
 
 static bool HasPoint(std::span<const Vec3> points, const Vec3& p, float tolerance2)
 {
+    // Treat nearly coincident points as one point so the hull does not get tiny
+    // duplicate faces from noisy input.
     for (const Vec3& point : points)
     {
         if (Dist2(point, p) <= tolerance2)
@@ -65,41 +59,128 @@ static bool HasPoint(std::span<const Vec3> points, const Vec3& p, float toleranc
     return false;
 }
 
-static void OrderFace(std::span<const Vec3> points, std::vector<int32>* indices, const Vec3& normal)
+static float DistanceToFace(std::span<const Vec3> points, const HullFace& face, int32 index)
 {
-    // Collapse a coplanar point set into a stable polygon loop so the face can be
-    // triangulated later without relying on the input order.
-    Vec3 center = Vec3::zero;
-    for (int32 index : *indices)
+    // Positive distance means the point is outside this outward-facing face.
+    return Dot(face.normal, points[index] - points[face.indices[0]]);
+}
+
+static bool CreateFace(
+    std::span<const Vec3> points, int32 a, int32 b, int32 c, const Vec3& inside, float tolerance, HullFace* outFace
+)
+{
+    // Build an outward-facing triangle. The point inside the hull is used only to
+    // decide whether the winding needs to be flipped.
+    Vec3 normal = Cross(points[b] - points[a], points[c] - points[a]);
+    float length = normal.Normalize();
+    if (length <= tolerance)
     {
-        center += points[index];
+        return false;
     }
-    center *= 1.0f / indices->size();
 
-    Vec3 tangent;
-    Vec3 bitangent;
-    CoordinateSystem(normal, &tangent, &bitangent);
-
-    std::sort(indices->begin(), indices->end(), [&](int32 a, int32 b) {
-        Vec3 da = points[a] - center;
-        Vec3 db = points[b] - center;
-
-        float angleA = std::atan2(Dot(da, bitangent), Dot(da, tangent));
-        float angleB = std::atan2(Dot(db, bitangent), Dot(db, tangent));
-        return angleA < angleB;
-    });
-
-    if (indices->size() >= 3)
+    if (Dot(normal, inside - points[a]) > 0.0f)
     {
-        Vec3 a = points[(*indices)[0]];
-        Vec3 b = points[(*indices)[1]];
-        Vec3 c = points[(*indices)[2]];
+        std::swap(b, c);
+        normal = -normal;
+    }
 
-        if (Dot(Cross(b - a, c - a), normal) < 0.0f)
+    outFace->indices[0] = a;
+    outFace->indices[1] = b;
+    outFace->indices[2] = c;
+    outFace->normal = normal;
+    return true;
+}
+
+static bool FindInitialSimplex(std::span<const Vec3> points, float tolerance, int32* outIndices)
+{
+    // Pick a stable initial tetrahedron by maximizing separation step by step:
+    // point, line, triangle, then volume.
+    Vec3 center = Vec3::zero;
+    for (const Vec3& point : points)
+    {
+        center += point;
+    }
+    center *= 1.0f / points.size();
+
+    int32 a = 0;
+    float maxDistance2 = 0.0f;
+
+    // Start with a point far from the average position.
+    for (int32 i = 0; i < int32(points.size()); ++i)
+    {
+        float distance2 = Dist2(center, points[i]);
+        if (distance2 > maxDistance2)
         {
-            std::reverse(indices->begin(), indices->end());
+            a = i;
+            maxDistance2 = distance2;
         }
     }
+
+    int32 b = a;
+    maxDistance2 = 0.0f;
+    // Pick the farthest point from the first point to form a long base edge.
+    for (int32 i = 0; i < int32(points.size()); ++i)
+    {
+        float distance2 = Dist2(points[a], points[i]);
+        if (distance2 > maxDistance2)
+        {
+            b = i;
+            maxDistance2 = distance2;
+        }
+    }
+
+    float edgeLength = std::sqrt(maxDistance2);
+    if (edgeLength <= tolerance)
+    {
+        return false;
+    }
+
+    int32 c = a;
+    float maxLineDistance = 0.0f;
+    Vec3 ab = points[b] - points[a];
+    // Pick the point farthest from the base edge to form a large triangle.
+    for (int32 i = 0; i < int32(points.size()); ++i)
+    {
+        float distance = Length(Cross(ab, points[i] - points[a])) / edgeLength;
+        if (distance > maxLineDistance)
+        {
+            c = i;
+            maxLineDistance = distance;
+        }
+    }
+
+    if (maxLineDistance <= tolerance)
+    {
+        return false;
+    }
+
+    Vec3 normal = Cross(points[b] - points[a], points[c] - points[a]);
+    normal.Normalize();
+
+    int32 d = a;
+    float maxPlaneDistance = 0.0f;
+
+    // Pick the point farthest from the triangle plane to give the tetrahedron volume.
+    for (int32 i = 0; i < int32(points.size()); ++i)
+    {
+        float distance = Abs(Dot(normal, points[i] - points[a]));
+        if (distance > maxPlaneDistance)
+        {
+            d = i;
+            maxPlaneDistance = distance;
+        }
+    }
+
+    if (maxPlaneDistance <= tolerance)
+    {
+        return false;
+    }
+
+    outIndices[0] = a;
+    outIndices[1] = b;
+    outIndices[2] = c;
+    outIndices[3] = d;
+    return true;
 }
 
 void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVertices, std::vector<ConvexFace>* outFaces)
@@ -110,7 +191,7 @@ void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVerti
     outVertices->clear();
     outFaces->clear();
 
-    float tolerance = linear_slop * 0.1f;
+    float tolerance = 1e-4f;
     float tolerance2 = tolerance * tolerance;
 
     std::vector<Vec3> uniquePoints;
@@ -131,84 +212,131 @@ void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVerti
         return;
     }
 
-    std::vector<HullFace> hullFaces;
-
     int32 count = int32(uniquePoints.size());
-    for (int32 i = 0; i < count - 2; ++i)
+
+    // Start from a well separated tetrahedron, then expand it with the farthest point outside the current hull.
+    int32 simplex[4];
+    if (!FindInitialSimplex(uniquePoints, tolerance, simplex))
     {
-        for (int32 j = i + 1; j < count - 1; ++j)
+        return;
+    }
+
+    Vec3 center = Vec3::zero;
+    for (int32 index : simplex)
+    {
+        center += uniquePoints[index];
+    }
+    center *= 0.25f;
+
+    // Create the initial hull from the tetrahedron faces.
+    std::vector<HullFace> hullFaces;
+    hullFaces.reserve(uniquePoints.size() * 2);
+
+    HullFace face;
+    if (CreateFace(uniquePoints, simplex[0], simplex[1], simplex[2], center, tolerance, &face))
+    {
+        hullFaces.push_back(face);
+    }
+    if (CreateFace(uniquePoints, simplex[0], simplex[3], simplex[1], center, tolerance, &face))
+    {
+        hullFaces.push_back(face);
+    }
+    if (CreateFace(uniquePoints, simplex[1], simplex[3], simplex[2], center, tolerance, &face))
+    {
+        hullFaces.push_back(face);
+    }
+    if (CreateFace(uniquePoints, simplex[2], simplex[3], simplex[0], center, tolerance, &face))
+    {
+        hullFaces.push_back(face);
+    }
+
+    std::vector<bool> isHullVertex(count, false);
+    for (int32 index : simplex)
+    {
+        isHullVertex[index] = true;
+    }
+
+    while (true)
+    {
+        int32 bestFace = -1;
+        int32 bestPoint = -1;
+        float bestDistance = tolerance;
+
+        // QuickHull expands by the point farthest outside any current face.
+        for (int32 i = 0; i < int32(hullFaces.size()); ++i)
         {
-            for (int32 k = j + 1; k < count; ++k)
+            for (int32 j = 0; j < count; ++j)
             {
-                Vec3 a = uniquePoints[i];
-                Vec3 b = uniquePoints[j];
-                Vec3 c = uniquePoints[k];
-
-                Vec3 normal = Cross(b - a, c - a);
-                float normalLength = normal.Normalize();
-                if (normalLength <= tolerance)
+                if (isHullVertex[j])
                 {
                     continue;
                 }
 
-                int32 sign = 0;
-                std::vector<int32> faceIndices;
-                faceIndices.reserve(uniquePoints.size());
-
-                // A valid hull face has all non-coplanar points strictly on one side
-                // of the candidate plane, while coplanar points belong to the face.
-                for (int32 l = 0; l < count; ++l)
+                float distance = DistanceToFace(uniquePoints, hullFaces[i], j);
+                if (distance > bestDistance)
                 {
-                    float distance = Dot(normal, uniquePoints[l] - a);
-
-                    if (distance > tolerance)
-                    {
-                        if (sign < 0)
-                        {
-                            sign = 0;
-                            break;
-                        }
-
-                        sign = 1;
-                    }
-                    else if (distance < -tolerance)
-                    {
-                        if (sign > 0)
-                        {
-                            sign = 0;
-                            break;
-                        }
-
-                        sign = -1;
-                    }
-                    else
-                    {
-                        faceIndices.push_back(l);
-                    }
+                    bestFace = i;
+                    bestPoint = j;
+                    bestDistance = distance;
                 }
-
-                if (sign == 0)
-                {
-                    continue;
-                }
-
-                if (sign > 0)
-                {
-                    normal = -normal;
-                }
-
-                // The same coplanar face can be discovered from many different point
-                // triplets, so reject duplicates before ordering the polygon loop.
-                std::sort(faceIndices.begin(), faceIndices.end());
-                if (HasFace(hullFaces, faceIndices))
-                {
-                    continue;
-                }
-
-                OrderFace(uniquePoints, &faceIndices, normal);
-                hullFaces.push_back(HullFace{ std::move(faceIndices), normal });
             }
         }
+
+        if (bestPoint < 0)
+        {
+            break;
+        }
+
+        // Remove every face visible from the new point.
+        // The guaranteed best face is marked visible even if it sits exactly on the tolerance boundary.
+        std::vector<bool> visible(hullFaces.size(), false);
+        for (int32 i = 0; i < int32(hullFaces.size()); ++i)
+        {
+            visible[i] = DistanceToFace(uniquePoints, hullFaces[i], bestPoint) > tolerance;
+        }
+        visible[bestFace] = true;
+
+        // Opposite directed edges are internal to the removed patch.
+        // The remaining boundary edges form the horizon where the new point is connected.
+        std::vector<HullEdge> edges;
+        for (int32 i = 0; i < int32(hullFaces.size()); ++i)
+        {
+            if (!visible[i])
+            {
+                continue;
+            }
+
+            const HullFace& face = hullFaces[i];
+            for (int32 j = 0; j < 3; ++j)
+            {
+                int32 a = face.indices[j];
+                int32 b = face.indices[(j + 1) % 3];
+
+                AddBoundaryEdge(&edges, a, b);
+            }
+        }
+
+        // Keep the hidden faces and cap the open horizon with triangles to the new point.
+        std::vector<HullFace> newFaces;
+        newFaces.reserve(hullFaces.size() + edges.size());
+        for (int32 i = 0; i < int32(hullFaces.size()); ++i)
+        {
+            if (!visible[i])
+            {
+                newFaces.push_back(hullFaces[i]);
+            }
+        }
+
+        for (const HullEdge& edge : edges)
+        {
+            if (CreateFace(uniquePoints, edge.a, edge.b, bestPoint, center, tolerance, &face))
+            {
+                newFaces.push_back(face);
+            }
+        }
+
+        hullFaces = std::move(newFaces);
+        isHullVertex[bestPoint] = true;
     }
 
     if (hullFaces.empty())
@@ -219,6 +347,7 @@ void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVerti
     std::vector<int32> usedIndices;
     usedIndices.reserve(uniquePoints.size());
 
+    // Discard input points that never became hull vertices and compact the indices.
     for (const HullFace& face : hullFaces)
     {
         for (int32 index : face.indices)
@@ -240,22 +369,15 @@ void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVerti
         outVertices->push_back(uniquePoints[index]);
     }
 
-    // The rest of the engine currently expects triangle faces, so polygonal hull
-    // faces are emitted as a simple triangle fan.
+    // The rest of the engine currently expects triangle faces.
     for (const HullFace& hullFace : hullFaces)
     {
-        int32 faceVertexCount = int32(hullFace.indices.size());
-        MuliAssert(faceVertexCount >= 3);
-
-        for (int32 i = 1; i + 1 < faceVertexCount; ++i)
-        {
-            ConvexFace face;
-            face.count = 3;
-            face.indices[0] = remap[hullFace.indices[0]];
-            face.indices[1] = remap[hullFace.indices[i]];
-            face.indices[2] = remap[hullFace.indices[i + 1]];
-            outFaces->push_back(face);
-        }
+        ConvexFace face;
+        face.count = 3;
+        face.indices[0] = remap[hullFace.indices[0]];
+        face.indices[1] = remap[hullFace.indices[1]];
+        face.indices[2] = remap[hullFace.indices[2]];
+        outFaces->push_back(face);
     }
 }
 
