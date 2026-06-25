@@ -7,6 +7,7 @@
 namespace muli3
 {
 
+// Represents a convex polyhedron with triangular or quadrilateral faces
 class ConvexShape : public Shape
 {
 public:
