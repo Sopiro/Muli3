@@ -69,6 +69,22 @@ private:
         Vec4 color;
     };
 
+    struct ConvexMeshRange
+    {
+        GLuint firstIndex = 0;
+        GLuint indexCount = 0;
+        GLint baseVertex = 0;
+    };
+
+    struct DrawElementsIndirectCommand
+    {
+        GLuint count = 0;
+        GLuint instanceCount = 0;
+        GLuint firstIndex = 0;
+        GLint baseVertex = 0;
+        GLuint baseInstance = 0;
+    };
+
     bool CreateShadowResources();
     bool CreatePrimitiveResources();
     bool CreateShapeResources();
@@ -84,13 +100,12 @@ private:
     void FlushCapsules(const Shader& shader, bool wireframe);
     void FlushBoxes(const Shader& shader, bool wireframe);
     void FlushTriangles(const Shader& shader, bool wireframe);
-    void DrawConvex(
-        const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
-    );
+    void FlushConvexes(const Shader& shader, bool wireframe);
     void DrawHeightField(
         const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
     );
-    Mesh& GetConvexMesh(const ConvexShape* shape);
+    size_t GetConvexMeshKey(const ConvexShape* shape) const;
+    const ConvexMeshRange& GetConvexMesh(const ConvexShape* shape, size_t key);
     Mesh& GetHeightFieldMesh(const HeightFieldShape* shape);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
@@ -103,6 +118,7 @@ private:
     GLuint shadowDepthTexture;
 
     GLuint primVAO, primVBO, shapeInstanceVBO;
+    GLuint convexVAO = 0, convexVBO = 0, convexEBO = 0, convexIndirectVBO = 0;
     int32 primitiveCapacity = 0;
     std::vector<ShapeInstance> sphereInstances[2];
     std::vector<ShapeInstance> capsuleTopInstances[2];
@@ -110,7 +126,13 @@ private:
     std::vector<ShapeInstance> capsuleMidInstances[2];
     std::vector<ShapeInstance> boxInstances[2];
     std::vector<ShapeInstance> triangleInstances[2];
-    std::unordered_map<const ConvexShape*, Mesh> convexMeshes;
+    std::unordered_map<size_t, ConvexMeshRange> convexMeshes;
+    std::unordered_map<size_t, std::vector<ShapeInstance>> convexInstances[2];
+    size_t convexInstanceCount[2]{};
+    std::vector<MeshVertex> convexVertices;
+    std::vector<uint32> convexIndices;
+    std::vector<ShapeInstance> convexInstanceBuffer;
+    std::vector<DrawElementsIndirectCommand> convexCommands;
     std::unordered_map<const HeightFieldShape*, Mesh> heightFieldMeshes;
 
     int32 pointCount = 0;

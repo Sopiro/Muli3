@@ -18,6 +18,16 @@ Vec4 g_colors[g_colorCount];
 Vec4 g_colors2[constraint_color_count];
 bool g_colorsInitialized = false;
 
+void HashCombine(size_t* seed, size_t value)
+{
+    *seed ^= value + 0x9e3779b97f4a7c15ull + (*seed << 6) + (*seed >> 2);
+}
+
+void HashCombineFloat(size_t* seed, float value)
+{
+    HashCombine(seed, std::hash<uint32>{}(std::bit_cast<uint32>(value)));
+}
+
 constexpr const char* g_shapeVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
@@ -368,6 +378,10 @@ void Renderer::SetShapeInstanceAttributes()
 bool Renderer::CreateShapeResources()
 {
     glGenBuffers(1, &shapeInstanceVBO);
+    glGenVertexArrays(1, &convexVAO);
+    glGenBuffers(1, &convexVBO);
+    glGenBuffers(1, &convexEBO);
+    glGenBuffers(1, &convexIndirectVBO);
 
     glBindVertexArray(sphereMesh.GetVAO());
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
@@ -395,9 +409,23 @@ bool Renderer::CreateShapeResources()
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     SetShapeInstanceAttributes();
 
+    glBindVertexArray(convexVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, position)));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, normal)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, uv)));
+    glEnableVertexAttribArray(2);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, convexEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    return shapeInstanceVBO != 0;
+    return shapeInstanceVBO != 0 && convexVAO != 0 && convexVBO != 0 && convexEBO != 0 && convexIndirectVBO != 0;
 }
 
 void Renderer::DestroyShadowResources()
@@ -431,6 +459,26 @@ void Renderer::DestroyPrimitiveResources()
 
 void Renderer::DestroyShapeResources()
 {
+    if (convexIndirectVBO != 0)
+    {
+        glDeleteBuffers(1, &convexIndirectVBO);
+        convexIndirectVBO = 0;
+    }
+    if (convexEBO != 0)
+    {
+        glDeleteBuffers(1, &convexEBO);
+        convexEBO = 0;
+    }
+    if (convexVBO != 0)
+    {
+        glDeleteBuffers(1, &convexVBO);
+        convexVBO = 0;
+    }
+    if (convexVAO != 0)
+    {
+        glDeleteVertexArrays(1, &convexVAO);
+        convexVAO = 0;
+    }
     if (shapeInstanceVBO != 0)
     {
         glDeleteBuffers(1, &shapeInstanceVBO);
@@ -530,11 +578,6 @@ void Renderer::Shutdown()
 
 void Renderer::ClearMeshCache()
 {
-    for (auto& [shape, mesh] : convexMeshes)
-    {
-        MuliNotUsed(shape);
-        mesh.Destroy();
-    }
     for (auto& [shape, mesh] : heightFieldMeshes)
     {
         MuliNotUsed(shape);
@@ -542,7 +585,28 @@ void Renderer::ClearMeshCache()
     }
 
     convexMeshes.clear();
+    convexInstances[g_fillPass].clear();
+    convexInstances[g_outlinePass].clear();
+    convexInstanceCount[g_fillPass] = 0;
+    convexInstanceCount[g_outlinePass] = 0;
+    convexVertices.clear();
+    convexIndices.clear();
+    convexInstanceBuffer.clear();
+    convexCommands.clear();
     heightFieldMeshes.clear();
+
+    if (convexVBO != 0)
+    {
+        glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
+        glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+    if (convexEBO != 0)
+    {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, convexEBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    }
 }
 
 void Renderer::DrawShape(const Shape* shape, const Transform& transform, const Vec4& color, bool wireframe)
@@ -685,7 +749,18 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     }
     else if (shape->GetType() == Shape::convex)
     {
-        DrawConvex((const ConvexShape*)shape, transform, color, wireframe, shader);
+        const ConvexShape* convex = (const ConvexShape*)shape;
+        size_t key = GetConvexMeshKey(convex);
+        GetConvexMesh(convex, key);
+
+        std::vector<ShapeInstance>& instances = convexInstances[pass][key];
+        instances.emplace_back(Mat4(transform), color);
+        ++convexInstanceCount[pass];
+
+        if (convexInstanceCount[pass] == g_maxShapeBatchCount)
+        {
+            FlushConvexes(shader, wireframe);
+        }
     }
     else if (shape->GetType() == Shape::triangle)
     {
@@ -713,9 +788,42 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     }
 }
 
-Mesh& Renderer::GetConvexMesh(const ConvexShape* shape)
+size_t Renderer::GetConvexMeshKey(const ConvexShape* shape) const
 {
-    auto it = convexMeshes.find(shape);
+    MuliAssert(shape != nullptr);
+
+    size_t hash = 0;
+    HashCombine(&hash, std::hash<int32>{}(shape->GetVertexCount()));
+
+    for (const Vec3& v : shape->GetVertices())
+    {
+        HashCombineFloat(&hash, v.x);
+        HashCombineFloat(&hash, v.y);
+        HashCombineFloat(&hash, v.z);
+    }
+
+    for (const ConvexFace& face : shape->GetFaces())
+    {
+        HashCombine(&hash, std::hash<int32>{}(face.count));
+        for (int32 i = 0; i < face.count; ++i)
+        {
+            HashCombine(&hash, std::hash<int32>{}(face.indices[i]));
+        }
+    }
+
+    for (const Vec3& n : shape->GetFaceNormals())
+    {
+        HashCombineFloat(&hash, n.x);
+        HashCombineFloat(&hash, n.y);
+        HashCombineFloat(&hash, n.z);
+    }
+
+    return hash;
+}
+
+const Renderer::ConvexMeshRange& Renderer::GetConvexMesh(const ConvexShape* shape, size_t key)
+{
+    auto it = convexMeshes.find(key);
     if (it != convexMeshes.end())
     {
         return it->second;
@@ -725,16 +833,31 @@ Mesh& Renderer::GetConvexMesh(const ConvexShape* shape)
     std::vector<uint32> indices;
     BuildConvexMesh(&vertices, &indices, *shape);
 
-    Mesh& mesh = convexMeshes[shape];
-    mesh.Upload(vertices, indices, GL_TRIANGLES);
+    ConvexMeshRange range;
+    range.firstIndex = (GLuint)convexIndices.size();
+    range.indexCount = (GLuint)indices.size();
+    range.baseVertex = (GLint)convexVertices.size();
 
-    glBindVertexArray(mesh.GetVAO());
+    convexVertices.insert(convexVertices.end(), vertices.begin(), vertices.end());
+    convexIndices.insert(convexIndices.end(), indices.begin(), indices.end());
+
+    glBindVertexArray(convexVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
+    glBufferData(
+        GL_ARRAY_BUFFER, (GLsizeiptr)(convexVertices.size() * sizeof(MeshVertex)), convexVertices.data(), GL_STATIC_DRAW
+    );
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, convexEBO);
+    glBufferData(
+        GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(convexIndices.size() * sizeof(uint32)), convexIndices.data(), GL_STATIC_DRAW
+    );
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     SetShapeInstanceAttributes();
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    return mesh;
+    auto [inserted, _] = convexMeshes.emplace(key, range);
+    return inserted->second;
 }
 
 Mesh& Renderer::GetHeightFieldMesh(const HeightFieldShape* shape)
@@ -759,41 +882,6 @@ Mesh& Renderer::GetHeightFieldMesh(const HeightFieldShape* shape)
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     return mesh;
-}
-
-void Renderer::DrawConvex(
-    const ConvexShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
-)
-{
-    ShapeInstance instance{ Mat4(transform), color };
-    Mesh& mesh = GetConvexMesh(shape);
-
-    GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
-    if (wireframe)
-    {
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-    }
-
-    shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(ShapeInstance), &instance);
-    mesh.DrawInstanced(1);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    if (wireframe)
-    {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
 }
 
 void Renderer::DrawHeightField(
@@ -862,6 +950,7 @@ void Renderer::FlushQueuedShapes(const Shader& shader, bool wireframe)
     FlushCapsules(shader, wireframe);
     FlushBoxes(shader, wireframe);
     FlushTriangles(shader, wireframe);
+    FlushConvexes(shader, wireframe);
 }
 
 void Renderer::FlushSpheres(const Shader& shader, bool wireframe)
@@ -1034,6 +1123,87 @@ void Renderer::FlushTriangles(const Shader& shader, bool wireframe)
     }
 
     instances.clear();
+}
+
+void Renderer::FlushConvexes(const Shader& shader, bool wireframe)
+{
+    int32 pass = wireframe ? g_outlinePass : g_fillPass;
+    std::unordered_map<size_t, std::vector<ShapeInstance>>& batches = convexInstances[pass];
+    if (convexInstanceCount[pass] == 0)
+    {
+        return;
+    }
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    convexInstanceBuffer.clear();
+    convexCommands.clear();
+    convexInstanceBuffer.reserve(convexInstanceCount[pass]);
+    convexCommands.reserve(batches.size());
+
+    for (auto& [key, instances] : batches)
+    {
+        if (instances.empty())
+        {
+            continue;
+        }
+
+        auto rangeIt = convexMeshes.find(key);
+        MuliAssert(rangeIt != convexMeshes.end());
+        const ConvexMeshRange& range = rangeIt->second;
+
+        DrawElementsIndirectCommand command;
+        command.count = range.indexCount;
+        command.instanceCount = (GLuint)instances.size();
+        command.firstIndex = range.firstIndex;
+        command.baseVertex = range.baseVertex;
+        command.baseInstance = (GLuint)convexInstanceBuffer.size();
+        convexCommands.push_back(command);
+
+        convexInstanceBuffer.insert(convexInstanceBuffer.end(), instances.begin(), instances.end());
+        instances.clear();
+    }
+
+    if (!convexCommands.empty())
+    {
+        glBindVertexArray(convexVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+        glBufferSubData(
+            GL_ARRAY_BUFFER, 0, (GLsizeiptr)(convexInstanceBuffer.size() * sizeof(ShapeInstance)), convexInstanceBuffer.data()
+        );
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, convexIndirectVBO);
+        glBufferData(
+            GL_DRAW_INDIRECT_BUFFER, (GLsizeiptr)(convexCommands.size() * sizeof(DrawElementsIndirectCommand)),
+            convexCommands.data(), GL_STREAM_DRAW
+        );
+        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr, (GLsizei)convexCommands.size(), 0);
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+
+    batches.clear();
+    convexInstanceCount[pass] = 0;
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
 }
 
 void Renderer::FlushPoints()
