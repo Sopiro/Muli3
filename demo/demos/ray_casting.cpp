@@ -26,17 +26,25 @@ public:
         camera.SetRotation(-90.0f, 0.0f);
         camera.speed = 0.35f;
 
-        targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
-        targetBodies[1] = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } });
-        targetBodies[2] = world->CreateBox(0.3f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
-        targetBodies[3] = world->CreateBox(0.35f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ -2.5f, 0.0f, 0.0f } });
+        targetBodies[1] = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } });
+        targetBodies[2] = world->CreateBox(0.3f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+        targetBodies[3] = world->CreateBox(0.35f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
 
         Vec3 triangleVertices[3] = {
             Vec3{ -0.35f, -0.3f, 0.0f },
             Vec3{ 0.35f, -0.3f, 0.0f },
             Vec3{ 0.0f, 0.35f, 0.0f },
         };
-        targetBodies[4] = world->CreateTriangle(triangleVertices, Transform{ Vec3{ 2.3f, 0.0f, 0.0f } });
+        targetBodies[4] = world->CreateTriangle(triangleVertices, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
+
+        Vec3 quadVertices[4] = {
+            Vec3{ -0.35f, -0.3f, 0.0f },
+            Vec3{ 0.35f, -0.3f, 0.0f },
+            Vec3{ 0.35f, 0.3f, 0.0f },
+            Vec3{ -0.35f, 0.3f, 0.0f },
+        };
+        targetBodies[5] = world->CreateQuad(z_axis, quadVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
     }
 
     void UpdateInput() override
@@ -170,7 +178,7 @@ private:
     }
 
     bool dragging = false;
-    Body* targetBodies[5] = {};
+    Body* targetBodies[6] = {};
 };
 
 static Demo* CreateRayCasting(Game& game)

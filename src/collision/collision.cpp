@@ -313,8 +313,8 @@ static void FindContactPoints(
     Face faceA = a->GetFeaturedFace(tfA, n);
     Face faceB = b->GetFeaturedFace(tfB, -n);
 
-    TranslateFace(&faceA, n * a->GetRadius());
-    TranslateFace(&faceB, -n * b->GetRadius());
+    TranslateFace(&faceA, faceA.normal * a->GetRadius());
+    TranslateFace(&faceB, faceB.normal * b->GetRadius());
 
     Face ref; // Reference face
     Face inc; // Incident face
@@ -1694,6 +1694,601 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
     return manifold->contactCount > 0;
 }
 
+bool TriangleVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const TriangleShape* triangle = (const TriangleShape*)a;
+    const QuadShape* quad = (const QuadShape*)b;
+
+    Vec3 normalA = tfA.q.Rotate(triangle->GetNormal());
+    Vec3 normalB = tfB.q.Rotate(quad->GetNormal());
+    Vec3 verticesA[3] = {
+        Mul(tfA, triangle->GetVertex(0)),
+        Mul(tfA, triangle->GetVertex(1)),
+        Mul(tfA, triangle->GetVertex(2)),
+    };
+    Vec3 verticesB[4] = {
+        Mul(tfB, quad->GetVertex(0)),
+        Mul(tfB, quad->GetVertex(1)),
+        Mul(tfB, quad->GetVertex(2)),
+        Mul(tfB, quad->GetVertex(3)),
+    };
+
+    float planeOffset = Dot(verticesA[0], normalA);
+    for (int32 i = 0; i < 3; ++i)
+    {
+        verticesA[i] -= normalA * planeOffset;
+    }
+    for (int32 i = 0; i < 4; ++i)
+    {
+        verticesB[i] -= normalA * planeOffset;
+    }
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = normalA;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 3; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(verticesB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 4; ++i)
+        {
+            float value = Dot(verticesB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            normal = positive ? n : -n;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(normalA))
+    {
+        return false;
+    }
+
+    if (!TestAxis(normalB))
+    {
+        return false;
+    }
+
+    for (int32 i = 0; i < 3; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
+        for (int32 j = 0; j < 4; ++j)
+        {
+            Vec3 edgeB = verticesB[(j + 1) % 4] - verticesB[j];
+            if (!TestAxis(Cross(edgeA, edgeB)))
+            {
+                return false;
+            }
+        }
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const QuadShape* quad = (const QuadShape*)a;
+
+    Vec3 p = Mul(tfB, b->GetCenter());
+    Vec3 localP = MulT(tfA, p);
+
+    const Vec3* vertices = quad->GetVertices();
+
+    Vec3 quadNormal = quad->GetNormal();
+    Vec3 closest0 = ClosestPointVsTriangle(localP, vertices[0], vertices[1], vertices[2]);
+    Vec3 closest1 = ClosestPointVsTriangle(localP, vertices[0], vertices[2], vertices[3]);
+    Vec3 closest = Dist2(localP, closest0) <= Dist2(localP, closest1) ? closest0 : closest1;
+
+    Vec3 normal = localP - closest;
+    float distance = normal.Normalize();
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    if (distance > ra + rb)
+    {
+        return false;
+    }
+
+    float separation = Dot(localP - vertices[0], quadNormal);
+    if (distance <= epsilon)
+    {
+        normal = separation < 0.0f ? -quadNormal : quadNormal;
+    }
+
+    normal = tfA.q.Rotate(normal);
+    manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
+    manifold->contactPoints[0].anchorB = p - normal * rb;
+    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
+    manifold->contactPoints[0].normal = normal;
+    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
+    manifold->contactPoints[0].id = 0;
+    manifold->contactCount = 1;
+
+    return true;
+}
+
+bool QuadVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const QuadShape* quad = (const QuadShape*)a;
+    const CapsuleShape* capsule = (const CapsuleShape*)b;
+
+    Vec3 quadNormal = tfA.q.Rotate(quad->GetNormal());
+    Vec3 verticesA[4] = {
+        Mul(tfA, quad->GetVertex(0)),
+        Mul(tfA, quad->GetVertex(1)),
+        Mul(tfA, quad->GetVertex(2)),
+        Mul(tfA, quad->GetVertex(3)),
+    };
+
+    float planeOffset = Dot(verticesA[0], quadNormal);
+    for (int32 i = 0; i < 4; ++i)
+    {
+        verticesA[i] -= quadNormal * planeOffset;
+    }
+
+    Vec3 pointsB[2] = {
+        Mul(tfB, capsule->GetVertexA()) - quadNormal * planeOffset,
+        Mul(tfB, capsule->GetVertexB()) - quadNormal * planeOffset,
+    };
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = quadNormal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 4; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(pointsB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 2; ++i)
+        {
+            float value = Dot(pointsB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            normal = positive ? n : -n;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(quadNormal))
+    {
+        return false;
+    }
+
+    Vec3 segment = pointsB[1] - pointsB[0];
+    for (int32 i = 0; i < 4; ++i)
+    {
+        Vec3 edge = verticesA[(i + 1) % 4] - verticesA[i];
+        if (!TestAxis(Cross(edge, segment)))
+        {
+            return false;
+        }
+    }
+
+    for (int32 i = 0; i < 2; ++i)
+    {
+        Vec3 closest0 = ClosestPointVsTriangle(pointsB[i], verticesA[0], verticesA[1], verticesA[2]);
+        Vec3 closest1 = ClosestPointVsTriangle(pointsB[i], verticesA[0], verticesA[2], verticesA[3]);
+        Vec3 closest = Dist2(pointsB[i], closest0) <= Dist2(pointsB[i], closest1) ? closest0 : closest1;
+        if (!TestAxis(pointsB[i] - closest))
+        {
+            return false;
+        }
+    }
+
+    for (int32 i = 0; i < 4; ++i)
+    {
+        Vec3 closest = ClosestPointVsSegment(verticesA[i], pointsB[0], pointsB[1]);
+        if (!TestAxis(closest - verticesA[i]))
+        {
+            return false;
+        }
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool QuadVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const QuadShape* quad = (const QuadShape*)a;
+    const BoxShape* box = (const BoxShape*)b;
+
+    Vec3 quadNormal = tfA.q.Rotate(quad->GetNormal());
+    Vec3 verticesA[4] = {
+        Mul(tfA, quad->GetVertex(0)),
+        Mul(tfA, quad->GetVertex(1)),
+        Mul(tfA, quad->GetVertex(2)),
+        Mul(tfA, quad->GetVertex(3)),
+    };
+
+    float planeOffset = Dot(verticesA[0], quadNormal);
+    for (int32 i = 0; i < 4; ++i)
+    {
+        verticesA[i] -= quadNormal * planeOffset;
+    }
+
+    Vec3 verticesB[8];
+    for (int32 i = 0; i < 8; ++i)
+    {
+        verticesB[i] = Mul(tfB, box->GetVertex(i)) - quadNormal * planeOffset;
+    }
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = quadNormal;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 4; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(verticesB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 8; ++i)
+        {
+            float value = Dot(verticesB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            normal = positive ? n : -n;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(quadNormal))
+    {
+        return false;
+    }
+
+    Quat qB = tfB.q * box->GetRotation();
+    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
+
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesB[i]))
+        {
+            return false;
+        }
+    }
+
+    for (int32 i = 0; i < 4; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 4] - verticesA[i];
+        for (int32 j = 0; j < 3; ++j)
+        {
+            if (!TestAxis(Cross(edgeA, axesB[j])))
+            {
+                return false;
+            }
+        }
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool QuadVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const QuadShape* quad = (const QuadShape*)a;
+    const ConvexShape* convex = (const ConvexShape*)b;
+
+    Vec3 quadNormal = tfA.q.Rotate(quad->GetNormal());
+    Vec3 verticesA[4] = {
+        Mul(tfA, quad->GetVertex(0)),
+        Mul(tfA, quad->GetVertex(1)),
+        Mul(tfA, quad->GetVertex(2)),
+        Mul(tfA, quad->GetVertex(3)),
+    };
+
+    float planeOffset = Dot(verticesA[0], quadNormal);
+    for (int32 i = 0; i < 4; ++i)
+    {
+        verticesA[i] -= quadNormal * planeOffset;
+    }
+
+    int32 vertexCountB = convex->GetVertexCount();
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = quadNormal;
+
+    auto ProjectAxis = [&](Vec3 n, float* min, float* max) {
+        Vec3 p = Mul(tfB, convex->GetVertex(0)) - quadNormal * planeOffset;
+        *min = Dot(p, n);
+        *max = *min;
+        for (int32 i = 1; i < vertexCountB; ++i)
+        {
+            p = Mul(tfB, convex->GetVertex(i)) - quadNormal * planeOffset;
+            float value = Dot(p, n);
+            *min = Min(*min, value);
+            *max = Max(*max, value);
+        }
+    };
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 4; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB, maxB;
+        ProjectAxis(n, &minB, &maxB);
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            normal = positive ? n : -n;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(quadNormal))
+    {
+        return false;
+    }
+
+    for (Vec3 n : convex->GetFaceNormals())
+    {
+        if (!TestAxis(tfB.q.Rotate(n)))
+        {
+            return false;
+        }
+    }
+
+    for (int32 i = 0; i < 4; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 4] - verticesA[i];
+        for (const ConvexFace& face : convex->GetFaces())
+        {
+            for (int32 j = 0; j < face.count; ++j)
+            {
+                int32 i0 = face.indices[j];
+                int32 i1 = face.indices[(j + 1) % face.count];
+                Vec3 p0 = Mul(tfB, convex->GetVertex(i0)) - quadNormal * planeOffset;
+                Vec3 p1 = Mul(tfB, convex->GetVertex(i1)) - quadNormal * planeOffset;
+                if (!TestAxis(Cross(edgeA, p1 - p0)))
+                {
+                    return false;
+                }
+            }
+        }
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const QuadShape* quadA = (const QuadShape*)a;
+    const QuadShape* quadB = (const QuadShape*)b;
+
+    Vec3 normalA = tfA.q.Rotate(quadA->GetNormal());
+    Vec3 normalB = tfB.q.Rotate(quadB->GetNormal());
+    Vec3 verticesA[4] = {
+        Mul(tfA, quadA->GetVertex(0)),
+        Mul(tfA, quadA->GetVertex(1)),
+        Mul(tfA, quadA->GetVertex(2)),
+        Mul(tfA, quadA->GetVertex(3)),
+    };
+    Vec3 verticesB[4] = {
+        Mul(tfB, quadB->GetVertex(0)),
+        Mul(tfB, quadB->GetVertex(1)),
+        Mul(tfB, quadB->GetVertex(2)),
+        Mul(tfB, quadB->GetVertex(3)),
+    };
+
+    float planeOffset = Dot(verticesA[0], normalA);
+    for (int32 i = 0; i < 4; ++i)
+    {
+        verticesA[i] -= normalA * planeOffset;
+        verticesB[i] -= normalA * planeOffset;
+    }
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = normalA;
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(verticesA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < 4; ++i)
+        {
+            float value = Dot(verticesA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(verticesB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < 4; ++i)
+        {
+            float value = Dot(verticesB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            normal = positive ? n : -n;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(normalA))
+    {
+        return false;
+    }
+
+    if (!TestAxis(normalB))
+    {
+        return false;
+    }
+
+    for (int32 i = 0; i < 4; ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % 4] - verticesA[i];
+        for (int32 j = 0; j < 4; ++j)
+        {
+            Vec3 edgeB = verticesB[(j + 1) % 4] - verticesB[j];
+            if (!TestAxis(Cross(edgeA, edgeB)))
+            {
+                return false;
+            }
+        }
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
 struct HeightFieldContacts
 {
     GrowableArray<ContactPoint, 8> contacts;
@@ -1921,12 +2516,20 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
     collide_function_map[Shape::triangle][Shape::convex] = TriangleVsConvex;
     collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
+    collide_function_map[Shape::triangle][Shape::quad] = TriangleVsQuad;
+
+    collide_function_map[Shape::quad][Shape::sphere] = QuadVsSphere;
+    collide_function_map[Shape::quad][Shape::capsule] = QuadVsCapsule;
+    collide_function_map[Shape::quad][Shape::box] = QuadVsBox;
+    collide_function_map[Shape::quad][Shape::convex] = QuadVsConvex;
+    collide_function_map[Shape::quad][Shape::quad] = QuadVsQuad;
 
     collide_function_map[Shape::height_field][Shape::sphere] = HeightFieldVsShape;
     collide_function_map[Shape::height_field][Shape::capsule] = HeightFieldVsShape;
     collide_function_map[Shape::height_field][Shape::box] = HeightFieldVsShape;
     collide_function_map[Shape::height_field][Shape::convex] = HeightFieldVsShape;
     collide_function_map[Shape::height_field][Shape::triangle] = HeightFieldVsShape;
+    collide_function_map[Shape::height_field][Shape::quad] = HeightFieldVsShape;
     collide_function_map[Shape::height_field][Shape::height_field] = nullptr;
 
     detection_function_initialized = true;

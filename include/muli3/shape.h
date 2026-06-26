@@ -21,6 +21,7 @@ using Shapes = TypePack<
     class CapsuleShape,
     class BoxShape,
     class ConvexShape,
+    class QuadShape,
     class TriangleShape,
     class HeightFieldShape>;
 
@@ -36,6 +37,7 @@ public:
         capsule,
         box,
         convex,
+        quad,
         triangle,
         height_field,
         shape_count,

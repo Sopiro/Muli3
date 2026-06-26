@@ -140,6 +140,49 @@ Body* World::CreateTriangle(const Vec3 vertices[3], const Transform& transform, 
     return CreateTriangle(vertices[0], vertices[1], vertices[2], transform, type, radius, density);
 }
 
+Body* World::CreateQuad(float width, float height, const Transform& transform, Body::Type type, float radius, float density)
+{
+    Vec3 vertices[4] = {
+        Vec3{ 0.0f, 0.0f, 0.0f },
+        Vec3{ width, 0.0f, 0.0f },
+        Vec3{ width, height, 0.0f },
+        Vec3{ 0.0f, height, 0.0f },
+    };
+
+    return CreateQuad(z_axis, vertices, transform, type, radius, density);
+}
+
+Body* World::CreateQuad(
+    const Vec3& normal,
+    const Vec3& a,
+    const Vec3& b,
+    const Vec3& c,
+    const Vec3& d,
+    const Transform& transform,
+    Body::Type type,
+    float radius,
+    float density
+)
+{
+    Vec3 vertices[4] = { a, b, c, d };
+    return CreateQuad(normal, vertices, transform, type, radius, density);
+}
+
+Body* World::CreateQuad(
+    const Vec3& normal, const Vec3 vertices[4], const Transform& transform, Body::Type type, float radius, float density
+)
+{
+    Vec3 face[4];
+    if (!ComputeQuadrilateral(Normalize(normal), vertices, face))
+    {
+        return nullptr;
+    }
+
+    Body* body = CreateEmptyBody(transform, type);
+    body->CreateQuadCollider(face, identity, radius, density);
+    return body;
+}
+
 Body* World::CreateHeightField(
     int32 sampleCountX,
     int32 sampleCountZ,
@@ -2205,6 +2248,10 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
         return poolAllocator.New<TriangleShape>(*(const TriangleShape*)shape, transform);
     }
+    case Shape::quad:
+    {
+        return poolAllocator.New<QuadShape>(*(const QuadShape*)shape, transform);
+    }
     case Shape::height_field:
     {
         return poolAllocator.New<HeightFieldShape>(*(const HeightFieldShape*)shape, transform);
@@ -2235,6 +2282,9 @@ void World::FreeShape(Shape* shape)
         break;
     case Shape::triangle:
         poolAllocator.Delete((TriangleShape*)shape);
+        break;
+    case Shape::quad:
+        poolAllocator.Delete((QuadShape*)shape);
         break;
     case Shape::height_field:
         poolAllocator.Delete((HeightFieldShape*)shape);

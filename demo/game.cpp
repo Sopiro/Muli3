@@ -213,7 +213,7 @@ Game::Game()
 
     workerCount = 8;
     RecreateThreadPool();
-    InitDemo(25);
+    InitDemo(1);
     Window::Get()->SetCursorHidden(false);
 }
 

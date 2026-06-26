@@ -47,6 +47,7 @@ void BuildGridMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indic
 void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
 void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const ConvexShape& shape);
 void BuildTriangleMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
+void BuildQuadMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices);
 void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const HeightFieldShape& shape);
 
 } // namespace muli3

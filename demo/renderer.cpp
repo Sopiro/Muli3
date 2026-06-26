@@ -42,6 +42,7 @@ layout (location = 7) in vec4 iColor;
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform mat4 uLightViewProjection;
+uniform bool uQuadMode;
 
 out vec3 vWorldPosition;
 out vec3 vWorldNormal;
@@ -52,9 +53,26 @@ out vec3 vBaseColor;
 void main()
 {
     mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
-    vec4 worldPosition = model * vec4(aPosition, 1.0);
+    vec4 worldPosition;
+    vec3 worldNormal;
+    if (uQuadMode)
+    {
+        vec3 p0 = iModel0.xyz;
+        vec3 p1 = iModel1.xyz;
+        vec3 p2 = iModel2.xyz;
+        vec3 p3 = iModel3.xyz;
+        int vertexId = int(aPosition.x + 0.5);
+        vec3 p = vertexId == 0 ? p0 : (vertexId == 1 ? p1 : (vertexId == 2 ? p2 : p3));
+        worldPosition = vec4(p, 1.0);
+        worldNormal = normalize(cross(p1 - p0, p2 - p0)) * sign(aNormal.z);
+    }
+    else
+    {
+        worldPosition = model * vec4(aPosition, 1.0);
+        worldNormal = normalize(mat3(model) * aNormal);
+    }
     vWorldPosition = worldPosition.xyz;
-    vWorldNormal = normalize(mat3(model) * aNormal);
+    vWorldNormal = worldNormal;
     vTexCoord = aTexCoord;
     vShadowPosition = uLightViewProjection * worldPosition;
     vBaseColor = iColor.rgb;
@@ -135,11 +153,27 @@ layout (location = 5) in vec4 iModel2;
 layout (location = 6) in vec4 iModel3;
 
 uniform mat4 uLightViewProjection;
+uniform bool uQuadMode;
 
 void main()
 {
     mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
-    gl_Position = uLightViewProjection * model * vec4(aPosition, 1.0);
+    vec4 worldPosition;
+    if (uQuadMode)
+    {
+        vec3 p0 = iModel0.xyz;
+        vec3 p1 = iModel1.xyz;
+        vec3 p2 = iModel2.xyz;
+        vec3 p3 = iModel3.xyz;
+        int vertexId = int(aPosition.x + 0.5);
+        vec3 p = vertexId == 0 ? p0 : (vertexId == 1 ? p1 : (vertexId == 2 ? p2 : p3));
+        worldPosition = vec4(p, 1.0);
+    }
+    else
+    {
+        worldPosition = model * vec4(aPosition, 1.0);
+    }
+    gl_Position = uLightViewProjection * worldPosition;
 }
 )";
 
@@ -409,6 +443,10 @@ bool Renderer::CreateShapeResources()
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     SetShapeInstanceAttributes();
 
+    glBindVertexArray(quadMesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+
     glBindVertexArray(convexVAO);
     glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
@@ -530,6 +568,9 @@ bool Renderer::Initialize()
     BuildTriangleMesh(&vertices, &indices);
     triangleMesh.Upload(vertices, indices, GL_TRIANGLES);
 
+    BuildQuadMesh(&vertices, &indices);
+    quadMesh.Upload(vertices, indices, GL_TRIANGLES);
+
     if (!CreateShapeResources())
     {
         return false;
@@ -547,6 +588,8 @@ bool Renderer::Initialize()
     boxInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
     triangleInstances[g_fillPass].reserve(g_maxShapeBatchCount);
     triangleInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    quadInstances[g_fillPass].reserve(g_maxShapeBatchCount);
+    quadInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
     points.resize(g_maxVertexCount);
     lines.resize(g_maxVertexCount);
     initialized = true;
@@ -568,6 +611,7 @@ void Renderer::Shutdown()
     capsuleMidMesh.Destroy();
     boxMesh.Destroy();
     triangleMesh.Destroy();
+    quadMesh.Destroy();
     shapeShader.Destroy();
     shadowShader.Destroy();
     DestroyShadowResources();
@@ -782,6 +826,27 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
             FlushTriangles(shader, wireframe);
         }
     }
+    else if (shape->GetType() == Shape::quad)
+    {
+        const QuadShape* quad = (const QuadShape*)shape;
+        Vec3 a = Mul(transform, quad->GetVertex(0));
+        Vec3 b = Mul(transform, quad->GetVertex(1));
+        Vec3 c = Mul(transform, quad->GetVertex(2));
+        Vec3 d = Mul(transform, quad->GetVertex(3));
+        Mat4 model{
+            Vec4{ a, 1.0f },
+            Vec4{ b, 1.0f },
+            Vec4{ c, 1.0f },
+            Vec4{ d, 1.0f },
+        };
+
+        quadInstances[pass].emplace_back(model, color);
+
+        if (quadInstances[pass].size() == g_maxShapeBatchCount)
+        {
+            FlushQuads(shader, wireframe);
+        }
+    }
     else if (shape->GetType() == Shape::height_field)
     {
         DrawHeightField((const HeightFieldShape*)shape, transform, color, wireframe, shader);
@@ -950,6 +1015,7 @@ void Renderer::FlushQueuedShapes(const Shader& shader, bool wireframe)
     FlushCapsules(shader, wireframe);
     FlushBoxes(shader, wireframe);
     FlushTriangles(shader, wireframe);
+    FlushQuads(shader, wireframe);
     FlushConvexes(shader, wireframe);
 }
 
@@ -1111,6 +1177,46 @@ void Renderer::FlushTriangles(const Shader& shader, bool wireframe)
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
     triangleMesh.DrawInstanced((GLsizei)instances.size());
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+
+    instances.clear();
+}
+
+void Renderer::FlushQuads(const Shader& shader, bool wireframe)
+{
+    std::vector<ShapeInstance>& instances = quadInstances[wireframe ? g_outlinePass : g_fillPass];
+    if (instances.empty())
+    {
+        return;
+    }
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    shader.SetInt("uQuadMode", 1);
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
+    quadMesh.DrawInstanced((GLsizei)instances.size());
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    shader.SetInt("uQuadMode", 0);
 
     if (wireframe)
     {

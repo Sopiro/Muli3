@@ -259,6 +259,28 @@ Collider* Body::CreateTriangleCollider(
     return CreateTriangleCollider(vertices[0], vertices[1], vertices[2], tf, radius, density, material);
 }
 
+Collider* Body::CreateQuadCollider(
+    const Vec3& a,
+    const Vec3& b,
+    const Vec3& c,
+    const Vec3& d,
+    const Transform& tf,
+    float radius,
+    float density,
+    const Material& material
+)
+{
+    QuadShape quad{ a, b, c, d, radius };
+    return CreateCollider(&quad, tf, density, material);
+}
+
+Collider* Body::CreateQuadCollider(
+    const Vec3 vertices[4], const Transform& tf, float radius, float density, const Material& material
+)
+{
+    return CreateQuadCollider(vertices[0], vertices[1], vertices[2], vertices[3], tf, radius, density, material);
+}
+
 Collider* Body::CreateHeightFieldCollider(
     int32 sampleCountX,
     int32 sampleCountZ,

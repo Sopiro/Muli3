@@ -4,6 +4,7 @@
 #include "capsule_shape.h"      // IWYU pragma: export
 #include "convex_shape.h"       // IWYU pragma: export
 #include "height_field_shape.h" // IWYU pragma: export
+#include "quad_shape.h"         // IWYU pragma: export
 #include "sphere_shape.h"       // IWYU pragma: export
 #include "triangle_shape.h"     // IWYU pragma: export
 

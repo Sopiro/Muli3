@@ -1,4 +1,5 @@
 #include "muli3/geometry.h"
+#include "muli3/frame.h"
 
 namespace muli3
 {
@@ -379,6 +380,116 @@ void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVerti
         face.indices[2] = remap[hullFace.indices[2]];
         outFaces->push_back(face);
     }
+}
+
+void ComputeConvexHull(std::span<const Vec2> vertices, std::vector<Vec2>* outVertices)
+{
+    MuliAssert(outVertices != nullptr);
+
+    outVertices->clear();
+
+    int32 vertexCount = int32(vertices.size());
+    if (vertexCount == 0)
+    {
+        return;
+    }
+
+    std::vector<Vec2> sorted(vertices.begin(), vertices.end());
+    std::sort(sorted.begin(), sorted.end(), [](const Vec2& a, const Vec2& b) {
+        if (a.x == b.x)
+        {
+            return a.y < b.y;
+        }
+        return a.x < b.x;
+    });
+
+    sorted.erase(std::unique(sorted.begin(), sorted.end()), sorted.end());
+    vertexCount = int32(sorted.size());
+    if (vertexCount < 3)
+    {
+        *outVertices = sorted;
+        return;
+    }
+
+    std::vector<Vec2> hull;
+    hull.reserve(vertexCount * 2);
+
+    for (int32 i = 0; i < vertexCount; ++i)
+    {
+        const Vec2& v = sorted[i];
+        while (hull.size() >= 2)
+        {
+            Vec2 d1 = hull[hull.size() - 1] - hull[hull.size() - 2];
+            Vec2 d2 = v - hull[hull.size() - 1];
+            if (Cross(d1, d2) > 0.0f)
+            {
+                break;
+            }
+            hull.pop_back();
+        }
+        hull.push_back(v);
+    }
+
+    size_t lowerCount = hull.size();
+    for (int32 i = vertexCount - 2; i >= 0; --i)
+    {
+        const Vec2& v = sorted[i];
+        while (hull.size() > lowerCount)
+        {
+            Vec2 d1 = hull[hull.size() - 1] - hull[hull.size() - 2];
+            Vec2 d2 = v - hull[hull.size() - 1];
+            if (Cross(d1, d2) > 0.0f)
+            {
+                break;
+            }
+            hull.pop_back();
+        }
+        hull.push_back(v);
+    }
+
+    if (hull.size() > 1)
+    {
+        hull.pop_back();
+    }
+
+    *outVertices = std::move(hull);
+}
+
+bool ComputeQuadrilateral(const Vec3& normal, const Vec3 vertices[4], Vec3 outVertices[4])
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(outVertices != nullptr);
+
+    Vec3 tangentX, tangentY;
+    CoordinateSystem(normal, &tangentX, &tangentY);
+
+    Vec3 projected[4];
+    Vec2 planeVertices[4];
+
+    projected[0] = vertices[0];
+    planeVertices[0] = Vec2::zero;
+
+    for (int32 i = 1; i < 4; ++i)
+    {
+        Vec3 r = vertices[i] - vertices[0];
+        projected[i] = vertices[i] - normal * Dot(r, normal);
+        Vec3 local = projected[i] - vertices[0];
+        planeVertices[i] = Vec2{ Dot(local, tangentX), Dot(local, tangentY) };
+    }
+
+    std::vector<Vec2> convex;
+    ComputeConvexHull(planeVertices, &convex);
+    if (convex.size() != 4)
+    {
+        return false;
+    }
+
+    for (int32 i = 0; i < 4; ++i)
+    {
+        outVertices[i] = vertices[0] + tangentX * convex[i].x + tangentY * convex[i].y;
+    }
+
+    return true;
 }
 
 } // namespace muli3

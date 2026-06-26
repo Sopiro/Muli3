@@ -6,7 +6,7 @@
 namespace muli3
 {
 
-static const char* shapeItems[] = { "Sphere", "Capsule", "Box", "Triangle" };
+static const char* shapeItems[] = { "Sphere", "Capsule", "Box", "Quad", "Triangle" };
 
 class CollisionDetection : public Demo
 {
@@ -154,7 +154,8 @@ public:
 
         if (collide)
         {
-            const Vec4 pointColor{ 1.0f, 0.18f, 0.08f, 1.0f };
+            const Vec4 pointColor1{ 1.0f, 0.18f, 0.08f, 1.0f };
+            const Vec4 pointColor2{ 0.08f, 0.18f, 1.0f, 1.0f };
             const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 1.0f };
 
             for (int32 i = 0; i < manifold.contactCount; ++i)
@@ -168,7 +169,8 @@ public:
                 Vec3 arrowA = arrowBase + tangent * 0.04f;
                 Vec3 arrowB = arrowBase - tangent * 0.04f;
 
-                renderer.DrawPoint(p1, pointColor);
+                renderer.DrawPoint(manifold.contactPoints[i].anchorA, pointColor1);
+                renderer.DrawPoint(manifold.contactPoints[i].anchorB, pointColor2);
                 renderer.DrawLine(p1, p2, normalColor);
                 renderer.DrawLine(p2, arrowA, normalColor);
                 renderer.DrawLine(p2, arrowB, normalColor);
@@ -210,6 +212,12 @@ private:
             shape1.reset(new BoxShape(size1, convexRadius1));
             break;
         case 3:
+            shape1.reset(new QuadShape(
+                Vec3{ -size1.x * 0.5f, -size1.y * 0.5f, 0.0f }, Vec3{ size1.x * 0.5f, -size1.y * 0.5f, 0.0f },
+                Vec3{ size1.x * 0.5f, size1.y * 0.5f, 0.0f }, Vec3{ -size1.x * 0.5f, size1.y * 0.5f, 0.0f }, convexRadius1
+            ));
+            break;
+        case 4:
             shape1.reset(new TriangleShape(
                 Vec3{ -size1.x * 0.5f, -size1.y * 0.5f, 0.0f }, Vec3{ size1.x * 0.5f, -size1.y * 0.5f, 0.0f },
                 Vec3{ 0.0f, size1.y * 0.5f, 0.0f }, convexRadius1
@@ -234,6 +242,12 @@ private:
             shape2.reset(new BoxShape(size2, convexRadius2));
             break;
         case 3:
+            shape2.reset(new QuadShape(
+                Vec3{ -size2.x * 0.5f, -size2.y * 0.5f, 0.0f }, Vec3{ size2.x * 0.5f, -size2.y * 0.5f, 0.0f },
+                Vec3{ size2.x * 0.5f, size2.y * 0.5f, 0.0f }, Vec3{ -size2.x * 0.5f, size2.y * 0.5f, 0.0f }, convexRadius2
+            ));
+            break;
+        case 4:
             shape2.reset(new TriangleShape(
                 Vec3{ -size2.x * 0.5f, -size2.y * 0.5f, 0.0f }, Vec3{ size2.x * 0.5f, -size2.y * 0.5f, 0.0f },
                 Vec3{ 0.0f, size2.y * 0.5f, 0.0f }, convexRadius2

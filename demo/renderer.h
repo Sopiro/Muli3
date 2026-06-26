@@ -100,6 +100,7 @@ private:
     void FlushCapsules(const Shader& shader, bool wireframe);
     void FlushBoxes(const Shader& shader, bool wireframe);
     void FlushTriangles(const Shader& shader, bool wireframe);
+    void FlushQuads(const Shader& shader, bool wireframe);
     void FlushConvexes(const Shader& shader, bool wireframe);
     void DrawHeightField(
         const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
@@ -112,7 +113,7 @@ private:
 
     bool initialized = false;
     Shader shapeShader, shadowShader, primitiveShader;
-    Mesh sphereMesh, capsuleTopMesh, capsuleBottomMesh, capsuleMidMesh, boxMesh, triangleMesh;
+    Mesh sphereMesh, capsuleTopMesh, capsuleBottomMesh, capsuleMidMesh, boxMesh, triangleMesh, quadMesh;
 
     GLuint shadowFramebuffer;
     GLuint shadowDepthTexture;
@@ -126,6 +127,7 @@ private:
     std::vector<ShapeInstance> capsuleMidInstances[2];
     std::vector<ShapeInstance> boxInstances[2];
     std::vector<ShapeInstance> triangleInstances[2];
+    std::vector<ShapeInstance> quadInstances[2];
     std::unordered_map<size_t, ConvexMeshRange> convexMeshes;
     std::unordered_map<size_t, std::vector<ShapeInstance>> convexInstances[2];
     size_t convexInstanceCount[2]{};
