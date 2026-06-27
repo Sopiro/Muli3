@@ -343,13 +343,12 @@ Vec3 Body::GetClosestPoint(const Vec3& q) const
     return cp0;
 }
 
-void Body::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
+void Body::RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* callback) const
 {
     RayCastInput input;
     input.from = from;
     input.to = to;
     input.maxFraction = 1.0f;
-    input.radius = radius;
 
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -369,7 +368,7 @@ void Body::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAny
     }
 }
 
-bool Body::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const
+bool Body::RayCastClosest(const Vec3& from, const Vec3& to, RayCastClosestCallback* callback) const
 {
     struct TempCallback : RayCastAnyCallback
     {
@@ -390,7 +389,7 @@ bool Body::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCas
         }
     } tempCallback;
 
-    RayCastAny(from, to, radius, &tempCallback);
+    RayCastAny(from, to, &tempCallback);
 
     if (tempCallback.hit)
     {
@@ -406,7 +405,6 @@ bool Body::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCas
 void Body::RayCastAny(
     const Vec3& from,
     const Vec3& to,
-    float radius,
     std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
@@ -414,7 +412,6 @@ void Body::RayCastAny(
     input.from = from;
     input.to = to;
     input.maxFraction = 1.0f;
-    input.radius = radius;
 
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {
@@ -437,7 +434,6 @@ void Body::RayCastAny(
 bool Body::RayCastClosest(
     const Vec3& from,
     const Vec3& to,
-    float radius,
     std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
@@ -460,7 +456,7 @@ bool Body::RayCastClosest(
         }
     } tempCallback;
 
-    RayCastAny(from, to, radius, &tempCallback);
+    RayCastAny(from, to, &tempCallback);
 
     if (tempCallback.hit)
     {

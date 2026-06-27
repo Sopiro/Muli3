@@ -11,7 +11,6 @@ bool RayCastSphere(const Vec3& p, float r, const RayCastInput& input, RayCastOut
 {
     Vec3 d = input.to - input.from;
     Vec3 f = input.from - p;
-    float radii = r + input.radius;
 
     float a = Dot(d, d);
     if (a <= epsilon)
@@ -20,7 +19,7 @@ bool RayCastSphere(const Vec3& p, float r, const RayCastInput& input, RayCastOut
     }
 
     float b = 2.0f * Dot(f, d);
-    float c = Dot(f, f) - radii * radii;
+    float c = Dot(f, f) - Sqr(r);
 
     float discriminant = b * b - 4.0f * a * c;
     if (discriminant < 0.0f)
@@ -53,9 +52,9 @@ bool RayCastCapsule(const Vec3& va, const Vec3& vb, float radius, const RayCastI
     Vec3 e = v2 - v1;
     Vec3 pv = p1 - v1;
 
-    float radii = radius + input.radius;
+    float radius2 = radius * radius;
 
-    if (Dist2(p1, ClosestPointVsSegment(v1, v2, p1)) <= radii * radii)
+    if (Dist2(p1, ClosestPointVsSegment(v1, v2, p1)) <= radius2)
     {
         return false;
     }
@@ -79,7 +78,7 @@ bool RayCastCapsule(const Vec3& va, const Vec3& vb, float radius, const RayCastI
 
     float a = dd * ee - ed * ed;
     float b = dp * ee - ep * ed;
-    float c = pp * ee - ep * ep - radii * radii * ee;
+    float c = pp * ee - ep * ep - radius2 * ee;
 
     if (Abs(a) > epsilon)
     {
@@ -124,37 +123,40 @@ bool RayCastTriangle(const Vec3& a, const Vec3& b, const Vec3& c, const RayCastI
     Vec3 d = input.to - input.from;
     Vec3 ab = b - a;
     Vec3 ac = c - a;
-    Vec3 n = Cross(ab, ac);
-    float area = n.Normalize();
-    if (area == 0.0f)
+    Vec3 p = Cross(d, ac);
+
+    float det = Dot(ab, p);
+    if (Abs(det) < epsilon)
     {
         return false;
     }
 
-    float denom = Dot(n, d);
-    if (Abs(denom) <= epsilon)
+    float invDet = 1.0f / det;
+    Vec3 s = input.from - a;
+    float u = Dot(s, p) * invDet;
+    if (u < 0.0f)
     {
         return false;
     }
 
-    float t = Dot(n, a - input.from) / denom;
+    Vec3 q = Cross(s, ab);
+    float v = Dot(d, q) * invDet;
+    if (v < 0.0f || u + v > 1.0f)
+    {
+        return false;
+    }
+
+    float t = Dot(ac, q) * invDet;
     if (t < 0.0f || t > input.maxFraction)
     {
         return false;
     }
 
-    Vec3 p = input.from + d * t;
-    if (Dot(Cross(b - a, p - a), n) < -linear_slop)
+    Vec3 n = Cross(ab, ac);
+    n.Normalize();
+    if (Dot(n, d) > 0.0f)
     {
-        return false;
-    }
-    if (Dot(Cross(c - b, p - b), n) < -linear_slop)
-    {
-        return false;
-    }
-    if (Dot(Cross(a - c, p - c), n) < -linear_slop)
-    {
-        return false;
+        n = -n;
     }
 
     output->fraction = t;

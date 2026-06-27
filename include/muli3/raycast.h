@@ -10,7 +10,6 @@ struct RayCastInput
     Vec3 from;
     Vec3 to;
     float maxFraction;
-    float radius;
 };
 
 struct RayCastOutput

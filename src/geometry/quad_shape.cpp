@@ -344,69 +344,22 @@ bool QuadShape::RayCast(const Transform& transform, const RayCastInput& input, R
     Vec3 b = Mul(transform, vertices[1]);
     Vec3 c = Mul(transform, vertices[2]);
     Vec3 d = Mul(transform, vertices[3]);
-    Vec3 n = transform.q.Rotate(normal);
-    float radii = radius + input.radius;
 
-    RayCastOutput bestOutput;
-    bestOutput.fraction = input.maxFraction;
-    bool hit = false;
-
-    auto KeepBest = [&](const RayCastOutput& candidate) {
-        if (candidate.fraction <= bestOutput.fraction)
-        {
-            bestOutput = candidate;
-            hit = true;
-        }
-    };
-
-    RayCastInput rayInput = input;
-    rayInput.radius = 0.0f;
+    bool hit = RayCastTriangle(a, b, c, input, output);
 
     RayCastOutput candidate;
-    if (RayCastTriangle(a + n * radii, b + n * radii, c + n * radii, rayInput, &candidate))
-    {
-        candidate.normal = n;
-        KeepBest(candidate);
-    }
-    if (RayCastTriangle(a + n * radii, c + n * radii, d + n * radii, rayInput, &candidate))
-    {
-        candidate.normal = n;
-        KeepBest(candidate);
-    }
-    if (RayCastTriangle(a - n * radii, c - n * radii, b - n * radii, rayInput, &candidate))
-    {
-        candidate.normal = -n;
-        KeepBest(candidate);
-    }
-    if (RayCastTriangle(a - n * radii, d - n * radii, c - n * radii, rayInput, &candidate))
-    {
-        candidate.normal = -n;
-        KeepBest(candidate);
-    }
-
-    RayCastInput capsuleInput = input;
-    capsuleInput.radius = 0.0f;
-    if (RayCastCapsule(a, b, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-    if (RayCastCapsule(b, c, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-    if (RayCastCapsule(c, d, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-    if (RayCastCapsule(d, a, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-
+    RayCastInput rayInput = input;
     if (hit)
     {
-        *output = bestOutput;
+        rayInput.maxFraction = output->fraction;
     }
+
+    if (RayCastTriangle(a, c, d, rayInput, &candidate))
+    {
+        *output = candidate;
+        hit = true;
+    }
+
     return hit;
 }
 

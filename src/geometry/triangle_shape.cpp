@@ -387,56 +387,7 @@ bool TriangleShape::RayCast(const Transform& transform, const RayCastInput& inpu
     Vec3 a = Mul(transform, vertices[0]);
     Vec3 b = Mul(transform, vertices[1]);
     Vec3 c = Mul(transform, vertices[2]);
-    Vec3 n = transform.q.Rotate(normal);
-    float radii = radius + input.radius;
-
-    RayCastOutput bestOutput;
-    bestOutput.fraction = input.maxFraction;
-    bool hit = false;
-
-    auto KeepBest = [&](const RayCastOutput& candidate) {
-        if (candidate.fraction <= bestOutput.fraction)
-        {
-            bestOutput = candidate;
-            hit = true;
-        }
-    };
-
-    RayCastInput rayInput = input;
-    rayInput.radius = 0.0f;
-
-    RayCastOutput candidate;
-    if (RayCastTriangle(a + n * radii, b + n * radii, c + n * radii, rayInput, &candidate))
-    {
-        candidate.normal = n;
-        KeepBest(candidate);
-    }
-    if (RayCastTriangle(a - n * radii, c - n * radii, b - n * radii, rayInput, &candidate))
-    {
-        candidate.normal = -n;
-        KeepBest(candidate);
-    }
-
-    RayCastInput capsuleInput = input;
-    capsuleInput.radius = 0.0f;
-    if (RayCastCapsule(a, b, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-    if (RayCastCapsule(b, c, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-    if (RayCastCapsule(c, a, radii, capsuleInput, &candidate))
-    {
-        KeepBest(candidate);
-    }
-
-    if (hit)
-    {
-        *output = bestOutput;
-    }
-    return hit;
+    return RayCastTriangle(a, b, c, input, output);
 }
 
 } // namespace muli3

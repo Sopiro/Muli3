@@ -290,15 +290,8 @@ bool BoxShape::RayCast(const Transform& transform, const RayCastInput& input, Ra
     Vec3 p2 = localInput.to;
     Vec3 d = p2 - p1;
 
-    float radii = radius + input.radius;
-    Vec3 extents = halfExtents + radii;
-
-    Vec3 closest{
-        Clamp(p1.x, -halfExtents.x, halfExtents.x),
-        Clamp(p1.y, -halfExtents.y, halfExtents.y),
-        Clamp(p1.z, -halfExtents.z, halfExtents.z),
-    };
-    if (Dist2(p1, closest) <= radii * radii)
+    if (-halfExtents.x <= p1.x && p1.x <= halfExtents.x && -halfExtents.y <= p1.y && p1.y <= halfExtents.y &&
+        -halfExtents.z <= p1.z && p1.z <= halfExtents.z)
     {
         return false;
     }
@@ -312,8 +305,8 @@ bool BoxShape::RayCast(const Transform& transform, const RayCastInput& input, Ra
     {
         float p = p1[i];
         float di = d[i];
-        float min = -extents[i];
-        float max = extents[i];
+        float min = -halfExtents[i];
+        float max = halfExtents[i];
 
         if (Abs(di) <= epsilon)
         {
@@ -355,53 +348,10 @@ bool BoxShape::RayCast(const Transform& transform, const RayCastInput& input, Ra
         return false;
     }
 
-    Vec3 q = p1 + d * near;
-    int32 i1 = (axis + 1) % 3;
-    int32 i2 = (axis + 2) % 3;
-
-    if (Abs(q[i1]) <= halfExtents[i1] && Abs(q[i2]) <= halfExtents[i2])
-    {
-        Vec3 normal = Vec3::zero;
-        normal[axis] = sign;
-        output->fraction = near;
-        output->normal = boxTransform.q.Rotate(normal);
-        return true;
-    }
-
-    if (Abs(q[i1]) > halfExtents[i1] && Abs(q[i2]) > halfExtents[i2])
-    {
-        Vec3 corner = Vec3::zero;
-        corner[axis] = sign * halfExtents[axis];
-        corner[i1] = q[i1] > 0.0f ? halfExtents[i1] : -halfExtents[i1];
-        corner[i2] = q[i2] > 0.0f ? halfExtents[i2] : -halfExtents[i2];
-
-        if (RayCastSphere(corner, radius, localInput, output) == false)
-        {
-            return false;
-        }
-
-        output->normal = boxTransform.q.Rotate(output->normal);
-        return true;
-    }
-
-    int32 edgeAxis = Abs(q[i1]) > halfExtents[i1] ? i2 : i1;
-    int32 fixedAxis = edgeAxis == i1 ? i2 : i1;
-
-    Vec3 edgeA = Vec3::zero;
-    Vec3 edgeB = Vec3::zero;
-    edgeA[axis] = sign * halfExtents[axis];
-    edgeB[axis] = sign * halfExtents[axis];
-    edgeA[fixedAxis] = q[fixedAxis] > 0.0f ? halfExtents[fixedAxis] : -halfExtents[fixedAxis];
-    edgeB[fixedAxis] = edgeA[fixedAxis];
-    edgeA[edgeAxis] = -halfExtents[edgeAxis];
-    edgeB[edgeAxis] = halfExtents[edgeAxis];
-
-    if (RayCastCapsule(edgeA, edgeB, radius, localInput, output) == false)
-    {
-        return false;
-    }
-
-    output->normal = boxTransform.q.Rotate(output->normal);
+    Vec3 normal = Vec3::zero;
+    normal[axis] = sign;
+    output->fraction = near;
+    output->normal = boxTransform.q.Rotate(normal);
     return true;
 }
 

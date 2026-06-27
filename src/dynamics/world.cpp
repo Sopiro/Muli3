@@ -463,13 +463,13 @@ void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
     constraintGraph.broadPhase.tree.Query(aabb, &tempCallback);
 }
 
-void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const
+void World::RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* callback) const
 {
     AABBCastInput input;
     input.from = from;
     input.to = to;
     input.maxFraction = 1.0f;
-    input.halfExtents.Set(radius, radius, radius);
+    input.halfExtents.SetZero();
 
     struct TempCallback
     {
@@ -481,7 +481,6 @@ void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAn
             rayInput.from = subInput.from;
             rayInput.to = subInput.to;
             rayInput.maxFraction = subInput.maxFraction;
-            rayInput.radius = subInput.halfExtents.x;
 
             RayCastOutput output;
 
@@ -503,7 +502,7 @@ void World::RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAn
     constraintGraph.broadPhase.tree.AABBCast(input, &tempCallback);
 }
 
-bool World::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const
+bool World::RayCastClosest(const Vec3& from, const Vec3& to, RayCastClosestCallback* callback) const
 {
     struct TempCallback : RayCastAnyCallback
     {
@@ -525,7 +524,7 @@ bool World::RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCa
         }
     } tempCallback;
 
-    RayCastAny(from, to, radius, &tempCallback);
+    RayCastAny(from, to, &tempCallback);
 
     if (tempCallback.hit)
     {
@@ -694,7 +693,6 @@ void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> call
 void World::RayCastAny(
     const Vec3& from,
     const Vec3& to,
-    float radius,
     std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
@@ -702,7 +700,7 @@ void World::RayCastAny(
     input.from = from;
     input.to = to;
     input.maxFraction = 1.0f;
-    input.halfExtents.Set(radius, radius, radius);
+    input.halfExtents.SetZero();
 
     struct TempCallback
     {
@@ -719,7 +717,6 @@ void World::RayCastAny(
             rayInput.from = subInput.from;
             rayInput.to = subInput.to;
             rayInput.maxFraction = subInput.maxFraction;
-            rayInput.radius = subInput.halfExtents.x;
 
             RayCastOutput output;
 
@@ -742,7 +739,6 @@ void World::RayCastAny(
 bool World::RayCastClosest(
     const Vec3& from,
     const Vec3& to,
-    float radius,
     std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
@@ -766,7 +762,7 @@ bool World::RayCastClosest(
         }
     } tempCallback;
 
-    RayCastAny(from, to, radius, &tempCallback);
+    RayCastAny(from, to, &tempCallback);
 
     if (tempCallback.hit)
     {

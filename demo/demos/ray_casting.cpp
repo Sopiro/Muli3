@@ -9,12 +9,11 @@ namespace muli3
 class RayCasting : public Demo
 {
 public:
-    Vec3 from{ -3.0f, 0.0f, 0.0f };
-    Vec3 to{ 3.0f, 0.5f, 0.0f };
-    Vec3 targetRot = Vec3::zero;
+    Vec3 from{ -4.0f, -0.5, 0.0f };
+    Vec3 to{ 4.0f, 0.5f, 0.0f };
+    Vec3 targetRot = { 0, 15, 0 };
 
     bool closest = true;
-    float radius = 0.0f;
 
     RayCasting(Game& game)
         : Demo(game)
@@ -45,6 +44,8 @@ public:
             Vec3{ -0.35f, 0.3f, 0.0f },
         };
         targetBodies[5] = world->CreateQuad(z_axis, quadVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
+
+        UpdateTargetRotation();
     }
 
     void UpdateInput() override
@@ -81,13 +82,9 @@ public:
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Once, { 1.0f, 0.0f });
 
-        if (ImGui::Begin(
-                "Ray casting", NULL,
-                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar
-            ))
+        if (ImGui::Begin("Ray casting", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
         {
             ImGui::Checkbox("Closest", &closest);
-            ImGui::DragFloat("Ray radius", &radius, 0.01f, 0.0f, 0.5f, "%.2f");
             if (ImGui::DragFloat3("Target rot", &targetRot.x, 1.0f, -360.0f, 360.0f))
             {
                 UpdateTargetRotation();
@@ -101,26 +98,21 @@ public:
         bool hit = false;
         Vec3 closestPoint = Vec3::zero;
         Vec3 closestNormal = Vec3::zero;
-        SphereShape sphere{ radius };
-        Renderer::DrawMode dm{};
         float prevPointSize = renderer.GetPointSize();
         renderer.SetPointSize(7.0f);
+        int32 colorIndex = 0;
 
-        world->RayCastAny(from, to, radius, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) -> float {
+        world->RayCastAny(from, to, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) -> float {
             MuliNotUsed(collider);
 
             hit = true;
 
             if (closest == false)
             {
-                renderer.DrawPoint(point);
+                Vec3 rgb = color::HSLToRGB({ (colorIndex++) * 35.9f / 360.0f, 1.0f, 0.5f });
+                Vec4 color{ rgb.x, rgb.y, rgb.z, 1.0f };
+                renderer.DrawPoint(point, color);
                 renderer.DrawLine(point, point + normal * 0.25f);
-
-                if (radius > 0.0f)
-                {
-                    ++dm.colorIndex;
-                    renderer.DrawShape(&sphere, Transform{ point }, dm);
-                }
 
                 return 1.0f;
             }
@@ -138,11 +130,6 @@ public:
         {
             renderer.DrawPoint(closestPoint);
             renderer.DrawLine(closestPoint, closestPoint + closestNormal * 0.25f);
-
-            if (radius > 0.0f)
-            {
-                renderer.DrawShape(&sphere, Transform{ closestPoint });
-            }
         }
 
         renderer.FlushAll();

@@ -689,12 +689,8 @@ bool ConvexShape::RayCast(const Transform& transform, const RayCastInput& input,
     localInput.from = MulT(transform, input.from);
     localInput.to = MulT(transform, input.to);
 
-    // Convex ray casting is a slab-style intersection against all face planes,
-    // expanded by the shape radius and the swept sphere radius.
-    float radii = radius + input.radius;
     Vec3 p1 = localInput.from;
-    Vec3 closest = GetClosestPointLocal(p1);
-    if (TestPointLocal(p1) || Dist2(p1, closest) <= radii * radii)
+    if (TestPointLocal(p1))
     {
         return false;
     }
@@ -708,7 +704,7 @@ bool ConvexShape::RayCast(const Transform& transform, const RayCastInput& input,
     for (int32 i = 0; i < int32(faces.size()); ++i)
     {
         Vec3 normal = normals[i];
-        Vec3 v = vertices[faces[i].indices[0]] + normal * radii;
+        Vec3 v = vertices[faces[i].indices[0]];
 
         float numerator = Dot(normal, v - p1);
         float denominator = Dot(normal, d);

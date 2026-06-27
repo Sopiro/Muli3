@@ -3,29 +3,27 @@
 #include "renderer.h"
 #include "window.h"
 
-#include <memory>
-
 namespace muli3
 {
 
 static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box", "Quad", "Triangle" };
 
-class ShapeCastTest : public Demo
+class ShapeCasting : public Demo
 {
 public:
     Transform tf = identity;
     Vec3 rot = Vec3::zero;
-    Vec3 targetRot = Vec3::zero;
+    Vec3 targetRot = { 0, 15, 0 };
 
     std::unique_ptr<Shape> shape;
 
-    Vec3 from{ -3.0f, 0.0, 0.0f };
-    Vec3 to{ 3.0f, 0.5f, 0.0f };
+    Vec3 from{ -4.0f, -0.5, 0.0f };
+    Vec3 to{ 4.0f, 0.5f, 0.0f };
 
     bool closest = true;
     int32 item = 1;
 
-    ShapeCastTest(Game& game)
+    ShapeCasting(Game& game)
         : Demo(game)
     {
         settings.apply_gravity = false;
@@ -55,6 +53,7 @@ public:
         };
         targetBodies[5] = world->CreateQuad(z_axis, quadVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
 
+        UpdateTargetRotation();
         UpdateShape();
     }
 
@@ -92,10 +91,7 @@ public:
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Once, { 1.0f, 0.0f });
 
-        if (ImGui::Begin(
-                "Shape cast world", NULL,
-                ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar
-            ))
+        if (ImGui::Begin("Shape casting", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
         {
             ImGui::Checkbox("Closest", &closest);
 
@@ -171,7 +167,7 @@ private:
         switch (item)
         {
         case 0:
-            shape.reset(new SphereShape(0.2f));
+            shape.reset(new SphereShape(0.15f));
             break;
         case 1:
             shape.reset(new CapsuleShape(0.3f, 0.14f));
@@ -226,11 +222,11 @@ private:
     Body* targetBodies[6] = {};
 };
 
-static Demo* CreateShapeCastWorld(Game& game)
+static Demo* CreateShapeCasting(Game& game)
 {
-    return new ShapeCastTest(game);
+    return new ShapeCasting(game);
 }
 
-static int32 shape_cast_world = register_demo("Collision", "Shape casting", CreateShapeCastWorld, 3);
+static int32 shape_cast_world = register_demo("Collision", "Shape casting", CreateShapeCasting, 3);
 
 } // namespace muli3

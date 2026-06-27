@@ -275,25 +275,143 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
     localInput.from = MulT(transform, input.from);
     localInput.to = MulT(transform, input.to);
 
-    AABB localAABB{ Min(localInput.from, localInput.to), Max(localInput.from, localInput.to) };
-    localAABB.min -= Vec3{ input.radius, input.radius, input.radius };
-    localAABB.max += Vec3{ input.radius, input.radius, input.radius };
+    Vec3 d = localInput.to - localInput.from;
+    if (Length2(d) <= epsilon)
+    {
+        return false;
+    }
+
+    // Clip the ray to the height field bounds before walking the XZ grid.
+    float t0 = 0.0f;
+    float t1 = input.maxFraction;
+
+    for (int32 axis = 0; axis < 3; ++axis)
+    {
+        float origin = localInput.from[axis];
+        float dir = d[axis];
+        float min = localBounds.min[axis];
+        float max = localBounds.max[axis];
+
+        if (Abs(dir) <= epsilon)
+        {
+            if (origin < min || origin > max)
+            {
+                return false;
+            }
+            continue;
+        }
+
+        float invDir = 1.0f / dir;
+        float enter = (min - origin) * invDir;
+        float exit = (max - origin) * invDir;
+        if (enter > exit)
+        {
+            std::swap(enter, exit);
+        }
+
+        t0 = Max(t0, enter);
+        t1 = Min(t1, exit);
+        if (t0 > t1)
+        {
+            return false;
+        }
+    }
 
     bool hit = false;
     float bestFraction = input.maxFraction;
     Vec3 bestNormal = y_axis;
 
-    Query(localAABB, [&](int32, int32, int32, const Vec3& a, const Vec3& b, const Vec3& c) {
-        RayCastOutput triangleOutput;
-        RayCastInput triangleInput = localInput;
-        triangleInput.maxFraction = bestFraction;
-        if (RayCastTriangle(a, b, c, triangleInput, &triangleOutput))
+    int32 cellCountX = GetCellCountX();
+    int32 cellCountZ = GetCellCountZ();
+
+    Vec3 p0 = localInput.from + d * t0;
+    int32 cell[2] = {
+        Clamp(int32(std::floor((p0.x - offset.x) / cellSizeX)), 0, cellCountX - 1),
+        Clamp(int32(std::floor((p0.z - offset.z) / cellSizeZ)), 0, cellCountZ - 1),
+    };
+
+    int32 step[2] = { 0, 0 };
+    int32 cellEnd[2] = { 0, 0 };
+    float nextT[2] = { max_float, max_float };
+    float deltaT[2] = { max_float, max_float };
+
+    float gridOrigin[2] = { localInput.from.x, localInput.from.z };
+    float gridDir[2] = { d.x, d.z };
+    float gridOffset[2] = { offset.x, offset.z };
+    float gridCellSize[2] = { cellSizeX, cellSizeZ };
+    int32 gridCellCount[2] = { cellCountX, cellCountZ };
+
+    for (int32 axis = 0; axis < 2; ++axis)
+    {
+        if (Abs(gridDir[axis]) <= epsilon)
         {
-            hit = true;
-            bestFraction = triangleOutput.fraction;
-            bestNormal = triangleOutput.normal;
+            continue;
         }
-    });
+
+        if (gridDir[axis] > 0.0f)
+        {
+            step[axis] = 1;
+            cellEnd[axis] = gridCellCount[axis];
+            nextT[axis] = (gridOffset[axis] + (cell[axis] + 1) * gridCellSize[axis] - gridOrigin[axis]) / gridDir[axis];
+        }
+        else
+        {
+            step[axis] = -1;
+            cellEnd[axis] = -1;
+            nextT[axis] = (gridOffset[axis] + cell[axis] * gridCellSize[axis] - gridOrigin[axis]) / gridDir[axis];
+        }
+        deltaT[axis] = gridCellSize[axis] / Abs(gridDir[axis]);
+    }
+
+    while (t0 <= t1)
+    {
+        float h00 = GetHeight(cell[0], cell[1]);
+        float h10 = GetHeight(cell[0] + 1, cell[1]);
+        float h01 = GetHeight(cell[0], cell[1] + 1);
+        float h11 = GetHeight(cell[0] + 1, cell[1] + 1);
+        float minHeight = Min(Min(h00, h10), Min(h01, h11));
+        float maxHeight = Max(Max(h00, h10), Max(h01, h11));
+
+        if (Max(localInput.from.y, localInput.from.y + d.y * bestFraction) >= offset.y + minHeight &&
+            Min(localInput.from.y, localInput.from.y + d.y * bestFraction) <= offset.y + maxHeight)
+        {
+            RayCastInput triangleInput = localInput;
+
+            for (int32 i = 0; i < 2; ++i)
+            {
+                triangleInput.maxFraction = bestFraction;
+
+                Vec3 a, b, c;
+                GetTriangle(cell[0], cell[1], i, &a, &b, &c);
+                RayCastOutput candidate;
+                if (RayCastTriangle(a, b, c, triangleInput, &candidate))
+                {
+                    if (candidate.fraction <= bestFraction)
+                    {
+                        hit = true;
+                        bestFraction = candidate.fraction;
+                        t1 = Min(t1, bestFraction);
+                        bestNormal = candidate.normal;
+                    }
+                }
+            }
+        }
+
+        int32 stepAxis = nextT[0] <= nextT[1] ? 0 : 1;
+        if (nextT[stepAxis] > t1)
+        {
+            break;
+        }
+
+        cell[stepAxis] += step[stepAxis];
+        if (cell[stepAxis] == cellEnd[stepAxis])
+        {
+            break;
+        }
+
+        t0 = nextT[stepAxis];
+        nextT[stepAxis] += deltaT[stepAxis];
+    }
 
     if (hit == false)
     {

@@ -122,19 +122,17 @@ public:
 
     bool TestPoint(const Vec3& q) const;
     Vec3 GetClosestPoint(const Vec3& q) const;
-    void RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const;
-    bool RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const;
+    void RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* callback) const;
+    bool RayCastClosest(const Vec3& from, const Vec3& to, RayCastClosestCallback* callback) const;
 
     void RayCastAny(
         const Vec3& from,
         const Vec3& to,
-        float radius,
         std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
     ) const;
     bool RayCastClosest(
         const Vec3& from,
         const Vec3& to,
-        float radius,
         std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
     ) const;
 

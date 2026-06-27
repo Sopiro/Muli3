@@ -70,7 +70,7 @@ void Demo::FindTargetBody()
     }
 
     Ray ray = GetMouseRay();
-    world->RayCastClosest(ray.o, ray.o + ray.d * 500.0f, 0.0f, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) {
+    world->RayCastClosest(ray.o, ray.o + ray.d * 500.0f, [&](Collider* collider, Vec3 point, Vec3 normal, float fraction) {
         MuliNotUsed(normal);
         MuliNotUsed(fraction);
 

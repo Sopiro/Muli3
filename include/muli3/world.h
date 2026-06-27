@@ -238,8 +238,8 @@ public:
 
     void Query(const Vec3& point, WorldQueryCallback* callback) const;
     void Query(const AABB& aabb, WorldQueryCallback* callback) const;
-    void RayCastAny(const Vec3& from, const Vec3& to, float radius, RayCastAnyCallback* callback) const;
-    bool RayCastClosest(const Vec3& from, const Vec3& to, float radius, RayCastClosestCallback* callback) const;
+    void RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* callback) const;
+    bool RayCastClosest(const Vec3& from, const Vec3& to, RayCastClosestCallback* callback) const;
     void ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastAnyCallback* callback) const;
     bool ShapeCastClosest(
         const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback
@@ -250,13 +250,11 @@ public:
     void RayCastAny(
         const Vec3& from,
         const Vec3& to,
-        float radius,
         std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
     ) const;
     bool RayCastClosest(
         const Vec3& from,
         const Vec3& to,
-        float radius,
         std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
     ) const;
     void ShapeCastAny(
