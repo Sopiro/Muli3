@@ -71,7 +71,7 @@ public:
         {
             for (int32 x = 0; x < 5; ++x)
             {
-                Vec3 p{ -6.0f + x * 3.0f, 3.0f + z * 1.2f, -6.0f + z * 3.0f };
+                Vec3 p{ -6.0f + x * 3.0f, 5.0f + (5 - z) * 1.2f, -6.0f + z * 3.0f };
                 Body* body = nullptr;
                 int32 type = (x + z) % 3;
                 if (type == 0)
