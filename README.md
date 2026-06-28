@@ -11,18 +11,17 @@
 Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded to 3D and multi-threading support.
 
 ### Collision
-  - Shapes: sphere, capsule, box, convex polyhedron and height field
+  - Shapes: sphere, capsule, box, polyhedron, triangle, quadrilateral, and height field
   - Support for rounded shapes
   - Multiple colliders attached to a single body
   - Dynamic, static, and kinematic bodies
   - Collision filtering
-  - Dynamic AABB tree broadphase
+  - Dynamic AABB tree broad phase
   - One-shot contact manifold generation
   - Accelerated raycast, shapecast, and area queries
-  - Easy-to-use collision detection and distance functions
 
  ### Physics Simulation
-  - PGS solver with a separate position solver
+  - PGS solver with a separate position correction (PGS NGS)
   - Persistent constraint graph
   - Graph coloring based solver with multi-threading
   - Constraint islanding and sleeping
