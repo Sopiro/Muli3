@@ -84,6 +84,12 @@ constexpr inline V<T> NormalizeSafe(const V<T>& v)
     return v * inv_length;
 }
 
+constexpr inline Float SmoothStep01(Float t)
+{
+    t = Clamp(t, 0, 1);
+    return t * t * (3 - 2 * t);
+}
+
 constexpr inline Float SmoothStep(Float a, Float b, Float x)
 {
     if (a == b)
@@ -91,8 +97,23 @@ constexpr inline Float SmoothStep(Float a, Float b, Float x)
         return (x < a) ? Float(0) : Float(1);
     }
 
-    Float t = Clamp((x - a) / (b - a), 0, 1);
-    return t * t * (3 - 2 * t);
+    return SmoothStep01((x - a) / (b - a));
+}
+
+constexpr inline Float SmootherStep01(Float t)
+{
+    t = Clamp(t, 0, 1);
+    return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+constexpr inline Float SmootherStep(Float a, Float b, Float x)
+{
+    if (a == b)
+    {
+        return (x < a) ? Float(0) : Float(1);
+    }
+
+    return SmootherStep01((x - a) / (b - a));
 }
 
 template <typename V, typename T>

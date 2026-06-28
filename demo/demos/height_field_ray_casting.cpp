@@ -1,5 +1,6 @@
 #include "demo.h"
 
+#include "muli3/noise.h"
 #include "renderer.h"
 #include "window.h"
 
@@ -17,16 +18,17 @@ public:
         constexpr int32 sampleCount = 128;
         constexpr float cellSize = 0.5f;
         constexpr float halfExtent = (sampleCount - 1) * cellSize * 0.5f;
+        constexpr float frequency = 0.12f;
+        constexpr float amplitude = 3.0f;
 
         std::vector<float> heights(sampleCount * sampleCount);
         for (int32 z = 0; z < sampleCount; ++z)
         {
             for (int32 x = 0; x < sampleCount; ++x)
             {
-                float wx = (x - (sampleCount - 1) * 0.5f) * cellSize;
-                float wz = (z - (sampleCount - 1) * 0.5f) * cellSize;
-                float h = 0.55f * std::sin(wx * 0.55f) + 0.35f * std::cos(wz * 0.7f) + 0.18f * std::sin((wx + wz) * 0.9f);
-                heights[z * sampleCount + x] = h;
+                float wx = x * cellSize * frequency;
+                float wz = z * cellSize * frequency;
+                heights[z * sampleCount + x] = Noise2(wx, wz, 2026) * amplitude;
             }
         }
 
