@@ -553,10 +553,20 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
         {
             ShapeCastOutput output;
 
-            bool hit = ShapeCast(
-                shape, tf, collider->GetShape(), collider->GetBody()->GetTransform(), translation * input.maxFraction, Vec3::zero,
-                &output
-            );
+            const Shape* colliderShape = collider->GetShape();
+            const Transform& colliderTransform = collider->GetBody()->GetTransform();
+
+            bool hit;
+            if (colliderShape->GetType() == Shape::height_field)
+            {
+                const HeightFieldShape* heightField = (const HeightFieldShape*)colliderShape;
+                hit = heightField->ShapeCast(colliderTransform, shape, tf, translation * input.maxFraction, &output);
+            }
+            else
+            {
+                hit =
+                    ShapeCast(shape, tf, colliderShape, colliderTransform, translation * input.maxFraction, Vec3::zero, &output);
+            }
             if (hit)
             {
                 return callback->OnHitAny(collider, output.point, output.normal, output.t * input.maxFraction);
@@ -691,9 +701,7 @@ void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> call
 }
 
 void World::RayCastAny(
-    const Vec3& from,
-    const Vec3& to,
-    std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+    const Vec3& from, const Vec3& to, std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
     AABBCastInput input;
@@ -737,9 +745,7 @@ void World::RayCastAny(
 }
 
 bool World::RayCastClosest(
-    const Vec3& from,
-    const Vec3& to,
-    std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+    const Vec3& from, const Vec3& to, std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
     struct TempCallback : RayCastAnyCallback
@@ -810,10 +816,20 @@ void World::ShapeCastAny(
         {
             ShapeCastOutput output;
 
-            bool hit = ShapeCast(
-                shape, tf, collider->GetShape(), collider->GetBody()->GetTransform(), translation * input.maxFraction, Vec3::zero,
-                &output
-            );
+            const Shape* colliderShape = collider->GetShape();
+            const Transform& colliderTransform = collider->GetBody()->GetTransform();
+
+            bool hit;
+            if (colliderShape->GetType() == Shape::height_field)
+            {
+                const HeightFieldShape* heightField = (const HeightFieldShape*)colliderShape;
+                hit = heightField->ShapeCast(colliderTransform, shape, tf, translation * input.maxFraction, &output);
+            }
+            else
+            {
+                hit =
+                    ShapeCast(shape, tf, colliderShape, colliderTransform, translation * input.maxFraction, Vec3::zero, &output);
+            }
             if (hit)
             {
                 return callbackFcn(collider, output.point, output.normal, output.t * input.maxFraction);

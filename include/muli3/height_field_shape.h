@@ -31,6 +31,13 @@ public:
     bool TestPoint(const Transform& transform, const Vec3& q) const;
     Vec3 GetClosestPoint(const Transform& transform, const Vec3& q) const;
     bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const;
+    bool ShapeCast(
+        const Transform& transform,
+        const Shape* shape,
+        const Transform& shapeTransform,
+        const Vec3& translation,
+        ShapeCastOutput* output
+    ) const;
 
     int32 GetSampleCountX() const;
     int32 GetSampleCountZ() const;

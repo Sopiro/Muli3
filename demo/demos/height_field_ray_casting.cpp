@@ -14,9 +14,6 @@ public:
     HeightFieldRayCasting(Game& game)
         : Demo(game)
     {
-        settings.apply_gravity = false;
-        settings.sleeping = false;
-
         constexpr int32 sampleCount = 128;
         constexpr float cellSize = 0.5f;
         constexpr float halfExtent = (sampleCount - 1) * cellSize * 0.5f;
@@ -47,6 +44,7 @@ public:
         FindTargetBody();
         EnableKeyboardShortcut();
         EnableCameraControl();
+        EnableBodyCreate();
 
         RecordRayTrace();
     }

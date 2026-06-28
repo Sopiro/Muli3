@@ -2,6 +2,7 @@
 #include "muli3/distance.h"
 #include "muli3/parallel_for.h"
 #include "muli3/settings.h"
+#include "muli3/shapes.h"
 
 namespace muli3
 {
@@ -269,8 +270,305 @@ Vec3 HeightFieldShape::GetClosestPoint(const Transform& transform, const Vec3& q
     return Mul(transform, closest);
 }
 
+bool HeightFieldShape::ShapeCast(
+    const Transform& transform,
+    const Shape* shape,
+    const Transform& shapeTransform,
+    const Vec3& translation,
+    ShapeCastOutput* output
+) const
+{
+    MuliAssert(output != nullptr);
+    MuliAssert(shape->GetType() != Shape::height_field);
+
+    AABB worldAABB;
+    shape->ComputeAABB(shapeTransform, &worldAABB);
+
+    // Transform all corners to the height field space.
+    Vec3 corners[8] = {
+        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.min.z }),
+        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.min.z }),
+        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.min.z }),
+        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.min.z }),
+        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.max.z }),
+        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.max.z }),
+        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.max.z }),
+        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.max.z }),
+    };
+
+    AABB localAABB{ corners[0], corners[0] };
+    for (int32 i = 1; i < 8; ++i)
+    {
+        localAABB = AABB::Union(localAABB, corners[i]);
+    }
+
+    // Shape cast keeps the orientation fixed, so the local AABB only translates.
+    Vec3 localTranslation = transform.q.RotateInv(translation) / transform.s;
+    if (Length2(localTranslation) <= epsilon)
+    {
+        return false;
+    }
+
+    float t0 = 0.0f;
+    float t1 = 1.0f;
+
+    // Clip the swept AABB to the height field bounds before walking the grid.
+    for (int32 axis = 0; axis < 3; ++axis)
+    {
+        float minA = localAABB.min[axis];
+        float maxA = localAABB.max[axis];
+        float dir = localTranslation[axis];
+        float minB = localBounds.min[axis];
+        float maxB = localBounds.max[axis];
+
+        if (Abs(dir) <= epsilon)
+        {
+            if (maxA < minB || minA > maxB)
+            {
+                return false;
+            }
+            continue;
+        }
+
+        float enter = (minB - maxA) / dir;
+        float exit = (maxB - minA) / dir;
+        if (enter > exit)
+        {
+            std::swap(enter, exit);
+        }
+
+        t0 = Max(t0, enter);
+        t1 = Min(t1, exit);
+        if (t0 > t1)
+        {
+            return false;
+        }
+    }
+
+    int32 cellCountX = GetCellCountX();
+    int32 cellCountZ = GetCellCountZ();
+    float gridMaxX = offset.x + cellCountX * cellSizeX;
+    float gridMaxZ = offset.z + cellCountZ * cellSizeZ;
+
+    // Bias the leading face slightly so boundary hits enter the next cell.
+    float sweepEpsilon = 1e-4f;
+
+    // Start from the footprint clipped into the height field.
+    float minX = localAABB.min.x + localTranslation.x * t0;
+    float maxX = localAABB.max.x + localTranslation.x * t0;
+    float minZ = localAABB.min.z + localTranslation.z * t0;
+    float maxZ = localAABB.max.z + localTranslation.z * t0;
+    if (localTranslation.x < 0.0f)
+    {
+        minX -= sweepEpsilon;
+    }
+    else if (localTranslation.x > 0.0f)
+    {
+        maxX += sweepEpsilon;
+    }
+    if (localTranslation.z < 0.0f)
+    {
+        minZ -= sweepEpsilon;
+    }
+    else if (localTranslation.z > 0.0f)
+    {
+        maxZ += sweepEpsilon;
+    }
+
+    // Current cell range indices of AABB
+    int32 currentMin[2] = {
+        Clamp(int32(std::floor((Clamp(minX, offset.x, gridMaxX) - offset.x) / cellSizeX)), 0, cellCountX - 1),
+        Clamp(int32(std::floor((Clamp(minZ, offset.z, gridMaxZ) - offset.z) / cellSizeZ)), 0, cellCountZ - 1),
+    };
+    int32 currentMax[2] = {
+        Clamp(int32(std::floor((Clamp(maxX, offset.x, gridMaxX) - offset.x) / cellSizeX)), 0, cellCountX - 1),
+        Clamp(int32(std::floor((Clamp(maxZ, offset.z, gridMaxZ) - offset.z) / cellSizeZ)), 0, cellCountZ - 1),
+    };
+
+    bool hit = false;
+    float bestFraction = 1.0f;
+    ShapeCastOutput bestOutput;
+
+    // Test every cell overlapped by the initial AABB footprint.
+    for (int32 z = currentMin[1]; z <= currentMax[1]; ++z)
+    {
+        for (int32 x = currentMin[0]; x <= currentMax[0]; ++x)
+        {
+            float h00 = GetHeight(x, z);
+            float h10 = GetHeight(x + 1, z);
+            float h01 = GetHeight(x, z + 1);
+            float h11 = GetHeight(x + 1, z + 1);
+            float cellMinY = offset.y + Min(Min(h00, h10), Min(h01, h11));
+            float cellMaxY = offset.y + Max(Max(h00, h10), Max(h01, h11));
+            float sweptMinY = Min(localAABB.min.y, localAABB.min.y + localTranslation.y * bestFraction);
+            float sweptMaxY = Max(localAABB.max.y, localAABB.max.y + localTranslation.y * bestFraction);
+
+            // Reject cells whose height range cannot touch the swept AABB.
+            if (sweptMaxY < cellMinY || sweptMinY > cellMaxY)
+            {
+                continue;
+            }
+
+            for (int32 triangle = 0; triangle < 2; ++triangle)
+            {
+                Vec3 a, b, c;
+                GetTriangle(x, z, triangle, &a, &b, &c);
+                TriangleShape triangleShape{ a, b, c, 0.0f };
+
+                ShapeCastOutput candidate;
+                if (muli3::ShapeCast(
+                        shape, shapeTransform, &triangleShape, transform, translation * bestFraction, Vec3::zero, &candidate
+                    ))
+                {
+                    candidate.t *= bestFraction;
+                    if (candidate.t <= bestFraction)
+                    {
+                        hit = true;
+                        bestFraction = candidate.t;
+                        bestOutput = candidate;
+                    }
+                }
+            }
+        }
+    }
+
+    float nextT[2] = { max_float, max_float };
+    float deltaT[2] = { max_float, max_float };
+
+    // DDA tracks the leading AABB face: max face for positive motion, min face for negative motion.
+    if (localTranslation.x > epsilon)
+    {
+        nextT[0] = (offset.x + (currentMax[0] + 1) * cellSizeX - localAABB.max.x) / localTranslation.x;
+        deltaT[0] = cellSizeX / localTranslation.x;
+    }
+    else if (localTranslation.x < -epsilon)
+    {
+        nextT[0] = (offset.x + currentMin[0] * cellSizeX - localAABB.min.x) / localTranslation.x;
+        deltaT[0] = -cellSizeX / localTranslation.x;
+    }
+
+    if (localTranslation.z > epsilon)
+    {
+        nextT[1] = (offset.z + (currentMax[1] + 1) * cellSizeZ - localAABB.max.z) / localTranslation.z;
+        deltaT[1] = cellSizeZ / localTranslation.z;
+    }
+    else if (localTranslation.z < -epsilon)
+    {
+        nextT[1] = (offset.z + currentMin[1] * cellSizeZ - localAABB.min.z) / localTranslation.z;
+        deltaT[1] = -cellSizeZ / localTranslation.z;
+    }
+
+    // The initial footprint has already been visited, so move to the next crossing after t0.
+    for (int32 axis = 0; axis < 2; ++axis)
+    {
+        while (nextT[axis] <= t0 + epsilon)
+        {
+            nextT[axis] += deltaT[axis];
+        }
+    }
+
+    while (true)
+    {
+        int32 stepAxis = nextT[0] <= nextT[1] ? 0 : 1;
+        float t = nextT[stepAxis];
+        if (t > t1 || t > bestFraction)
+        {
+            break;
+        }
+
+        int32 oldMin[2] = { currentMin[0], currentMin[1] };
+        int32 oldMax[2] = { currentMax[0], currentMax[1] };
+
+        // Update the AABB footprint at this crossing and bias the leading face to include boundary-touching cells.
+        minX = localAABB.min.x + localTranslation.x * t;
+        maxX = localAABB.max.x + localTranslation.x * t;
+        minZ = localAABB.min.z + localTranslation.z * t;
+        maxZ = localAABB.max.z + localTranslation.z * t;
+        if (localTranslation.x < 0.0f)
+        {
+            minX -= sweepEpsilon;
+        }
+        else if (localTranslation.x > 0.0f)
+        {
+            maxX += sweepEpsilon;
+        }
+        if (localTranslation.z < 0.0f)
+        {
+            minZ -= sweepEpsilon;
+        }
+        else if (localTranslation.z > 0.0f)
+        {
+            maxZ += sweepEpsilon;
+        }
+
+        currentMin[0] = Clamp(int32(std::floor((Clamp(minX, offset.x, gridMaxX) - offset.x) / cellSizeX)), 0, cellCountX - 1);
+        currentMax[0] = Clamp(int32(std::floor((Clamp(maxX, offset.x, gridMaxX) - offset.x) / cellSizeX)), 0, cellCountX - 1);
+        currentMin[1] = Clamp(int32(std::floor((Clamp(minZ, offset.z, gridMaxZ) - offset.z) / cellSizeZ)), 0, cellCountZ - 1);
+        currentMax[1] = Clamp(int32(std::floor((Clamp(maxZ, offset.z, gridMaxZ) - offset.z) / cellSizeZ)), 0, cellCountZ - 1);
+
+        // Only the newly covered row or column can contain new candidate triangles.
+        for (int32 z = currentMin[1]; z <= currentMax[1]; ++z)
+        {
+            for (int32 x = currentMin[0]; x <= currentMax[0]; ++x)
+            {
+                if (oldMin[0] <= x && x <= oldMax[0] && oldMin[1] <= z && z <= oldMax[1])
+                {
+                    continue;
+                }
+
+                float h00 = GetHeight(x, z);
+                float h10 = GetHeight(x + 1, z);
+                float h01 = GetHeight(x, z + 1);
+                float h11 = GetHeight(x + 1, z + 1);
+                float cellMinY = offset.y + Min(Min(h00, h10), Min(h01, h11));
+                float cellMaxY = offset.y + Max(Max(h00, h10), Max(h01, h11));
+                float sweptMinY = Min(localAABB.min.y, localAABB.min.y + localTranslation.y * bestFraction);
+                float sweptMaxY = Max(localAABB.max.y, localAABB.max.y + localTranslation.y * bestFraction);
+
+                // Reuse the broad Y range of the current best sweep before the exact cast.
+                if (sweptMaxY < cellMinY || sweptMinY > cellMaxY)
+                {
+                    continue;
+                }
+
+                for (int32 triangle = 0; triangle < 2; ++triangle)
+                {
+                    Vec3 a, b, c;
+                    GetTriangle(x, z, triangle, &a, &b, &c);
+                    TriangleShape triangleShape{ a, b, c, 0.0f };
+
+                    ShapeCastOutput candidate;
+                    if (muli3::ShapeCast(
+                            shape, shapeTransform, &triangleShape, transform, translation * bestFraction, Vec3::zero, &candidate
+                        ))
+                    {
+                        candidate.t *= bestFraction;
+                        if (candidate.t <= bestFraction)
+                        {
+                            hit = true;
+                            bestFraction = candidate.t;
+                            bestOutput = candidate;
+                        }
+                    }
+                }
+            }
+        }
+
+        nextT[stepAxis] += deltaT[stepAxis];
+    }
+
+    if (hit == false)
+    {
+        return false;
+    }
+
+    *output = bestOutput;
+    return true;
+}
+
 bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
 {
+    // Transform ray to the height field local space
     RayCastInput localInput = input;
     localInput.from = MulT(transform, input.from);
     localInput.to = MulT(transform, input.to);
@@ -281,7 +579,7 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
         return false;
     }
 
-    // Clip the ray to the height field bounds before walking the XZ grid.
+    // Clip ray to the height field bounds
     float t0 = 0.0f;
     float t1 = input.maxFraction;
 
@@ -324,6 +622,7 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
     int32 cellCountX = GetCellCountX();
     int32 cellCountZ = GetCellCountZ();
 
+    // Find the cell containing the clipped ray start
     Vec3 p0 = localInput.from + d * t0;
     int32 cell[2] = {
         Clamp(int32(std::floor((p0.x - offset.x) / cellSizeX)), 0, cellCountX - 1),
@@ -341,6 +640,7 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
     float gridCellSize[2] = { cellSizeX, cellSizeZ };
     int32 gridCellCount[2] = { cellCountX, cellCountZ };
 
+    // Precompute 2D DDA stepping over the XZ grid
     for (int32 axis = 0; axis < 2; ++axis)
     {
         if (Abs(gridDir[axis]) <= epsilon)
@@ -365,24 +665,28 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
 
     while (t0 <= t1)
     {
+        // Skip cells outside the ray height range
         float h00 = GetHeight(cell[0], cell[1]);
         float h10 = GetHeight(cell[0] + 1, cell[1]);
         float h01 = GetHeight(cell[0], cell[1] + 1);
         float h11 = GetHeight(cell[0] + 1, cell[1] + 1);
-        float minHeight = Min(Min(h00, h10), Min(h01, h11));
-        float maxHeight = Max(Max(h00, h10), Max(h01, h11));
+        float minHeight = offset.y + Min(Min(h00, h10), Min(h01, h11));
+        float maxHeight = offset.y + Max(Max(h00, h10), Max(h01, h11));
 
-        if (Max(localInput.from.y, localInput.from.y + d.y * bestFraction) >= offset.y + minHeight &&
-            Min(localInput.from.y, localInput.from.y + d.y * bestFraction) <= offset.y + maxHeight)
+        float rayHeight = localInput.from.y + d.y * bestFraction;
+
+        if (Max(localInput.from.y, rayHeight) >= minHeight && Min(localInput.from.y, rayHeight) <= maxHeight)
         {
             RayCastInput triangleInput = localInput;
 
+            // Test the two triangles in the current cell
             for (int32 i = 0; i < 2; ++i)
             {
                 triangleInput.maxFraction = bestFraction;
 
                 Vec3 a, b, c;
                 GetTriangle(cell[0], cell[1], i, &a, &b, &c);
+
                 RayCastOutput candidate;
                 if (RayCastTriangle(a, b, c, triangleInput, &candidate))
                 {
@@ -397,6 +701,7 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
             }
         }
 
+        // Advance to the next X or Z cell boundary
         int32 stepAxis = nextT[0] <= nextT[1] ? 0 : 1;
         if (nextT[stepAxis] > t1)
         {
