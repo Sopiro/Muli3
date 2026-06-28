@@ -1,6 +1,5 @@
 #pragma once
 
-#include "settings.h"
 #include "shape.h"
 
 namespace muli3
@@ -9,9 +8,8 @@ namespace muli3
 class TriangleShape : public Shape
 {
 public:
-    TriangleShape(
-        const Vec3& a, const Vec3& b, const Vec3& c, float radius = default_radius, const Transform& transform = identity
-    );
+    TriangleShape(const Vec3& a, const Vec3& b, const Vec3& c);
+    TriangleShape(const Vec3& a, const Vec3& b, const Vec3& c, float radius, const Transform& transform = identity);
     TriangleShape(const TriangleShape& other, const Transform& transform);
 
     void ComputeMass(float density, MassData* outMassData) const;

@@ -413,7 +413,7 @@ bool HeightFieldShape::ShapeCast(
             {
                 Vec3 a, b, c;
                 GetTriangle(x, z, triangle, &a, &b, &c);
-                TriangleShape triangleShape{ a, b, c, 0.0f };
+                TriangleShape triangleShape{ a, b, c };
 
                 ShapeCastOutput candidate;
                 if (muli3::ShapeCast(
@@ -535,7 +535,7 @@ bool HeightFieldShape::ShapeCast(
                 {
                     Vec3 a, b, c;
                     GetTriangle(x, z, triangle, &a, &b, &c);
-                    TriangleShape triangleShape{ a, b, c, 0.0f };
+                    TriangleShape triangleShape{ a, b, c };
 
                     ShapeCastOutput candidate;
                     if (muli3::ShapeCast(

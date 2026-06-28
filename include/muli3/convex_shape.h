@@ -1,7 +1,6 @@
 #pragma once
 
 #include "geometry.h"
-#include "settings.h"
 #include "shape.h"
 
 namespace muli3

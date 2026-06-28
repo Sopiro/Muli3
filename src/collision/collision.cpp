@@ -2463,7 +2463,7 @@ static bool HeightFieldVsShape(
     HeightFieldContacts candidates;
     AABB localAABB = AABB{ min, max };
     heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
-        TriangleShape triangleShape{ v0, v1, v2, 0.0f };
+        TriangleShape triangleShape{ v0, v1, v2 };
 
         ContactManifold manifold;
         bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);

@@ -5,6 +5,13 @@
 namespace muli3
 {
 
+TriangleShape::TriangleShape(const Vec3& a, const Vec3& b, const Vec3& c)
+    : Shape(Shape::triangle, 0.0f)
+    , vertices{ a, b, c }
+    , normal{ Normalize(Cross(b - a, c - a)) }
+{
+}
+
 TriangleShape::TriangleShape(const Vec3& a, const Vec3& b, const Vec3& c, float inRadius, const Transform& transform)
     : Shape(Shape::triangle, inRadius)
 {
