@@ -1047,11 +1047,11 @@ void Game::ClearProfiles()
 void Game::RecreateThreadPool()
 {
     workerCount = std::max(workerCount, 1);
-    threadPool = std::make_unique<ThreadPool>(workerCount);
+    ThreadPool::global_thread_pool = std::make_unique<ThreadPool>(workerCount);
 
     if (demo)
     {
-        demo->GetWorldSettings().thread_pool = threadPool.get();
+        demo->GetWorldSettings().thread_pool = ThreadPool::global_thread_pool.get();
     }
 }
 

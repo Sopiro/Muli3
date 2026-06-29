@@ -1,6 +1,7 @@
 #include "muli3/collision.h"
 #include "muli3/distance.h"
 #include "muli3/frame.h"
+#include "muli3/ghost.h"
 #include "muli3/growable_array.h"
 #include "muli3/settings.h"
 #include "muli3/shapes.h"
@@ -2478,7 +2479,9 @@ static bool HeightFieldVsShape(
             ContactPoint contact = manifold.contactPoints[i];
             contact.id = (triangleId << 8) | (contact.id & 0xff);
 
-            Vec3 normal = heightField->FixNormal(x, z, triangle, tfA, contact.anchorA, contact.normal, Vec3::zero);
+            Vec3 normal = ResolveGhostNormal(
+                heightField->GetActiveEdgeBits(x, z, triangle), triangleShape, tfA, contact.anchorA, contact.normal, Vec3::zero
+            );
             AddHeightFieldContact(&candidates, normal, contact.anchorA, contact.anchorB, contact.id);
         }
     });

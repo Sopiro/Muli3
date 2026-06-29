@@ -59,15 +59,6 @@ public:
     // | 0  \  |
     // 01---- 11
     void GetTriangle(int32 x, int32 z, int32 triangle, Vec3* a, Vec3* b, Vec3* c) const;
-    Vec3 FixNormal(
-        int32 x,
-        int32 z,
-        int32 triangle,
-        const Transform& transform,
-        const Vec3& point,
-        const Vec3& normal,
-        const Vec3& translation
-    ) const;
 
     void Query(
         const AABB& localAABB,

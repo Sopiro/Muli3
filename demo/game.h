@@ -38,7 +38,6 @@ private:
 
     Renderer renderer;
     Demo* demo = nullptr;
-    std::unique_ptr<ThreadPool> threadPool;
     int32 workerCount = 1;
 
     bool restart = false;
@@ -64,7 +63,7 @@ inline Renderer& Game::GetRenderer()
 
 inline ThreadPool* Game::GetThreadPool() const
 {
-    return threadPool.get();
+    return ThreadPool::global_thread_pool.get();
 }
 
 inline DebugOptions& Game::GetDebugOptions()
