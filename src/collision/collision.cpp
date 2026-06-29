@@ -2477,7 +2477,9 @@ static bool HeightFieldVsShape(
         {
             ContactPoint contact = manifold.contactPoints[i];
             contact.id = (triangleId << 8) | (contact.id & 0xff);
-            AddHeightFieldContact(&candidates, contact.normal, contact.anchorA, contact.anchorB, contact.id);
+
+            Vec3 normal = heightField->FixNormal(x, z, triangle, tfA, contact.anchorA, contact.normal, Vec3::zero);
+            AddHeightFieldContact(&candidates, normal, contact.anchorA, contact.anchorB, contact.id);
         }
     });
 

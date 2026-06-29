@@ -52,12 +52,22 @@ public:
 
     float GetHeight(int32 x, int32 z) const;
     Vec3 GetPosition(int32 x, int32 z) const;
+    uint8 GetActiveEdgeBits(int32 x, int32 z, int32 triangle) const;
 
     // 00-----10
     // |  \  1 |
     // | 0  \  |
     // 01---- 11
     void GetTriangle(int32 x, int32 z, int32 triangle, Vec3* a, Vec3* b, Vec3* c) const;
+    Vec3 FixNormal(
+        int32 x,
+        int32 z,
+        int32 triangle,
+        const Transform& transform,
+        const Vec3& point,
+        const Vec3& normal,
+        const Vec3& translation
+    ) const;
 
     void Query(
         const AABB& localAABB,
@@ -87,6 +97,9 @@ private:
     int32 blockCountZ;
     std::vector<float> heights;
     std::vector<Block> blocks;
+
+    // Active edge bits
+    std::vector<uint8> activeEdges;
 
     AABB localBounds;
 
@@ -172,6 +185,15 @@ inline float HeightFieldShape::GetHeight(int32 x, int32 z) const
 inline Vec3 HeightFieldShape::GetPosition(int32 x, int32 z) const
 {
     return offset + Vec3{ x * cellSizeX, GetHeight(x, z), z * cellSizeZ };
+}
+
+inline uint8 HeightFieldShape::GetActiveEdgeBits(int32 x, int32 z, int32 triangle) const
+{
+    MuliAssert(0 <= x && x < GetCellCountX());
+    MuliAssert(0 <= z && z < GetCellCountZ());
+    MuliAssert(triangle == 0 || triangle == 1);
+
+    return activeEdges[(z * GetCellCountX() + x) * 2 + triangle];
 }
 
 inline void HeightFieldShape::GetTriangle(int32 x, int32 z, int32 triangle, Vec3* a, Vec3* b, Vec3* c) const

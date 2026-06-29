@@ -122,6 +122,207 @@ void HeightFieldShape::Build()
         offset.y + maxHeight,
         offset.z + (sampleCountZ - 1) * cellSizeZ,
     };
+
+    // Build active edge flag bits
+    //
+    // 00-----10
+    // |  \  1 |
+    // | 0  \  |
+    // 01---- 11
+    //
+    // For triangle 0:
+    // edge 0 = p00 -> p01 : left cell edge
+    // edge 1 = p01 -> p11 : lower cell edge
+    // edge 2 = p11 -> p00 : diagonal edge
+    //
+    // For triangle 1:
+    // edge 0 = p00 -> p11 : diagonal edge
+    // edge 1 = p11 -> p10 : right cell edge
+    // edge 2 = p10 -> p00 : upper cell edge
+
+    int32 triangleCount = cellCountX * cellCountZ * 2;
+    activeEdges.assign(triangleCount, 0);
+
+    // Cache vertices and normals
+    std::vector<Vec3> normals(triangleCount);
+    std::vector<Vec3> vertices(triangleCount * 3);
+
+    for (int32 z = 0; z < cellCountZ; ++z)
+    {
+        for (int32 x = 0; x < cellCountX; ++x)
+        {
+            for (int32 triangle = 0; triangle < 2; ++triangle)
+            {
+                int32 id = (z * cellCountX + x) * 2 + triangle;
+
+                Vec3* v = vertices.data() + id * 3;
+                GetTriangle(x, z, triangle, v, v + 1, v + 2);
+
+                normals[id] = Normalize(Cross(v[1] - v[0], v[2] - v[0]));
+            }
+        }
+    }
+
+    constexpr float cosThreshold = 0.996195f; // cos(5 degrees)
+
+    const auto ProcessEdge = [&](int32 x, int32 z, int32 triangle, int32 edge, int32 neighborX, int32 neighborZ,
+                                 int32 neighborTriangle) {
+        int32 id = (z * cellCountX + x) * 2 + triangle;
+
+        const Vec3* v = vertices.data() + id * 3;
+        Vec3 edgeDirection = v[(edge + 1) % 3] - v[edge];
+
+        // Always active if the neighbor is outside the height field
+        bool active = neighborX < 0 || neighborX >= cellCountX || neighborZ < 0 || neighborZ >= cellCountZ;
+        if (!active)
+        {
+            int32 neighborId = (neighborZ * cellCountX + neighborX) * 2 + neighborTriangle;
+
+            // Concave edges are internal to the terrain surface.
+            if (Dot(Cross(normals[id], normals[neighborId]), edgeDirection) < 0.0f)
+            {
+                active = false;
+            }
+            else
+            {
+                float cosNormal = Dot(normals[id], normals[neighborId]);
+                active = cosNormal < cosThreshold;
+            }
+        }
+
+        if (active)
+        {
+            activeEdges[id] |= uint8(1 << edge);
+        }
+    };
+
+    for (int32 z = 0; z < cellCountZ; ++z)
+    {
+        for (int32 x = 0; x < cellCountX; ++x)
+        {
+            // Triangle 0: p00, p01, p11
+            ProcessEdge(x, z, 0, 0, x - 1, z, 1);
+            ProcessEdge(x, z, 0, 1, x, z + 1, 1);
+            ProcessEdge(x, z, 0, 2, x, z, 1);
+
+            // Triangle 1: p00, p11, p10
+            ProcessEdge(x, z, 1, 0, x, z, 0);
+            ProcessEdge(x, z, 1, 1, x + 1, z, 0);
+            ProcessEdge(x, z, 1, 2, x, z - 1, 0);
+        }
+    }
+}
+
+static Vec3 GetBarycentric(const Vec3& p, const Vec3& a, const Vec3& b, const Vec3& c)
+{
+    Vec3 v0 = b - a;
+    Vec3 v1 = c - a;
+    Vec3 v2 = p - a;
+
+    float d00 = Dot(v0, v0);
+    float d01 = Dot(v0, v1);
+    float d11 = Dot(v1, v1);
+    float d20 = Dot(v2, v0);
+    float d21 = Dot(v2, v1);
+    float denom = d00 * d11 - d01 * d01;
+    if (Abs(denom) <= epsilon)
+    {
+        return Vec3{ 1.0f, 0.0f, 0.0f };
+    }
+
+    float v = (d11 * d20 - d01 * d21) / denom;
+    float w = (d00 * d21 - d01 * d20) / denom;
+    return Vec3{ 1.0f - v - w, v, w };
+}
+
+// Jolt style ghost collision resolution: JPH::ActiveEdges::FixNormal
+Vec3 HeightFieldShape::FixNormal(
+    int32 x, int32 z, int32 triangle, const Transform& transform, const Vec3& point, const Vec3& normal, const Vec3& translation
+) const
+{
+    uint8 activeEdges = GetActiveEdgeBits(x, z, triangle);
+    if (activeEdges == 0b111)
+    {
+        // Every edge is active
+        return normal;
+    }
+
+    Vec3 a, b, c;
+    GetTriangle(x, z, triangle, &a, &b, &c);
+
+    a = Mul(transform, a);
+    b = Mul(transform, b);
+    c = Mul(transform, c);
+
+    Vec3 faceNormal = Cross(b - a, c - a);
+    if (faceNormal.Normalize() == 0.0f)
+    {
+        return normal;
+    }
+
+    if (Dot(faceNormal, normal) < 0.0f)
+    {
+        faceNormal = -faceNormal;
+    }
+
+    // For casts, keep the original normal if it blocks the sweep less than the face normal.
+    // This avoids replacing a grazing side hit with a stronger terrain-normal hit.
+    if (Length2(translation) > epsilon && Dot(translation, normal) < Dot(translation, faceNormal))
+    {
+        return normal;
+    }
+
+    // Almost a face hit.
+    if (Dot(faceNormal, normal) > 0.999848f) // cos 179
+    {
+        return normal;
+    }
+
+    constexpr float epsilon0 = 1.0e-4f;
+    constexpr float epsilon1 = 1.0f - epsilon0;
+
+    Vec3 bary = GetBarycentric(point, a, b, c);
+    uint8 collidingEdge = 0;
+
+    // Build edge bits for the feature nearest the collision point.
+    if (bary.x > epsilon1)
+    {
+        // Collision is near vertex 0, so edge 0 or 2 needs to be tested.
+        collidingEdge = 0b101;
+    }
+    else if (bary.y > epsilon1)
+    {
+        // Collision is near vertex 1, so edge 0 or 1 needs to be tested.
+        collidingEdge = 0b011;
+    }
+    else if (bary.z > epsilon1)
+    {
+        // Collision is near vertex 2, so edge 1 or 2 needs to be tested.
+        collidingEdge = 0b110;
+    }
+    else if (bary.x < epsilon0)
+    {
+        // Collision is near edge 1.
+        collidingEdge = 0b010;
+    }
+    else if (bary.y < epsilon0)
+    {
+        // Collision is near edge 2.
+        collidingEdge = 0b100;
+    }
+    else if (bary.z < epsilon0)
+    {
+        // Collision is near edge 0.
+        collidingEdge = 0b001;
+    }
+    else
+    {
+        // Interior hit.
+        return faceNormal;
+    }
+
+    // Keep the original normal if the feature includes an active edge, otherwise use the face normal.
+    return (activeEdges & collidingEdge) != 0 ? normal : faceNormal;
 }
 
 void HeightFieldShape::ComputeMass(float density, MassData* outMassData) const
@@ -421,6 +622,7 @@ bool HeightFieldShape::ShapeCast(
                     ))
                 {
                     candidate.t *= bestFraction;
+                    candidate.normal = FixNormal(x, z, triangle, transform, candidate.point, candidate.normal, translation);
                     if (candidate.t <= bestFraction)
                     {
                         hit = true;
@@ -543,6 +745,7 @@ bool HeightFieldShape::ShapeCast(
                         ))
                     {
                         candidate.t *= bestFraction;
+                        candidate.normal = FixNormal(x, z, triangle, transform, candidate.point, candidate.normal, translation);
                         if (candidate.t <= bestFraction)
                         {
                             hit = true;
