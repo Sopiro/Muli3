@@ -64,8 +64,8 @@ public:
         if (ImGui::Begin("Many pyramid", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (ImGui::SliderInt("Rows", &rows, 1, 20)) game.RestartDemo();
-            if (ImGui::SliderInt("X count", &xCount, 1, 10)) game.RestartDemo();
-            if (ImGui::SliderInt("Z count", &zCount, 1, 10)) game.RestartDemo();
+            if (ImGui::SliderInt("X count", &xCount, 1, 20)) game.RestartDemo();
+            if (ImGui::SliderInt("Z count", &zCount, 1, 20)) game.RestartDemo();
             if (ImGui::SliderFloat("Spacing", &spacing, 0.5f, 10.0f, "%.1f")) game.RestartDemo();
         }
         ImGui::End();

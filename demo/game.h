@@ -95,6 +95,7 @@ inline void Game::RestartDemo()
 {
     restart = true;
     newIndex = demoIndex;
+    ClearProfiles();
 }
 
 inline void Game::NextDemo()

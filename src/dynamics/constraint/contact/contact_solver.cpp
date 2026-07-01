@@ -14,19 +14,17 @@ static void PrepareNormalContact(SolverNormalContact* n, ContactState* s, int32 
     BodyState* sB = s->s2;
 
     // Compute Jacobian J and effective mass W
-    // J = [-n, -ra × n, n, rb × n]
-    // W = (J · M^-1 · J^t)^-1
+    // J = [-n, -ra x n, n, rb x n]
+    // W = (J * M^-1 * J^t)^-1
 
     Vec3 normal = s->manifold.contactPoints[index].normal;
     Vec3 ra = s->manifold.contactPoints[index].anchorA - sA->motion.c;
     Vec3 rb = s->manifold.contactPoints[index].anchorB - sB->motion.c;
 
     // Setup jacobian
-    n->j.va = -normal;
-    n->j.wa = -Cross(ra, normal);
-    n->j.vb = normal;
-    n->j.wb = Cross(rb, normal);
-
+    n->n = normal;
+    n->wa = Cross(ra, normal);
+    n->wb = Cross(rb, normal);
     n->bias = 0.0f;
 
     // Relative velocity at contact point
@@ -41,7 +39,7 @@ static void PrepareNormalContact(SolverNormalContact* n, ContactState* s, int32 
         n->bias = s->restitution * normalVelocity;
     }
 
-    float k = sA->invMass + Dot(n->j.wa, s->invIA * n->j.wa) + sB->invMass + Dot(n->j.wb, s->invIB * n->j.wb);
+    float k = sA->invMass + Dot(n->wa, s->invIA * n->wa) + sB->invMass + Dot(n->wb, s->invIB * n->wb);
     n->m = k > 0.0f ? 1.0f / k : 0.0f;
 }
 
@@ -51,16 +49,12 @@ static void SolveNormalContact(SolverNormalContact* n, ContactState* s)
     BodyState* sB = s->s2;
 
     // Compute corrective impulse: Pc
-    // Pc = J^t * λ (λ: lagrangian multiplier)
-    // λ = (J · M^-1 · J^t)^-1 ??-(J·v+b)
+    // Pc = J^t * lambda (lambda: lagrangian multiplier)
+    // lambda = (J * M^-1 * J^t)^-1 * -(Jv + b)
 
-    // clang-format off
     // Velocity constraint: C' = jv
-    float jv = Dot(n->j.va, sA->linearVelocity)
-             + Dot(n->j.wa, sA->angularVelocity)
-             + Dot(n->j.vb, sB->linearVelocity)
-             + Dot(n->j.wb, sB->angularVelocity);
-    // clang-format on
+    float jv = (Dot(n->n, sB->linearVelocity) + Dot(n->wb, sB->angularVelocity)) -
+               (Dot(n->n, sA->linearVelocity) + Dot(n->wa, sA->angularVelocity));
 
     float lambda = n->m * -(jv + n->bias);
 
@@ -71,16 +65,16 @@ static void SolveNormalContact(SolverNormalContact* n, ContactState* s)
 
     // Apply impulse
     // V2 = V2' + M^-1 * Pc
-    // Pc = J^t * λ
+    // Pc = J^t * lambda
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity += n->j.va * (sA->invMass * lambda);
-        sA->angularVelocity += s->invIA * n->j.wa * lambda;
+        sA->linearVelocity -= n->n * (sA->invMass * lambda);
+        sA->angularVelocity -= s->invIA * n->wa * lambda;
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += n->j.vb * (sB->invMass * lambda);
-        sB->angularVelocity += s->invIB * n->j.wb * lambda;
+        sB->linearVelocity += n->n * (sB->invMass * lambda);
+        sB->angularVelocity += s->invIB * n->wb * lambda;
     }
 }
 
@@ -106,22 +100,20 @@ static void PrepareTangentContact(ContactState* s, int32 index)
 
     // Project the relative contact velocity onto two tangent directions.
     // J = [-t, -(ra x t), t, rb x t]
-    t->j1.va = -tangent1;
-    t->j1.wa = -Cross(ra, tangent1);
-    t->j1.vb = tangent1;
-    t->j1.wb = Cross(rb, tangent1);
+    t->t1 = tangent1;
+    t->wa1 = Cross(ra, tangent1);
+    t->wb1 = Cross(rb, tangent1);
 
-    t->j2.va = -tangent2;
-    t->j2.wa = -Cross(ra, tangent2);
-    t->j2.vb = tangent2;
-    t->j2.wb = Cross(rb, tangent2);
+    t->t2 = tangent2;
+    t->wa2 = Cross(ra, tangent2);
+    t->wb2 = Cross(rb, tangent2);
 
     t->bias = -s->surfaceSpeed;
 
-    // K = J M^-1 J^T
-    float k11 = sA->invMass + Dot(t->j1.wa, s->invIA * t->j1.wa) + sB->invMass + Dot(t->j1.wb, s->invIB * t->j1.wb);
-    float k12 = Dot(t->j1.wa, s->invIA * t->j2.wa) + Dot(t->j1.wb, s->invIB * t->j2.wb);
-    float k22 = sA->invMass + Dot(t->j2.wa, s->invIA * t->j2.wa) + sB->invMass + Dot(t->j2.wb, s->invIB * t->j2.wb);
+    // K = J * M^-1 * J^T
+    float k11 = sA->invMass + Dot(t->wa1, s->invIA * t->wa1) + sB->invMass + Dot(t->wb1, s->invIB * t->wb1);
+    float k12 = Dot(t->wa1, s->invIA * t->wa2) + Dot(t->wb1, s->invIB * t->wb2);
+    float k22 = sA->invMass + Dot(t->wa2, s->invIA * t->wa2) + sB->invMass + Dot(t->wb2, s->invIB * t->wb2);
     Mat2 k = Mat2(Vec2(k11, k12), Vec2(k12, k22));
 
     t->m = k.GetInverse();
@@ -134,10 +126,10 @@ static Vec2 ComputeTangentImpulse(Vec2* tangentVelocity, const SolverTangentCont
 
     // Solve both tangent axes as single 2D constraint.
 
-    float jv1 = Dot(t->j1.va, sA->linearVelocity) + Dot(t->j1.wa, sA->angularVelocity) + Dot(t->j1.vb, sB->linearVelocity) +
-                Dot(t->j1.wb, sB->angularVelocity);
-    float jv2 = Dot(t->j2.va, sA->linearVelocity) + Dot(t->j2.wa, sA->angularVelocity) + Dot(t->j2.vb, sB->linearVelocity) +
-                Dot(t->j2.wb, sB->angularVelocity);
+    float jv1 = Dot(t->t1, sB->linearVelocity) + Dot(t->wb1, sB->angularVelocity) -
+                (Dot(t->t1, sA->linearVelocity) + Dot(t->wa1, sA->angularVelocity));
+    float jv2 = Dot(t->t2, sB->linearVelocity) + Dot(t->wb2, sB->angularVelocity) -
+                (Dot(t->t2, sA->linearVelocity) + Dot(t->wa2, sA->angularVelocity));
 
     tangentVelocity->Set(jv1 + t->bias.x, jv2 + t->bias.y);
 
@@ -176,13 +168,13 @@ static void SolveTangentContact(SolverTangentContact* t, ContactState* s, const 
 
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity += (t->j1.va * deltaLambda.x + t->j2.va * deltaLambda.y) * sA->invMass;
-        sA->angularVelocity += s->invIA * (t->j1.wa * deltaLambda.x + t->j2.wa * deltaLambda.y);
+        sA->linearVelocity -= (t->t1 * deltaLambda.x + t->t2 * deltaLambda.y) * sA->invMass;
+        sA->angularVelocity -= s->invIA * (t->wa1 * deltaLambda.x + t->wa2 * deltaLambda.y);
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += (t->j1.vb * deltaLambda.x + t->j2.vb * deltaLambda.y) * sB->invMass;
-        sB->angularVelocity += s->invIB * (t->j1.wb * deltaLambda.x + t->j2.wb * deltaLambda.y);
+        sB->linearVelocity += (t->t1 * deltaLambda.x + t->t2 * deltaLambda.y) * sB->invMass;
+        sB->angularVelocity += s->invIB * (t->wb1 * deltaLambda.x + t->wb2 * deltaLambda.y);
     }
 }
 
@@ -193,13 +185,13 @@ static void WarmStartNormalContact(SolverNormalContact* n, ContactState* s)
 
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity += n->j.va * (sA->invMass * n->impulse);
-        sA->angularVelocity += s->invIA * (n->j.wa * n->impulse);
+        sA->linearVelocity -= n->n * (sA->invMass * n->impulse);
+        sA->angularVelocity -= s->invIA * (n->wa * n->impulse);
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += n->j.vb * (sB->invMass * n->impulse);
-        sB->angularVelocity += s->invIB * (n->j.wb * n->impulse);
+        sB->linearVelocity += n->n * (sB->invMass * n->impulse);
+        sB->angularVelocity += s->invIB * (n->wb * n->impulse);
     }
 }
 
@@ -210,13 +202,13 @@ static void WarmStartTangentContact(SolverTangentContact* t, ContactState* s)
 
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity += (t->j1.va * t->impulse.x + t->j2.va * t->impulse.y) * sA->invMass;
-        sA->angularVelocity += s->invIA * (t->j1.wa * t->impulse.x + t->j2.wa * t->impulse.y);
+        sA->linearVelocity -= (t->t1 * t->impulse.x + t->t2 * t->impulse.y) * sA->invMass;
+        sA->angularVelocity -= s->invIA * (t->wa1 * t->impulse.x + t->wa2 * t->impulse.y);
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += (t->j1.vb * t->impulse.x + t->j2.vb * t->impulse.y) * sB->invMass;
-        sB->angularVelocity += s->invIB * (t->j1.wb * t->impulse.x + t->j2.wb * t->impulse.y);
+        sB->linearVelocity += (t->t1 * t->impulse.x + t->t2 * t->impulse.y) * sB->invMass;
+        sB->angularVelocity += s->invIB * (t->wb1 * t->impulse.x + t->wb2 * t->impulse.y);
     }
 }
 

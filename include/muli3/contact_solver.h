@@ -12,32 +12,24 @@ struct Timestep;
 
 struct SolverNormalContact
 {
-    struct Jacobian
-    {
-        Vec3 va;   // -dir
-        Vec3 wa;   // -Cross(ra, dir)
-        Vec3 vb;   //  dir
-        Vec3 wb;   //  Cross(rb, dir)
-    } j;
+    Vec3 n;        // normal
+    Vec3 wa;       // Cross(ra, normal)
+    Vec3 wb;       // Cross(rb, normal)
 
-    float m;       // effective mass
-    float bias;
-    float impulse; // impulse sum
+    float m;       // Effective mass
+    float bias;    // Bias
+    float impulse; // Impulse sum
 };
 
 struct SolverTangentContact
 {
-    struct Jacobian
-    {
-        Vec3 va;
-        Vec3 wa;
-        Vec3 vb;
-        Vec3 wb;
-    } j1, j2;
+    Vec3 t1, t2;   // tangent
+    Vec3 wa1, wa2; // Cross(ra, tangent)
+    Vec3 wb1, wb2; // Cross(rb, tangent)
 
-    Mat2 m;       // effective mass
-    Vec2 bias;
-    Vec2 impulse; // impulse sum
+    Mat2 m;        // Effective mass
+    Vec2 bias;     // Bias
+    Vec2 impulse;  // Impulse sum
 };
 
 struct SolverPosition

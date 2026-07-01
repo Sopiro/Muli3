@@ -5,6 +5,11 @@
 namespace muli3
 {
 
+inline size_t AlignUp(size_t size, size_t alignment)
+{
+    return (size + alignment - 1) & ~(alignment - 1);
+}
+
 inline void* Alloc(int32 size)
 {
     return std::malloc(size);
