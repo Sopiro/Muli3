@@ -8,6 +8,8 @@ namespace muli3
 template <typename T, int32 N>
 class GrowableArray
 {
+    static_assert(std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>);
+
 public:
     GrowableArray()
         : array{ stackArray }
@@ -24,7 +26,7 @@ public:
         , count{ 0 }
         , capacity{ N }
     {
-        MoveFrom(std::move(other));
+        MoveFrom(other);
     }
 
     GrowableArray& operator=(GrowableArray&& other) noexcept
@@ -32,7 +34,7 @@ public:
         if (this != &other)
         {
             reset();
-            MoveFrom(std::move(other));
+            MoveFrom(other);
         }
 
         return *this;
@@ -51,12 +53,15 @@ public:
     {
         reserve(count + 1);
 
-        return *new (array + count++) T{ std::forward<Args>(args)... };
+        T& slot = array[count++];
+        slot = T{ std::forward<Args>(args)... };
+        return slot;
     }
 
     void push_back(const T& v)
     {
-        emplace_back(v);
+        reserve(count + 1);
+        array[count++] = v;
     }
 
     T pop_back()
@@ -66,7 +71,12 @@ public:
         return array[count];
     }
 
-    T& back() const
+    T& back()
+    {
+        return array[count - 1];
+    }
+
+    const T& back() const
     {
         return array[count - 1];
     }
@@ -114,7 +124,10 @@ public:
         capacity = (std::max)(newCapacity, capacity * 2);
 
         array = (T*)muli3::Alloc(capacity * sizeof(T));
-        memcpy(array, old, oldCount * sizeof(T));
+        if (oldCount > 0)
+        {
+            memcpy(array, old, oldCount * sizeof(T));
+        }
 
         if (old != stackArray)
         {
@@ -124,13 +137,14 @@ public:
 
     void resize(int32 newCount)
     {
-        reserve(newCount);
-
-        while (count < newCount)
+        if (newCount <= count)
         {
-            emplace_back();
+            count = newCount;
+            return;
         }
 
+        reserve(newCount);
+        memset(array + count, 0, (newCount - count) * sizeof(T));
         count = newCount;
     }
 
@@ -141,7 +155,7 @@ public:
 
         while (count < newCount)
         {
-            emplace_back(value);
+            array[count++] = value;
         }
     }
 
@@ -175,7 +189,12 @@ public:
         return array;
     }
 
-    T& operator[](int32 index) const
+    T& operator[](int32 index)
+    {
+        return array[index];
+    }
+
+    const T& operator[](int32 index) const
     {
         return array[index];
     }
@@ -188,7 +207,10 @@ private:
 
         if (other.array == other.stackArray)
         {
-            memcpy(stackArray, other.stackArray, count * sizeof(T));
+            if (count > 0)
+            {
+                memcpy(stackArray, other.stackArray, count * sizeof(T));
+            }
             array = stackArray;
         }
         else

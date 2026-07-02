@@ -15,7 +15,6 @@ struct ContactPoint
     Vec3 anchorA;
     Vec3 anchorB;
     Vec3 normal;
-    float separation;
     int32 id;
 };
 

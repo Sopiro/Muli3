@@ -409,7 +409,6 @@ static void FindContactPoints(
         candidates[i].anchorA = anchorA;
         candidates[i].anchorB = anchorB;
         candidates[i].normal = n;
-        candidates[i].separation = Dot(anchorB - anchorA, n);
     }
 
     if (faces[output].count <= max_contact_point_count)
@@ -551,7 +550,6 @@ bool SphereVsSphere(
     manifold->contactPoints[0].anchorB = pb - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -615,7 +613,6 @@ bool CapsuleVsSphere(
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -682,7 +679,6 @@ bool CapsuleVsCapsule(
     manifold->contactPoints[0].anchorB = pb - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -793,7 +789,6 @@ bool BoxVsSphere(
     manifold->contactPoints[0].anchorB = c - normal * b->GetRadius();
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = contactID;
     manifold->contactCount = 1;
 
@@ -1059,7 +1054,6 @@ bool ConvexVsSphere(
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -1103,7 +1097,6 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
             manifold->contactPoints[0].anchorB = supportB.p;
             manifold->contactPoints[0].p = (supportA.p + supportB.p) * 0.5f;
             manifold->contactPoints[0].normal = normal;
-            manifold->contactPoints[0].separation = Dot(supportB.p - supportA.p, normal);
             manifold->contactPoints[0].id = 0;
             manifold->contactCount = 1;
 
@@ -1232,7 +1225,6 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
     manifold->contactPoints[0].anchorB = p - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -1838,7 +1830,6 @@ bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     manifold->contactPoints[0].anchorB = p - normal * rb;
     manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
-    manifold->contactPoints[0].separation = Dot(manifold->contactPoints[0].anchorB - manifold->contactPoints[0].anchorA, normal);
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -2312,7 +2303,6 @@ static void AddHeightFieldContact(
     candidate.anchorB = anchorB;
     candidate.p = (anchorA + anchorB) * 0.5f;
     candidate.normal = normal;
-    candidate.separation = separation;
     candidate.id = id;
 
     candidates->contacts.push_back(candidate);
