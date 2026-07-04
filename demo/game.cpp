@@ -553,7 +553,7 @@ void Game::Render()
 
             for (int32 i = 0; i < manifold.contactCount; ++i)
             {
-                const Vec3 p1 = manifold.contactPoints[i].p;
+                const Vec3 p1 = (manifold.contactPoints[i].anchorA + manifold.contactPoints[i].anchorB) * 0.5f;
 
                 if (options.show_contact_point)
                 {

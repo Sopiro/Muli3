@@ -83,8 +83,8 @@ static void PrepareTangentContact(ContactState* s, int32 index)
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
 
-    Vec3 ra = s->manifold.contactPoints[index].p - sA->motion.c;
-    Vec3 rb = s->manifold.contactPoints[index].p - sB->motion.c;
+    Vec3 ra = s->manifold.contactPoints[index].anchorA - sA->motion.c;
+    Vec3 rb = s->manifold.contactPoints[index].anchorB - sB->motion.c;
     Vec3 normal = s->manifold.contactPoints[index].normal;
 
     Vec3 reference = Abs(normal.x) < Abs(normal.y) ? x_axis : y_axis;

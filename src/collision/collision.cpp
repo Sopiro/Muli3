@@ -405,7 +405,6 @@ static void FindContactPoints(
             anchorB = point.p;
         }
 
-        candidates[i].p = (anchorA + anchorB) * 0.5f;
         candidates[i].anchorA = anchorA;
         candidates[i].anchorB = anchorB;
         candidates[i].normal = n;
@@ -548,7 +547,6 @@ bool SphereVsSphere(
 
     manifold->contactPoints[0].anchorA = pa + normal * ra;
     manifold->contactPoints[0].anchorB = pb - normal * rb;
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
@@ -611,7 +609,6 @@ bool CapsuleVsSphere(
 
     manifold->contactPoints[0].anchorA = supportA.p;
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
@@ -677,7 +674,6 @@ bool CapsuleVsCapsule(
 
     manifold->contactPoints[0].anchorA = pa + normal * ra;
     manifold->contactPoints[0].anchorB = pb - normal * rb;
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
@@ -787,7 +783,6 @@ bool BoxVsSphere(
 
     manifold->contactPoints[0].anchorA = closest + normal * a->GetRadius();
     manifold->contactPoints[0].anchorB = c - normal * b->GetRadius();
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = contactID;
     manifold->contactCount = 1;
@@ -1052,7 +1047,6 @@ bool ConvexVsSphere(
 
     manifold->contactPoints[0].anchorA = closest;
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
@@ -1095,7 +1089,6 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
 
             manifold->contactPoints[0].anchorA = supportA.p;
             manifold->contactPoints[0].anchorB = supportB.p;
-            manifold->contactPoints[0].p = (supportA.p + supportB.p) * 0.5f;
             manifold->contactPoints[0].normal = normal;
             manifold->contactPoints[0].id = 0;
             manifold->contactCount = 1;
@@ -1223,7 +1216,6 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
     normal = tfA.q.Rotate(normal);
     manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
     manifold->contactPoints[0].anchorB = p - normal * rb;
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
@@ -1828,7 +1820,6 @@ bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     normal = tfA.q.Rotate(normal);
     manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
     manifold->contactPoints[0].anchorB = p - normal * rb;
-    manifold->contactPoints[0].p = (manifold->contactPoints[0].anchorA + manifold->contactPoints[0].anchorB) * 0.5f;
     manifold->contactPoints[0].normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
@@ -2301,12 +2292,11 @@ static void AddHeightFieldContact(
     ContactPoint candidate;
     candidate.anchorA = anchorA;
     candidate.anchorB = anchorB;
-    candidate.p = (anchorA + anchorB) * 0.5f;
     candidate.normal = normal;
     candidate.id = id;
 
     candidates->contacts.push_back(candidate);
-    candidates->mean += candidate.p;
+    candidates->mean += candidate.anchorA;
     candidates->meanNormal += candidate.normal;
 }
 

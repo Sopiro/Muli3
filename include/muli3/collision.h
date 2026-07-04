@@ -11,7 +11,6 @@ constexpr int32 max_contact_point_count = 4;
 
 struct ContactPoint
 {
-    Vec3 p;
     Vec3 anchorA;
     Vec3 anchorB;
     Vec3 normal;
