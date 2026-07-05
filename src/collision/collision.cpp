@@ -2,7 +2,7 @@
 #include "muli3/distance.h"
 #include "muli3/frame.h"
 #include "muli3/ghost.h"
-#include "muli3/growable_array.h"
+#include "muli3/growable_stack.h"
 #include "muli3/settings.h"
 #include "muli3/shapes.h"
 
@@ -43,8 +43,8 @@ constexpr int32 epa_max_vertex_count = max_simplex_vertex_count + epa_max_iterat
 constexpr int32 epa_max_face_count = 4 + epa_max_iteration * 2;
 constexpr int32 epa_max_edge_count = epa_max_face_count * 3;
 
-using EPAFaces = GrowableArray<EPAFace, epa_max_face_count>;
-using EPAEdges = GrowableArray<EPAEdge, epa_max_edge_count>;
+using EPAFaces = GrowableStack<EPAFace, epa_max_face_count>;
+using EPAEdges = GrowableStack<EPAEdge, epa_max_edge_count>;
 
 static bool AddEPAFace(EPAFaces& faces, const SupportPoint* vertices, int32 a, int32 b, int32 c, const Vec3& inside)
 {
@@ -2274,7 +2274,7 @@ bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Tran
 
 struct HeightFieldContacts
 {
-    GrowableArray<ContactPoint, 8> contacts;
+    GrowableStack<ContactPoint, 8> contacts;
     Vec3 mean = Vec3::zero;
     Vec3 meanNormal = Vec3::zero;
 };

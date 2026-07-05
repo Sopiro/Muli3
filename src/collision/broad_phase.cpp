@@ -53,7 +53,7 @@ struct ColliderPair
 
 struct MoveResult
 {
-    GrowableArray<ColliderPair, 8> pairs;
+    GrowableStack<ColliderPair, 8> pairs;
 };
 
 struct BroadPhase::TreeCallback

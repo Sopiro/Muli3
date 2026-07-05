@@ -2,7 +2,7 @@
 
 #include "bounding_box.h"
 #include "collider.h"
-#include "growable_array.h"
+#include "growable_stack.h"
 #include "raycast.h"
 
 namespace muli3
@@ -147,7 +147,7 @@ void AABBTree::Traverse(T* callback) const
         return;
     }
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() != 0)
@@ -173,7 +173,7 @@ void AABBTree::Query(const Vec3& point, T* callback) const
         return;
     }
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() != 0)
@@ -209,7 +209,7 @@ void AABBTree::Query(const AABB& aabb, T* callback) const
         return;
     }
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() != 0)
@@ -259,7 +259,7 @@ void AABBTree::AABBCast(const AABBCastInput& input, T* callback) const
 
     Ray ray{ p1, d };
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() > 0)

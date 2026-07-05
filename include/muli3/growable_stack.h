@@ -6,41 +6,41 @@ namespace muli3
 {
 
 template <typename T, int32 N>
-class GrowableArray
+class GrowableStack
 {
     static_assert(std::is_trivially_copyable_v<T> && std::is_trivially_destructible_v<T>);
 
 public:
-    GrowableArray()
+    GrowableStack()
         : array{ stackArray }
         , count{ 0 }
         , capacity{ N }
     {
     }
 
-    GrowableArray(const GrowableArray&) = delete;
-    GrowableArray& operator=(const GrowableArray&) = delete;
+    GrowableStack(const GrowableStack&) = delete;
+    GrowableStack& operator=(const GrowableStack&) = delete;
 
-    GrowableArray(GrowableArray&& other) noexcept
+    GrowableStack(GrowableStack&& other) noexcept
         : array{ stackArray }
         , count{ 0 }
         , capacity{ N }
     {
-        MoveFrom(other);
+        MoveFrom(std::move(other));
     }
 
-    GrowableArray& operator=(GrowableArray&& other) noexcept
+    GrowableStack& operator=(GrowableStack&& other) noexcept
     {
         if (this != &other)
         {
             reset();
-            MoveFrom(other);
+            MoveFrom(std::move(other));
         }
 
         return *this;
     }
 
-    ~GrowableArray()
+    ~GrowableStack()
     {
         if (array != stackArray)
         {
@@ -121,7 +121,7 @@ public:
 
         T* old = array;
         int32 oldCount = count;
-        capacity = (std::max)(newCapacity, capacity * 2);
+        capacity = std::max(newCapacity, capacity + capacity / 2);
 
         array = (T*)muli3::Alloc(capacity * sizeof(T));
         if (oldCount > 0)
@@ -200,7 +200,7 @@ public:
     }
 
 private:
-    void MoveFrom(GrowableArray&& other)
+    void MoveFrom(GrowableStack&& other)
     {
         count = other.count;
         capacity = other.capacity;

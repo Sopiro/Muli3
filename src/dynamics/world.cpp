@@ -2627,7 +2627,7 @@ void World::WakeIsland(Body* body)
         return;
     }
 
-    GrowableArray<Body*, 64> stack;
+    GrowableStack<Body*, 64> stack;
     stack.push_back(body);
 
     while (stack.size() > 0)
@@ -2699,8 +2699,8 @@ void World::SleepIsland(Body* body)
         return;
     }
 
-    GrowableArray<Body*, 64> stack;
-    GrowableArray<Body*, 64> bodies;
+    GrowableStack<Body*, 64> stack;
+    GrowableStack<Body*, 64> bodies;
 
     stack.push_back(body);
     body->flag |= Body::flag_island;

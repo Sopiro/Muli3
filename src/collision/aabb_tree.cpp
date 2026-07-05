@@ -51,7 +51,7 @@ NodeIndex AABBTree::InsertLeaf(NodeIndex leaf)
         float inheritedCost;
     };
 
-    GrowableArray<Candidate, 256> stack;
+    GrowableStack<Candidate, 64> stack;
     stack.emplace_back(root, 0.0f);
 
     while (stack.size() != 0)
@@ -318,7 +318,7 @@ void AABBTree::Traverse(std::function<void(const Node*)> callback) const
         return;
     }
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() != 0)
@@ -342,7 +342,7 @@ void AABBTree::Query(const Vec3& point, std::function<bool(NodeIndex, Data*)> ca
         return;
     }
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() != 0)
@@ -377,7 +377,7 @@ void AABBTree::Query(const AABB& aabb, std::function<bool(NodeIndex, Data*)> cal
         return;
     }
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() != 0)
@@ -426,7 +426,7 @@ void AABBTree::AABBCast(const AABBCastInput& input, std::function<float(const AA
 
     Ray ray{ p1, d };
 
-    GrowableArray<NodeIndex, 64> stack;
+    GrowableStack<NodeIndex, 64> stack;
     stack.emplace_back(root);
 
     while (stack.size() > 0)

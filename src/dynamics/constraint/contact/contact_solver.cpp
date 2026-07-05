@@ -87,14 +87,8 @@ static void PrepareTangentContact(ContactState* s, int32 index)
     Vec3 rb = s->manifold.contactPoints[index].anchorB - sB->motion.c;
     Vec3 normal = s->manifold.contactPoints[index].normal;
 
-    Vec3 reference = Abs(normal.x) < Abs(normal.y) ? x_axis : y_axis;
-    if (Abs(normal.z) < AbsDot(reference, normal))
-    {
-        reference = z_axis;
-    }
-
-    Vec3 tangent1 = Normalize(GramSchmidt(reference, normal));
-    Vec3 tangent2 = Cross(normal, tangent1);
+    Vec3 tangent1, tangent2;
+    CoordinateSystem(normal, &tangent1, &tangent2);
 
     SolverTangentContact* t = s->tangentContact + index;
 
