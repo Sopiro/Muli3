@@ -389,7 +389,7 @@ static void FindContactPoints(
         return;
     }
 
-    ContactPoint candidates[2 * max_face_vertices];
+    ContactPoint candidates[2 * max_face_vertices] = {};
     for (int32 i = 0; i < faces[output].count; ++i)
     {
         Point point = faces[output].points[i];

@@ -76,7 +76,6 @@ void Contact::Update()
     flag |= Contact::flag_enabled;
 
     GrowableStack<ContactManifold, 4> oldManifolds;
-    GrowableStack<ContactConstraint, 4> oldConstraints;
 
     int32 oldManifoldCount = s->manifolds.size();
     if (oldManifoldCount > 0)
@@ -86,7 +85,6 @@ void Contact::Update()
     }
 
     s->manifolds.clear();
-    s->contactConstraints.clear();
 
     bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
     if (wasTouching)
@@ -160,7 +158,7 @@ void Contact::Update()
             }
         }
 
-        if (oldIndex == null_index || oldIndex >= oldConstraints.size())
+        if (oldIndex == null_index)
         {
             continue;
         }
@@ -168,8 +166,6 @@ void Contact::Update()
         used[oldIndex] = 1;
 
         const ContactManifold& oldManifold = oldManifolds[oldIndex];
-        const ContactConstraint& oldConstraint = oldConstraints[oldIndex];
-
         bool usedPoints[max_contact_point_count] = {};
         for (int32 j = 0; j < manifold.contactCount; ++j)
         {
@@ -182,22 +178,22 @@ void Contact::Update()
 
                 if (manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
                 {
-                    constraint.normalContact[j].impulse = oldConstraint.normalContact[k].impulse;
+                    manifold.contactPoints[j].impulse = oldManifold.contactPoints[k].impulse;
                     usedPoints[k] = true;
                     break;
                 }
             }
         }
 
-        const FrictionConstraint& oldFriction = oldConstraint.frictionContact;
-        Vec3 oldLinearImpulse = oldFriction.t1 * oldFriction.impulse.x + oldFriction.t2 * oldFriction.impulse.y;
-        Vec3 oldTwistImpulse = oldManifold.normal * oldFriction.twistImpulse;
+        Vec3 oldLinearImpulse =
+            constraint.frictionContact.t1 * oldManifold.impulse.x + constraint.frictionContact.t2 * oldManifold.impulse.y;
+        Vec3 oldAngularImpulse = oldManifold.normal * oldManifold.angularImpulse;
 
         Vec3 tangent1, tangent2;
         CoordinateSystem(manifold.normal, &tangent1, &tangent2);
 
-        constraint.frictionContact.impulse.Set(Dot(oldLinearImpulse, tangent1), Dot(oldLinearImpulse, tangent2));
-        constraint.frictionContact.twistImpulse = Dot(oldTwistImpulse, manifold.normal);
+        manifold.impulse.Set(Dot(oldLinearImpulse, tangent1), Dot(oldLinearImpulse, tangent2));
+        manifold.angularImpulse = Dot(oldAngularImpulse, manifold.normal);
     }
 }
 

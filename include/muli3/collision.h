@@ -15,6 +15,8 @@ struct ContactPoint
     Vec3 anchorA;
     Vec3 anchorB;
     int32 id;
+
+    float impulse;
 };
 
 struct ContactManifold
@@ -22,6 +24,9 @@ struct ContactManifold
     int32 contactCount;
     ContactPoint contactPoints[max_contact_point_count];
     Vec3 normal;
+
+    Vec2 impulse;
+    float angularImpulse;
 };
 
 // clang-format off

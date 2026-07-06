@@ -43,7 +43,7 @@ static void PrepareNormal(NormalConstraint* n, ContactState* s, const ContactMan
     n->m = k > 0.0f ? 1.0f / k : 0.0f;
 }
 
-static void SolveNormal(NormalConstraint* n, ContactState* s)
+static void SolveNormal(ContactPoint* p, NormalConstraint* n, ContactState* s)
 {
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
@@ -59,9 +59,9 @@ static void SolveNormal(NormalConstraint* n, ContactState* s)
     float lambda = n->m * -(jv + n->bias);
 
     // Clamp impulse correctly and accumulate it
-    float oldImpulse = n->impulse;
-    n->impulse = Max(0.0f, n->impulse + lambda);
-    lambda = n->impulse - oldImpulse;
+    float oldImpulse = p->impulse;
+    p->impulse = Max(0.0f, p->impulse + lambda);
+    lambda = p->impulse - oldImpulse;
 
     // Apply impulse
     // V2 = V2' + M^-1 * Pc
@@ -127,7 +127,7 @@ static void PrepareFriction(FrictionConstraint* f, ContactState* s, const Contac
     f->twistMass = twistK > 0.0f ? 1.0f / twistK : 0.0f;
 }
 
-static void SolveFriction(FrictionConstraint* f, ContactState* s, const ContactManifold* m, ContactConstraint* c)
+static void SolveFriction(FrictionConstraint* f, ContactState* s, ContactManifold* m)
 {
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
@@ -137,7 +137,7 @@ static void SolveFriction(FrictionConstraint* f, ContactState* s, const ContactM
     for (int32 i = 0; i < m->contactCount; ++i)
     {
         Vec3 ra = m->contactPoints[i].anchorA - sA->motion.c;
-        float impulse = c->normalContact[i].impulse;
+        float impulse = m->contactPoints[i].impulse;
 
         totalNormalImpulse += impulse;
         totalTwistLimit += Dist(ra, f->ra) * impulse;
@@ -147,9 +147,9 @@ static void SolveFriction(FrictionConstraint* f, ContactState* s, const ContactM
     float twistSpeed = Dot(m->normal, sB->angularVelocity - sA->angularVelocity);
     float maxTwistFriction = s->friction * totalTwistLimit;
     float twistLambda = -f->twistMass * twistSpeed;
-    float oldTwistImpulse = f->twistImpulse;
-    f->twistImpulse = Clamp(f->twistImpulse + twistLambda, -maxTwistFriction, maxTwistFriction);
-    twistLambda = f->twistImpulse - oldTwistImpulse;
+    float oldAngularImpulse = m->angularImpulse;
+    m->angularImpulse = Clamp(m->angularImpulse + twistLambda, -maxTwistFriction, maxTwistFriction);
+    twistLambda = m->angularImpulse - oldAngularImpulse;
 
     if (!sA->body->IsStatic())
     {
@@ -168,7 +168,7 @@ static void SolveFriction(FrictionConstraint* f, ContactState* s, const ContactM
 
     Vec2 tangentVelocity{ jv1 + f->bias.x, jv2 + f->bias.y };
     Vec2 deltaLambda = -Mul(f->linearMass, tangentVelocity);
-    Vec2 impulse = f->impulse + deltaLambda;
+    Vec2 impulse = m->impulse + deltaLambda;
 
     // Coulomb friction limits the accumulated 2D tangent impulse lambda_t by |lambda_t| <= mu * lambda_n.
     // A larger normal impulse lets the contact provide more friction.
@@ -185,8 +185,8 @@ static void SolveFriction(FrictionConstraint* f, ContactState* s, const ContactM
     }
 
     // Only apply the change from the previously accumulated 2D impulse.
-    deltaLambda = impulse - f->impulse;
-    f->impulse = impulse;
+    deltaLambda = impulse - m->impulse;
+    m->impulse = impulse;
 
     if (!sA->body->IsStatic())
     {
@@ -200,20 +200,20 @@ static void SolveFriction(FrictionConstraint* f, ContactState* s, const ContactM
     }
 }
 
-static void WarmStartNormal(NormalConstraint* n, ContactState* s)
+static void WarmStartNormal(ContactPoint* p, NormalConstraint* n, ContactState* s)
 {
     BodyState* sA = s->s1;
     BodyState* sB = s->s2;
 
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity -= n->n * (sA->invMass * n->impulse);
-        sA->angularVelocity -= s->invIA * (n->wa * n->impulse);
+        sA->linearVelocity -= n->n * (sA->invMass * p->impulse);
+        sA->angularVelocity -= s->invIA * (n->wa * p->impulse);
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += n->n * (sB->invMass * n->impulse);
-        sB->angularVelocity += s->invIB * (n->wb * n->impulse);
+        sB->linearVelocity += n->n * (sB->invMass * p->impulse);
+        sB->angularVelocity += s->invIB * (n->wb * p->impulse);
     }
 }
 
@@ -224,15 +224,13 @@ static void WarmStartFriction(const ContactManifold* m, const FrictionConstraint
 
     if (!sA->body->IsStatic())
     {
-        sA->linearVelocity -= (f->t1 * f->impulse.x + f->t2 * f->impulse.y) * sA->invMass;
-        sA->angularVelocity -= s->invIA * (f->wa1 * f->impulse.x + f->wa2 * f->impulse.y);
-        sA->angularVelocity -= s->invIA * m->normal * f->twistImpulse;
+        sA->linearVelocity -= (f->t1 * m->impulse.x + f->t2 * m->impulse.y) * sA->invMass;
+        sA->angularVelocity -= s->invIA * (f->wa1 * m->impulse.x + f->wa2 * m->impulse.y + m->normal * m->angularImpulse);
     }
     if (!sB->body->IsStatic())
     {
-        sB->linearVelocity += (f->t1 * f->impulse.x + f->t2 * f->impulse.y) * sB->invMass;
-        sB->angularVelocity += s->invIB * (f->wb1 * f->impulse.x + f->wb2 * f->impulse.y);
-        sB->angularVelocity += s->invIB * m->normal * f->twistImpulse;
+        sB->linearVelocity += (f->t1 * m->impulse.x + f->t2 * m->impulse.y) * sB->invMass;
+        sB->angularVelocity += s->invIB * (f->wb1 * m->impulse.x + f->wb2 * m->impulse.y + m->normal * m->angularImpulse);
     }
 }
 
@@ -337,7 +335,7 @@ void WarmStartContact(ContactState* s)
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            WarmStartNormal(constraint->normalContact + i, s);
+            WarmStartNormal(manifold->contactPoints + i, constraint->normalContact + i, s);
         }
     }
 }
@@ -349,11 +347,11 @@ void SolveContactVelocityConstraints(ContactState* s)
         ContactManifold* manifold = s->manifolds.data() + m;
         ContactConstraint* constraint = s->contactConstraints.data() + m;
 
-        SolveFriction(&constraint->frictionContact, s, manifold, constraint);
+        SolveFriction(&constraint->frictionContact, s, manifold);
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            SolveNormal(constraint->normalContact + i, s);
+            SolveNormal(manifold->contactPoints + i, constraint->normalContact + i, s);
         }
     }
 }

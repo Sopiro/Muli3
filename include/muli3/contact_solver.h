@@ -12,28 +12,25 @@ struct Timestep;
 
 struct NormalConstraint
 {
-    Vec3 n;        // Normal
-    Vec3 wa;       // Cross(ra, normal)
-    Vec3 wb;       // Cross(rb, normal)
+    Vec3 n;     // Normal
+    Vec3 wa;    // Cross(ra, normal)
+    Vec3 wb;    // Cross(rb, normal)
 
-    float m;       // Effective mass
-    float bias;    // Bias
-    float impulse; // Impulse sum
+    float m;    // Effective mass
+    float bias; // Bias
 };
 
 struct FrictionConstraint
 {
-    Vec3 t1, t2;        // Tangent frame
-    Vec3 ra, rb;        // Centered contact arms
+    Vec3 t1, t2;     // Tangent frame
+    Vec3 ra, rb;     // Centered contact arms
 
-    Vec3 wa1, wa2;      // Cross(ra, tangent)
-    Vec3 wb1, wb2;      // Cross(rb, tangent)
+    Vec3 wa1, wa2;   // Cross(ra, tangent)
+    Vec3 wb1, wb2;   // Cross(rb, tangent)
 
-    Mat2 linearMass;    // Linear effective mass
-    Vec2 bias;          // Linear bias
-    Vec2 impulse;       // Linear impulse sum
-    float twistMass;    // Angular effective mass
-    float twistImpulse; // Angular impulse sum
+    Mat2 linearMass; // Linear effective mass
+    Vec2 bias;       // Linear bias
+    float twistMass; // Angular effective mass
 };
 
 struct PositionConstraint
