@@ -37,8 +37,8 @@ struct ContactState
 {
     Contact* contact;
 
-    BodyState* s1;
-    BodyState* s2;
+    BodyState* bodyA;
+    BodyState* bodyB;
 
     GrowableStack<ContactManifold, 1> manifolds;
     GrowableStack<ContactConstraint, 1> contactConstraints;

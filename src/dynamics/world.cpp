@@ -1310,13 +1310,13 @@ void World::Solve()
             {
                 if (SolveContactPositionConstraints(&state) == false)
                 {
-                    if (!state.s1->body->IsStatic())
+                    if (!state.bodyA->body->IsStatic())
                     {
-                        state.s1->resting = 0.0f;
+                        state.bodyA->resting = 0.0f;
                     }
-                    if (!state.s2->body->IsStatic())
+                    if (!state.bodyB->body->IsStatic())
                     {
-                        state.s2->resting = 0.0f;
+                        state.bodyB->resting = 0.0f;
                     }
                 }
             }
@@ -1355,13 +1355,13 @@ void World::Solve()
                             ContactState* state = &batch.contactStates[i];
                             if (SolveContactPositionConstraints(state) == false)
                             {
-                                if (!state->s1->body->IsStatic())
+                                if (!state->bodyA->body->IsStatic())
                                 {
-                                    state->s1->resting = 0.0f;
+                                    state->bodyA->resting = 0.0f;
                                 }
-                                if (!state->s2->body->IsStatic())
+                                if (!state->bodyB->body->IsStatic())
                                 {
-                                    state->s2->resting = 0.0f;
+                                    state->bodyB->resting = 0.0f;
                                 }
                             }
                         }

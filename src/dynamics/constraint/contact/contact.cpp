@@ -129,8 +129,6 @@ void Contact::Update()
         return;
     }
 
-    s->contactConstraints.resize(s->manifolds.size());
-
     constexpr float normalMatchThreshold = 0.995f;
 
     GrowableStack<int32, 4> used;
@@ -139,7 +137,6 @@ void Contact::Update()
     for (int32 i = 0; i < s->manifolds.size(); ++i)
     {
         ContactManifold& manifold = s->manifolds[i];
-        ContactConstraint& constraint = s->contactConstraints[i];
 
         int32 oldIndex = null_index;
         float bestSimilarity = normalMatchThreshold;
@@ -185,14 +182,13 @@ void Contact::Update()
             }
         }
 
-        Vec3 oldLinearImpulse =
-            constraint.frictionContact.t1 * oldManifold.impulse.x + constraint.frictionContact.t2 * oldManifold.impulse.y;
+        Vec3 oldLinearImpulse = oldManifold.impulse;
         Vec3 oldAngularImpulse = oldManifold.normal * oldManifold.angularImpulse;
 
         Vec3 tangent1, tangent2;
         CoordinateSystem(manifold.normal, &tangent1, &tangent2);
 
-        manifold.impulse.Set(Dot(oldLinearImpulse, tangent1), Dot(oldLinearImpulse, tangent2));
+        manifold.impulse = tangent1 * Dot(oldLinearImpulse, tangent1) + tangent2 * Dot(oldLinearImpulse, tangent2);
         manifold.angularImpulse = Dot(oldAngularImpulse, manifold.normal);
     }
 }

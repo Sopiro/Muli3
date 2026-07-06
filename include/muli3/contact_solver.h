@@ -22,15 +22,15 @@ struct NormalConstraint
 
 struct FrictionConstraint
 {
-    Vec3 t1, t2;     // Tangent frame
-    Vec3 ra, rb;     // Centered contact arms
+    Vec3 t1, t2;       // Tangent frame
+    Vec3 ra, rb;       // Centered contact arms
 
-    Vec3 wa1, wa2;   // Cross(ra, tangent)
-    Vec3 wb1, wb2;   // Cross(rb, tangent)
+    Vec3 wa1, wa2;     // Cross(ra, tangent)
+    Vec3 wb1, wb2;     // Cross(rb, tangent)
 
-    Mat2 linearMass; // Linear effective mass
-    Vec2 bias;       // Linear bias
-    float twistMass; // Angular effective mass
+    Mat2 linearMass;   // Linear effective mass
+    Vec2 bias;         // Linear bias
+    float angularMass; // Angular effective mass
 };
 
 struct PositionConstraint
@@ -47,14 +47,14 @@ struct ContactConstraint
     PositionConstraint positionContact[max_contact_point_count];
 };
 
-void PrepareContact(ContactState* s);
-void WarmStartContact(ContactState* s);
-void SolveContactVelocityConstraints(ContactState* s);
-bool SolveContactPositionConstraints(ContactState* s);
+void PrepareContact(ContactState* contact);
+void WarmStartContact(ContactState* contact);
+void SolveContactVelocityConstraints(ContactState* contact);
+bool SolveContactPositionConstraints(ContactState* contact);
 
-void PrepareJoint(JointState* s, const Timestep& step);
-void WarmStartJoint(JointState* s);
-void SolveJointVelocityConstraints(JointState* s, const Timestep& step);
-bool SolveJointPositionConstraints(JointState* s, const Timestep& step);
+void PrepareJoint(JointState* joint, const Timestep& step);
+void WarmStartJoint(JointState* joint);
+void SolveJointVelocityConstraints(JointState* joint, const Timestep& step);
+bool SolveJointPositionConstraints(JointState* joint, const Timestep& step);
 
 } // namespace muli3
