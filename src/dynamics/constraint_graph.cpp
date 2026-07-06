@@ -205,27 +205,27 @@ void ConstraintGraph::EvaluateContacts()
                 // The contact just became active while it was stored as an awake non-touching contact.
                 // Move state into the constraint graph so the solver can color it.
                 int32 sourceIndex = contact->localIndex;
-                ContactState state = awakeSet.contactStates[sourceIndex];
+                ContactState state = std::move(awakeSet.contactStates[sourceIndex]);
 
                 int32 last = int32(awakeSet.contactStates.size() - 1);
                 if (sourceIndex != last)
                 {
-                    awakeSet.contactStates[sourceIndex] = awakeSet.contactStates[last];
+                    awakeSet.contactStates[sourceIndex] = std::move(awakeSet.contactStates[last]);
                     awakeSet.contactStates[sourceIndex].contact->localIndex = sourceIndex;
                 }
                 awakeSet.contactStates.pop_back();
 
-                AddContactToGraph(contact, state);
+                AddContactToGraph(contact, std::move(state));
             }
             else
             {
                 // The contact is still awake, but no longer contributes constraints.
                 // Keep it in awakeSet so the narrow phase can continue testing it.
-                ContactState state = batches[contact->colorIndex].contactStates[contact->localIndex];
+                ContactState state = std::move(batches[contact->colorIndex].contactStates[contact->localIndex]);
                 RemoveContactFromGraph(contact);
 
                 int32 newIndex = int32(awakeSet.contactStates.size());
-                awakeSet.contactStates.push_back(state);
+                awakeSet.contactStates.push_back(std::move(state));
                 contact->setIndex = awake_set;
                 contact->colorIndex = null_index;
                 contact->localIndex = newIndex;
@@ -494,7 +494,7 @@ void ConstraintGraph::RemoveColor(Body* bodyA, Body* bodyB, int32 colorIndex)
     bodyB->usedColors &= mask;
 }
 
-ContactState* ConstraintGraph::AddContactToGraph(Contact* contact, const ContactState& source)
+ContactState* ConstraintGraph::AddContactToGraph(Contact* contact, ContactState&& source)
 {
     int32 colorIndex = AssignColor(contact->GetBodyA(), contact->GetBodyB());
     AddColor(contact->GetBodyA(), contact->GetBodyB(), colorIndex);
@@ -502,7 +502,7 @@ ContactState* ConstraintGraph::AddContactToGraph(Contact* contact, const Contact
     ConstraintBatch& batch = batches[colorIndex];
     int32 index = int32(batch.contactStates.size());
 
-    batch.contactStates.push_back(source);
+    batch.contactStates.push_back(std::move(source));
     ContactState* state = &batch.contactStates.back();
     state->contact = contact;
 
@@ -527,7 +527,7 @@ void ConstraintGraph::RemoveContactFromGraph(Contact* contact)
     int32 last = int32(states.size() - 1);
     if (localIndex != last)
     {
-        states[localIndex] = states[last];
+        states[localIndex] = std::move(states[last]);
         states[localIndex].contact->localIndex = localIndex;
     }
     states.pop_back();

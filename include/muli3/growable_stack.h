@@ -22,9 +22,6 @@ public:
     GrowableStack& operator=(const GrowableStack&) = delete;
 
     GrowableStack(GrowableStack&& other) noexcept
-        : array{ stackArray }
-        , count{ 0 }
-        , capacity{ N }
     {
         MoveFrom(std::move(other));
     }

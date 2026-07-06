@@ -1617,13 +1617,13 @@ void World::Solve()
         {
             MuliAssert(contact->colorIndex != null_index);
 
-            ContactState state = constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex];
+            ContactState state = std::move(constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex]);
             constraintGraph.RemoveContactFromGraph(contact);
 
             SolverSet& target = solverSets[targetSet];
             contact->setIndex = targetSet;
             contact->localIndex = int32(target.contactStates.size());
-            target.contactStates.push_back(state);
+            target.contactStates.push_back(std::move(state));
             target.contactStates.back().contact = contact;
         }
     }
@@ -1654,12 +1654,12 @@ void World::Solve()
 
         if (targetSet != awake_set)
         {
-            ContactState state = awakeSet.contactStates[i];
+            ContactState state = std::move(awakeSet.contactStates[i]);
 
             int32 last = int32(awakeSet.contactStates.size() - 1);
             if (i != last)
             {
-                awakeSet.contactStates[i] = awakeSet.contactStates[last];
+                awakeSet.contactStates[i] = std::move(awakeSet.contactStates[last]);
                 awakeSet.contactStates[i].contact->localIndex = i;
             }
             awakeSet.contactStates.pop_back();
@@ -1667,7 +1667,7 @@ void World::Solve()
             SolverSet& target = solverSets[targetSet];
             contact->setIndex = targetSet;
             contact->localIndex = int32(target.contactStates.size());
-            target.contactStates.push_back(state);
+            target.contactStates.push_back(std::move(state));
             target.contactStates.back().contact = contact;
         }
     }
@@ -2384,9 +2384,8 @@ ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
 
     ContactState state{};
     state.contact = contact;
-    state.manifold.contactCount = 0;
 
-    set.contactStates.push_back(state);
+    set.contactStates.push_back(std::move(state));
     return &set.contactStates.back();
 }
 
@@ -2400,7 +2399,7 @@ void World::RemoveContactState(Contact* contact)
 
     if (index != last)
     {
-        set.contactStates[index] = set.contactStates[last];
+        set.contactStates[index] = std::move(set.contactStates[last]);
         set.contactStates[index].contact->localIndex = index;
     }
 
@@ -2418,13 +2417,13 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
             return;
         }
 
-        ContactState state = constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex];
+        ContactState state = std::move(constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex]);
         constraintGraph.RemoveContactFromGraph(contact);
 
         SolverSet& target = solverSets[targetSet];
         contact->setIndex = targetSet;
         contact->localIndex = int32(target.contactStates.size());
-        target.contactStates.push_back(state);
+        target.contactStates.push_back(std::move(state));
         target.contactStates.back().contact = contact;
         return;
     }
@@ -2438,12 +2437,12 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
     SolverSet& target = solverSets[targetSet];
 
     int32 sourceIndex = contact->localIndex;
-    ContactState state = source.contactStates[sourceIndex];
+    ContactState state = std::move(source.contactStates[sourceIndex]);
 
     int32 last = int32(source.contactStates.size() - 1);
     if (sourceIndex != last)
     {
-        source.contactStates[sourceIndex] = source.contactStates[last];
+        source.contactStates[sourceIndex] = std::move(source.contactStates[last]);
         source.contactStates[sourceIndex].contact->localIndex = sourceIndex;
     }
     source.contactStates.pop_back();
@@ -2451,13 +2450,13 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
     if (targetSet == awake_set && contact->IsTouching() && contact->IsEnabled())
     {
         contact->setIndex = awake_set;
-        constraintGraph.AddContactToGraph(contact, state);
+        constraintGraph.AddContactToGraph(contact, std::move(state));
     }
     else
     {
         contact->setIndex = targetSet;
         contact->localIndex = int32(target.contactStates.size());
-        target.contactStates.push_back(state);
+        target.contactStates.push_back(std::move(state));
         target.contactStates.back().contact = contact;
     }
 }

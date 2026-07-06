@@ -161,7 +161,7 @@ public:
             for (int32 i = 0; i < manifold.contactCount; ++i)
             {
                 Vec3 p1 = manifold.contactPoints[i].anchorB;
-                Vec3 normal = manifold.contactPoints[i].normal;
+                Vec3 normal = manifold.normal;
                 Vec3 p2 = p1 + normal * 0.35f;
                 Vec3 reference = Abs(normal.y) < 0.8f ? Vec3{ 0.0f, 1.0f, 0.0f } : Vec3{ 1.0f, 0.0f, 0.0f };
                 Vec3 tangent = NormalizeSafe(Cross(normal, reference));

@@ -311,6 +311,8 @@ static void FindContactPoints(
     const Vec3& n, const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
 )
 {
+    manifold->normal = n;
+
     Face faceA = a->GetFeaturedFace(tfA, n);
     Face faceB = b->GetFeaturedFace(tfB, -n);
 
@@ -407,7 +409,6 @@ static void FindContactPoints(
 
         candidates[i].anchorA = anchorA;
         candidates[i].anchorB = anchorB;
-        candidates[i].normal = n;
     }
 
     if (faces[output].count <= max_contact_point_count)
@@ -547,7 +548,7 @@ bool SphereVsSphere(
 
     manifold->contactPoints[0].anchorA = pa + normal * ra;
     manifold->contactPoints[0].anchorB = pb - normal * rb;
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -609,7 +610,7 @@ bool CapsuleVsSphere(
 
     manifold->contactPoints[0].anchorA = supportA.p;
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -674,7 +675,7 @@ bool CapsuleVsCapsule(
 
     manifold->contactPoints[0].anchorA = pa + normal * ra;
     manifold->contactPoints[0].anchorB = pb - normal * rb;
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -783,7 +784,7 @@ bool BoxVsSphere(
 
     manifold->contactPoints[0].anchorA = closest + normal * a->GetRadius();
     manifold->contactPoints[0].anchorB = c - normal * b->GetRadius();
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = contactID;
     manifold->contactCount = 1;
 
@@ -1047,7 +1048,7 @@ bool ConvexVsSphere(
 
     manifold->contactPoints[0].anchorA = closest;
     manifold->contactPoints[0].anchorB = centerB - normal * rb;
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -1089,7 +1090,7 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
 
             manifold->contactPoints[0].anchorA = supportA.p;
             manifold->contactPoints[0].anchorB = supportB.p;
-            manifold->contactPoints[0].normal = normal;
+            manifold->normal = normal;
             manifold->contactPoints[0].id = 0;
             manifold->contactCount = 1;
 
@@ -1216,7 +1217,7 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
     normal = tfA.q.Rotate(normal);
     manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
     manifold->contactPoints[0].anchorB = p - normal * rb;
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -1820,7 +1821,7 @@ bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     normal = tfA.q.Rotate(normal);
     manifold->contactPoints[0].anchorA = Mul(tfA, closest) + normal * ra;
     manifold->contactPoints[0].anchorB = p - normal * rb;
-    manifold->contactPoints[0].normal = normal;
+    manifold->normal = normal;
     manifold->contactPoints[0].id = 0;
     manifold->contactCount = 1;
 
@@ -2272,149 +2273,8 @@ bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Tran
     return manifold->contactCount > 0;
 }
 
-struct HeightFieldContacts
-{
-    GrowableStack<ContactPoint, 8> contacts;
-    Vec3 mean = Vec3::zero;
-    Vec3 meanNormal = Vec3::zero;
-};
-
-static void AddHeightFieldContact(
-    HeightFieldContacts* candidates, const Vec3& normal, const Vec3& anchorA, const Vec3& anchorB, int32 id
-)
-{
-    float separation = Dot(anchorB - anchorA, normal);
-    if (separation > 0.0f)
-    {
-        return;
-    }
-
-    ContactPoint candidate;
-    candidate.anchorA = anchorA;
-    candidate.anchorB = anchorB;
-    candidate.normal = normal;
-    candidate.id = id;
-
-    candidates->contacts.push_back(candidate);
-    candidates->mean += candidate.anchorA;
-    candidates->meanNormal += candidate.normal;
-}
-
-static void BuildHeightFieldManifold(const HeightFieldContacts& candidates, ContactManifold* manifold)
-{
-    int32 candidateCount = int32(candidates.contacts.size());
-    if (candidateCount == 0)
-    {
-        manifold->contactCount = 0;
-        return;
-    }
-
-    const ContactPoint* contacts = candidates.contacts.data();
-
-    if (candidateCount <= max_contact_point_count)
-    {
-        for (int32 i = 0; i < candidateCount; ++i)
-        {
-            manifold->contactPoints[i] = contacts[i];
-        }
-
-        manifold->contactCount = candidateCount;
-        return;
-    }
-
-    int32 indices[max_contact_point_count];
-    int32 contactCount = 0;
-
-    std::vector<Vec3> projected(candidateCount);
-    std::vector<float> depth2(candidateCount);
-
-    constexpr float minDepth2 = Sqr(linear_slop);
-    Vec3 center = candidates.mean / candidateCount;
-    Vec3 normal = Normalize(candidates.meanNormal / candidateCount);
-
-    for (int32 i = 0; i < candidateCount; ++i)
-    {
-        Vec3 r = contacts[i].anchorA - center;
-        projected[i] = GramSchmidt(r, normal);
-        depth2[i] = Max(minDepth2, Length2(contacts[i].anchorB - contacts[i].anchorA));
-    }
-
-    int32 point1 = 0;
-    float value = Max(minDepth2, Length2(projected[0])) * depth2[0];
-    for (int32 i = 1; i < candidateCount; ++i)
-    {
-        float v = Max(minDepth2, Length2(projected[i])) * depth2[i];
-        if (v > value)
-        {
-            point1 = i;
-            value = v;
-        }
-    }
-
-    int32 point2 = -1;
-    value = -max_float;
-    for (int32 i = 0; i < candidateCount; ++i)
-    {
-        if (i == point1)
-        {
-            continue;
-        }
-
-        float v = Max(minDepth2, Dist2(projected[i], projected[point1])) * depth2[i];
-        if (v > value)
-        {
-            point2 = i;
-            value = v;
-        }
-    }
-
-    int32 point3 = -1;
-    int32 point4 = -1;
-    float minSide = 0.0f;
-    float maxSide = 0.0f;
-    Vec3 perp = Cross(projected[point2] - projected[point1], normal);
-
-    for (int32 i = 0; i < candidateCount; ++i)
-    {
-        if (i == point1 || i == point2)
-        {
-            continue;
-        }
-
-        float side = Dot(perp, projected[i] - projected[point1]);
-        if (side < minSide)
-        {
-            point3 = i;
-            minSide = side;
-        }
-        else if (side > maxSide)
-        {
-            point4 = i;
-            maxSide = side;
-        }
-    }
-
-    indices[contactCount++] = point1;
-    if (point3 != -1)
-    {
-        indices[contactCount++] = point3;
-    }
-    indices[contactCount++] = point2;
-    if (point4 != -1)
-    {
-        indices[contactCount++] = point4;
-    }
-
-    for (int32 i = 0; i < contactCount; ++i)
-    {
-        manifold->contactPoints[i] = contacts[indices[i]];
-    }
-
-    manifold->contactCount = contactCount;
-}
-
-static bool HeightFieldVsShape(
-    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
+bool HeightFieldVsShape(
+    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GrowableStack<ContactManifold, 1>* manifolds
 )
 {
     const HeightFieldShape* heightField = (const HeightFieldShape*)a;
@@ -2441,7 +2301,6 @@ static bool HeightFieldVsShape(
         max = Max(max, corners[i]);
     }
 
-    HeightFieldContacts candidates;
     AABB localAABB = AABB{ min, max };
     heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };
@@ -2453,26 +2312,22 @@ static bool HeightFieldVsShape(
             return;
         }
 
+        Vec3 point = Vec3::zero;
         int32 triangleId = ((z * heightField->GetCellCountX() + x) << 1) | triangle;
         for (int32 i = 0; i < manifold.contactCount; ++i)
         {
-            ContactPoint contact = manifold.contactPoints[i];
-            contact.id = (triangleId << 8) | (contact.id & 0xff);
-
-            Vec3 normal = ResolveGhostNormal(
-                heightField->GetActiveEdgeBits(x, z, triangle), triangleShape, tfA, contact.anchorA, contact.normal, Vec3::zero
-            );
-            AddHeightFieldContact(&candidates, normal, contact.anchorA, contact.anchorB, contact.id);
+            point += manifold.contactPoints[i].anchorA;
+            manifold.contactPoints[i].id = (triangleId << 8) | (manifold.contactPoints[i].id & 0xff);
         }
+
+        manifold.normal = ResolveGhostNormal(
+            heightField->GetActiveEdgeBits(x, z, triangle), triangleShape, tfA, point, manifold.normal, Vec3::zero
+        );
+
+        manifolds->push_back(manifold);
     });
 
-    if (candidates.contacts.size() == 0)
-    {
-        return false;
-    }
-
-    BuildHeightFieldManifold(candidates, manifold);
-    return manifold->contactCount > 0;
+    return manifolds->size() > 0;
 }
 
 void InitializeDetectionFunctionMap()
@@ -2508,14 +2363,6 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::quad][Shape::box] = QuadVsBox;
     collide_function_map[Shape::quad][Shape::convex] = QuadVsConvex;
     collide_function_map[Shape::quad][Shape::quad] = QuadVsQuad;
-
-    collide_function_map[Shape::height_field][Shape::sphere] = HeightFieldVsShape;
-    collide_function_map[Shape::height_field][Shape::capsule] = HeightFieldVsShape;
-    collide_function_map[Shape::height_field][Shape::box] = HeightFieldVsShape;
-    collide_function_map[Shape::height_field][Shape::convex] = HeightFieldVsShape;
-    collide_function_map[Shape::height_field][Shape::triangle] = HeightFieldVsShape;
-    collide_function_map[Shape::height_field][Shape::quad] = HeightFieldVsShape;
-    collide_function_map[Shape::height_field][Shape::height_field] = nullptr;
 
     detection_function_initialized = true;
 }

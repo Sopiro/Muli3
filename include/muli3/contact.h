@@ -39,11 +39,8 @@ public:
     void SetEnabled(bool enabled);
     int32 GetColorIndex() const;
 
-    const ContactManifold& GetContactManifold() const;
-    int32 GetContactCount() const;
-
-    float GetNormalImpulse(int32 index) const;
-    Vec2 GetTangentImpulse(int32 index) const;
+    int32 GetManifoldCount() const;
+    const ContactManifold& GetContactManifold(int32 index) const;
 
     float GetFriction() const;
     float GetRestitution() const;
@@ -74,6 +71,7 @@ private:
     const ContactState* GetContactState() const;
 
     CollideFunction* collideFunction;
+    CollideFunction2* collideFunction2;
 
     Collider* colliderA;
     Collider* colliderB;
@@ -150,26 +148,16 @@ inline int32 Contact::GetColorIndex() const
     return colorIndex;
 }
 
-inline const ContactManifold& Contact::GetContactManifold() const
+inline int32 Contact::GetManifoldCount() const
 {
-    return GetContactState()->manifold;
+    return GetContactState()->manifolds.size();
 }
 
-inline int32 Contact::GetContactCount() const
+inline const ContactManifold& Contact::GetContactManifold(int32 index) const
 {
-    return GetContactState()->manifold.contactCount;
-}
-
-inline float Contact::GetNormalImpulse(int32 index) const
-{
-    MuliAssert(0 <= index && index < max_contact_point_count);
-    return GetContactState()->normalContact[index].impulse;
-}
-
-inline Vec2 Contact::GetTangentImpulse(int32 index) const
-{
-    MuliAssert(0 <= index && index < max_contact_point_count);
-    return GetContactState()->tangentContact[index].impulse;
+    const ContactState* state = GetContactState();
+    MuliAssert(0 <= index && index < state->manifolds.size());
+    return state->manifolds[index];
 }
 
 inline float Contact::GetFriction() const

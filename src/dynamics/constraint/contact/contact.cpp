@@ -1,15 +1,18 @@
 #include "muli3/contact.h"
 #include "muli3/callbacks.h"
+#include "muli3/frame.h"
 #include "muli3/world.h"
 
 namespace muli3
 {
 
 extern CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
+extern bool HeightFieldVsShape(
+    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GrowableStack<ContactManifold, 1>* manifold
+);
 
 Contact::Contact(Collider* colliderA, Collider* colliderB)
-    : collideFunction{ nullptr }
-    , colliderA{ colliderA }
+    : colliderA{ colliderA }
     , colliderB{ colliderB }
     , prev{ nullptr }
     , next{ nullptr }
@@ -21,8 +24,16 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
 {
     MuliAssert(colliderA->GetType() >= colliderB->GetType());
 
-    collideFunction = collide_function_map[colliderA->GetType()][colliderB->GetType()];
-    MuliAssert(collideFunction != nullptr);
+    if (colliderA->GetType() >= Shape::height_field)
+    {
+        collideFunction = nullptr;
+        collideFunction2 = &HeightFieldVsShape;
+    }
+    else
+    {
+        collideFunction = collide_function_map[colliderA->GetType()][colliderB->GetType()];
+        collideFunction2 = nullptr;
+    }
 }
 
 ContactState* Contact::GetContactState()
@@ -57,25 +68,25 @@ void Contact::Update()
 
     s->friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
     s->restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
-    s->restitutionThreshold =
-        MixRestitutionThreshold(colliderA->GetRestitutionThreshold(), colliderB->GetRestitutionThreshold());
+    s->restitutionThreshold = MixRestitutionThreshold(colliderA->GetRestitutionThreshold(), colliderB->GetRestitutionThreshold());
     s->surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
 
     // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.
     // Writes are strictly isolated to this contact instance, and read accesses to rigidbody transforms are read-only.
     flag |= Contact::flag_enabled;
 
-    ContactManifold oldManifold = s->manifold;
+    GrowableStack<ContactManifold, 4> oldManifolds;
+    GrowableStack<ContactConstraint, 4> oldConstraints;
 
-    float impulseSaveNormal[max_contact_point_count];
-    Vec2 impulseSaveTangent[max_contact_point_count];
-    for (int32 i = 0; i < max_contact_point_count; ++i)
+    int32 oldManifoldCount = s->manifolds.size();
+    if (oldManifoldCount > 0)
     {
-        impulseSaveNormal[i] = s->normalContact[i].impulse;
-        impulseSaveTangent[i] = s->tangentContact[i].impulse;
-        s->normalContact[i].impulse = 0.0f;
-        s->tangentContact[i].impulse = Vec2::zero;
+        oldManifolds.resize(oldManifoldCount);
+        memcpy(oldManifolds.data(), s->manifolds.data(), oldManifoldCount * sizeof(ContactManifold));
     }
+
+    s->manifolds.clear();
+    s->contactConstraints.clear();
 
     bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
     if (wasTouching)
@@ -90,8 +101,21 @@ void Contact::Update()
     Body* bodyA = colliderA->GetBody();
     Body* bodyB = colliderB->GetBody();
 
-    bool touching =
-        collideFunction(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifold);
+    bool touching = false;
+    if (collideFunction2 != nullptr)
+    {
+        touching =
+            collideFunction2(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifolds);
+    }
+    else
+    {
+        ContactManifold manifold{};
+        touching = collideFunction(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold);
+        if (touching)
+        {
+            s->manifolds.push_back(manifold);
+        }
+    }
 
     if (touching)
     {
@@ -107,17 +131,73 @@ void Contact::Update()
         return;
     }
 
-    for (int32 n = 0; n < s->manifold.contactCount; ++n)
+    s->contactConstraints.resize(s->manifolds.size());
+
+    constexpr float normalMatchThreshold = 0.995f;
+
+    GrowableStack<int32, 4> used;
+    used.resize(oldManifolds.size());
+
+    for (int32 i = 0; i < s->manifolds.size(); ++i)
     {
-        for (int32 o = 0; o < oldManifold.contactCount; ++o)
+        ContactManifold& manifold = s->manifolds[i];
+        ContactConstraint& constraint = s->contactConstraints[i];
+
+        int32 oldIndex = null_index;
+        float bestSimilarity = normalMatchThreshold;
+        for (int32 j = 0; j < oldManifolds.size(); ++j)
         {
-            if (s->manifold.contactPoints[n].id == oldManifold.contactPoints[o].id)
+            if (used[j] != 0 || oldManifolds[j].contactCount == 0)
             {
-                s->normalContact[n].impulse = impulseSaveNormal[o];
-                s->tangentContact[n].impulse = impulseSaveTangent[o];
-                break;
+                continue;
+            }
+
+            float similarity = Dot(manifold.normal, oldManifolds[j].normal);
+            if (similarity > bestSimilarity)
+            {
+                oldIndex = j;
+                bestSimilarity = similarity;
             }
         }
+
+        if (oldIndex == null_index || oldIndex >= oldConstraints.size())
+        {
+            continue;
+        }
+
+        used[oldIndex] = 1;
+
+        const ContactManifold& oldManifold = oldManifolds[oldIndex];
+        const ContactConstraint& oldConstraint = oldConstraints[oldIndex];
+
+        bool usedPoints[max_contact_point_count] = {};
+        for (int32 j = 0; j < manifold.contactCount; ++j)
+        {
+            for (int32 k = 0; k < oldManifold.contactCount; ++k)
+            {
+                if (usedPoints[k])
+                {
+                    continue;
+                }
+
+                if (manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
+                {
+                    constraint.normalContact[j].impulse = oldConstraint.normalContact[k].impulse;
+                    usedPoints[k] = true;
+                    break;
+                }
+            }
+        }
+
+        const FrictionConstraint& oldFriction = oldConstraint.frictionContact;
+        Vec3 oldLinearImpulse = oldFriction.t1 * oldFriction.impulse.x + oldFriction.t2 * oldFriction.impulse.y;
+        Vec3 oldTwistImpulse = oldManifold.normal * oldFriction.twistImpulse;
+
+        Vec3 tangent1, tangent2;
+        CoordinateSystem(manifold.normal, &tangent1, &tangent2);
+
+        constraint.frictionContact.impulse.Set(Dot(oldLinearImpulse, tangent1), Dot(oldLinearImpulse, tangent2));
+        constraint.frictionContact.twistImpulse = Dot(oldTwistImpulse, manifold.normal);
     }
 }
 

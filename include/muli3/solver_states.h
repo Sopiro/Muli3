@@ -40,11 +40,8 @@ struct ContactState
     BodyState* s1;
     BodyState* s2;
 
-    ContactManifold manifold;
-
-    SolverNormalContact normalContact[max_contact_point_count];
-    SolverTangentContact tangentContact[max_contact_point_count];
-    SolverPosition positionContact[max_contact_point_count];
+    GrowableStack<ContactManifold, 1> manifolds;
+    GrowableStack<ContactConstraint, 1> contactConstraints;
 
     Mat3 invIA;
     Mat3 invIB;

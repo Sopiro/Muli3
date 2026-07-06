@@ -52,7 +52,7 @@ private:
     void AddColor(Body* bodyA, Body* bodyB, int32 colorIndex);
     void RemoveColor(Body* bodyA, Body* bodyB, int32 colorIndex);
 
-    ContactState* AddContactToGraph(Contact* contact, const ContactState& source);
+    ContactState* AddContactToGraph(Contact* contact, ContactState&& source);
     void RemoveContactFromGraph(Contact* contact);
     JointState* AddJointToGraph(Joint* joint, const JointState& source);
     void RemoveJointFromGraph(Joint* joint);

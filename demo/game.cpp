@@ -548,22 +548,26 @@ void Game::Render()
                 continue;
             }
 
-            const ContactManifold& manifold = contact->GetContactManifold();
             const Vec4 pointColor = GetContactColor(contact);
 
-            for (int32 i = 0; i < manifold.contactCount; ++i)
+            for (int32 m = 0; m < contact->GetManifoldCount(); ++m)
             {
-                const Vec3 p1 = (manifold.contactPoints[i].anchorA + manifold.contactPoints[i].anchorB) * 0.5f;
+                const ContactManifold& manifold = contact->GetContactManifold(m);
 
-                if (options.show_contact_point)
+                for (int32 i = 0; i < manifold.contactCount; ++i)
                 {
-                    renderer.DrawPoint(p1, pointColor);
-                }
+                    const Vec3 p1 = (manifold.contactPoints[i].anchorA + manifold.contactPoints[i].anchorB) * 0.5f;
 
-                if (options.show_contact_normal)
-                {
-                    const Vec3 p2 = p1 + manifold.contactPoints[i].normal * 0.18f;
-                    renderer.DrawLine(p1, p2, normalColor);
+                    if (options.show_contact_point)
+                    {
+                        renderer.DrawPoint(p1, pointColor);
+                    }
+
+                    if (options.show_contact_normal)
+                    {
+                        const Vec3 p2 = p1 + manifold.normal * 0.18f;
+                        renderer.DrawLine(p1, p2, normalColor);
+                    }
                 }
             }
         }

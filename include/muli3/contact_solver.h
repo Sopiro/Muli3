@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math.h"
+#include "collision.h"
 
 namespace muli3
 {
@@ -10,9 +10,9 @@ struct ContactState;
 struct JointState;
 struct Timestep;
 
-struct SolverNormalContact
+struct NormalConstraint
 {
-    Vec3 n;        // normal
+    Vec3 n;        // Normal
     Vec3 wa;       // Cross(ra, normal)
     Vec3 wb;       // Cross(rb, normal)
 
@@ -21,22 +21,33 @@ struct SolverNormalContact
     float impulse; // Impulse sum
 };
 
-struct SolverTangentContact
+struct FrictionConstraint
 {
-    Vec3 t1, t2;   // tangent
-    Vec3 wa1, wa2; // Cross(ra, tangent)
-    Vec3 wb1, wb2; // Cross(rb, tangent)
+    Vec3 t1, t2;        // Tangent frame
+    Vec3 ra, rb;        // Centered contact arms
 
-    Mat2 m;        // Effective mass
-    Vec2 bias;     // Bias
-    Vec2 impulse;  // Impulse sum
+    Vec3 wa1, wa2;      // Cross(ra, tangent)
+    Vec3 wb1, wb2;      // Cross(rb, tangent)
+
+    Mat2 linearMass;    // Linear effective mass
+    Vec2 bias;          // Linear bias
+    Vec2 impulse;       // Linear impulse sum
+    float twistMass;    // Angular effective mass
+    float twistImpulse; // Angular impulse sum
 };
 
-struct SolverPosition
+struct PositionConstraint
 {
     Vec3 localPointA;
     Vec3 localPointB;
     Vec3 localNormal;
+};
+
+struct ContactConstraint
+{
+    NormalConstraint normalContact[max_contact_point_count];
+    FrictionConstraint frictionContact;
+    PositionConstraint positionContact[max_contact_point_count];
 };
 
 void PrepareContact(ContactState* s);
