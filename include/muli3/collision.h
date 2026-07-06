@@ -29,14 +29,11 @@ struct ContactManifold
     float angularImpulse;
 };
 
-// clang-format off
-typedef bool CollideFunction(const Shape*, const Transform&,
-                             const Shape*, const Transform&,
-                             ContactManifold*);
-typedef bool CollideFunction2(const Shape*, const Transform&,
-                              const Shape*, const Transform&,
-                              GrowableStack<ContactManifold, 1>*);
+using ManifoldSet = GrowableStack<ContactManifold, 1>;
+using CollideFunction = bool(const Shape*, const Transform&, const Shape*, const Transform&, ContactManifold*);
+using CollideFunction2 = bool(const Shape*, const Transform&, const Shape*, const Transform&, ManifoldSet*);
 
+// clang-format off
 bool Collide(const Shape* a, const Transform& transformA,
              const Shape* b, const Transform& transformB,
              ContactManifold* manifold = nullptr,

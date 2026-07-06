@@ -47,6 +47,8 @@ struct ContactConstraint
     PositionConstraint positionContact[max_contact_point_count];
 };
 
+using ContactConstraintSet = GrowableStack<ContactConstraint, 1>;
+
 void PrepareContact(ContactState* contact);
 void WarmStartContact(ContactState* contact);
 void SolveContactVelocityConstraints(ContactState* contact);

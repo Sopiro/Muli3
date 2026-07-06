@@ -1,6 +1,5 @@
 #pragma once
 
-#include "collision.h"
 #include "contact_solver.h"
 #include "transform.h"
 
@@ -40,8 +39,8 @@ struct ContactState
     BodyState* bodyA;
     BodyState* bodyB;
 
-    GrowableStack<ContactManifold, 1> manifolds;
-    GrowableStack<ContactConstraint, 1> contactConstraints;
+    ManifoldSet manifolds;
+    ContactConstraintSet contactConstraints;
 
     Mat3 invIA;
     Mat3 invIB;

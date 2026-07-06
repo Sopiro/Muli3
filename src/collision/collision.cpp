@@ -11,6 +11,7 @@ namespace muli3
 
 bool detection_function_initialized = false;
 CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
+CollideFunction2* collide_function_map2[Shape::shape_count - Shape::height_field];
 
 void InitializeDetectionFunctionMap();
 
@@ -2273,9 +2274,7 @@ bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Tran
     return manifold->contactCount > 0;
 }
 
-bool HeightFieldVsShape(
-    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GrowableStack<ContactManifold, 1>* manifolds
-)
+bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldSet* manifolds)
 {
     const HeightFieldShape* heightField = (const HeightFieldShape*)a;
 
@@ -2363,6 +2362,8 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::quad][Shape::box] = QuadVsBox;
     collide_function_map[Shape::quad][Shape::convex] = QuadVsConvex;
     collide_function_map[Shape::quad][Shape::quad] = QuadVsQuad;
+
+    collide_function_map2[Shape::height_field - Shape::height_field] = HeightFieldVsShape;
 
     detection_function_initialized = true;
 }

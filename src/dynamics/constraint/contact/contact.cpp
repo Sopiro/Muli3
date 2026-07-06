@@ -7,9 +7,7 @@ namespace muli3
 {
 
 extern CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
-extern bool HeightFieldVsShape(
-    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, GrowableStack<ContactManifold, 1>* manifold
-);
+extern CollideFunction2* collide_function_map2[Shape::shape_count - Shape::height_field];
 
 Contact::Contact(Collider* colliderA, Collider* colliderB)
     : colliderA{ colliderA }
@@ -23,17 +21,6 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     , flag{ 0 }
 {
     MuliAssert(colliderA->GetType() >= colliderB->GetType());
-
-    if (colliderA->GetType() >= Shape::height_field)
-    {
-        collideFunction = nullptr;
-        collideFunction2 = &HeightFieldVsShape;
-    }
-    else
-    {
-        collideFunction = collide_function_map[colliderA->GetType()][colliderB->GetType()];
-        collideFunction2 = nullptr;
-    }
 }
 
 ContactState* Contact::GetContactState()
@@ -100,19 +87,20 @@ void Contact::Update()
     Body* bodyB = colliderB->GetBody();
 
     bool touching = false;
-    if (collideFunction2 != nullptr)
+
+    if (colliderA->GetType() < Shape::height_field)
     {
-        touching =
-            collideFunction2(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifolds);
+        ContactManifold& manifold = s->manifolds.emplace_back();
+
+        touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
+            colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
+        );
     }
     else
     {
-        ContactManifold manifold{};
-        touching = collideFunction(colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold);
-        if (touching)
-        {
-            s->manifolds.push_back(manifold);
-        }
+        touching = collide_function_map2[Shape::height_field - colliderA->GetType()](
+            colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifolds
+        );
     }
 
     if (touching)
@@ -163,20 +151,13 @@ void Contact::Update()
         used[oldIndex] = 1;
 
         const ContactManifold& oldManifold = oldManifolds[oldIndex];
-        bool usedPoints[max_contact_point_count] = {};
         for (int32 j = 0; j < manifold.contactCount; ++j)
         {
             for (int32 k = 0; k < oldManifold.contactCount; ++k)
             {
-                if (usedPoints[k])
-                {
-                    continue;
-                }
-
                 if (manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
                 {
                     manifold.contactPoints[j].impulse = oldManifold.contactPoints[k].impulse;
-                    usedPoints[k] = true;
                     break;
                 }
             }

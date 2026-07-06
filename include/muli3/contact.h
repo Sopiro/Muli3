@@ -70,9 +70,6 @@ private:
     ContactState* GetContactState();
     const ContactState* GetContactState() const;
 
-    CollideFunction* collideFunction;
-    CollideFunction2* collideFunction2;
-
     Collider* colliderA;
     Collider* colliderB;
 
