@@ -13,13 +13,12 @@ public:
     DoubleDomino(Game& game)
         : Demo(game)
     {
-        float l = 0.25f + linear_slop;
         float boxWidth = 1.0f;
         float boxHeight = boxWidth * 4.0f;
         float boxDepth = 2.4f;
         float xGap = boxHeight - boxWidth * 0.96f;
         float xStart = -(rows - 1.0f) * (boxWidth + xGap) / 2.0f;
-        float yStart = l + boxHeight / 2.0f;
+        float yStart = boxHeight / 2.0f;
 
         for (int32 x = 0; x < rows; ++x)
         {
@@ -36,10 +35,11 @@ public:
             }
         }
 
-        float w = Max(15.0f, (float)rows) * (boxWidth + xGap) - xGap;
-        world->CreateBox(w + 30, 0.5f, 20.0f, identity, Body::static_body);
+        float w = Max(15.0f, (float)rows) * (boxWidth + xGap) - xGap + 30;
+        float h = 20.0f;
+        world->CreateQuad(w, h, Transform({ -w / 2, 0, -h / 2 }, Quat::FromEuler({ pi / 2, 0, 0 })), Body::static_body);
 
-        camera.SetPosition(Vec3{ 0.0f, w / 5.0f, w * 0.75f });
+        camera.SetPosition(Vec3{ 0.0f, w / 5.0f, w * 0.75f - 30 });
         camera.SetRotation(-90.0f, -16.0f);
     }
 

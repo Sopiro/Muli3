@@ -5,9 +5,9 @@
 namespace muli3
 {
 
-static int32 rows = 15;
-static int32 xCount = 10;
-static int32 zCount = 10;
+static int32 rows = 10;
+static int32 xCount = 15;
+static int32 zCount = 15;
 static float spacing = 2.0f;
 
 class ManyPyramid : public Demo

@@ -648,19 +648,23 @@ bool CapsuleVsCapsule(
         return false;
     }
 
+    Vec3 axisA = a1 - a0;
+    float lengthA = axisA.Normalize();
+
+    Vec3 axisB = b1 - b0;
+    float lengthB = axisB.Normalize();
+
     if (distance <= epsilon)
     {
         // The closest segment points coincide. Pick a stable normal from crossed axes,
         // then fall back to the center delta projected off the capsule axis.
-        Vec3 axisA = NormalizeSafe(a1 - a0);
-        Vec3 axisB = NormalizeSafe(b1 - b0);
         normal = Cross(axisA, axisB);
 
         Vec3 deltaCenter = ((b0 + b1) - (a0 + a1)) * 0.5f;
 
         if (normal.Normalize() == 0.0f)
         {
-            Vec3 axis = Length2(axisA) > epsilon ? axisA : (Length2(axisB) > epsilon ? axisB : y_axis);
+            Vec3 axis = lengthA > epsilon ? axisA : (lengthB > epsilon ? axisB : y_axis);
             normal = GramSchmidt(deltaCenter, axis);
             if (normal.Normalize() == 0.0f)
             {
@@ -671,6 +675,83 @@ bool CapsuleVsCapsule(
         if (Dot(normal, deltaCenter) < 0.0f)
         {
             normal = -normal;
+        }
+    }
+
+    // Nearly parallel capsules can support a line contact.
+    // Clip capsule B's axis to capsule A's axis range and emit the two surviving endpoints.
+    Vec3 d = Cross(axisA, axisB);
+
+    constexpr float sineThreshold = 0.05233f; // ~ sin 3
+    if (Length2(d) < Sqr(sineThreshold))
+    {
+        float s0 = Dot(b0 - a0, axisA);
+        float s1 = Dot(b1 - a0, axisA);
+        float ds = s1 - s0;
+
+        float t0 = 0.0f;
+        float t1 = 1.0f;
+        if (Abs(ds) <= epsilon)
+        {
+            if (s0 < 0.0f || s0 > lengthA)
+            {
+                t1 = -1.0f;
+            }
+        }
+        else if (ds > 0.0f)
+        {
+            t0 = Max(t0, -s0 / ds);
+            t1 = Min(t1, (lengthA - s0) / ds);
+        }
+        else
+        {
+            t0 = Max(t0, (lengthA - s0) / ds);
+            t1 = Min(t1, -s0 / ds);
+        }
+
+        if ((t1 - t0) * lengthB > linear_slop)
+        {
+            Vec3 pointsB[2] = { b0 + (b1 - b0) * t0, b0 + (b1 - b0) * t1 };
+            Vec3 pointsA[2] = { ClosestPointVsSegment(pointsB[0], a0, a1), ClosestPointVsSegment(pointsB[1], a0, a1) };
+
+            Vec3 normals[2];
+            float minDistance = 0.01f * linear_slop;
+            bool valid = true;
+            for (int32 i = 0; i < 2; ++i)
+            {
+                normals[i] = pointsB[i] - pointsA[i];
+                float d = normals[i].Normalize();
+                if (d < minDistance)
+                {
+                    valid = false;
+                    break;
+                }
+                else if (d > radii)
+                {
+                    valid = false;
+                    break;
+                }
+            }
+
+            if (valid)
+            {
+                Vec3 manifoldNormal = normals[0] + normals[1];
+                if (manifoldNormal.Normalize() == 0.0f)
+                {
+                    manifoldNormal = normal;
+                }
+
+                for (int32 i = 0; i < 2; ++i)
+                {
+                    manifold->contactPoints[i].anchorA = pointsA[i] + manifoldNormal * ra;
+                    manifold->contactPoints[i].anchorB = pointsB[i] - manifoldNormal * rb;
+                    manifold->contactPoints[i].id = i;
+                }
+
+                manifold->normal = manifoldNormal;
+                manifold->contactCount = 2;
+                return true;
+            }
         }
     }
 
@@ -2304,7 +2385,7 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
     heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };
 
-        ContactManifold manifold;
+        ContactManifold manifold{};
         bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
         if (touching == false)
         {

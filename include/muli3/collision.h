@@ -25,7 +25,7 @@ struct ContactManifold
     ContactPoint contactPoints[max_contact_point_count];
     Vec3 normal;
 
-    Vec3 impulse;
+    Vec3 linearImpulse;
     float angularImpulse;
 };
 

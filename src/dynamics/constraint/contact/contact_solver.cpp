@@ -168,7 +168,7 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
 
     Vec2 tangentVelocity{ Jv1 + constraint->bias.x, Jv2 + constraint->bias.y };
     Vec2 deltaLambda = -Mul(constraint->linearMass, tangentVelocity);
-    Vec2 oldImpulse{ Dot(manifold->impulse, constraint->t1), Dot(manifold->impulse, constraint->t2) };
+    Vec2 oldImpulse{ Dot(manifold->linearImpulse, constraint->t1), Dot(manifold->linearImpulse, constraint->t2) };
     Vec2 impulse = oldImpulse + deltaLambda;
 
     // Coulomb friction limits the accumulated 2D tangent impulse lambda_t by |lambda_t| <= mu * lambda_n.
@@ -187,7 +187,7 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
 
     // Only apply the change from the previously accumulated 2D impulse.
     deltaLambda = impulse - oldImpulse;
-    manifold->impulse = constraint->t1 * impulse.x + constraint->t2 * impulse.y;
+    manifold->linearImpulse = constraint->t1 * impulse.x + constraint->t2 * impulse.y;
 
     if (!bodyA->body->IsStatic())
     {
@@ -223,21 +223,19 @@ static void WarmStartFriction(const ContactManifold* manifold, const FrictionCon
     BodyState* bodyA = contact->bodyA;
     BodyState* bodyB = contact->bodyB;
 
-    Vec2 impulse{ Dot(manifold->impulse, constraint->t1), Dot(manifold->impulse, constraint->t2) };
+    Vec2 impulse{ Dot(manifold->linearImpulse, constraint->t1), Dot(manifold->linearImpulse, constraint->t2) };
 
     if (!bodyA->body->IsStatic())
     {
-        bodyA->linearVelocity -= manifold->impulse * bodyA->invMass;
-        bodyA->angularVelocity -= contact->invIA *
-                                  (constraint->wa1 * impulse.x + constraint->wa2 * impulse.y +
-                                   manifold->normal * manifold->angularImpulse);
+        bodyA->linearVelocity -= manifold->linearImpulse * bodyA->invMass;
+        bodyA->angularVelocity -= contact->invIA * (constraint->wa1 * impulse.x + constraint->wa2 * impulse.y +
+                                                    manifold->normal * manifold->angularImpulse);
     }
     if (!bodyB->body->IsStatic())
     {
-        bodyB->linearVelocity += manifold->impulse * bodyB->invMass;
-        bodyB->angularVelocity += contact->invIB *
-                                  (constraint->wb1 * impulse.x + constraint->wb2 * impulse.y +
-                                   manifold->normal * manifold->angularImpulse);
+        bodyB->linearVelocity += manifold->linearImpulse * bodyB->invMass;
+        bodyB->angularVelocity += contact->invIB * (constraint->wb1 * impulse.x + constraint->wb2 * impulse.y +
+                                                    manifold->normal * manifold->angularImpulse);
     }
 }
 

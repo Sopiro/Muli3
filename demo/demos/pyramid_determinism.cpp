@@ -96,6 +96,6 @@ static Demo* CreatePyramidDeterminism(Game& game)
     return new PyramidDeterminism(game);
 }
 
-static int32 pyramid = register_demo("Determinism", "Pyramid Determinism", CreatePyramidDeterminism, 0);
+// static int32 pyramid = register_demo("Determinism", "Pyramid Determinism", CreatePyramidDeterminism, 0);
 
 } // namespace muli3

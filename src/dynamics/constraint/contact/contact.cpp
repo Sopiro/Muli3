@@ -163,13 +163,13 @@ void Contact::Update()
             }
         }
 
-        Vec3 oldLinearImpulse = oldManifold.impulse;
+        Vec3 oldLinearImpulse = oldManifold.linearImpulse;
         Vec3 oldAngularImpulse = oldManifold.normal * oldManifold.angularImpulse;
 
         Vec3 tangent1, tangent2;
         CoordinateSystem(manifold.normal, &tangent1, &tangent2);
 
-        manifold.impulse = tangent1 * Dot(oldLinearImpulse, tangent1) + tangent2 * Dot(oldLinearImpulse, tangent2);
+        manifold.linearImpulse = tangent1 * Dot(oldLinearImpulse, tangent1) + tangent2 * Dot(oldLinearImpulse, tangent2);
         manifold.angularImpulse = Dot(oldAngularImpulse, manifold.normal);
     }
 }

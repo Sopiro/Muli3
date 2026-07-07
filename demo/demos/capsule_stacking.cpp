@@ -31,18 +31,14 @@ public:
         }
 
         Quat horizontalX{ -pi * 0.5f, z_axis };
-        Quat horizontalZ{ pi * 0.5f, x_axis };
 
         for (int32 i = 0; i < horizontalCount; ++i)
         {
-            bool alongX = (i & 1) == 0;
             float y = groundTop + radius + i * (radius * 2.0f + gap);
             float x = 4.0f;
             float z = 0.0f;
 
-            Body* b = world->CreateCapsule(
-                height, radius, Transform{ Vec3{ x, y, z }, alongX ? horizontalX : horizontalZ }, Body::dynamic_body
-            );
+            Body* b = world->CreateCapsule(height, radius, Transform{ Vec3{ x, y, z }, horizontalX }, Body::dynamic_body);
             b->SetGyroscopicTorqueEnabled(true);
         }
 
