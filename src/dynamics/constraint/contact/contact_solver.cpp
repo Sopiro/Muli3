@@ -249,17 +249,12 @@ static void PreparePosition(PositionConstraint* constraint, ContactState* contac
     constraint->localNormal = bodyA->motion.q.RotateInv(manifold->normal);
 }
 
-struct PositionCorrection
-{
-    Vec3 linearImpulseA, linearImpulseB;
-    Vec3 angularImpulseA, angularImpulseB;
-};
-
-static bool SolvePosition(PositionCorrection* correction, const PositionConstraint* constraint, const ContactState* contact)
+static bool SolvePosition(const PositionConstraint* constraint, ContactState* contact)
 {
     BodyState* bodyA = contact->bodyA;
     BodyState* bodyB = contact->bodyB;
 
+    // Current world-space anchors and normal from the current pose.
     Vec3 pointA = bodyA->motion.q.Rotate(constraint->localPointA) + bodyA->motion.c;
     Vec3 pointB = bodyB->motion.q.Rotate(constraint->localPointB) + bodyB->motion.c;
     Vec3 normal = bodyA->motion.q.Rotate(constraint->localNormal);
@@ -272,20 +267,42 @@ static bool SolvePosition(PositionCorrection* correction, const PositionConstrai
     Vec3 ran = Cross(ra, normal);
     Vec3 rbn = Cross(rb, normal);
 
-    float k = bodyA->invMass + Dot(ran, contact->invIA * ran) + bodyB->invMass + Dot(rbn, contact->invIB * rbn);
+    // Important for NGS in 3D:
+    // world inverse inertia changes when orientation changes.
+    Mat3 invIA = bodyA->body->GetWorldInverseInertiaTensor();
+    Mat3 invIB = bodyB->body->GetWorldInverseInertiaTensor();
+
+    float k = bodyA->invMass + Dot(ran, invIA * ran) + bodyB->invMass + Dot(rbn, invIB * rbn);
+
+    // Only correct penetration deeper than linear_slop.
+    // separation < -linear_slop -> c < 0 -> positive lambda.
     float c = Clamp(position_correction * (separation + linear_slop), -max_position_correction, 0.0f);
 
     // Compute normal impulse
     float lambda = k > 0.0f ? -c / k : 0.0f;
     Vec3 impulse = normal * lambda;
 
-    correction->linearImpulseA -= impulse;
-    correction->angularImpulseA -= Cross(ra, impulse);
-    correction->linearImpulseB += impulse;
-    correction->angularImpulseB += Cross(rb, impulse);
+    // Apply immediately
+    if (!bodyA->body->IsStatic())
+    {
+        bodyA->motion.c -= bodyA->invMass * impulse;
 
-    // We can't expect separation >= -linear_slop
-    // because we don't push the separation above -linear_slop
+        Vec3 angularImpulseA = -Cross(ra, impulse);
+        Vec3 angularCorrectionA = invIA * angularImpulseA;
+        Quat w{ angularCorrectionA, 0.0f };
+        bodyA->motion.q = bodyA->motion.q + (w * bodyA->motion.q) * 0.5f;
+    }
+
+    if (!bodyB->body->IsStatic())
+    {
+        bodyB->motion.c += bodyB->invMass * impulse;
+
+        Vec3 angularImpulseB = Cross(rb, impulse);
+        Vec3 angularCorrectionB = invIB * angularImpulseB;
+        Quat w{ angularCorrectionB, 0.0f };
+        bodyB->motion.q = bodyB->motion.q + (w * bodyB->motion.q) * 0.5f;
+    }
+
     return -separation <= position_solver_threshold;
 }
 
@@ -353,8 +370,6 @@ bool SolveContactPositionConstraints(ContactState* contact)
 {
     bool solved = true;
 
-    PositionCorrection correction{};
-
     Body* bodyA = contact->bodyA->body;
     Body* bodyB = contact->bodyB->body;
 
@@ -368,29 +383,8 @@ bool SolveContactPositionConstraints(ContactState* contact)
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            solved &= SolvePosition(&correction, constraint->positionContact + i, contact);
+            solved &= SolvePosition(constraint->positionContact + i, contact);
         }
-    }
-
-    BodyState* stateA = contact->bodyA;
-    BodyState* stateB = contact->bodyB;
-
-    if (!bodyA->IsStatic())
-    {
-        stateA->motion.c += stateA->invMass * correction.linearImpulseA;
-        Vec3 angularCorrectionA = contact->invIA * correction.angularImpulseA;
-        Quat w1{ angularCorrectionA, 0.0f };
-        stateA->motion.q = stateA->motion.q + (w1 * stateA->motion.q) * 0.5f;
-        stateA->motion.q.Normalize();
-    }
-
-    if (!bodyB->IsStatic())
-    {
-        stateB->motion.c += stateB->invMass * correction.linearImpulseB;
-        Vec3 angularCorrectionB = contact->invIB * correction.angularImpulseB;
-        Quat w2{ angularCorrectionB, 0.0f };
-        stateB->motion.q = stateB->motion.q + (w2 * stateB->motion.q) * 0.5f;
-        stateB->motion.q.Normalize();
     }
 
     return solved;
