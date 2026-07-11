@@ -215,18 +215,8 @@ public:
         float density = default_density,
         const Material& material = default_material
     );
-    Collider* CreateQuadCollider(
-        const Vec3& a,
-        const Vec3& b,
-        const Vec3& c,
-        const Vec3& d,
-        const Transform& transform = identity,
-        float radius = default_radius,
-        float density = default_density,
-        const Material& material = default_material
-    );
-    Collider* CreateQuadCollider(
-        const Vec3 vertices[4],
+    Collider* CreatePolygonCollider(
+        std::span<const Vec3> vertices,
         const Transform& transform = identity,
         float radius = default_radius,
         float density = default_density,

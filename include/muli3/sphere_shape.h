@@ -15,7 +15,8 @@ public:
     void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
     int32 GetVertexCount() const;
-    Vec3 GetVertex(int32 id) const;
+    Vec3 GetVertex(int32 index) const;
+    int32 GetVertexIndex(int32 index) const;
     int32 GetSupport(const Vec3& localDir) const;
     Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
@@ -34,11 +35,18 @@ inline int32 SphereShape::GetVertexCount() const
     return 1;
 }
 
-inline Vec3 SphereShape::GetVertex(int32 id) const
+inline Vec3 SphereShape::GetVertex(int32 index) const
 {
-    MuliAssert(id == 0);
-    MuliNotUsed(id);
+    MuliAssert(index == 0);
+    MuliNotUsed(index);
     return center;
+}
+
+inline int32 SphereShape::GetVertexIndex(int32 index) const
+{
+    MuliAssert(index == 0);
+    MuliNotUsed(index);
+    return 0;
 }
 
 inline int32 SphereShape::GetSupport(const Vec3& localDir) const
@@ -49,12 +57,12 @@ inline int32 SphereShape::GetSupport(const Vec3& localDir) const
 
 inline Face SphereShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
+    MuliNotUsed(transform);
     MuliNotUsed(dir);
 
-    Face f;
-    f.count = 1;
-    f.points[0].p = Mul(transform, center);
-    f.points[0].id = 0;
+    Face f{};
+    f.vertexStart = 0;
+    f.vertexCount = 1;
     f.normal = Vec3::zero;
     return f;
 }

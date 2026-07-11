@@ -24,7 +24,8 @@ public:
     void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
     int32 GetVertexCount() const;
-    Vec3 GetVertex(int32 id) const;
+    Vec3 GetVertex(int32 index) const;
+    int32 GetVertexIndex(int32 index) const;
     int32 GetSupport(const Vec3& localDir) const;
     Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
@@ -103,12 +104,19 @@ inline int32 HeightFieldShape::GetVertexCount() const
     return sampleCountX * sampleCountZ;
 }
 
-inline Vec3 HeightFieldShape::GetVertex(int32 id) const
+inline Vec3 HeightFieldShape::GetVertex(int32 index) const
 {
-    MuliAssert(0 <= id && id < sampleCountX * sampleCountZ);
-    int32 x = id % sampleCountX;
-    int32 z = id / sampleCountX;
+    MuliAssert(0 <= index && index < sampleCountX * sampleCountZ);
+    int32 x = index % sampleCountX;
+    int32 z = index / sampleCountX;
     return GetPosition(x, z);
+}
+
+inline int32 HeightFieldShape::GetVertexIndex(int32 index) const
+{
+    MuliNotUsed(index);
+    MuliAssert(false);
+    return 0;
 }
 
 inline int32 HeightFieldShape::GetSupport(const Vec3& localDir) const

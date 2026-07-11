@@ -16,7 +16,8 @@ public:
     void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
     int32 GetVertexCount() const;
-    Vec3 GetVertex(int32 id) const;
+    Vec3 GetVertex(int32 index) const;
+    int32 GetVertexIndex(int32 index) const;
     int32 GetSupport(const Vec3& localDir) const;
     Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
@@ -42,16 +43,33 @@ inline int32 CapsuleShape::GetVertexCount() const
     return 2;
 }
 
-inline Vec3 CapsuleShape::GetVertex(int32 id) const
+inline Vec3 CapsuleShape::GetVertex(int32 index) const
 {
-    MuliAssert(id == 0 || id == 1);
-    return id == 0 ? va : vb;
+    MuliAssert(index == 0 || index == 1);
+    return index == 0 ? va : vb;
+}
+
+inline int32 CapsuleShape::GetVertexIndex(int32 index) const
+{
+    MuliAssert(index == 0 || index == 1);
+    return index;
 }
 
 inline int32 CapsuleShape::GetSupport(const Vec3& localDir) const
 {
     Vec3 e = vb - va;
     return Dot(e, localDir) > 0.0f ? 1 : 0;
+}
+
+inline Face CapsuleShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
+{
+    MuliNotUsed(transform);
+
+    Face face{};
+    face.vertexStart = 0;
+    face.vertexCount = 2;
+    face.normal = dir;
+    return face;
 }
 
 inline float CapsuleShape::GetHeight() const

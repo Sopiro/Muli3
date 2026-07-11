@@ -61,6 +61,12 @@ public:
         array[count++] = v;
     }
 
+    void push_back(T&& v)
+    {
+        reserve(count + 1);
+        array[count++] = std::move(v);
+    }
+
     T pop_back()
     {
         MuliAssert(count > 0);

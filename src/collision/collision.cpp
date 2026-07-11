@@ -241,13 +241,12 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
     result->penetrationDepth = best.distance;
 }
 
-static inline void TranslateFace(Face* face, Vec3 d)
+static constexpr int32 default_clipped_vertex_count = 32;
+
+struct ClippedFace
 {
-    for (int32 i = 0; i < max_face_vertices; ++i)
-    {
-        face->points[i].p += d;
-    }
-}
+    GrowableStack<Point, default_clipped_vertex_count> points;
+};
 
 static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
 {
@@ -261,26 +260,20 @@ static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
     return a + t * (b - a);
 }
 
-struct ClippedFace
-{
-    int32 count = 0;
-    Point points[2 * max_face_vertices];
-};
-
 static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, const Vec3& dir)
 {
-    out->count = 0;
+    out->points.clear();
 
-    if (in.count == 0)
+    if (in.points.size() == 0)
     {
         return;
     }
 
-    Point p0 = in.points[in.count - 1];
+    Point p0 = in.points[in.points.size() - 1];
     float d0 = Dot(p0.p - p, dir);
     bool inside0 = d0 >= -epsilon;
 
-    for (int32 i = 0; i < in.count; ++i)
+    for (int32 i = 0; i < in.points.size(); ++i)
     {
         Point p1 = in.points[i];
         float d1 = Dot(p1.p - p, dir);
@@ -288,18 +281,18 @@ static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, con
 
         if (inside0 && inside1)
         {
-            out->points[out->count++] = p1;
+            out->points.push_back(p1);
         }
         else if (inside0 && !inside1)
         {
             Vec3 intersection = IntersectPlaneEdge(p0.p, p1.p, d0, d1);
-            out->points[out->count++] = Point{ intersection, p0.id };
+            out->points.push_back(Point{ intersection, p0.id });
         }
         else if (!inside0 && inside1)
         {
             Vec3 intersection = IntersectPlaneEdge(p0.p, p1.p, d0, d1);
-            out->points[out->count++] = Point{ intersection, p0.id };
-            out->points[out->count++] = p1;
+            out->points.push_back(Point{ intersection, p0.id });
+            out->points.push_back(p1);
         }
 
         p0 = p1;
@@ -317,54 +310,68 @@ static void FindContactPoints(
     Face faceA = a->GetFeaturedFace(tfA, n);
     Face faceB = b->GetFeaturedFace(tfB, -n);
 
-    TranslateFace(&faceA, faceA.normal * a->GetRadius());
-    TranslateFace(&faceB, faceB.normal * b->GetRadius());
+    ClippedFace clippedA, clippedB;
+    clippedA.points.resize(faceA.vertexCount);
+    clippedB.points.resize(faceB.vertexCount);
 
-    Face ref; // Reference face
-    Face inc; // Incident face
+    for (int32 i = 0; i < faceA.vertexCount; ++i)
+    {
+        int32 vertexIndex = a->GetVertexIndex(faceA.vertexStart + i);
+        clippedA.points[i].id = vertexIndex;
+        clippedA.points[i].p = Mul(tfA, a->GetVertex(vertexIndex)) + faceA.normal * a->GetRadius();
+    }
+    for (int32 i = 0; i < faceB.vertexCount; ++i)
+    {
+        int32 vertexIndex = b->GetVertexIndex(faceB.vertexStart + i);
+        clippedB.points[i].id = vertexIndex;
+        clippedB.points[i].p = Mul(tfB, b->GetVertex(vertexIndex)) + faceB.normal * b->GetRadius();
+    }
+
+    ClippedFace* ref; // Reference face
+    ClippedFace* inc; // Incident face
+
     bool flipped;
 
     float aParallelness = AbsDot(faceA.normal, n);
     float bParallelness = AbsDot(faceB.normal, n);
 
-    if (std::min(faceA.count, faceB.count) < 3 && (faceB.count < faceA.count))
+    if (std::min(faceA.vertexCount, faceB.vertexCount) < 3 && (faceB.vertexCount < faceA.vertexCount))
     {
-        ref = faceA;
-        inc = faceB;
+        ref = &clippedA;
+        inc = &clippedB;
         flipped = false;
     }
     else if (bParallelness > aParallelness)
     {
-        ref = faceB;
-        inc = faceA;
+        ref = &clippedB;
+        inc = &clippedA;
         flipped = true;
     }
     else
     {
-        ref = faceA;
-        inc = faceB;
+        ref = &clippedA;
+        inc = &clippedB;
         flipped = false;
     }
 
-    Vec3 planeNormal = ref.normal;
-    Vec3 planePoint = ref.points[0].p;
+    Vec3 planeNormal = flipped ? faceB.normal : faceA.normal;
+    Vec3 planePoint = ref->points[0].p;
 
-    ClippedFace faces[2];
-    faces[0].count = inc.count;
-    std::memcpy(faces[0].points, inc.points, inc.count * sizeof(Point));
+    ClippedFace out;
+    ClippedFace* faces[2] = { inc, &out };
 
     // ping pong indices
     int32 input = 0;
     int32 output = 1;
 
-    for (int32 i0 = ref.count - 1, i1 = 0; i1 < ref.count; i0 = i1, ++i1)
+    for (int32 i0 = ref->points.size() - 1, i1 = 0; i1 < ref->points.size(); i0 = i1, ++i1)
     {
-        Vec3 edge = ref.points[i1].p - ref.points[i0].p;
+        Vec3 edge = ref->points[i1].p - ref->points[i0].p;
         Vec3 inward = Normalize(Cross(planeNormal, edge));
 
-        ClipFace(&faces[output], faces[input], ref.points[i0].p, inward);
+        ClipFace(faces[output], *faces[input], ref->points[i0].p, inward);
 
-        if (faces[output].count == 0)
+        if (faces[output]->points.size() == 0)
         {
             manifold->contactCount = 0;
             return;
@@ -374,26 +381,27 @@ static void FindContactPoints(
     }
 
     // Keep only points that under the reference plane.
-    faces[output].count = 0;
-    for (int32 i = 0; i < faces[input].count; ++i)
+    faces[output]->points.clear();
+    for (int32 i = 0; i < faces[input]->points.size(); ++i)
     {
-        float separation = Dot(faces[input].points[i].p - planePoint, planeNormal);
+        float separation = Dot(faces[input]->points[i].p - planePoint, planeNormal);
         if (separation < 0.0f)
         {
-            faces[output].points[faces[output].count++] = faces[input].points[i];
+            faces[output]->points.push_back(faces[input]->points[i]);
         }
     }
 
-    if (faces[output].count == 0)
+    if (faces[output]->points.size() == 0)
     {
         manifold->contactCount = 0;
         return;
     }
 
-    ContactPoint candidates[2 * max_face_vertices] = {};
-    for (int32 i = 0; i < faces[output].count; ++i)
+    GrowableStack<ContactPoint, default_clipped_vertex_count> candidates;
+    candidates.resize(faces[output]->points.size());
+    for (int32 i = 0; i < faces[output]->points.size(); ++i)
     {
-        Point point = faces[output].points[i];
+        Point point = faces[output]->points[i];
         float separation = Dot(point.p - planePoint, planeNormal);
 
         Vec3 anchorA, anchorB;
@@ -412,15 +420,15 @@ static void FindContactPoints(
         candidates[i].anchorB = anchorB;
     }
 
-    if (faces[output].count <= max_contact_point_count)
+    if (faces[output]->points.size() <= max_contact_point_count)
     {
-        for (int32 i = 0; i < faces[output].count; ++i)
+        for (int32 i = 0; i < faces[output]->points.size(); ++i)
         {
             manifold->contactPoints[i] = candidates[i];
-            manifold->contactPoints[i].id = faceA.points[i].id;
+            manifold->contactPoints[i].id = a->GetVertexIndex(faceA.vertexStart + i % faceA.vertexCount);
         }
 
-        manifold->contactCount = faces[output].count;
+        manifold->contactCount = faces[output]->points.size();
         return;
     }
 
@@ -432,11 +440,13 @@ static void FindContactPoints(
     constexpr float minDepth2 = Sqr(linear_slop);
 
     Vec3 centerA = Mul(tfA, a->GetCenter());
-    Vec3 projected[2 * max_face_vertices];
-    float depth2[2 * max_face_vertices];
+    GrowableStack<Vec3, default_clipped_vertex_count> projected;
+    GrowableStack<float, default_clipped_vertex_count> depth2;
+    projected.resize(faces[output]->points.size());
+    depth2.resize(faces[output]->points.size());
 
     // Work in the contact tangent plane around shape A.
-    for (int32 i = 0; i < faces[output].count; ++i)
+    for (int32 i = 0; i < faces[output]->points.size(); ++i)
     {
         Vec3 r = candidates[i].anchorA - centerA;
         projected[i] = GramSchmidt(r, n);
@@ -446,7 +456,7 @@ static void FindContactPoints(
     // Start with the point that is farthest from the center and deepest
     int32 point1 = 0;
     float value = Max(minDepth2, Length2(projected[0])) * depth2[0];
-    for (int32 i = 1; i < faces[output].count; ++i)
+    for (int32 i = 1; i < faces[output]->points.size(); ++i)
     {
         float v = Max(minDepth2, Length2(projected[i])) * depth2[i];
         if (v > value)
@@ -459,7 +469,7 @@ static void FindContactPoints(
     // Use the farthest weighted point from point1 as the main patch axis
     int32 point2 = -1;
     value = -max_float;
-    for (int32 i = 0; i < faces[output].count; ++i)
+    for (int32 i = 0; i < faces[output]->points.size(); ++i)
     {
         if (i == point1)
         {
@@ -481,7 +491,7 @@ static void FindContactPoints(
     Vec3 perp = Cross(projected[point2] - projected[point1], n);
 
     // Keep one point on each side of the main axis to maximize patch area
-    for (int32 i = 0; i < faces[output].count; ++i)
+    for (int32 i = 0; i < faces[output]->points.size(); ++i)
     {
         if (i == point1 || i == point2)
         {
@@ -516,7 +526,7 @@ static void FindContactPoints(
     for (int32 i = 0; i < contactCount; ++i)
     {
         manifold->contactPoints[i] = candidates[indices[i]];
-        manifold->contactPoints[i].id = faceA.points[i].id;
+        manifold->contactPoints[i].id = a->GetVertexIndex(faceA.vertexStart + i % faceA.vertexCount);
     }
 
     manifold->contactCount = contactCount;
@@ -1108,12 +1118,15 @@ bool ConvexVsSphere(
     }
 
     Vec3 localCenterB = MulT(transformA, centerB);
-    int32 faceIndex = 0;
-    float maxSeparation = Dot(convex->GetFaceNormals()[0], localCenterB - convex->GetVertex(convex->GetFaces()[0].indices[0]));
+    std::span<const Face> faces = convex->GetFaces();
+    std::span<const int32> indices = convex->GetIndices();
 
-    for (int32 i = 1; i < int32(convex->GetFaces().size()); ++i)
+    int32 faceIndex = 0;
+    float maxSeparation = Dot(faces[0].normal, localCenterB - convex->GetVertex(indices[faces[0].vertexStart]));
+
+    for (int32 i = 1; i < int32(faces.size()); ++i)
     {
-        float separation = Dot(convex->GetFaceNormals()[i], localCenterB - convex->GetVertex(convex->GetFaces()[i].indices[0]));
+        float separation = Dot(faces[i].normal, localCenterB - convex->GetVertex(indices[faces[i].vertexStart]));
         if (separation > maxSeparation)
         {
             maxSeparation = separation;
@@ -1123,7 +1136,7 @@ bool ConvexVsSphere(
 
     if (distance <= epsilon)
     {
-        normal = transformA.q.Rotate(convex->GetFaceNormals()[faceIndex]);
+        normal = transformA.q.Rotate(faces[faceIndex].normal);
         distance = convex->GetRadius() - maxSeparation;
         closest = centerB - normal * distance;
     }
@@ -1375,8 +1388,7 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
                 positive = minB + maxB > minA + maxA;
             }
 
-            Vec3 axisNormal = positive ? n : -n;
-            normal = axisNormal;
+            normal = positive ? n : -n;
             minPenetration = penetration;
         }
 
@@ -1493,8 +1505,7 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
                 positive = minB + maxB > minA + maxA;
             }
 
-            Vec3 axisNormal = positive ? n : -n;
-            normal = axisNormal;
+            normal = positive ? n : -n;
             minPenetration = penetration;
         }
 
@@ -1556,22 +1567,16 @@ bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, cons
     }
 
     int32 vertexCountB = convex->GetVertexCount();
+    GrowableStack<Vec3, 16> verticesB;
+    verticesB.resize(vertexCountB);
+    for (int32 i = 0; i < vertexCountB; ++i)
+    {
+        verticesB[i] = Mul(tfB, convex->GetVertex(i)) - triangleNormal * planeOffset;
+    }
+
     float radii = a->GetRadius() + b->GetRadius();
     float minPenetration = max_float;
     Vec3 normal = triangleNormal;
-
-    auto ProjectAxis = [&](Vec3 n, float* min, float* max) {
-        Vec3 p = Mul(tfB, convex->GetVertex(0)) - triangleNormal * planeOffset;
-        *min = Dot(p, n);
-        *max = *min;
-        for (int32 i = 1; i < vertexCountB; ++i)
-        {
-            p = Mul(tfB, convex->GetVertex(i)) - triangleNormal * planeOffset;
-            float value = Dot(p, n);
-            *min = Min(*min, value);
-            *max = Max(*max, value);
-        }
-    };
 
     auto TestAxis = [&](Vec3 n) -> bool {
         if (n.Normalize() == 0.0f)
@@ -1588,8 +1593,14 @@ bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, cons
             maxA = Max(maxA, value);
         }
 
-        float minB, maxB;
-        ProjectAxis(n, &minB, &maxB);
+        float minB = Dot(verticesB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < verticesB.size(); ++i)
+        {
+            float value = Dot(verticesB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
 
         float positiveSeparation = minB - maxA;
         float negativeSeparation = minA - maxB;
@@ -1608,8 +1619,7 @@ bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, cons
                 positive = minB + maxB > minA + maxA;
             }
 
-            Vec3 axisNormal = positive ? n : -n;
-            normal = axisNormal;
+            normal = positive ? n : -n;
             minPenetration = penetration;
         }
 
@@ -1622,27 +1632,26 @@ bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, cons
     }
 
     // Convex face normals.
-    for (Vec3 n : convex->GetFaceNormals())
+    for (const Face& face : convex->GetFaces())
     {
-        if (!TestAxis(tfB.q.Rotate(n)))
+        if (!TestAxis(tfB.q.Rotate(face.normal)))
         {
             return false;
         }
     }
 
     // Triangle edge vs convex edge axes.
+    std::span<const int32> convexIndices = convex->GetIndices();
     for (int32 i = 0; i < 3; ++i)
     {
         Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
-        for (const ConvexFace& face : convex->GetFaces())
+        for (const Face& face : convex->GetFaces())
         {
-            for (int32 j = 0; j < face.count; ++j)
+            for (int32 j = 0; j < face.vertexCount; ++j)
             {
-                int32 i0 = face.indices[j];
-                int32 i1 = face.indices[(j + 1) % face.count];
-                Vec3 p0 = Mul(tfB, convex->GetVertex(i0)) - triangleNormal * planeOffset;
-                Vec3 p1 = Mul(tfB, convex->GetVertex(i1)) - triangleNormal * planeOffset;
-                if (!TestAxis(Cross(edgeA, p1 - p0)))
+                int32 i0 = convexIndices[face.vertexStart + j];
+                int32 i1 = convexIndices[face.vertexStart + (j + 1) % face.vertexCount];
+                if (!TestAxis(Cross(edgeA, verticesB[i1] - verticesB[i0])))
                 {
                     return false;
                 }
@@ -1661,6 +1670,7 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
 
     Vec3 normalA = tfA.q.Rotate(triangleA->GetNormal());
     Vec3 normalB = tfB.q.Rotate(triangleB->GetNormal());
+
     Vec3 verticesA[3] = {
         Mul(tfA, triangleA->GetVertex(0)),
         Mul(tfA, triangleA->GetVertex(1)),
@@ -1725,8 +1735,7 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
                 positive = minB + maxB > minA + maxA;
             }
 
-            Vec3 axisNormal = positive ? n : -n;
-            normal = axisNormal;
+            normal = positive ? n : -n;
             minPenetration = penetration;
         }
 
@@ -1762,33 +1771,35 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
     return manifold->contactCount > 0;
 }
 
-bool TriangleVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool TriangleVsPolygon(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
     const TriangleShape* triangle = (const TriangleShape*)a;
-    const QuadShape* quad = (const QuadShape*)b;
+    const PolygonShape* polygon = (const PolygonShape*)b;
 
     Vec3 normalA = tfA.q.Rotate(triangle->GetNormal());
-    Vec3 normalB = tfB.q.Rotate(quad->GetNormal());
+    Vec3 normalB = tfB.q.Rotate(polygon->GetNormal());
+
     Vec3 verticesA[3] = {
         Mul(tfA, triangle->GetVertex(0)),
         Mul(tfA, triangle->GetVertex(1)),
         Mul(tfA, triangle->GetVertex(2)),
     };
-    Vec3 verticesB[4] = {
-        Mul(tfB, quad->GetVertex(0)),
-        Mul(tfB, quad->GetVertex(1)),
-        Mul(tfB, quad->GetVertex(2)),
-        Mul(tfB, quad->GetVertex(3)),
-    };
+
+    GrowableStack<Vec3, default_clipped_vertex_count> verticesB;
+    verticesB.resize(polygon->GetVertexCount());
+    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
+    {
+        verticesB[i] = Mul(tfB, polygon->GetVertex(i));
+    }
 
     float planeOffset = Dot(verticesA[0], normalA);
     for (int32 i = 0; i < 3; ++i)
     {
         verticesA[i] -= normalA * planeOffset;
     }
-    for (int32 i = 0; i < 4; ++i)
+    for (Vec3& vertex : verticesB)
     {
-        verticesB[i] -= normalA * planeOffset;
+        vertex -= normalA * planeOffset;
     }
 
     float radii = a->GetRadius() + b->GetRadius();
@@ -1812,7 +1823,7 @@ bool TriangleVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const 
 
         float minB = Dot(verticesB[0], n);
         float maxB = minB;
-        for (int32 i = 1; i < 4; ++i)
+        for (int32 i = 1; i < verticesB.size(); ++i)
         {
             float value = Dot(verticesB[i], n);
             minB = Min(minB, value);
@@ -1856,9 +1867,9 @@ bool TriangleVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const 
     for (int32 i = 0; i < 3; ++i)
     {
         Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
-        for (int32 j = 0; j < 4; ++j)
+        for (int32 j = 0; j < verticesB.size(); ++j)
         {
-            Vec3 edgeB = verticesB[(j + 1) % 4] - verticesB[j];
+            Vec3 edgeB = verticesB[(j + 1) % verticesB.size()] - verticesB[j];
             if (!TestAxis(Cross(edgeA, edgeB)))
             {
                 return false;
@@ -1870,19 +1881,17 @@ bool TriangleVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const 
     return manifold->contactCount > 0;
 }
 
-bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool PolygonVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    const QuadShape* quad = (const QuadShape*)a;
+    const PolygonShape* polygon = (const PolygonShape*)a;
 
     Vec3 p = Mul(tfB, b->GetCenter());
     Vec3 localP = MulT(tfA, p);
 
-    const Vec3* vertices = quad->GetVertices();
+    std::span<const Vec3> vertices = polygon->GetVertices();
 
-    Vec3 quadNormal = quad->GetNormal();
-    Vec3 closest0 = ClosestPointVsTriangle(localP, vertices[0], vertices[1], vertices[2]);
-    Vec3 closest1 = ClosestPointVsTriangle(localP, vertices[0], vertices[2], vertices[3]);
-    Vec3 closest = Dist2(localP, closest0) <= Dist2(localP, closest1) ? closest0 : closest1;
+    Vec3 polygonNormal = polygon->GetNormal();
+    Vec3 closest = ClosestPointVsPolygon(localP, vertices);
 
     Vec3 normal = localP - closest;
     float distance = normal.Normalize();
@@ -1894,10 +1903,10 @@ bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Tr
         return false;
     }
 
-    float separation = Dot(localP - vertices[0], quadNormal);
+    float separation = Dot(localP - vertices[0], polygonNormal);
     if (distance <= epsilon)
     {
-        normal = separation < 0.0f ? -quadNormal : quadNormal;
+        normal = separation < 0.0f ? -polygonNormal : polygonNormal;
     }
 
     normal = tfA.q.Rotate(normal);
@@ -1910,33 +1919,34 @@ bool QuadVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     return true;
 }
 
-bool QuadVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool PolygonVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    const QuadShape* quad = (const QuadShape*)a;
+    const PolygonShape* polygon = (const PolygonShape*)a;
     const CapsuleShape* capsule = (const CapsuleShape*)b;
 
-    Vec3 quadNormal = tfA.q.Rotate(quad->GetNormal());
-    Vec3 verticesA[4] = {
-        Mul(tfA, quad->GetVertex(0)),
-        Mul(tfA, quad->GetVertex(1)),
-        Mul(tfA, quad->GetVertex(2)),
-        Mul(tfA, quad->GetVertex(3)),
-    };
+    Vec3 polygonNormal = tfA.q.Rotate(polygon->GetNormal());
 
-    float planeOffset = Dot(verticesA[0], quadNormal);
-    for (int32 i = 0; i < 4; ++i)
+    GrowableStack<Vec3, default_clipped_vertex_count> verticesA;
+    verticesA.resize(polygon->GetVertexCount());
+    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
     {
-        verticesA[i] -= quadNormal * planeOffset;
+        verticesA[i] = Mul(tfA, polygon->GetVertex(i));
+    }
+
+    float planeOffset = Dot(verticesA[0], polygonNormal);
+    for (Vec3& vertex : verticesA)
+    {
+        vertex -= polygonNormal * planeOffset;
     }
 
     Vec3 pointsB[2] = {
-        Mul(tfB, capsule->GetVertexA()) - quadNormal * planeOffset,
-        Mul(tfB, capsule->GetVertexB()) - quadNormal * planeOffset,
+        Mul(tfB, capsule->GetVertexA()) - polygonNormal * planeOffset,
+        Mul(tfB, capsule->GetVertexB()) - polygonNormal * planeOffset,
     };
 
     float radii = a->GetRadius() + b->GetRadius();
     float minPenetration = max_float;
-    Vec3 normal = quadNormal;
+    Vec3 normal = polygonNormal;
 
     auto TestAxis = [&](Vec3 n) -> bool {
         if (n.Normalize() == 0.0f)
@@ -1946,7 +1956,7 @@ bool QuadVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const T
 
         float minA = Dot(verticesA[0], n);
         float maxA = minA;
-        for (int32 i = 1; i < 4; ++i)
+        for (int32 i = 1; i < verticesA.size(); ++i)
         {
             float value = Dot(verticesA[i], n);
             minA = Min(minA, value);
@@ -1986,15 +1996,15 @@ bool QuadVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const T
         return true;
     };
 
-    if (!TestAxis(quadNormal))
+    if (!TestAxis(polygonNormal))
     {
         return false;
     }
 
     Vec3 segment = pointsB[1] - pointsB[0];
-    for (int32 i = 0; i < 4; ++i)
+    for (int32 i = 0; i < int32(verticesA.size()); ++i)
     {
-        Vec3 edge = verticesA[(i + 1) % 4] - verticesA[i];
+        Vec3 edge = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
         if (!TestAxis(Cross(edge, segment)))
         {
             return false;
@@ -2003,16 +2013,14 @@ bool QuadVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const T
 
     for (int32 i = 0; i < 2; ++i)
     {
-        Vec3 closest0 = ClosestPointVsTriangle(pointsB[i], verticesA[0], verticesA[1], verticesA[2]);
-        Vec3 closest1 = ClosestPointVsTriangle(pointsB[i], verticesA[0], verticesA[2], verticesA[3]);
-        Vec3 closest = Dist2(pointsB[i], closest0) <= Dist2(pointsB[i], closest1) ? closest0 : closest1;
+        Vec3 closest = ClosestPointVsPolygon(pointsB[i], verticesA);
         if (!TestAxis(pointsB[i] - closest))
         {
             return false;
         }
     }
 
-    for (int32 i = 0; i < 4; ++i)
+    for (int32 i = 0; i < verticesA.size(); ++i)
     {
         Vec3 closest = ClosestPointVsSegment(verticesA[i], pointsB[0], pointsB[1]);
         if (!TestAxis(closest - verticesA[i]))
@@ -2025,34 +2033,148 @@ bool QuadVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const T
     return manifold->contactCount > 0;
 }
 
-bool QuadVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool PolygonVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    const QuadShape* quad = (const QuadShape*)a;
+    const PolygonShape* polygon = (const PolygonShape*)a;
     const BoxShape* box = (const BoxShape*)b;
 
-    Vec3 quadNormal = tfA.q.Rotate(quad->GetNormal());
-    Vec3 verticesA[4] = {
-        Mul(tfA, quad->GetVertex(0)),
-        Mul(tfA, quad->GetVertex(1)),
-        Mul(tfA, quad->GetVertex(2)),
-        Mul(tfA, quad->GetVertex(3)),
-    };
-
-    float planeOffset = Dot(verticesA[0], quadNormal);
-    for (int32 i = 0; i < 4; ++i)
+    Vec3 polygonNormal = tfA.q.Rotate(polygon->GetNormal());
+    GrowableStack<Vec3, 16> verticesA;
+    verticesA.resize(polygon->GetVertexCount());
+    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
     {
-        verticesA[i] -= quadNormal * planeOffset;
+        verticesA[i] = Mul(tfA, polygon->GetVertex(i));
+    }
+
+    float planeOffset = Dot(verticesA[0], polygonNormal);
+    for (Vec3& vertex : verticesA)
+    {
+        vertex -= polygonNormal * planeOffset;
     }
 
     Vec3 verticesB[8];
     for (int32 i = 0; i < 8; ++i)
     {
-        verticesB[i] = Mul(tfB, box->GetVertex(i)) - quadNormal * planeOffset;
+        verticesB[i] = Mul(tfB, box->GetVertex(i)) - polygonNormal * planeOffset;
     }
 
     float radii = a->GetRadius() + b->GetRadius();
     float minPenetration = max_float;
-    Vec3 normal = quadNormal;
+    Vec3 normal = polygonNormal;
+    std::span<const Vec3> pointsA{ verticesA.data(), size_t(verticesA.size()) };
+    std::span<const Vec3> pointsB{ verticesB, 8 };
+
+    auto TestAxis = [&](Vec3 n) -> bool {
+        if (n.Normalize() == 0.0f)
+        {
+            return true;
+        }
+
+        float minA = Dot(pointsA[0], n);
+        float maxA = minA;
+        for (int32 i = 1; i < int32(pointsA.size()); ++i)
+        {
+            float value = Dot(pointsA[i], n);
+            minA = Min(minA, value);
+            maxA = Max(maxA, value);
+        }
+
+        float minB = Dot(pointsB[0], n);
+        float maxB = minB;
+        for (int32 i = 1; i < int32(pointsB.size()); ++i)
+        {
+            float value = Dot(pointsB[i], n);
+            minB = Min(minB, value);
+            maxB = Max(maxB, value);
+        }
+
+        float positiveSeparation = minB - maxA;
+        float negativeSeparation = minA - maxB;
+        float separation = Max(positiveSeparation, negativeSeparation);
+        if (separation > radii)
+        {
+            return false;
+        }
+
+        float penetration = radii - separation;
+        if (penetration < minPenetration)
+        {
+            bool positive = positiveSeparation > negativeSeparation;
+            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
+            {
+                positive = minB + maxB > minA + maxA;
+            }
+
+            normal = positive ? n : -n;
+            minPenetration = penetration;
+        }
+
+        return true;
+    };
+
+    if (!TestAxis(polygonNormal))
+    {
+        return false;
+    }
+
+    Quat qB = tfB.q * box->GetRotation();
+    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
+
+    for (int32 i = 0; i < 3; ++i)
+    {
+        if (!TestAxis(axesB[i]))
+        {
+            return false;
+        }
+    }
+
+    for (int32 i = 0; i < int32(verticesA.size()); ++i)
+    {
+        Vec3 edgeA = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
+        for (int32 j = 0; j < 3; ++j)
+        {
+            if (!TestAxis(Cross(edgeA, axesB[j])))
+            {
+                return false;
+            }
+        }
+    }
+
+    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    return manifold->contactCount > 0;
+}
+
+bool PolygonVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+{
+    const PolygonShape* polygon = (const PolygonShape*)a;
+    const ConvexShape* convex = (const ConvexShape*)b;
+
+    Vec3 polygonNormal = tfA.q.Rotate(polygon->GetNormal());
+
+    GrowableStack<Vec3, default_clipped_vertex_count> verticesA;
+    verticesA.resize(polygon->GetVertexCount());
+    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
+    {
+        verticesA[i] = Mul(tfA, polygon->GetVertex(i));
+    }
+
+    float planeOffset = Dot(verticesA[0], polygonNormal);
+    for (Vec3& vertex : verticesA)
+    {
+        vertex -= polygonNormal * planeOffset;
+    }
+
+    int32 vertexCountB = convex->GetVertexCount();
+    GrowableStack<Vec3, default_clipped_vertex_count> verticesB;
+    verticesB.resize(vertexCountB);
+    for (int32 i = 0; i < vertexCountB; ++i)
+    {
+        verticesB[i] = Mul(tfB, convex->GetVertex(i)) - polygonNormal * planeOffset;
+    }
+
+    float radii = a->GetRadius() + b->GetRadius();
+    float minPenetration = max_float;
+    Vec3 normal = polygonNormal;
 
     auto TestAxis = [&](Vec3 n) -> bool {
         if (n.Normalize() == 0.0f)
@@ -2062,7 +2184,7 @@ bool QuadVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Trans
 
         float minA = Dot(verticesA[0], n);
         float maxA = minA;
-        for (int32 i = 1; i < 4; ++i)
+        for (int32 i = 1; i < verticesA.size(); ++i)
         {
             float value = Dot(verticesA[i], n);
             minA = Min(minA, value);
@@ -2071,7 +2193,7 @@ bool QuadVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Trans
 
         float minB = Dot(verticesB[0], n);
         float maxB = minB;
-        for (int32 i = 1; i < 8; ++i)
+        for (int32 i = 1; i < verticesB.size(); ++i)
         {
             float value = Dot(verticesB[i], n);
             minB = Min(minB, value);
@@ -2102,142 +2224,30 @@ bool QuadVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Trans
         return true;
     };
 
-    if (!TestAxis(quadNormal))
+    if (!TestAxis(polygonNormal))
     {
         return false;
     }
 
-    Quat qB = tfB.q * box->GetRotation();
-    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
-
-    for (int32 i = 0; i < 3; ++i)
+    for (const Face& face : convex->GetFaces())
     {
-        if (!TestAxis(axesB[i]))
+        if (!TestAxis(tfB.q.Rotate(face.normal)))
         {
             return false;
         }
     }
 
-    for (int32 i = 0; i < 4; ++i)
+    std::span<const int32> convexIndices = convex->GetIndices();
+    for (int32 i = 0; i < verticesA.size(); ++i)
     {
-        Vec3 edgeA = verticesA[(i + 1) % 4] - verticesA[i];
-        for (int32 j = 0; j < 3; ++j)
+        Vec3 edgeA = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
+        for (const Face& face : convex->GetFaces())
         {
-            if (!TestAxis(Cross(edgeA, axesB[j])))
+            for (int32 j = 0; j < face.vertexCount; ++j)
             {
-                return false;
-            }
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool QuadVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const QuadShape* quad = (const QuadShape*)a;
-    const ConvexShape* convex = (const ConvexShape*)b;
-
-    Vec3 quadNormal = tfA.q.Rotate(quad->GetNormal());
-    Vec3 verticesA[4] = {
-        Mul(tfA, quad->GetVertex(0)),
-        Mul(tfA, quad->GetVertex(1)),
-        Mul(tfA, quad->GetVertex(2)),
-        Mul(tfA, quad->GetVertex(3)),
-    };
-
-    float planeOffset = Dot(verticesA[0], quadNormal);
-    for (int32 i = 0; i < 4; ++i)
-    {
-        verticesA[i] -= quadNormal * planeOffset;
-    }
-
-    int32 vertexCountB = convex->GetVertexCount();
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = quadNormal;
-
-    auto ProjectAxis = [&](Vec3 n, float* min, float* max) {
-        Vec3 p = Mul(tfB, convex->GetVertex(0)) - quadNormal * planeOffset;
-        *min = Dot(p, n);
-        *max = *min;
-        for (int32 i = 1; i < vertexCountB; ++i)
-        {
-            p = Mul(tfB, convex->GetVertex(i)) - quadNormal * planeOffset;
-            float value = Dot(p, n);
-            *min = Min(*min, value);
-            *max = Max(*max, value);
-        }
-    };
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < 4; ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB, maxB;
-        ProjectAxis(n, &minB, &maxB);
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(quadNormal))
-    {
-        return false;
-    }
-
-    for (Vec3 n : convex->GetFaceNormals())
-    {
-        if (!TestAxis(tfB.q.Rotate(n)))
-        {
-            return false;
-        }
-    }
-
-    for (int32 i = 0; i < 4; ++i)
-    {
-        Vec3 edgeA = verticesA[(i + 1) % 4] - verticesA[i];
-        for (const ConvexFace& face : convex->GetFaces())
-        {
-            for (int32 j = 0; j < face.count; ++j)
-            {
-                int32 i0 = face.indices[j];
-                int32 i1 = face.indices[(j + 1) % face.count];
-                Vec3 p0 = Mul(tfB, convex->GetVertex(i0)) - quadNormal * planeOffset;
-                Vec3 p1 = Mul(tfB, convex->GetVertex(i1)) - quadNormal * planeOffset;
-                if (!TestAxis(Cross(edgeA, p1 - p0)))
+                int32 i0 = convexIndices[face.vertexStart + j];
+                int32 i1 = convexIndices[face.vertexStart + (j + 1) % face.vertexCount];
+                if (!TestAxis(Cross(edgeA, verticesB[i1] - verticesB[i0])))
                 {
                     return false;
                 }
@@ -2249,31 +2259,37 @@ bool QuadVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     return manifold->contactCount > 0;
 }
 
-bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool PolygonVsPolygon(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    const QuadShape* quadA = (const QuadShape*)a;
-    const QuadShape* quadB = (const QuadShape*)b;
+    const PolygonShape* polygonA = (const PolygonShape*)a;
+    const PolygonShape* polygonB = (const PolygonShape*)b;
 
-    Vec3 normalA = tfA.q.Rotate(quadA->GetNormal());
-    Vec3 normalB = tfB.q.Rotate(quadB->GetNormal());
-    Vec3 verticesA[4] = {
-        Mul(tfA, quadA->GetVertex(0)),
-        Mul(tfA, quadA->GetVertex(1)),
-        Mul(tfA, quadA->GetVertex(2)),
-        Mul(tfA, quadA->GetVertex(3)),
-    };
-    Vec3 verticesB[4] = {
-        Mul(tfB, quadB->GetVertex(0)),
-        Mul(tfB, quadB->GetVertex(1)),
-        Mul(tfB, quadB->GetVertex(2)),
-        Mul(tfB, quadB->GetVertex(3)),
-    };
+    Vec3 normalA = tfA.q.Rotate(polygonA->GetNormal());
+    Vec3 normalB = tfB.q.Rotate(polygonB->GetNormal());
+
+    GrowableStack<Vec3, default_clipped_vertex_count> verticesA;
+    GrowableStack<Vec3, default_clipped_vertex_count> verticesB;
+
+    verticesA.resize(polygonA->GetVertexCount());
+    verticesB.resize(polygonB->GetVertexCount());
+
+    for (int32 i = 0; i < polygonA->GetVertexCount(); ++i)
+    {
+        verticesA[i] = Mul(tfA, polygonA->GetVertex(i));
+    }
+    for (int32 i = 0; i < polygonB->GetVertexCount(); ++i)
+    {
+        verticesB[i] = Mul(tfB, polygonB->GetVertex(i));
+    }
 
     float planeOffset = Dot(verticesA[0], normalA);
-    for (int32 i = 0; i < 4; ++i)
+    for (Vec3& vertex : verticesA)
     {
-        verticesA[i] -= normalA * planeOffset;
-        verticesB[i] -= normalA * planeOffset;
+        vertex -= normalA * planeOffset;
+    }
+    for (Vec3& vertex : verticesB)
+    {
+        vertex -= normalA * planeOffset;
     }
 
     float radii = a->GetRadius() + b->GetRadius();
@@ -2288,7 +2304,7 @@ bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Tran
 
         float minA = Dot(verticesA[0], n);
         float maxA = minA;
-        for (int32 i = 1; i < 4; ++i)
+        for (int32 i = 1; i < verticesA.size(); ++i)
         {
             float value = Dot(verticesA[i], n);
             minA = Min(minA, value);
@@ -2297,7 +2313,7 @@ bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Tran
 
         float minB = Dot(verticesB[0], n);
         float maxB = minB;
-        for (int32 i = 1; i < 4; ++i)
+        for (int32 i = 1; i < verticesB.size(); ++i)
         {
             float value = Dot(verticesB[i], n);
             minB = Min(minB, value);
@@ -2338,12 +2354,12 @@ bool QuadVsQuad(const Shape* a, const Transform& tfA, const Shape* b, const Tran
         return false;
     }
 
-    for (int32 i = 0; i < 4; ++i)
+    for (int32 i = 0; i < verticesA.size(); ++i)
     {
-        Vec3 edgeA = verticesA[(i + 1) % 4] - verticesA[i];
-        for (int32 j = 0; j < 4; ++j)
+        Vec3 edgeA = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
+        for (int32 j = 0; j < verticesB.size(); ++j)
         {
-            Vec3 edgeB = verticesB[(j + 1) % 4] - verticesB[j];
+            Vec3 edgeB = verticesB[(j + 1) % verticesB.size()] - verticesB[j];
             if (!TestAxis(Cross(edgeA, edgeB)))
             {
                 return false;
@@ -2436,13 +2452,13 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
     collide_function_map[Shape::triangle][Shape::convex] = TriangleVsConvex;
     collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
-    collide_function_map[Shape::triangle][Shape::quad] = TriangleVsQuad;
+    collide_function_map[Shape::triangle][Shape::polygon] = TriangleVsPolygon;
 
-    collide_function_map[Shape::quad][Shape::sphere] = QuadVsSphere;
-    collide_function_map[Shape::quad][Shape::capsule] = QuadVsCapsule;
-    collide_function_map[Shape::quad][Shape::box] = QuadVsBox;
-    collide_function_map[Shape::quad][Shape::convex] = QuadVsConvex;
-    collide_function_map[Shape::quad][Shape::quad] = QuadVsQuad;
+    collide_function_map[Shape::polygon][Shape::sphere] = PolygonVsSphere;
+    collide_function_map[Shape::polygon][Shape::capsule] = PolygonVsCapsule;
+    collide_function_map[Shape::polygon][Shape::box] = PolygonVsBox;
+    collide_function_map[Shape::polygon][Shape::convex] = PolygonVsConvex;
+    collide_function_map[Shape::polygon][Shape::polygon] = PolygonVsPolygon;
 
     collide_function_map2[Shape::height_field - Shape::height_field] = HeightFieldVsShape;
 

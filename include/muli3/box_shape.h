@@ -17,7 +17,8 @@ public:
     void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
     int32 GetVertexCount() const;
-    Vec3 GetVertex(int32 id) const;
+    Vec3 GetVertex(int32 index) const;
+    int32 GetVertexIndex(int32 index) const;
     int32 GetSupport(const Vec3& localDir) const;
     Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
@@ -59,6 +60,21 @@ inline Vec3 BoxShape::GetVertex(int32 id) const
     };
 
     return center + rotation.Rotate(localPoint);
+}
+
+inline int32 BoxShape::GetVertexIndex(int32 index) const
+{
+    constexpr int32 indices[] = {
+        0, 4, 6, 2, // -x
+        1, 3, 7, 5, // +x
+        0, 1, 5, 4, // -y
+        2, 6, 7, 3, // +y
+        0, 2, 3, 1, // -z
+        4, 5, 7, 6, // +z
+    };
+
+    MuliAssert(0 <= index && index < 24);
+    return indices[index];
 }
 
 inline int32 BoxShape::GetSupport(const Vec3& localDir) const

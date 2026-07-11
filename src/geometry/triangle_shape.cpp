@@ -340,30 +340,19 @@ int32 TriangleShape::GetSupport(const Vec3& localDir) const
 Face TriangleShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
     Face face{};
-    face.count = 3;
+    face.vertexCount = 3;
 
     Vec3 worldNormal = transform.q.Rotate(normal);
     if (Dot(worldNormal, dir) >= 0.0f)
     {
+        face.vertexStart = 0;
         face.normal = worldNormal;
-
-        for (int32 i = 0; i < 3; ++i)
-        {
-            face.points[i].id = i;
-            face.points[i].p = Mul(transform, vertices[i]);
-        }
     }
     else
     {
         // Reverse the winding so the triangle can be clipped as a solid two-sided face.
+        face.vertexStart = 3;
         face.normal = -worldNormal;
-
-        for (int32 i = 0; i < 3; ++i)
-        {
-            int32 index = i == 0 ? 0 : 3 - i;
-            face.points[i].id = index;
-            face.points[i].p = Mul(transform, vertices[index]);
-        }
     }
 
     return face;

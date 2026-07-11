@@ -51,6 +51,8 @@ bool Shader::Create(const char* vertexSource, const char* fragmentSource)
 
 void Shader::Destroy()
 {
+    uniformLocations.clear();
+
     if (program != 0)
     {
         glDeleteProgram(program);
@@ -65,22 +67,35 @@ void Shader::Use() const
 
 void Shader::SetInt(const char* name, int value) const
 {
-    glUniform1i(glGetUniformLocation(program, name), value);
+    glUniform1i(GetUniformLocation(name), value);
 }
 
 void Shader::SetFloat(const char* name, float value) const
 {
-    glUniform1f(glGetUniformLocation(program, name), value);
+    glUniform1f(GetUniformLocation(name), value);
 }
 
 void Shader::SetMat4(const char* name, const Mat4& value) const
 {
-    glUniformMatrix4fv(glGetUniformLocation(program, name), 1, GL_FALSE, &value.ex.x);
+    glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, &value.ex.x);
 }
 
 void Shader::SetVec3(const char* name, const Vec3& value) const
 {
-    glUniform3f(glGetUniformLocation(program, name), value.x, value.y, value.z);
+    glUniform3f(GetUniformLocation(name), value.x, value.y, value.z);
+}
+
+GLint Shader::GetUniformLocation(const char* name) const
+{
+    auto it = uniformLocations.find(name);
+    if (it != uniformLocations.end())
+    {
+        return it->second;
+    }
+
+    GLint location = glGetUniformLocation(program, name);
+    uniformLocations.emplace(name, location);
+    return location;
 }
 
 GLuint Shader::CompileStage(GLenum type, const char* source) const

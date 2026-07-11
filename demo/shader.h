@@ -22,8 +22,10 @@ public:
 
 private:
     GLuint CompileStage(GLenum type, const char* source) const;
+    GLint GetUniformLocation(const char* name) const;
 
     GLuint program = 0;
+    mutable std::unordered_map<std::string, GLint> uniformLocations;
 };
 
 } // namespace muli3

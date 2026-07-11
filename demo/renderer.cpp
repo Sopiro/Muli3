@@ -6,12 +6,12 @@ namespace muli3
 
 constexpr int g_shadowMapSize = 4096;
 constexpr size_t g_maxShapeBatchCount = 4096;
-constexpr int32 g_maxVertexCount = 1024 * 3;
+constexpr int32 g_maxVertexCount = 1024 * 4;
 constexpr int32 g_colorCount = 10;
 constexpr int32 g_fillPass = 0;
 constexpr int32 g_outlinePass = 1;
-constexpr float g_shadowViewDistance = 50.0f;
-constexpr float g_shadowBoundsPadding = 1.0f;
+constexpr float g_shadowViewDistance = 100.0f;
+constexpr float g_shadowBoundsPadding = 5.0f;
 constexpr float g_shadowDepthPadding = 32.0f;
 
 Vec4 g_colors[g_colorCount];
@@ -28,6 +28,22 @@ void HashCombineFloat(size_t* seed, float value)
     HashCombine(seed, std::hash<uint32>{}(std::bit_cast<uint32>(value)));
 }
 
+void AppendStaticBuffer(GLenum target, GLuint buffer, const void* data, size_t oldSize, size_t newSize, size_t* capacity)
+{
+    glBindBuffer(target, buffer);
+    if (newSize > *capacity)
+    {
+        *capacity = Max<size_t>(newSize, Max<size_t>(*capacity * 2, 4096));
+        glBufferData(target, (GLsizeiptr)*capacity, nullptr, GL_STATIC_DRAW);
+        glBufferSubData(target, 0, (GLsizeiptr)newSize, data);
+    }
+    else if (newSize > oldSize)
+    {
+        const uint8* bytes = (const uint8*)data;
+        glBufferSubData(target, (GLintptr)oldSize, (GLsizeiptr)(newSize - oldSize), bytes + oldSize);
+    }
+}
+
 constexpr const char* g_shapeVertexShader = R"(
 #version 330 core
 layout (location = 0) in vec3 aPosition;
@@ -42,7 +58,6 @@ layout (location = 7) in vec4 iColor;
 uniform mat4 uView;
 uniform mat4 uProjection;
 uniform mat4 uLightViewProjection;
-uniform bool uQuadMode;
 
 out vec3 vWorldPosition;
 out vec3 vWorldNormal;
@@ -53,24 +68,8 @@ out vec3 vBaseColor;
 void main()
 {
     mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
-    vec4 worldPosition;
-    vec3 worldNormal;
-    if (uQuadMode)
-    {
-        vec3 p0 = iModel0.xyz;
-        vec3 p1 = iModel1.xyz;
-        vec3 p2 = iModel2.xyz;
-        vec3 p3 = iModel3.xyz;
-        int vertexId = int(aPosition.x + 0.5);
-        vec3 p = vertexId == 0 ? p0 : (vertexId == 1 ? p1 : (vertexId == 2 ? p2 : p3));
-        worldPosition = vec4(p, 1.0);
-        worldNormal = normalize(cross(p1 - p0, p2 - p0)) * sign(aNormal.z);
-    }
-    else
-    {
-        worldPosition = model * vec4(aPosition, 1.0);
-        worldNormal = normalize(mat3(model) * aNormal);
-    }
+    vec4 worldPosition = model * vec4(aPosition, 1.0);
+    vec3 worldNormal = normalize(mat3(model) * aNormal);
     vWorldPosition = worldPosition.xyz;
     vWorldNormal = worldNormal;
     vTexCoord = aTexCoord;
@@ -104,12 +103,14 @@ float ComputeShadow(vec3 normal, vec3 lightDir)
     vec3 projCoords = vShadowPosition.xyz / vShadowPosition.w;
     projCoords = projCoords * 0.5 + 0.5;
 
-    if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || projCoords.y < 0.0 || projCoords.y > 1.0)
+    if (any(lessThan(projCoords, vec3(0.0))) || any(greaterThan(projCoords, vec3(1.0))))
     {
         return 1.0;
     }
 
-    float bias = max(0.00015, 0.0012 * (1.0 - dot(normal, lightDir)));
+    float nDotL = clamp(dot(normal, lightDir), 0.001, 1.0);
+    float tanAngle = sqrt(1.0 - nDotL * nDotL) / nDotL;
+    float bias = clamp(0.0005 * tanAngle, 0.0002, 0.005);
     vec2 texelSize = 1.0 / vec2(textureSize(uShadowMap, 0));
 
     float visibility = 0.0;
@@ -121,7 +122,12 @@ float ComputeShadow(vec3 normal, vec3 lightDir)
         }
     }
 
-    return visibility / 9.0;
+    visibility /= 9.0;
+
+    // Fade the PCF result at the shadow-map boundary to avoid a visible coverage edge.
+    vec2 edge = min(projCoords.xy, 1.0 - projCoords.xy);
+    float edgeFade = clamp(min(edge.x, edge.y) * 10.0, 0.0, 1.0);
+    return mix(1.0, visibility, edgeFade);
 }
 
 void main()
@@ -153,26 +159,11 @@ layout (location = 5) in vec4 iModel2;
 layout (location = 6) in vec4 iModel3;
 
 uniform mat4 uLightViewProjection;
-uniform bool uQuadMode;
 
 void main()
 {
     mat4 model = mat4(iModel0, iModel1, iModel2, iModel3);
-    vec4 worldPosition;
-    if (uQuadMode)
-    {
-        vec3 p0 = iModel0.xyz;
-        vec3 p1 = iModel1.xyz;
-        vec3 p2 = iModel2.xyz;
-        vec3 p3 = iModel3.xyz;
-        int vertexId = int(aPosition.x + 0.5);
-        vec3 p = vertexId == 0 ? p0 : (vertexId == 1 ? p1 : (vertexId == 2 ? p2 : p3));
-        worldPosition = vec4(p, 1.0);
-    }
-    else
-    {
-        worldPosition = model * vec4(aPosition, 1.0);
-    }
+    vec4 worldPosition = model * vec4(aPosition, 1.0);
     gl_Position = uLightViewProjection * worldPosition;
 }
 )";
@@ -389,7 +380,7 @@ bool Renderer::CreatePrimitiveResources()
 
     glBindVertexArray(primVAO);
     glBindBuffer(GL_ARRAY_BUFFER, primVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * g_maxVertexCount, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * g_maxVertexCount, nullptr, GL_STREAM_DRAW);
     primitiveCapacity = g_maxVertexCount;
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, point)));
     glEnableVertexAttribArray(0);
@@ -409,46 +400,45 @@ void Renderer::SetShapeInstanceAttributes()
     SetInstanceAttribute(7, 4, sizeof(ShapeInstance), offsetof(ShapeInstance, color));
 }
 
+void Renderer::UploadShapeInstances(const ShapeInstance* instances, size_t count)
+{
+    MuliAssert(count <= g_maxShapeBatchCount);
+
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, g_maxShapeBatchCount * sizeof(ShapeInstance), nullptr, GL_STREAM_DRAW);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(count * sizeof(ShapeInstance)), instances);
+}
+
 bool Renderer::CreateShapeResources()
 {
     glGenBuffers(1, &shapeInstanceVBO);
-    glGenVertexArrays(1, &convexVAO);
-    glGenBuffers(1, &convexVBO);
-    glGenBuffers(1, &convexEBO);
-    glGenBuffers(1, &convexIndirectVBO);
+    glGenVertexArrays(1, &shapeMeshVAO);
+    glGenVertexArrays(1, &shapeMeshOutlineVAO);
+    glGenBuffers(1, &shapeMeshVBO);
+    glGenBuffers(1, &shapeMeshEBO);
+    glGenBuffers(1, &shapeMeshOutlineEBO);
+    glGenBuffers(1, &shapeMeshIndirectVBO);
 
-    glBindVertexArray(sphereMesh.GetVAO());
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferData(GL_ARRAY_BUFFER, g_maxShapeBatchCount * sizeof(ShapeInstance), nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, g_maxShapeBatchCount * sizeof(ShapeInstance), nullptr, GL_STREAM_DRAW);
 
-    SetShapeInstanceAttributes();
+    GLuint meshVaos[] = {
+        sphereBatch.mesh.GetVAO(),        sphereBatch.mesh.GetOutlineVAO(),
+        capsuleTopBatch.mesh.GetVAO(),    capsuleTopBatch.mesh.GetOutlineVAO(),
+        capsuleBottomBatch.mesh.GetVAO(), capsuleBottomBatch.mesh.GetOutlineVAO(),
+        capsuleMidBatch.mesh.GetVAO(),    capsuleMidBatch.mesh.GetOutlineVAO(),
+        boxBatch.mesh.GetVAO(),           boxBatch.mesh.GetOutlineVAO(),
+        triangleBatch.mesh.GetVAO(),      triangleBatch.mesh.GetOutlineVAO(),
+    };
+    for (GLuint vao : meshVaos)
+    {
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+        SetShapeInstanceAttributes();
+    }
 
-    glBindVertexArray(capsuleTopMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
-
-    glBindVertexArray(capsuleBottomMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
-
-    glBindVertexArray(capsuleMidMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
-
-    glBindVertexArray(boxMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
-
-    glBindVertexArray(triangleMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
-
-    glBindVertexArray(quadMesh.GetVAO());
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
-
-    glBindVertexArray(convexVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
+    glBindVertexArray(shapeMeshVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, shapeMeshVBO);
     glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, position)));
     glEnableVertexAttribArray(0);
@@ -456,14 +446,28 @@ bool Renderer::CreateShapeResources()
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, uv)));
     glEnableVertexAttribArray(2);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, convexEBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shapeMeshEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+
+    glBindVertexArray(shapeMeshOutlineVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, shapeMeshVBO);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, position)));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, normal)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, uv)));
+    glEnableVertexAttribArray(2);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shapeMeshOutlineEBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     SetShapeInstanceAttributes();
 
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    return shapeInstanceVBO != 0 && convexVAO != 0 && convexVBO != 0 && convexEBO != 0 && convexIndirectVBO != 0;
+    return shapeInstanceVBO != 0 && shapeMeshVAO != 0 && shapeMeshOutlineVAO != 0 && shapeMeshVBO != 0 && shapeMeshEBO != 0 &&
+           shapeMeshOutlineEBO != 0 && shapeMeshIndirectVBO != 0;
 }
 
 void Renderer::DestroyShadowResources()
@@ -497,25 +501,35 @@ void Renderer::DestroyPrimitiveResources()
 
 void Renderer::DestroyShapeResources()
 {
-    if (convexIndirectVBO != 0)
+    if (shapeMeshIndirectVBO != 0)
     {
-        glDeleteBuffers(1, &convexIndirectVBO);
-        convexIndirectVBO = 0;
+        glDeleteBuffers(1, &shapeMeshIndirectVBO);
+        shapeMeshIndirectVBO = 0;
     }
-    if (convexEBO != 0)
+    if (shapeMeshEBO != 0)
     {
-        glDeleteBuffers(1, &convexEBO);
-        convexEBO = 0;
+        glDeleteBuffers(1, &shapeMeshEBO);
+        shapeMeshEBO = 0;
     }
-    if (convexVBO != 0)
+    if (shapeMeshOutlineEBO != 0)
     {
-        glDeleteBuffers(1, &convexVBO);
-        convexVBO = 0;
+        glDeleteBuffers(1, &shapeMeshOutlineEBO);
+        shapeMeshOutlineEBO = 0;
     }
-    if (convexVAO != 0)
+    if (shapeMeshVBO != 0)
     {
-        glDeleteVertexArrays(1, &convexVAO);
-        convexVAO = 0;
+        glDeleteBuffers(1, &shapeMeshVBO);
+        shapeMeshVBO = 0;
+    }
+    if (shapeMeshVAO != 0)
+    {
+        glDeleteVertexArrays(1, &shapeMeshVAO);
+        shapeMeshVAO = 0;
+    }
+    if (shapeMeshOutlineVAO != 0)
+    {
+        glDeleteVertexArrays(1, &shapeMeshOutlineVAO);
+        shapeMeshOutlineVAO = 0;
     }
     if (shapeInstanceVBO != 0)
     {
@@ -549,47 +563,39 @@ bool Renderer::Initialize()
 
     std::vector<MeshVertex> vertices;
     std::vector<uint32> indices;
+    std::vector<uint32> outlineIndices;
 
-    BuildSphereMesh(&vertices, &indices, 24, 12);
-    sphereMesh.Upload(vertices, indices, GL_TRIANGLES);
+    BuildSphereMesh(&vertices, &indices, &outlineIndices, 24, 12);
+    sphereBatch.mesh.Upload(vertices, indices, outlineIndices);
 
-    BuildCapsuleTopMesh(&vertices, &indices, 24, 12);
-    capsuleTopMesh.Upload(vertices, indices, GL_TRIANGLES);
+    BuildCapsuleTopMesh(&vertices, &indices, &outlineIndices, 24, 12);
+    capsuleTopBatch.mesh.Upload(vertices, indices, outlineIndices);
 
-    BuildCapsuleBottomMesh(&vertices, &indices, 24, 12);
-    capsuleBottomMesh.Upload(vertices, indices, GL_TRIANGLES);
+    BuildCapsuleBottomMesh(&vertices, &indices, &outlineIndices, 24, 12);
+    capsuleBottomBatch.mesh.Upload(vertices, indices, outlineIndices);
 
-    BuildCapsuleMidMesh(&vertices, &indices, 24);
-    capsuleMidMesh.Upload(vertices, indices, GL_TRIANGLES);
+    BuildCapsuleMidMesh(&vertices, &indices, &outlineIndices, 24);
+    capsuleMidBatch.mesh.Upload(vertices, indices, outlineIndices);
 
-    BuildBoxMesh(&vertices, &indices);
-    boxMesh.Upload(vertices, indices, GL_TRIANGLES);
+    BuildBoxMesh(&vertices, &indices, &outlineIndices);
+    boxBatch.mesh.Upload(vertices, indices, outlineIndices);
 
-    BuildTriangleMesh(&vertices, &indices);
-    triangleMesh.Upload(vertices, indices, GL_TRIANGLES);
-
-    BuildQuadMesh(&vertices, &indices);
-    quadMesh.Upload(vertices, indices, GL_TRIANGLES);
+    BuildTriangleMesh(&vertices, &indices, &outlineIndices);
+    triangleBatch.mesh.Upload(vertices, indices, outlineIndices);
 
     if (!CreateShapeResources())
     {
         return false;
     }
 
-    sphereInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    sphereInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
-    capsuleTopInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    capsuleTopInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
-    capsuleBottomInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    capsuleBottomInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
-    capsuleMidInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    capsuleMidInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
-    boxInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    boxInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
-    triangleInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    triangleInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
-    quadInstances[g_fillPass].reserve(g_maxShapeBatchCount);
-    quadInstances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    InstancedMeshBatch* batches[] = {
+        &sphereBatch, &capsuleTopBatch, &capsuleBottomBatch, &capsuleMidBatch, &boxBatch, &triangleBatch,
+    };
+    for (InstancedMeshBatch* batch : batches)
+    {
+        batch->instances[g_fillPass].reserve(g_maxShapeBatchCount);
+        batch->instances[g_outlinePass].reserve(g_maxShapeBatchCount);
+    }
     points.resize(g_maxVertexCount);
     lines.resize(g_maxVertexCount);
     initialized = true;
@@ -605,13 +611,12 @@ void Renderer::Shutdown()
 
     DestroyShapeResources();
     ClearMeshCache();
-    sphereMesh.Destroy();
-    capsuleTopMesh.Destroy();
-    capsuleBottomMesh.Destroy();
-    capsuleMidMesh.Destroy();
-    boxMesh.Destroy();
-    triangleMesh.Destroy();
-    quadMesh.Destroy();
+    sphereBatch.mesh.Destroy();
+    capsuleTopBatch.mesh.Destroy();
+    capsuleBottomBatch.mesh.Destroy();
+    capsuleMidBatch.mesh.Destroy();
+    boxBatch.mesh.Destroy();
+    triangleBatch.mesh.Destroy();
     shapeShader.Destroy();
     shadowShader.Destroy();
     DestroyShadowResources();
@@ -622,32 +627,56 @@ void Renderer::Shutdown()
 
 void Renderer::ClearMeshCache()
 {
+    InstancedMeshBatch* batches[] = {
+        &sphereBatch, &capsuleTopBatch, &capsuleBottomBatch, &capsuleMidBatch, &boxBatch, &triangleBatch,
+    };
+    for (InstancedMeshBatch* batch : batches)
+    {
+        batch->instances[g_fillPass].clear();
+        batch->instances[g_outlinePass].clear();
+    }
+
     for (auto& [shape, mesh] : heightFieldMeshes)
     {
         MuliNotUsed(shape);
         mesh.Destroy();
     }
 
-    convexMeshes.clear();
-    convexInstances[g_fillPass].clear();
-    convexInstances[g_outlinePass].clear();
-    convexInstanceCount[g_fillPass] = 0;
-    convexInstanceCount[g_outlinePass] = 0;
-    convexVertices.clear();
-    convexIndices.clear();
-    convexInstanceBuffer.clear();
-    convexCommands.clear();
+    shapeMeshes.clear();
+    shapeMeshKeyCache.clear();
+    shapeMeshInstances[g_fillPass].clear();
+    shapeMeshInstances[g_outlinePass].clear();
+    activeShapeMeshKeys[g_fillPass].clear();
+    activeShapeMeshKeys[g_outlinePass].clear();
+    queuedShapeCount[g_fillPass] = 0;
+    queuedShapeCount[g_outlinePass] = 0;
+    shapeMeshInstanceCount[g_fillPass] = 0;
+    shapeMeshInstanceCount[g_outlinePass] = 0;
+    shapeMeshVertices.clear();
+    shapeMeshIndices.clear();
+    shapeMeshOutlineIndices.clear();
+    shapeMeshVertexCapacity = 0;
+    shapeMeshIndexCapacity = 0;
+    shapeMeshOutlineIndexCapacity = 0;
+    shapeMeshInstanceBuffer.clear();
+    shapeMeshCommands.clear();
     heightFieldMeshes.clear();
 
-    if (convexVBO != 0)
+    if (shapeMeshVBO != 0)
     {
-        glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
+        glBindBuffer(GL_ARRAY_BUFFER, shapeMeshVBO);
         glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
     }
-    if (convexEBO != 0)
+    if (shapeMeshEBO != 0)
     {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, convexEBO);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shapeMeshEBO);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    }
+    if (shapeMeshOutlineEBO != 0)
+    {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, shapeMeshOutlineEBO);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     }
@@ -701,12 +730,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         Transform renderTransform = transform;
         renderTransform.p = Mul(transform, sphere->GetCenter());
         renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-        sphereInstances[pass].emplace_back(Mat4(renderTransform), color);
-
-        if (sphereInstances[pass].size() == g_maxShapeBatchCount)
-        {
-            FlushSpheres(shader, wireframe);
-        }
+        sphereBatch.instances[pass].emplace_back(Mat4(renderTransform), color);
     }
     else if (shape->GetType() == Shape::capsule)
     {
@@ -768,14 +792,9 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
             Vec4{ center, 1.0f },
         };
 
-        capsuleTopInstances[pass].emplace_back(topModel, color);
-        capsuleBottomInstances[pass].emplace_back(bottomModel, color);
-        capsuleMidInstances[pass].emplace_back(midModel, color);
-
-        if (capsuleTopInstances[pass].size() == g_maxShapeBatchCount)
-        {
-            FlushCapsules(shader, wireframe);
-        }
+        capsuleTopBatch.instances[pass].emplace_back(topModel, color);
+        capsuleBottomBatch.instances[pass].emplace_back(bottomModel, color);
+        capsuleMidBatch.instances[pass].emplace_back(midModel, color);
     }
     else if (shape->GetType() == Shape::box)
     {
@@ -784,27 +803,21 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         renderTransform.p = Mul(transform, box->GetCenter());
         renderTransform.q = transform.q * box->GetRotation();
         renderTransform.s = renderTransform.s * box->GetHalfExtents();
-        boxInstances[pass].emplace_back(Mat4(renderTransform), color);
-
-        if (boxInstances[pass].size() == g_maxShapeBatchCount)
-        {
-            FlushBoxes(shader, wireframe);
-        }
+        boxBatch.instances[pass].emplace_back(Mat4(renderTransform), color);
     }
     else if (shape->GetType() == Shape::convex)
     {
         const ConvexShape* convex = (const ConvexShape*)shape;
-        size_t key = GetConvexMeshKey(convex);
+        size_t key = GetShapeMeshKey(shape);
         GetConvexMesh(convex, key);
 
-        std::vector<ShapeInstance>& instances = convexInstances[pass][key];
-        instances.emplace_back(Mat4(transform), color);
-        ++convexInstanceCount[pass];
-
-        if (convexInstanceCount[pass] == g_maxShapeBatchCount)
+        std::vector<ShapeInstance>& instances = shapeMeshInstances[pass][key];
+        if (instances.empty())
         {
-            FlushConvexes(shader, wireframe);
+            activeShapeMeshKeys[pass].push_back(key);
         }
+        instances.emplace_back(Mat4(transform), color);
+        ++shapeMeshInstanceCount[pass];
     }
     else if (shape->GetType() == Shape::triangle)
     {
@@ -819,38 +832,55 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
             Vec4{ a, 1.0f },
         };
 
-        triangleInstances[pass].emplace_back(model, color);
-
-        if (triangleInstances[pass].size() == g_maxShapeBatchCount)
-        {
-            FlushTriangles(shader, wireframe);
-        }
+        triangleBatch.instances[pass].emplace_back(model, color);
     }
-    else if (shape->GetType() == Shape::quad)
+    else if (shape->GetType() == Shape::polygon)
     {
-        const QuadShape* quad = (const QuadShape*)shape;
-        Vec3 a = Mul(transform, quad->GetVertex(0));
-        Vec3 b = Mul(transform, quad->GetVertex(1));
-        Vec3 c = Mul(transform, quad->GetVertex(2));
-        Vec3 d = Mul(transform, quad->GetVertex(3));
-        Mat4 model{
-            Vec4{ a, 1.0f },
-            Vec4{ b, 1.0f },
-            Vec4{ c, 1.0f },
-            Vec4{ d, 1.0f },
-        };
+        const PolygonShape* polygon = (const PolygonShape*)shape;
+        size_t key = GetShapeMeshKey(shape);
+        GetPolygonMesh(polygon, key);
 
-        quadInstances[pass].emplace_back(model, color);
-
-        if (quadInstances[pass].size() == g_maxShapeBatchCount)
+        std::vector<ShapeInstance>& instances = shapeMeshInstances[pass][key];
+        if (instances.empty())
         {
-            FlushQuads(shader, wireframe);
+            activeShapeMeshKeys[pass].push_back(key);
         }
+        instances.emplace_back(Mat4(transform), color);
+        ++shapeMeshInstanceCount[pass];
     }
     else if (shape->GetType() == Shape::height_field)
     {
         DrawHeightField((const HeightFieldShape*)shape, transform, color, wireframe, shader);
+        return;
     }
+
+    ++queuedShapeCount[pass];
+    if (queuedShapeCount[pass] == g_maxShapeBatchCount)
+    {
+        FlushQueuedShapes(shader, wireframe);
+    }
+}
+
+size_t Renderer::GetShapeMeshKey(const Shape* shape)
+{
+    auto [it, inserted] = shapeMeshKeyCache.try_emplace(shape);
+    ShapeMeshKeyCache& cache = it->second;
+    if (!inserted && cache.frame == frame)
+    {
+        return cache.key;
+    }
+
+    if (shape->GetType() == Shape::convex)
+    {
+        cache.key = GetConvexMeshKey((const ConvexShape*)shape);
+    }
+    else
+    {
+        MuliAssert(shape->GetType() == Shape::polygon);
+        cache.key = GetPolygonMeshKey((const PolygonShape*)shape);
+    }
+    cache.frame = frame;
+    return cache.key;
 }
 
 size_t Renderer::GetConvexMeshKey(const ConvexShape* shape) const
@@ -858,6 +888,7 @@ size_t Renderer::GetConvexMeshKey(const ConvexShape* shape) const
     MuliAssert(shape != nullptr);
 
     size_t hash = 0;
+    HashCombine(&hash, Shape::convex);
     HashCombine(&hash, std::hash<int32>{}(shape->GetVertexCount()));
 
     for (const Vec3& v : shape->GetVertices())
@@ -867,17 +898,19 @@ size_t Renderer::GetConvexMeshKey(const ConvexShape* shape) const
         HashCombineFloat(&hash, v.z);
     }
 
-    for (const ConvexFace& face : shape->GetFaces())
+    std::span<const int32> faceIndices = shape->GetIndices();
+    for (const Face& face : shape->GetFaces())
     {
-        HashCombine(&hash, std::hash<int32>{}(face.count));
-        for (int32 i = 0; i < face.count; ++i)
+        HashCombine(&hash, std::hash<int32>{}(face.vertexCount));
+        for (int32 i = 0; i < face.vertexCount; ++i)
         {
-            HashCombine(&hash, std::hash<int32>{}(face.indices[i]));
+            HashCombine(&hash, std::hash<int32>{}(faceIndices[face.vertexStart + i]));
         }
     }
 
-    for (const Vec3& n : shape->GetFaceNormals())
+    for (const Face& face : shape->GetFaces())
     {
+        const Vec3& n = face.normal;
         HashCombineFloat(&hash, n.x);
         HashCombineFloat(&hash, n.y);
         HashCombineFloat(&hash, n.z);
@@ -886,42 +919,91 @@ size_t Renderer::GetConvexMeshKey(const ConvexShape* shape) const
     return hash;
 }
 
-const Renderer::ConvexMeshRange& Renderer::GetConvexMesh(const ConvexShape* shape, size_t key)
+size_t Renderer::GetPolygonMeshKey(const PolygonShape* shape) const
 {
-    auto it = convexMeshes.find(key);
-    if (it != convexMeshes.end())
+    MuliAssert(shape != nullptr);
+
+    size_t hash = 0;
+    HashCombine(&hash, Shape::polygon);
+    HashCombine(&hash, std::hash<int32>{}(shape->GetVertexCount()));
+    for (const Vec3& vertex : shape->GetVertices())
+    {
+        HashCombineFloat(&hash, vertex.x);
+        HashCombineFloat(&hash, vertex.y);
+        HashCombineFloat(&hash, vertex.z);
+    }
+
+    return hash;
+}
+
+const Renderer::ShapeMeshRange& Renderer::GetConvexMesh(const ConvexShape* shape, size_t key)
+{
+    auto it = shapeMeshes.find(key);
+    if (it != shapeMeshes.end())
     {
         return it->second;
     }
 
     std::vector<MeshVertex> vertices;
     std::vector<uint32> indices;
-    BuildConvexMesh(&vertices, &indices, *shape);
+    std::vector<uint32> outlineIndices;
+    BuildConvexMesh(&vertices, &indices, &outlineIndices, *shape);
+    return StoreShapeMesh(key, vertices, indices, outlineIndices);
+}
 
-    ConvexMeshRange range;
-    range.firstIndex = (GLuint)convexIndices.size();
+const Renderer::ShapeMeshRange& Renderer::GetPolygonMesh(const PolygonShape* shape, size_t key)
+{
+    auto it = shapeMeshes.find(key);
+    if (it != shapeMeshes.end())
+    {
+        return it->second;
+    }
+
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32> indices;
+    std::vector<uint32> outlineIndices;
+    BuildPolygonMesh(&vertices, &indices, &outlineIndices, *shape);
+    return StoreShapeMesh(key, vertices, indices, outlineIndices);
+}
+
+const Renderer::ShapeMeshRange& Renderer::StoreShapeMesh(
+    size_t key, std::span<const MeshVertex> vertices, std::span<const uint32> indices, std::span<const uint32> outlineIndices
+)
+{
+    ShapeMeshRange range;
+    range.firstIndex = (GLuint)shapeMeshIndices.size();
     range.indexCount = (GLuint)indices.size();
-    range.baseVertex = (GLint)convexVertices.size();
+    range.firstOutlineIndex = (GLuint)shapeMeshOutlineIndices.size();
+    range.outlineIndexCount = (GLuint)outlineIndices.size();
+    range.baseVertex = (GLint)shapeMeshVertices.size();
 
-    convexVertices.insert(convexVertices.end(), vertices.begin(), vertices.end());
-    convexIndices.insert(convexIndices.end(), indices.begin(), indices.end());
+    size_t oldVertexSize = shapeMeshVertices.size() * sizeof(MeshVertex);
+    size_t oldIndexSize = shapeMeshIndices.size() * sizeof(uint32);
+    size_t oldOutlineIndexSize = shapeMeshOutlineIndices.size() * sizeof(uint32);
 
-    glBindVertexArray(convexVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, convexVBO);
-    glBufferData(
-        GL_ARRAY_BUFFER, (GLsizeiptr)(convexVertices.size() * sizeof(MeshVertex)), convexVertices.data(), GL_STATIC_DRAW
+    shapeMeshVertices.insert(shapeMeshVertices.end(), vertices.begin(), vertices.end());
+    shapeMeshIndices.insert(shapeMeshIndices.end(), indices.begin(), indices.end());
+    shapeMeshOutlineIndices.insert(shapeMeshOutlineIndices.end(), outlineIndices.begin(), outlineIndices.end());
+
+    glBindVertexArray(shapeMeshVAO);
+    AppendStaticBuffer(
+        GL_ARRAY_BUFFER, shapeMeshVBO, shapeMeshVertices.data(), oldVertexSize, shapeMeshVertices.size() * sizeof(MeshVertex),
+        &shapeMeshVertexCapacity
     );
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, convexEBO);
-    glBufferData(
-        GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(convexIndices.size() * sizeof(uint32)), convexIndices.data(), GL_STATIC_DRAW
+    AppendStaticBuffer(
+        GL_ELEMENT_ARRAY_BUFFER, shapeMeshEBO, shapeMeshIndices.data(), oldIndexSize, shapeMeshIndices.size() * sizeof(uint32),
+        &shapeMeshIndexCapacity
     );
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    SetShapeInstanceAttributes();
+
+    glBindVertexArray(shapeMeshOutlineVAO);
+    AppendStaticBuffer(
+        GL_ELEMENT_ARRAY_BUFFER, shapeMeshOutlineEBO, shapeMeshOutlineIndices.data(), oldOutlineIndexSize,
+        shapeMeshOutlineIndices.size() * sizeof(uint32), &shapeMeshOutlineIndexCapacity
+    );
     glBindVertexArray(0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 
-    auto [inserted, _] = convexMeshes.emplace(key, range);
+    auto [inserted, _] = shapeMeshes.emplace(key, range);
     return inserted->second;
 }
 
@@ -968,8 +1050,7 @@ void Renderer::DrawHeightField(
     }
 
     shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(ShapeInstance), &instance);
+    UploadShapeInstances(&instance, 1);
     mesh.DrawInstanced(1);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
@@ -1011,305 +1092,101 @@ void Renderer::DrawAABB(const AABB& aabb, const Vec4& color)
 
 void Renderer::FlushQueuedShapes(const Shader& shader, bool wireframe)
 {
-    FlushSpheres(shader, wireframe);
-    FlushCapsules(shader, wireframe);
-    FlushBoxes(shader, wireframe);
-    FlushTriangles(shader, wireframe);
-    FlushQuads(shader, wireframe);
-    FlushConvexes(shader, wireframe);
-}
-
-void Renderer::FlushSpheres(const Shader& shader, bool wireframe)
-{
-    std::vector<ShapeInstance>& instances = sphereInstances[wireframe ? g_outlinePass : g_fillPass];
-    if (instances.empty())
-    {
-        return;
-    }
-
-    GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
-    if (wireframe)
-    {
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-    }
-
-    shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
-    sphereMesh.DrawInstanced((GLsizei)instances.size());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    if (wireframe)
-    {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
-
-    instances.clear();
-}
-
-void Renderer::FlushCapsules(const Shader& shader, bool wireframe)
-{
     int32 pass = wireframe ? g_outlinePass : g_fillPass;
-    if (capsuleTopInstances[pass].empty())
+    if (queuedShapeCount[pass] == 0)
     {
         return;
     }
 
     GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
     if (wireframe)
     {
         glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
         glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
     }
 
     shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleTopInstances[pass].size() * sizeof(ShapeInstance)),
-        capsuleTopInstances[pass].data()
-    );
-    capsuleTopMesh.DrawInstanced((GLsizei)capsuleTopInstances[pass].size());
-
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleBottomInstances[pass].size() * sizeof(ShapeInstance)),
-        capsuleBottomInstances[pass].data()
-    );
-    capsuleBottomMesh.DrawInstanced((GLsizei)capsuleBottomInstances[pass].size());
-
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(
-        GL_ARRAY_BUFFER, 0, (GLsizeiptr)(capsuleMidInstances[pass].size() * sizeof(ShapeInstance)),
-        capsuleMidInstances[pass].data()
-    );
-    capsuleMidMesh.DrawInstanced((GLsizei)capsuleMidInstances[pass].size());
-
+    FlushInstancedMesh(sphereBatch, pass, wireframe);
+    FlushInstancedMesh(capsuleTopBatch, pass, wireframe);
+    FlushInstancedMesh(capsuleBottomBatch, pass, wireframe);
+    FlushInstancedMesh(capsuleMidBatch, pass, wireframe);
+    FlushInstancedMesh(boxBatch, pass, wireframe);
+    FlushInstancedMesh(triangleBatch, pass, wireframe);
+    FlushShapeMeshes(pass, wireframe);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     if (wireframe)
     {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         glDepthFunc(previousDepthFunc);
     }
 
-    capsuleTopInstances[pass].clear();
-    capsuleBottomInstances[pass].clear();
-    capsuleMidInstances[pass].clear();
+    queuedShapeCount[pass] = 0;
 }
 
-void Renderer::FlushBoxes(const Shader& shader, bool wireframe)
+void Renderer::FlushInstancedMesh(InstancedMeshBatch& batch, int32 pass, bool wireframe)
 {
-    std::vector<ShapeInstance>& instances = boxInstances[wireframe ? g_outlinePass : g_fillPass];
+    std::vector<ShapeInstance>& instances = batch.instances[pass];
     if (instances.empty())
     {
         return;
     }
 
-    GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
-    if (wireframe)
-    {
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-    }
-
-    shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
-    boxMesh.DrawInstanced((GLsizei)instances.size());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    if (wireframe)
-    {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
-
+    UploadShapeInstances(instances.data(), instances.size());
+    batch.mesh.DrawInstanced((GLsizei)instances.size(), wireframe);
     instances.clear();
 }
 
-void Renderer::FlushTriangles(const Shader& shader, bool wireframe)
+void Renderer::FlushShapeMeshes(int32 pass, bool wireframe)
 {
-    std::vector<ShapeInstance>& instances = triangleInstances[wireframe ? g_outlinePass : g_fillPass];
-    if (instances.empty())
+    std::unordered_map<size_t, std::vector<ShapeInstance>>& batches = shapeMeshInstances[pass];
+    if (shapeMeshInstanceCount[pass] == 0)
     {
         return;
     }
+    shapeMeshInstanceBuffer.clear();
+    shapeMeshCommands.clear();
+    shapeMeshInstanceBuffer.reserve(shapeMeshInstanceCount[pass]);
+    shapeMeshCommands.reserve(activeShapeMeshKeys[pass].size());
 
-    GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
-    if (wireframe)
+    for (size_t key : activeShapeMeshKeys[pass])
     {
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-    }
+        std::vector<ShapeInstance>& instances = batches.at(key);
 
-    shader.Use();
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
-    triangleMesh.DrawInstanced((GLsizei)instances.size());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    if (wireframe)
-    {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
-
-    instances.clear();
-}
-
-void Renderer::FlushQuads(const Shader& shader, bool wireframe)
-{
-    std::vector<ShapeInstance>& instances = quadInstances[wireframe ? g_outlinePass : g_fillPass];
-    if (instances.empty())
-    {
-        return;
-    }
-
-    GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
-    if (wireframe)
-    {
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-    }
-
-    shader.Use();
-    shader.SetInt("uQuadMode", 1);
-    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(instances.size() * sizeof(ShapeInstance)), instances.data());
-    quadMesh.DrawInstanced((GLsizei)instances.size());
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    shader.SetInt("uQuadMode", 0);
-
-    if (wireframe)
-    {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
-
-    instances.clear();
-}
-
-void Renderer::FlushConvexes(const Shader& shader, bool wireframe)
-{
-    int32 pass = wireframe ? g_outlinePass : g_fillPass;
-    std::unordered_map<size_t, std::vector<ShapeInstance>>& batches = convexInstances[pass];
-    if (convexInstanceCount[pass] == 0)
-    {
-        return;
-    }
-
-    GLint previousDepthFunc = GL_LESS;
-    GLboolean cullFaceEnabled = GL_FALSE;
-    if (wireframe)
-    {
-        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
-        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
-        glDepthFunc(GL_LEQUAL);
-        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        glDisable(GL_CULL_FACE);
-    }
-
-    shader.Use();
-    convexInstanceBuffer.clear();
-    convexCommands.clear();
-    convexInstanceBuffer.reserve(convexInstanceCount[pass]);
-    convexCommands.reserve(batches.size());
-
-    for (auto& [key, instances] : batches)
-    {
-        if (instances.empty())
-        {
-            continue;
-        }
-
-        auto rangeIt = convexMeshes.find(key);
-        MuliAssert(rangeIt != convexMeshes.end());
-        const ConvexMeshRange& range = rangeIt->second;
+        auto rangeIt = shapeMeshes.find(key);
+        MuliAssert(rangeIt != shapeMeshes.end());
+        const ShapeMeshRange& range = rangeIt->second;
 
         DrawElementsIndirectCommand command;
-        command.count = range.indexCount;
+        command.count = wireframe ? range.outlineIndexCount : range.indexCount;
         command.instanceCount = (GLuint)instances.size();
-        command.firstIndex = range.firstIndex;
+        command.firstIndex = wireframe ? range.firstOutlineIndex : range.firstIndex;
         command.baseVertex = range.baseVertex;
-        command.baseInstance = (GLuint)convexInstanceBuffer.size();
-        convexCommands.push_back(command);
+        command.baseInstance = (GLuint)shapeMeshInstanceBuffer.size();
+        shapeMeshCommands.push_back(command);
 
-        convexInstanceBuffer.insert(convexInstanceBuffer.end(), instances.begin(), instances.end());
+        shapeMeshInstanceBuffer.insert(shapeMeshInstanceBuffer.end(), instances.begin(), instances.end());
         instances.clear();
     }
 
-    if (!convexCommands.empty())
+    if (!shapeMeshCommands.empty())
     {
-        glBindVertexArray(convexVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
-        glBufferSubData(
-            GL_ARRAY_BUFFER, 0, (GLsizeiptr)(convexInstanceBuffer.size() * sizeof(ShapeInstance)), convexInstanceBuffer.data()
-        );
-        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, convexIndirectVBO);
+        glBindVertexArray(wireframe ? shapeMeshOutlineVAO : shapeMeshVAO);
+        UploadShapeInstances(shapeMeshInstanceBuffer.data(), shapeMeshInstanceBuffer.size());
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, shapeMeshIndirectVBO);
         glBufferData(
-            GL_DRAW_INDIRECT_BUFFER, (GLsizeiptr)(convexCommands.size() * sizeof(DrawElementsIndirectCommand)),
-            convexCommands.data(), GL_STREAM_DRAW
+            GL_DRAW_INDIRECT_BUFFER, (GLsizeiptr)(shapeMeshCommands.size() * sizeof(DrawElementsIndirectCommand)),
+            shapeMeshCommands.data(), GL_STREAM_DRAW
         );
-        glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, nullptr, (GLsizei)convexCommands.size(), 0);
+        glMultiDrawElementsIndirect(
+            wireframe ? GL_LINES : GL_TRIANGLES, GL_UNSIGNED_INT, nullptr, (GLsizei)shapeMeshCommands.size(), 0
+        );
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
     }
 
-    batches.clear();
-    convexInstanceCount[pass] = 0;
-
-    if (wireframe)
-    {
-        if (cullFaceEnabled)
-        {
-            glEnable(GL_CULL_FACE);
-        }
-        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        glDepthFunc(previousDepthFunc);
-    }
+    activeShapeMeshKeys[pass].clear();
+    shapeMeshInstanceCount[pass] = 0;
 }
 
 void Renderer::FlushPoints()
@@ -1342,6 +1219,7 @@ void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& verti
 
     glBindVertexArray(primVAO);
     glBindBuffer(GL_ARRAY_BUFFER, primVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * primitiveCapacity, nullptr, GL_STREAM_DRAW);
     glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(vertexCount * sizeof(Vertex)), vertices.data());
     glDrawArrays(primitive, 0, vertexCount);
     glBindVertexArray(0);
@@ -1368,7 +1246,7 @@ void Renderer::EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requ
     primitiveCapacity = Max<int32>(primitiveCapacity * 2, requiredCount);
 
     glBindBuffer(GL_ARRAY_BUFFER, primVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * primitiveCapacity, nullptr, GL_DYNAMIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * primitiveCapacity, nullptr, GL_STREAM_DRAW);
 }
 
 Vec4 Renderer::GetColor(int32 colorIndex) const
@@ -1378,6 +1256,7 @@ Vec4 Renderer::GetColor(int32 colorIndex) const
 
 void Renderer::BeginFrame(const Camera& camera, float aspectRatio)
 {
+    ++frame;
     lightDirection = Normalize(Vec3{ 0.45f, -1.0f, -0.35f });
     lightViewProjectionMatrix = ComputeLightViewProjection(camera, aspectRatio, lightDirection);
     SetViewMatrix(camera.GetViewMatrix());

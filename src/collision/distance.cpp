@@ -210,6 +210,67 @@ Vec3 ClosestPointVsTetrahedron(const Vec3& p, const Vec3& a, const Vec3& b, cons
     return best;
 }
 
+Vec3 ClosestPointVsPolygon(const Vec3& q, std::span<const Vec3> vertices)
+{
+    const int32 count = int32(vertices.size());
+    MuliAssert(count >= 3);
+
+    const Vec3& origin = vertices[0];
+
+    // The normal does not need to be normalized.
+    // Using both vertices adjacent to origin also allows intermediate
+    // collinear vertices elsewhere in the polygon.
+    Vec3 normal = Cross(vertices[1] - origin, vertices[count - 1] - origin);
+    float length2 = Dot(normal, normal);
+
+    MuliAssert(length2 > epsilon);
+
+    Vec3 closestPoint = origin;
+    float minDistance2 = std::numeric_limits<float>::max();
+    bool outside = false;
+
+    const Vec3* a = &vertices[count - 1];
+
+    for (int32 i = 0; i < count; ++i)
+    {
+        const Vec3* b = &vertices[i];
+
+        Vec3 edge = *b - *a;
+        Vec3 aq = q - *a;
+
+        // The normal is constructed from the polygon winding, so a negative
+        // value means that q lies outside this edge's supporting half-space.
+        if (Dot(Cross(edge, aq), normal) < 0.0f)
+        {
+            outside = true;
+
+            float edgeLength2 = Dot(edge, edge);
+            float fraction = Clamp(Dot(aq, edge) / edgeLength2, 0.0f, 1.0f);
+
+            Vec3 point = *a + fraction * edge;
+            float distance2 = Length2(q - point);
+
+            if (distance2 < minDistance2)
+            {
+                minDistance2 = distance2;
+                closestPoint = point;
+            }
+        }
+
+        a = b;
+    }
+
+    if (outside)
+    {
+        return closestPoint;
+    }
+
+    // q is inside the polygon's edge half-spaces, so its orthogonal
+    // projection onto the polygon plane is the closest point.
+    float planeOffset = Dot(q - origin, normal) / length2;
+    return q - planeOffset * normal;
+}
+
 Vec2 ClosestSegmentVsSegment(const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1)
 {
     // Compute the closest points on two segments.

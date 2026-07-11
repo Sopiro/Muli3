@@ -259,26 +259,12 @@ Collider* Body::CreateTriangleCollider(
     return CreateTriangleCollider(vertices[0], vertices[1], vertices[2], tf, radius, density, material);
 }
 
-Collider* Body::CreateQuadCollider(
-    const Vec3& a,
-    const Vec3& b,
-    const Vec3& c,
-    const Vec3& d,
-    const Transform& tf,
-    float radius,
-    float density,
-    const Material& material
+Collider* Body::CreatePolygonCollider(
+    std::span<const Vec3> vertices, const Transform& tf, float radius, float density, const Material& material
 )
 {
-    QuadShape quad{ a, b, c, d, radius };
-    return CreateCollider(&quad, tf, density, material);
-}
-
-Collider* Body::CreateQuadCollider(
-    const Vec3 vertices[4], const Transform& tf, float radius, float density, const Material& material
-)
-{
-    return CreateQuadCollider(vertices[0], vertices[1], vertices[2], vertices[3], tf, radius, density, material);
+    PolygonShape polygon{ vertices, radius };
+    return CreateCollider(&polygon, tf, density, material);
 }
 
 Collider* Body::CreateHeightFieldCollider(
@@ -403,9 +389,7 @@ bool Body::RayCastClosest(const Vec3& from, const Vec3& to, RayCastClosestCallba
 }
 
 void Body::RayCastAny(
-    const Vec3& from,
-    const Vec3& to,
-    std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+    const Vec3& from, const Vec3& to, std::function<float(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
     RayCastInput input;
@@ -432,9 +416,7 @@ void Body::RayCastAny(
 }
 
 bool Body::RayCastClosest(
-    const Vec3& from,
-    const Vec3& to,
-    std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
+    const Vec3& from, const Vec3& to, std::function<void(Collider* collider, Vec3 point, Vec3 normal, float fraction)> callback
 ) const
 {
     struct TempCallback : RayCastAnyCallback

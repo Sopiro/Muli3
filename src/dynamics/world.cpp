@@ -149,37 +149,15 @@ Body* World::CreateQuad(float width, float height, const Transform& transform, B
         Vec3{ 0.0f, height, 0.0f },
     };
 
-    return CreateQuad(z_axis, vertices, transform, type, radius, density);
+    return CreatePolygon(vertices, transform, type, radius, density);
 }
 
-Body* World::CreateQuad(
-    const Vec3& normal,
-    const Vec3& a,
-    const Vec3& b,
-    const Vec3& c,
-    const Vec3& d,
-    const Transform& transform,
-    Body::Type type,
-    float radius,
-    float density
+Body* World::CreatePolygon(
+    std::span<const Vec3> vertices, const Transform& transform, Body::Type type, float radius, float density
 )
 {
-    Vec3 vertices[4] = { a, b, c, d };
-    return CreateQuad(normal, vertices, transform, type, radius, density);
-}
-
-Body* World::CreateQuad(
-    const Vec3& normal, const Vec3 vertices[4], const Transform& transform, Body::Type type, float radius, float density
-)
-{
-    Vec3 face[4];
-    if (!ComputeQuadrilateral(Normalize(normal), vertices, face))
-    {
-        return nullptr;
-    }
-
     Body* body = CreateEmptyBody(transform, type);
-    body->CreateQuadCollider(face, identity, radius, density);
+    body->CreatePolygonCollider(vertices, identity, radius, density);
     return body;
 }
 
@@ -2260,9 +2238,9 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
         return poolAllocator.New<TriangleShape>(*(const TriangleShape*)shape, transform);
     }
-    case Shape::quad:
+    case Shape::polygon:
     {
-        return poolAllocator.New<QuadShape>(*(const QuadShape*)shape, transform);
+        return poolAllocator.New<PolygonShape>(*(const PolygonShape*)shape, transform);
     }
     case Shape::height_field:
     {
@@ -2295,8 +2273,8 @@ void World::FreeShape(Shape* shape)
     case Shape::triangle:
         poolAllocator.Delete((TriangleShape*)shape);
         break;
-    case Shape::quad:
-        poolAllocator.Delete((QuadShape*)shape);
+    case Shape::polygon:
+        poolAllocator.Delete((PolygonShape*)shape);
         break;
     case Shape::height_field:
         poolAllocator.Delete((HeightFieldShape*)shape);

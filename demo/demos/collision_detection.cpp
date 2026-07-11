@@ -212,11 +212,12 @@ private:
             shape1.reset(new BoxShape(size1, convexRadius1));
             break;
         case 3:
-            shape1.reset(new QuadShape(
-                Vec3{ -size1.x * 0.5f, -size1.y * 0.5f, 0.0f }, Vec3{ size1.x * 0.5f, -size1.y * 0.5f, 0.0f },
-                Vec3{ size1.x * 0.5f, size1.y * 0.5f, 0.0f }, Vec3{ -size1.x * 0.5f, size1.y * 0.5f, 0.0f }, convexRadius1
-            ));
-            break;
+        {
+            Vec3 vertices[4] = { Vec3{ -size1.x * 0.5f, -size1.y * 0.5f, 0.0f }, Vec3{ size1.x * 0.5f, -size1.y * 0.5f, 0.0f },
+                                 Vec3{ size1.x * 0.5f, size1.y * 0.5f, 0.0f }, Vec3{ -size1.x * 0.5f, size1.y * 0.5f, 0.0f } };
+            shape1.reset(new PolygonShape(vertices, convexRadius1));
+        }
+        break;
         case 4:
             shape1.reset(new TriangleShape(
                 Vec3{ -size1.x * 0.5f, -size1.y * 0.5f, 0.0f }, Vec3{ size1.x * 0.5f, -size1.y * 0.5f, 0.0f },
@@ -242,11 +243,12 @@ private:
             shape2.reset(new BoxShape(size2, convexRadius2));
             break;
         case 3:
-            shape2.reset(new QuadShape(
-                Vec3{ -size2.x * 0.5f, -size2.y * 0.5f, 0.0f }, Vec3{ size2.x * 0.5f, -size2.y * 0.5f, 0.0f },
-                Vec3{ size2.x * 0.5f, size2.y * 0.5f, 0.0f }, Vec3{ -size2.x * 0.5f, size2.y * 0.5f, 0.0f }, convexRadius2
-            ));
-            break;
+        {
+            Vec3 vertices[4] = { Vec3{ -size2.x * 0.5f, -size2.y * 0.5f, 0.0f }, Vec3{ size2.x * 0.5f, -size2.y * 0.5f, 0.0f },
+                                 Vec3{ size2.x * 0.5f, size2.y * 0.5f, 0.0f }, Vec3{ -size2.x * 0.5f, size2.y * 0.5f, 0.0f } };
+            shape2.reset(new PolygonShape(vertices, convexRadius2));
+        }
+        break;
         case 4:
             shape2.reset(new TriangleShape(
                 Vec3{ -size2.x * 0.5f, -size2.y * 0.5f, 0.0f }, Vec3{ size2.x * 0.5f, -size2.y * 0.5f, 0.0f },

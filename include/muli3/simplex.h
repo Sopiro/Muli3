@@ -1,11 +1,17 @@
 #pragma once
 
-#include "primitives.h"
+#include "math.h"
 
 namespace muli3
 {
 
 constexpr int32 max_simplex_vertex_count = 4;
+
+struct Point
+{
+    Vec3 p;
+    int32 id;
+};
 
 struct SupportPoint
 {

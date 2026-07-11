@@ -90,20 +90,6 @@ void CapsuleShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
     *outAABB = AABB{ Min(a, b) - r, Max(a, b) + r };
 }
 
-Face CapsuleShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
-{
-    MuliNotUsed(dir);
-
-    Face face;
-    face.count = 2;
-    face.points[0].id = 0;
-    face.points[0].p = Mul(transform, va);
-    face.points[1].id = 1;
-    face.points[1].p = Mul(transform, vb);
-    face.normal = dir;
-    return face;
-}
-
 bool CapsuleShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);

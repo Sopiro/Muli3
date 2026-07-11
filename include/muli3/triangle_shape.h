@@ -16,7 +16,8 @@ public:
     void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
     int32 GetVertexCount() const;
-    Vec3 GetVertex(int32 id) const;
+    Vec3 GetVertex(int32 index) const;
+    int32 GetVertexIndex(int32 index) const;
     int32 GetSupport(const Vec3& localDir) const;
     Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 
@@ -37,10 +38,18 @@ inline int32 TriangleShape::GetVertexCount() const
     return 3;
 }
 
-inline Vec3 TriangleShape::GetVertex(int32 id) const
+inline Vec3 TriangleShape::GetVertex(int32 index) const
 {
-    MuliAssert(0 <= id && id < 3);
-    return vertices[id];
+    MuliAssert(0 <= index && index < 3);
+    return vertices[index];
+}
+
+inline int32 TriangleShape::GetVertexIndex(int32 index) const
+{
+    constexpr int32 indices[] = { 0, 1, 2, 0, 2, 1 };
+
+    MuliAssert(0 <= index && index < 6);
+    return indices[index];
 }
 
 inline const Vec3* TriangleShape::GetVertices() const

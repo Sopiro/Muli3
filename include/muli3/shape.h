@@ -2,12 +2,19 @@
 
 #include "bounding_box.h"
 #include "dynamic_dispatcher.h"
-#include "primitives.h"
 #include "raycast.h"
 #include "settings.h"
 
 namespace muli3
 {
+
+struct Face
+{
+    // Shapes whose face index ranges do not fit in uint16 have undefined behavior.
+    uint16 vertexStart;
+    uint16 vertexCount;
+    Vec3 normal;
+};
 
 struct MassData
 {
@@ -21,7 +28,7 @@ using Shapes = TypePack<
     class CapsuleShape,
     class BoxShape,
     class ConvexShape,
-    class QuadShape,
+    class PolygonShape,
     class TriangleShape,
     class HeightFieldShape>;
 
@@ -37,7 +44,7 @@ public:
         capsule,
         box,
         convex,
-        quad,
+        polygon,
         triangle,
         height_field,
         shape_count,
@@ -55,7 +62,8 @@ public:
     void ComputeAABB(const Transform& transform, AABB* outAABB) const;
 
     int32 GetVertexCount() const;
-    Vec3 GetVertex(int32 id) const;
+    Vec3 GetVertex(int32 index) const;
+    int32 GetVertexIndex(int32 index) const;
     int32 GetSupport(const Vec3& localDir) const;
     Face GetFeaturedFace(const Transform& transform, const Vec3& dir) const;
 

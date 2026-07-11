@@ -43,7 +43,7 @@ public:
             Vec3{ 0.35f, 0.3f, 0.0f },
             Vec3{ -0.35f, 0.3f, 0.0f },
         };
-        targetBodies[5] = world->CreateQuad(z_axis, quadVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
+        targetBodies[5] = world->CreatePolygon(quadVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
 
         UpdateTargetRotation();
     }

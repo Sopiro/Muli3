@@ -1,10 +1,12 @@
 #include "muli3/convex_shape.h"
 #include "muli3/distance.h"
+#include "muli3/geometry.h"
+#include "muli3/shape.h"
 
 namespace muli3
 {
 
-static void FixFaceWinding(std::span<const Vec3> vertices, std::vector<ConvexFace>* faces)
+static void FixFaceWinding(std::span<const Vec3> vertices, std::vector<Face>* faces, std::vector<int32>* indices)
 {
     // After an arbitrary transform, especially one with negative scale, the face
     // orientation can flip. Re-orient all triangles so their normals point outward.
@@ -15,43 +17,38 @@ static void FixFaceWinding(std::span<const Vec3> vertices, std::vector<ConvexFac
     }
     inside *= 1.0f / vertices.size();
 
-    for (ConvexFace& face : *faces)
+    for (Face& face : *faces)
     {
-        Vec3 a = vertices[face.indices[0]];
-        Vec3 b = vertices[face.indices[1]];
-        Vec3 c = vertices[face.indices[2]];
+        Vec3 a = vertices[(*indices)[face.vertexStart]];
+        Vec3 b = vertices[(*indices)[face.vertexStart + 1]];
+        Vec3 c = vertices[(*indices)[face.vertexStart + 2]];
 
         Vec3 normal = Cross(b - a, c - a);
         if (Dot(normal, inside - a) > 0.0f)
         {
-            std::reverse(face.indices, face.indices + face.count);
+            std::reverse(indices->begin() + face.vertexStart, indices->begin() + face.vertexStart + face.vertexCount);
         }
     }
 }
 
-static void ComputeFaceNormals(std::span<const Vec3> vertices, std::span<const ConvexFace> faces, std::vector<Vec3>* normals)
+static void ComputeFaceNormals(std::span<const Vec3> vertices, std::vector<Face>* faces, std::span<const int32> indices)
 {
-    normals->resize(faces.size());
-
-    // ConvexShape stores triangle faces, so each face normal is just the normalized
-    // cross product of one triangle.
-    for (size_t i = 0; i < faces.size(); ++i)
+    // Faces are planar polygons, so the first three vertices determine the normal.
+    for (Face& face : *faces)
     {
-        const ConvexFace& face = faces[i];
-        Vec3 a = vertices[face.indices[0]];
-        Vec3 b = vertices[face.indices[1]];
-        Vec3 c = vertices[face.indices[2]];
+        Vec3 a = vertices[indices[face.vertexStart]];
+        Vec3 b = vertices[indices[face.vertexStart + 1]];
+        Vec3 c = vertices[indices[face.vertexStart + 2]];
 
-        Vec3 normal = Cross(b - a, c - a);
-        normal.Normalize();
-        (*normals)[i] = normal;
+        face.normal = Cross(b - a, c - a);
+        face.normal.Normalize();
     }
 }
 
 ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
     : Shape{ Shape::convex, inRadius }
 {
-    ComputeConvexHull(inVertices, &vertices, &faces);
+    ComputeConvexHull(inVertices, &vertices, &indices, &faces);
 
     MuliAssert(vertices.size() >= 4);
     MuliAssert(faces.size() > 0);
@@ -61,8 +58,8 @@ ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const
         vertex = Mul(transform, vertex);
     }
 
-    FixFaceWinding(vertices, &faces);
-    ComputeFaceNormals(vertices, faces, &normals);
+    FixFaceWinding(vertices, &faces, &indices);
+    ComputeFaceNormals(vertices, &faces, indices);
 
     MassData massData;
     ComputeMass(1.0f, &massData);
@@ -71,24 +68,37 @@ ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const
 }
 
 ConvexShape::ConvexShape(
-    std::span<const Vec3> inVertices, std::span<const ConvexFace> inFaces, float inRadius, const Transform& transform
+    std::span<const Vec3> inVertices,
+    std::span<const int32> inIndices,
+    std::span<const Face> inFaces,
+    float inRadius,
+    const Transform& transform
 )
     : Shape{ Shape::convex, inRadius }
     , vertices{ inVertices.begin(), inVertices.end() }
+    , indices{ inIndices.begin(), inIndices.end() }
     , faces{ inFaces.begin(), inFaces.end() }
 {
-    // Behavior is undefined if vertices/faces do not describe a valid closed convex hull.
+    // Behavior is undefined if vertices/indices/faces do not describe a valid closed convex hull.
 
     MuliAssert(vertices.size() >= 4);
     MuliAssert(faces.size() > 0);
+    MuliAssert(indices.size() > 0);
+    MuliAssert(indices.size() <= std::numeric_limits<uint16>::max());
+    for (const Face& face : faces)
+    {
+        MuliNotUsed(face);
+        MuliAssert(face.vertexCount >= 3);
+        MuliAssert(int32(face.vertexStart) + int32(face.vertexCount) <= int32(indices.size()));
+    }
 
     for (Vec3& vertex : vertices)
     {
         vertex = Mul(transform, vertex);
     }
 
-    FixFaceWinding(vertices, &faces);
-    ComputeFaceNormals(vertices, faces, &normals);
+    FixFaceWinding(vertices, &faces, &indices);
+    ComputeFaceNormals(vertices, &faces, indices);
 
     MassData massData;
     ComputeMass(1.0f, &massData);
@@ -97,7 +107,7 @@ ConvexShape::ConvexShape(
 }
 
 ConvexShape::ConvexShape(const ConvexShape& other, const Transform& transform)
-    : ConvexShape(other.vertices, other.faces, other.radius, transform)
+    : ConvexShape(other.vertices, other.indices, other.faces, other.radius, transform)
 {
 }
 
@@ -129,11 +139,11 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
     // Rounded contributions are added as face slabs, edge cylindrical wedges,
     // and vertex spherical sectors generated by the convex radius.
 
-    for (const ConvexFace& face : faces)
+    for (const Face& face : faces)
     {
-        const Vec3& a = vertices[face.indices[0]];
+        const Vec3& a = vertices[indices[face.vertexStart]];
 
-        for (int32 i = 1; i + 1 < face.count; ++i)
+        for (int32 i = 1; i + 1 < face.vertexCount; ++i)
         {
             // Core tetrahedron {O A B C}.
             //
@@ -154,8 +164,8 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
             // M2 off-diagonal example:
             // \int xy dV = det / 120 *
             //   (2(ax*ay + bx*by + cx*cy) + ax*by + ay*bx + ax*cy + ay*cx + bx*cy + by*cx)
-            const Vec3& b = vertices[face.indices[i]];
-            const Vec3& c = vertices[face.indices[i + 1]];
+            const Vec3& b = vertices[indices[face.vertexStart + i]];
+            const Vec3& c = vertices[indices[face.vertexStart + i + 1]];
 
             // \int_{actual_tetra} f(p) dV =
             // \int_{standard_tetra} f(u a + v b + w c) det dudvdw
@@ -233,14 +243,14 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
     // \int_T pp^T dA = A / 12 * (aa^T + bb^T + cc^T + ss^T), where s = a+b+c
     for (int32 faceIndex = 0; faceIndex < int32(faces.size()); ++faceIndex)
     {
-        const ConvexFace& face = faces[faceIndex];
-        Vec3 n = normals[faceIndex];
-        const Vec3& a = vertices[face.indices[0]];
+        const Face& face = faces[faceIndex];
+        Vec3 n = face.normal;
+        const Vec3& a = vertices[indices[face.vertexStart]];
 
-        for (int32 i = 1; i + 1 < face.count; ++i)
+        for (int32 i = 1; i + 1 < face.vertexCount; ++i)
         {
-            const Vec3& b = vertices[face.indices[i]];
-            const Vec3& c = vertices[face.indices[i + 1]];
+            const Vec3& b = vertices[indices[face.vertexStart + i]];
+            const Vec3& c = vertices[indices[face.vertexStart + i + 1]];
 
             float area = 0.5f * Length(Cross(b - a, c - a));
             Vec3 sum = a + b + c;
@@ -266,11 +276,11 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
     std::vector<EdgeInfo> edges;
     for (int32 faceIndex = 0; faceIndex < int32(faces.size()); ++faceIndex)
     {
-        const ConvexFace& face = faces[faceIndex];
-        for (int32 i = 0; i < face.count; ++i)
+        const Face& face = faces[faceIndex];
+        for (int32 i = 0; i < face.vertexCount; ++i)
         {
-            int32 a = face.indices[i];
-            int32 b = face.indices[(i + 1) % face.count];
+            int32 a = indices[face.vertexStart + i];
+            int32 b = indices[face.vertexStart + (i + 1) % face.vertexCount];
             int32 minIndex = Min(a, b);
             int32 maxIndex = Max(a, b);
 
@@ -348,8 +358,8 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
             continue;
         }
 
-        Vec3 n0 = normals[edgeInfo.face0];
-        Vec3 n1 = normals[edgeInfo.face1];
+        Vec3 n0 = faces[edgeInfo.face0].normal;
+        Vec3 n1 = faces[edgeInfo.face1].normal;
         float angle = std::acos(Clamp(Dot(n0, n1), -1.0f, 1.0f));
         if (angle <= epsilon)
         {
@@ -390,11 +400,11 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
         std::vector<Vec3> incidentNormals;
         for (int32 faceIndex = 0; faceIndex < int32(faces.size()); ++faceIndex)
         {
-            const ConvexFace& face = faces[faceIndex];
+            const Face& face = faces[faceIndex];
             bool incident = false;
-            for (int32 i = 0; i < face.count; ++i)
+            for (int32 i = 0; i < face.vertexCount; ++i)
             {
-                if (face.indices[i] == vertexIndex)
+                if (indices[face.vertexStart + i] == vertexIndex)
                 {
                     incident = true;
                     break;
@@ -409,7 +419,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
             bool duplicate = false;
             for (const Vec3& normal : incidentNormals)
             {
-                if (Dot(normal, normals[faceIndex]) > 1.0f - 1e-4f)
+                if (Dot(normal, face.normal) > 1.0f - 1e-4f)
                 {
                     duplicate = true;
                     break;
@@ -418,7 +428,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
 
             if (!duplicate)
             {
-                incidentNormals.push_back(normals[faceIndex]);
+                incidentNormals.push_back(face.normal);
             }
         }
 
@@ -581,12 +591,13 @@ Face ConvexShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) c
 {
     // Contact clipping wants the face whose normal is most aligned with the query
     // direction in local space.
+    Vec3 localDir = transform.q.RotateInv(dir);
     int32 index = 0;
-    float maxValue = Dot(normals[0], transform.q.RotateInv(dir));
+    float maxValue = Dot(faces[0].normal, localDir);
 
     for (int32 i = 1; i < int32(faces.size()); ++i)
     {
-        float value = Dot(normals[i], transform.q.RotateInv(dir));
+        float value = Dot(faces[i].normal, localDir);
         if (value > maxValue)
         {
             index = i;
@@ -594,16 +605,8 @@ Face ConvexShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) c
         }
     }
 
-    Face face{};
-    face.count = faces[index].count;
-    face.normal = transform.q.Rotate(normals[index]);
-
-    for (int32 i = 0; i < face.count; ++i)
-    {
-        int32 vertexIndex = faces[index].indices[i];
-        face.points[i].id = vertexIndex;
-        face.points[i].p = Mul(transform, vertices[vertexIndex]);
-    }
+    Face face = faces[index];
+    face.normal = transform.q.Rotate(face.normal);
 
     return face;
 }
@@ -614,7 +617,7 @@ bool ConvexShape::TestPointLocal(const Vec3& q) const
     // outward face plane.
     for (int32 i = 0; i < int32(faces.size()); ++i)
     {
-        if (Dot(normals[i], q - vertices[faces[i].indices[0]]) > 0.0f)
+        if (Dot(faces[i].normal, q - vertices[indices[faces[i].vertexStart]]) > 0.0f)
         {
             return false;
         }
@@ -646,14 +649,14 @@ Vec3 ConvexShape::GetClosestPointLocal(const Vec3& q) const
     Vec3 closest = vertices[0];
     float minDistance2 = max_float;
 
-    for (const ConvexFace& face : faces)
+    for (const Face& face : faces)
     {
-        const Vec3& a = vertices[face.indices[0]];
+        const Vec3& a = vertices[indices[face.vertexStart]];
 
-        for (int32 i = 1; i + 1 < face.count; ++i)
+        for (int32 i = 1; i + 1 < face.vertexCount; ++i)
         {
-            const Vec3& b = vertices[face.indices[i]];
-            const Vec3& c = vertices[face.indices[i + 1]];
+            const Vec3& b = vertices[indices[face.vertexStart + i]];
+            const Vec3& c = vertices[indices[face.vertexStart + i + 1]];
 
             Vec3 p = ClosestPointVsTriangle(q, a, b, c);
             float distance2 = Dist2(q, p);
@@ -703,8 +706,8 @@ bool ConvexShape::RayCast(const Transform& transform, const RayCastInput& input,
 
     for (int32 i = 0; i < int32(faces.size()); ++i)
     {
-        Vec3 normal = normals[i];
-        Vec3 v = vertices[faces[i].indices[0]];
+        Vec3 normal = faces[i].normal;
+        Vec3 v = vertices[indices[faces[i].vertexStart]];
 
         float numerator = Dot(normal, v - p1);
         float denominator = Dot(normal, d);
@@ -741,7 +744,7 @@ bool ConvexShape::RayCast(const Transform& transform, const RayCastInput& input,
     }
 
     output->fraction = near;
-    output->normal = transform.q.Rotate(normals[index]);
+    output->normal = transform.q.Rotate(faces[index].normal);
     return true;
 }
 

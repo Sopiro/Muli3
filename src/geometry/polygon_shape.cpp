@@ -1,34 +1,56 @@
-#include "muli3/quad_shape.h"
+#include "muli3/polygon_shape.h"
 #include "muli3/distance.h"
 #include "muli3/settings.h"
 
 namespace muli3
 {
 
-QuadShape::QuadShape(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d, float inRadius, const Transform& transform)
-    : Shape(Shape::quad, inRadius)
+PolygonShape::PolygonShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
+    : Shape(Shape::polygon, inRadius)
 {
-    vertices[0] = Mul(transform, a);
-    vertices[1] = Mul(transform, b);
-    vertices[2] = Mul(transform, c);
-    vertices[3] = Mul(transform, d);
+    MuliAssert(inVertices.size() >= 3);
+    MuliAssert(inVertices.size() <= std::numeric_limits<uint16>::max());
 
-    normal = Cross(vertices[1] - vertices[0], vertices[2] - vertices[0]);
-    normal.Normalize();
+    vertices.reserve(inVertices.size());
+    for (const Vec3& vertex : inVertices)
+    {
+        vertices.push_back(Mul(transform, vertex));
+    }
+
+    normal = Vec3::zero;
+    for (int32 i = 1; i + 1 < int32(vertices.size()); ++i)
+    {
+        normal = Cross(vertices[i] - vertices[0], vertices[i + 1] - vertices[0]);
+        if (normal.Normalize() > epsilon)
+        {
+            break;
+        }
+    }
+
+    int32 count = int32(vertices.size());
+    indices.reserve(2 * count);
+    for (int32 i = 0; i < count; ++i)
+    {
+        indices.push_back(i);
+    }
+    indices.push_back(0);
+    for (int32 i = count - 1; i > 0; --i)
+    {
+        indices.push_back(i);
+    }
 
     if (radius == 0.0f)
     {
-        Vec3 areaNormal0 = Cross(vertices[1] - vertices[0], vertices[2] - vertices[0]);
-        Vec3 areaNormal1 = Cross(vertices[2] - vertices[0], vertices[3] - vertices[0]);
+        float area = 0.0f;
+        Vec3 first = Vec3::zero;
+        for (int32 i = 1; i + 1 < count; ++i)
+        {
+            float triangleArea = 0.5f * Length(Cross(vertices[i] - vertices[0], vertices[i + 1] - vertices[0]));
+            area += triangleArea;
+            first += (vertices[0] + vertices[i] + vertices[i + 1]) * (triangleArea / 3.0f);
+        }
 
-        float area0 = 0.5f * Length(areaNormal0);
-        float area1 = 0.5f * Length(areaNormal1);
-        float area = area0 + area1;
-
-        center = area > epsilon ? ((vertices[0] + vertices[1] + vertices[2]) * (area0 / 3.0f) +
-                                   (vertices[0] + vertices[2] + vertices[3]) * (area1 / 3.0f)) /
-                                      area
-                                : (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25f;
+        center = area > epsilon ? first / area : vertices[0];
         volume = 0.0f;
     }
     else
@@ -41,16 +63,16 @@ QuadShape::QuadShape(const Vec3& a, const Vec3& b, const Vec3& c, const Vec3& d,
     }
 }
 
-QuadShape::QuadShape(const QuadShape& other, const Transform& transform)
-    : QuadShape(other.vertices[0], other.vertices[1], other.vertices[2], other.vertices[3], other.radius, transform)
+PolygonShape::PolygonShape(const PolygonShape& other, const Transform& transform)
+    : PolygonShape(other.vertices, other.radius, transform)
 {
 }
 
-void QuadShape::ComputeMass(float density, MassData* outMassData) const
+void PolygonShape::ComputeMass(float density, MassData* outMassData) const
 {
     MuliAssert(outMassData != nullptr);
 
-    // Rounded quad is the Minkowski sum of the core quadrilateral P and a sphere of radius r:
+    // Rounded polygon is the Minkowski sum of the core polygon P and a sphere of radius r:
     //
     //   Q = P (+) B_r = { p + q | p in P, |q| <= r }.
     //
@@ -58,17 +80,8 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
     //
     //   V = 2*r*A + (pi*r^2/2)*L + (4*pi*r^3/3)
     //
-    // A is the quad area and L is the perimeter.  The terms are the face slab,
-    // edge half-cylinders, and vertex spherical sectors.  The implementation
-    // accumulates:
-    //
-    //   M0 = int dV
-    //   M1 = int x dV
-    //   M2 = int x*x^T dV
-    //
-    // and converts M2 to inertia at the end:
-    //
-    //   I = int (dot(x,x)*Identity - x*x^T) dm = tr(M2)*Identity - M2.
+    // A is the polygon area and L is the perimeter.  The terms are the face slab,
+    // edge half-cylinders, and vertex spherical sectors.
 
     const auto Outer = [](const Vec3& a, const Vec3& b) { return Mat3(a * b.x, a * b.y, a * b.z); };
     const auto Mul = [](const Mat3& m, float s) { return Mat3(m.ex * s, m.ey * s, m.ez * s); };
@@ -79,10 +92,11 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
     {
         outMassData->mass = 0.0f;
         outMassData->inertia = Mat3::zero;
-        outMassData->centerOfMass = (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25f;
+        outMassData->centerOfMass = vertices[0];
         return;
     }
 
+    int32 count = int32(vertices.size());
     float r = radius;
     float r2 = r * r;
     float r3 = r2 * r;
@@ -93,24 +107,19 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
     Vec3 first = Vec3::zero;
     Mat3 second = Mat3::zero;
 
-    Vec3 triangleVertices[2][3] = {
-        { vertices[0], vertices[1], vertices[2] },
-        { vertices[0], vertices[2], vertices[3] },
-    };
-
-    for (int32 i = 0; i < 2; ++i)
+    for (int32 i = 1; i + 1 < count; ++i)
     {
-        Vec3 a = triangleVertices[i][0];
-        Vec3 b = triangleVertices[i][1];
-        Vec3 c = triangleVertices[i][2];
+        Vec3 a = vertices[0];
+        Vec3 b = vertices[i];
+        Vec3 c = vertices[i + 1];
         float area = 0.5f * Length(Cross(b - a, c - a));
         if (area <= epsilon)
         {
             continue;
         }
 
-        // Face slab.  The quad face is triangulated, then each triangle is
-        // extruded along the quad normal by [-r, r].
+        // Face slab.  The polygon face is triangulated, then each triangle is
+        // extruded along the polygon normal by [-r, r].
         //
         // M1 = int_triangle int_-r^r (p + t*n) dt dA
         //    = 2r * A * (a+b+c)/3
@@ -121,15 +130,15 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
         Mat3 triangleSecond = Mul(Outer(a, a) + Outer(b, b) + Outer(c, c) + Outer(sum, sum), area / 12.0f);
 
         mass += 2.0f * r * area;
-        first = first + sum * (area * 2.0f * r / 3.0f);
+        first += sum * (area * 2.0f * r / 3.0f);
         Add(&second, Mul(triangleSecond, 2.0f * r));
         Add(&second, Mul(Outer(n, n), area * 2.0f * r3 / 3.0f));
     }
 
-    for (int32 i = 0; i < 4; ++i)
+    for (int32 i = 0; i < count; ++i)
     {
         Vec3 p0 = vertices[i];
-        Vec3 p1 = vertices[(i + 1) % 4];
+        Vec3 p1 = vertices[(i + 1) % count];
         Vec3 edge = p1 - p0;
 
         float L = edge.Normalize();
@@ -140,7 +149,7 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
 
         Vec3 o = Cross(edge, n);
 
-        // Edge half-cylinder.  For edge direction e and outward in-plane normal o:
+        // Edge half-cylinder. For edge direction e and outward in-plane normal o:
         //
         // x = p(s) + y*o + z*n, p(s)=p0+e*s, s in [0,L]
         // D = { (y,z) | y >= 0, y^2+z^2 <= r^2 }
@@ -162,7 +171,7 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
         Mat3 segmentSecond = Mul(Outer(p0, p0) + Outer(p1, p1), L / 3.0f) + Mul(Outer(p0, p1) + Outer(p1, p0), L / 6.0f);
 
         mass += L * halfDiskArea;
-        first = first + segmentFirst * halfDiskArea + o * (L * halfDiskFirst);
+        first += segmentFirst * halfDiskArea + o * (L * halfDiskFirst);
 
         Add(&second, Mul(segmentSecond, halfDiskArea));
         Add(&second, Mul(Outer(segmentFirst, o) + Outer(o, segmentFirst), halfDiskFirst));
@@ -170,11 +179,11 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
         Add(&second, Mul(Outer(n, n), L * halfDiskSecond));
     }
 
-    for (int32 i = 0; i < 4; ++i)
+    for (int32 i = 0; i < count; ++i)
     {
-        Vec3 prev = vertices[(i + 3) % 4];
+        Vec3 prev = vertices[(i + count - 1) % count];
         Vec3 p = vertices[i];
-        Vec3 next = vertices[(i + 1) % 4];
+        Vec3 next = vertices[(i + 1) % count];
 
         Vec3 edge0 = p - prev;
         Vec3 edge1 = next - p;
@@ -224,20 +233,20 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
         Mat3 relativeSecond = Mul(Outer(bisector, bisector), i0) + Mul(Outer(tangent, tangent), i1) + Mul(Outer(n, n), i2);
 
         mass += sectorVolume;
-        first = first + p * sectorVolume + relativeFirst;
+        first += p * sectorVolume + relativeFirst;
         Add(&second, Mul(Outer(p, p), sectorVolume));
         Add(&second, Outer(p, relativeFirst) + Outer(relativeFirst, p));
         Add(&second, relativeSecond);
     }
 
     mass *= density;
-    first = first * density;
-    second.ex = second.ex * density;
-    second.ey = second.ey * density;
-    second.ez = second.ez * density;
+    first *= density;
+    second.ex *= density;
+    second.ey *= density;
+    second.ez *= density;
 
     outMassData->mass = mass;
-    outMassData->centerOfMass = mass > epsilon ? first / mass : (vertices[0] + vertices[1] + vertices[2] + vertices[3]) * 0.25f;
+    outMassData->centerOfMass = mass > epsilon ? first / mass : vertices[0];
 
     float trace = second.Trace();
     outMassData->inertia = Mat3{
@@ -247,14 +256,14 @@ void QuadShape::ComputeMass(float density, MassData* outMassData) const
     };
 }
 
-void QuadShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
+void PolygonShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
     Vec3 min = Mul(transform, vertices[0]);
     Vec3 max = min;
 
-    for (int32 i = 1; i < 4; ++i)
+    for (int32 i = 1; i < int32(vertices.size()); ++i)
     {
         Vec3 v = Mul(transform, vertices[i]);
         min = Min(min, v);
@@ -266,12 +275,12 @@ void QuadShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
     *outAABB = AABB{ min - r, max + r };
 }
 
-int32 QuadShape::GetSupport(const Vec3& localDir) const
+int32 PolygonShape::GetSupport(const Vec3& localDir) const
 {
     int32 index = 0;
     float maxValue = Dot(localDir, vertices[0]);
 
-    for (int32 i = 1; i < 4; ++i)
+    for (int32 i = 1; i < int32(vertices.size()); ++i)
     {
         float value = Dot(localDir, vertices[i]);
         if (value > maxValue)
@@ -284,49 +293,55 @@ int32 QuadShape::GetSupport(const Vec3& localDir) const
     return index;
 }
 
-Face QuadShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
+Face PolygonShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
     Face face{};
-    face.count = 4;
+    face.vertexCount = int32(vertices.size());
 
     Vec3 worldNormal = transform.q.Rotate(normal);
     if (Dot(worldNormal, dir) >= 0.0f)
     {
+        face.vertexStart = 0;
         face.normal = worldNormal;
-
-        for (int32 i = 0; i < 4; ++i)
-        {
-            face.points[i].id = i;
-            face.points[i].p = Mul(transform, vertices[i]);
-        }
     }
     else
     {
+        face.vertexStart = int32(vertices.size());
         face.normal = -worldNormal;
-
-        for (int32 i = 0; i < 4; ++i)
-        {
-            int32 index = i == 0 ? 0 : 4 - i;
-            face.points[i].id = index;
-            face.points[i].p = Mul(transform, vertices[index]);
-        }
     }
 
     return face;
 }
 
-bool QuadShape::TestPoint(const Transform& transform, const Vec3& q) const
+bool PolygonShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 closest = GetClosestPoint(transform, q);
     return Dist2(closest, q) <= Sqr(linear_slop);
 }
 
-Vec3 QuadShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
+Vec3 PolygonShape::GetClosestPointLocal(const Vec3& q) const
+{
+    Vec3 closest = vertices[0];
+    float minDistance2 = max_float;
+
+    for (int32 i = 1; i + 1 < int32(vertices.size()); ++i)
+    {
+        Vec3 p = ClosestPointVsTriangle(q, vertices[0], vertices[i], vertices[i + 1]);
+        float distance2 = Dist2(q, p);
+        if (distance2 < minDistance2)
+        {
+            closest = p;
+            minDistance2 = distance2;
+        }
+    }
+
+    return closest;
+}
+
+Vec3 PolygonShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    Vec3 closest0 = ClosestPointVsTriangle(localQ, vertices[0], vertices[1], vertices[2]);
-    Vec3 closest1 = ClosestPointVsTriangle(localQ, vertices[0], vertices[2], vertices[3]);
-    Vec3 closest = Dist2(localQ, closest0) <= Dist2(localQ, closest1) ? closest0 : closest1;
+    Vec3 closest = GetClosestPointLocal(localQ);
 
     Vec3 normal = localQ - closest;
     float distance = normal.Normalize();
@@ -338,26 +353,24 @@ Vec3 QuadShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
     return Mul(transform, closest + normal * radius);
 }
 
-bool QuadShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
+bool PolygonShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const
 {
-    Vec3 a = Mul(transform, vertices[0]);
-    Vec3 b = Mul(transform, vertices[1]);
-    Vec3 c = Mul(transform, vertices[2]);
-    Vec3 d = Mul(transform, vertices[3]);
-
-    bool hit = RayCastTriangle(a, b, c, input, output);
-
-    RayCastOutput candidate;
+    bool hit = false;
     RayCastInput rayInput = input;
-    if (hit)
-    {
-        rayInput.maxFraction = output->fraction;
-    }
+    RayCastOutput candidate;
 
-    if (RayCastTriangle(a, c, d, rayInput, &candidate))
+    Vec3 a = Mul(transform, vertices[0]);
+    for (int32 i = 1; i + 1 < int32(vertices.size()); ++i)
     {
-        *output = candidate;
-        hit = true;
+        Vec3 b = Mul(transform, vertices[i]);
+        Vec3 c = Mul(transform, vertices[i + 1]);
+
+        if (RayCastTriangle(a, b, c, rayInput, &candidate))
+        {
+            *output = candidate;
+            rayInput.maxFraction = output->fraction;
+            hit = true;
+        }
     }
 
     return hit;

@@ -1,5 +1,5 @@
 #include "muli3/geometry.h"
-#include "muli3/frame.h"
+#include "muli3/shape.h"
 
 namespace muli3
 {
@@ -184,12 +184,16 @@ static bool FindInitialSimplex(std::span<const Vec3> points, float tolerance, in
     return true;
 }
 
-void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVertices, std::vector<ConvexFace>* outFaces)
+void ComputeConvexHull(
+    std::span<const Vec3> points, std::vector<Vec3>* outVertices, std::vector<int32>* outIndices, std::vector<Face>* outFaces
+)
 {
     MuliAssert(outVertices != nullptr);
     MuliAssert(outFaces != nullptr);
+    MuliAssert(outIndices != nullptr);
 
     outVertices->clear();
+    outIndices->clear();
     outFaces->clear();
 
     float tolerance = 1e-4f;
@@ -373,11 +377,12 @@ void ComputeConvexHull(std::span<const Vec3> points, std::vector<Vec3>* outVerti
     // The rest of the engine currently expects triangle faces.
     for (const HullFace& hullFace : hullFaces)
     {
-        ConvexFace face;
-        face.count = 3;
-        face.indices[0] = remap[hullFace.indices[0]];
-        face.indices[1] = remap[hullFace.indices[1]];
-        face.indices[2] = remap[hullFace.indices[2]];
+        Face face;
+        face.vertexStart = int32(outIndices->size());
+        face.vertexCount = 3;
+        outIndices->push_back(remap[hullFace.indices[0]]);
+        outIndices->push_back(remap[hullFace.indices[1]]);
+        outIndices->push_back(remap[hullFace.indices[2]]);
         outFaces->push_back(face);
     }
 }
@@ -453,43 +458,6 @@ void ComputeConvexHull(std::span<const Vec2> vertices, std::vector<Vec2>* outVer
     }
 
     *outVertices = std::move(hull);
-}
-
-bool ComputeQuadrilateral(const Vec3& normal, const Vec3 vertices[4], Vec3 outVertices[4])
-{
-    MuliAssert(vertices != nullptr);
-    MuliAssert(outVertices != nullptr);
-
-    Vec3 tangentX, tangentY;
-    CoordinateSystem(normal, &tangentX, &tangentY);
-
-    Vec3 projected[4];
-    Vec2 planeVertices[4];
-
-    projected[0] = vertices[0];
-    planeVertices[0] = Vec2::zero;
-
-    for (int32 i = 1; i < 4; ++i)
-    {
-        Vec3 r = vertices[i] - vertices[0];
-        projected[i] = vertices[i] - normal * Dot(r, normal);
-        Vec3 local = projected[i] - vertices[0];
-        planeVertices[i] = Vec2{ Dot(local, tangentX), Dot(local, tangentY) };
-    }
-
-    std::vector<Vec2> convex;
-    ComputeConvexHull(planeVertices, &convex);
-    if (convex.size() != 4)
-    {
-        return false;
-    }
-
-    for (int32 i = 0; i < 4; ++i)
-    {
-        outVertices[i] = vertices[0] + tangentX * convex[i].x + tangentY * convex[i].y;
-    }
-
-    return true;
 }
 
 } // namespace muli3

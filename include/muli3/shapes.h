@@ -4,7 +4,7 @@
 #include "capsule_shape.h"      // IWYU pragma: export
 #include "convex_shape.h"       // IWYU pragma: export
 #include "height_field_shape.h" // IWYU pragma: export
-#include "quad_shape.h"         // IWYU pragma: export
+#include "polygon_shape.h"      // IWYU pragma: export
 #include "sphere_shape.h"       // IWYU pragma: export
 #include "triangle_shape.h"     // IWYU pragma: export
 
@@ -26,9 +26,14 @@ inline int32 Shape::GetVertexCount() const
     return Dispatch([&](auto shape) { return shape->GetVertexCount(); });
 }
 
-inline Vec3 Shape::GetVertex(int32 id) const
+inline Vec3 Shape::GetVertex(int32 index) const
 {
-    return Dispatch([&](auto shape) { return shape->GetVertex(id); });
+    return Dispatch([&](auto shape) { return shape->GetVertex(index); });
+}
+
+inline int32 Shape::GetVertexIndex(int32 index) const
+{
+    return Dispatch([&](auto shape) { return shape->GetVertexIndex(index); });
 }
 
 inline int32 Shape::GetSupport(const Vec3& localDir) const

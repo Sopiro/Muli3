@@ -3,15 +3,6 @@
 namespace muli3
 {
 
-constexpr static int32 boxFaceVertexIndices[6][4] = {
-    { 0, 4, 6, 2 }, // -x
-    { 1, 3, 7, 5 }, // +x
-    { 0, 1, 5, 4 }, // -y
-    { 2, 6, 7, 3 }, // +y
-    { 0, 2, 3, 1 }, // -z
-    { 4, 5, 7, 6 }, // +z
-};
-
 constexpr static Vec3 boxNormals[6] = {
     Vec3{ -1.0f, 0.0f, 0.0f }, Vec3{ 1.0f, 0.0f, 0.0f },  Vec3{ 0.0f, -1.0f, 0.0f },
     Vec3{ 0.0f, 1.0f, 0.0f },  Vec3{ 0.0f, 0.0f, -1.0f }, Vec3{ 0.0f, 0.0f, 1.0f },
@@ -232,16 +223,10 @@ Face BoxShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) cons
 
     int32 face = axis * 2 + (localDir[axis] > 0.0f ? 1 : 0);
 
-    Face outFace;
-    outFace.count = 4;
+    Face outFace{};
+    outFace.vertexStart = face * 4;
+    outFace.vertexCount = 4;
     outFace.normal = worldOrientation.Rotate(boxNormals[face]);
-    for (int32 i = 0; i < 4; ++i)
-    {
-        int32 vertexId = boxFaceVertexIndices[face][i];
-        outFace.points[i].id = vertexId;
-        outFace.points[i].p = Mul(transform, GetVertex(vertexId));
-    }
-
     return outFace;
 }
 

@@ -125,10 +125,11 @@ private:
         case 2:
             return std::make_unique<BoxShape>(0.55f);
         case 3:
-            return std::make_unique<QuadShape>(
-                Vec3{ -0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, 0.3f, 0.0f }, Vec3{ -0.35f, 0.3f, 0.0f },
-                default_radius
-            );
+        {
+            Vec3 vertices[4] = { Vec3{ -0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, 0.3f, 0.0f },
+                                 Vec3{ -0.35f, 0.3f, 0.0f } };
+            return std::make_unique<PolygonShape>(vertices, default_radius);
+        }
         case 4:
             return std::make_unique<TriangleShape>(
                 Vec3{ -0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, -0.3f, 0.0f }, Vec3{ 0.0f, 0.4f, 0.0f }, default_radius

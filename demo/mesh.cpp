@@ -1,9 +1,21 @@
 #include "mesh.h"
 #include "muli3/convex_shape.h"
+#include "muli3/frame.h"
 #include "muli3/height_field_shape.h"
+#include "muli3/polygon_shape.h"
 
 namespace muli3
 {
+
+static void SetMeshVertexAttributes()
+{
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, position)));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, normal)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, uv)));
+    glEnableVertexAttribArray(2);
+}
 
 Mesh::~Mesh()
 {
@@ -29,18 +41,42 @@ void Mesh::Upload(const std::vector<MeshVertex>& vertices, const std::vector<uin
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(indices.size() * sizeof(uint32)), indices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, position)));
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, normal)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), reinterpret_cast<void*>(offsetof(MeshVertex, uv)));
-    glEnableVertexAttribArray(2);
+    SetMeshVertexAttributes();
 
     glBindVertexArray(0);
 }
 
+void Mesh::Upload(
+    const std::vector<MeshVertex>& vertices, const std::vector<uint32>& triangleIndices, const std::vector<uint32>& lineIndices
+)
+{
+    Upload(vertices, triangleIndices, GL_TRIANGLES);
+    outlineIndexCount = (GLsizei)lineIndices.size();
+
+    glGenVertexArrays(1, &outlineVao);
+    glGenBuffers(1, &outlineEbo);
+    glBindVertexArray(outlineVao);
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, outlineEbo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)(lineIndices.size() * sizeof(uint32)), lineIndices.data(), GL_STATIC_DRAW);
+    SetMeshVertexAttributes();
+
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
 void Mesh::Destroy()
 {
+    if (outlineEbo != 0)
+    {
+        glDeleteBuffers(1, &outlineEbo);
+        outlineEbo = 0;
+    }
+    if (outlineVao != 0)
+    {
+        glDeleteVertexArrays(1, &outlineVao);
+        outlineVao = 0;
+    }
     if (ebo != 0)
     {
         glDeleteBuffers(1, &ebo);
@@ -58,6 +94,7 @@ void Mesh::Destroy()
     }
 
     indexCount = 0;
+    outlineIndexCount = 0;
 }
 
 void Mesh::Draw() const
@@ -67,10 +104,12 @@ void Mesh::Draw() const
     glBindVertexArray(0);
 }
 
-void Mesh::DrawInstanced(GLsizei instanceCount) const
+void Mesh::DrawInstanced(GLsizei instanceCount, bool outline) const
 {
-    glBindVertexArray(vao);
-    glDrawElementsInstanced(primitive, indexCount, GL_UNSIGNED_INT, nullptr, instanceCount);
+    glBindVertexArray(outline ? outlineVao : vao);
+    glDrawElementsInstanced(
+        outline ? GL_LINES : primitive, outline ? outlineIndexCount : indexCount, GL_UNSIGNED_INT, nullptr, instanceCount
+    );
     glBindVertexArray(0);
 }
 
@@ -79,10 +118,51 @@ GLuint Mesh::GetVAO() const
     return vao;
 }
 
-void BuildSphereMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings)
+GLuint Mesh::GetOutlineVAO() const
+{
+    return outlineVao;
+}
+
+static void BuildSurfaceGridOutline(
+    std::vector<uint32>* lineIndices, int32 segments, int32 rows, bool collapseTop, bool collapseBottom
+)
+{
+    MuliAssert(lineIndices != nullptr);
+
+    lineIndices->clear();
+    int32 lineCount = segments * (rows - 1 + rows - int32(collapseTop) - int32(collapseBottom));
+    lineIndices->reserve(2 * lineCount);
+
+    for (int32 row = 0; row + 1 < rows; ++row)
+    {
+        for (int32 segment = 0; segment < segments; ++segment)
+        {
+            uint32 a = uint32(row * (segments + 1) + segment);
+            lineIndices->push_back(a);
+            lineIndices->push_back(a + uint32(segments + 1));
+        }
+    }
+
+    int32 firstRow = collapseTop ? 1 : 0;
+    int32 lastRow = collapseBottom ? rows - 1 : rows;
+    for (int32 row = firstRow; row < lastRow; ++row)
+    {
+        for (int32 segment = 0; segment < segments; ++segment)
+        {
+            uint32 a = uint32(row * (segments + 1) + segment);
+            lineIndices->push_back(a);
+            lineIndices->push_back(a + 1);
+        }
+    }
+}
+
+void BuildSphereMesh(
+    std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, std::vector<uint32>* lineIndices, int32 segments, int32 rings
+)
 {
     MuliAssert(vertices != nullptr);
     MuliAssert(indices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     vertices->clear();
     indices->clear();
@@ -127,6 +207,8 @@ void BuildSphereMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* ind
             indices->push_back(b);
         }
     }
+
+    BuildSurfaceGridOutline(lineIndices, segments, rings + 1, true, true);
 }
 
 void BuildCapsuleMesh(
@@ -211,10 +293,13 @@ void BuildCapsuleMesh(
     }
 }
 
-void BuildCapsuleTopMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings)
+void BuildCapsuleTopMesh(
+    std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, std::vector<uint32>* lineIndices, int32 segments, int32 rings
+)
 {
     MuliAssert(vertices != nullptr);
     MuliAssert(indices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     vertices->clear();
     indices->clear();
@@ -255,12 +340,17 @@ void BuildCapsuleTopMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>*
             indices->push_back(b);
         }
     }
+
+    BuildSurfaceGridOutline(lineIndices, segments, rings + 1, true, false);
 }
 
-void BuildCapsuleBottomMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments, int32 rings)
+void BuildCapsuleBottomMesh(
+    std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, std::vector<uint32>* lineIndices, int32 segments, int32 rings
+)
 {
     MuliAssert(vertices != nullptr);
     MuliAssert(indices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     vertices->clear();
     indices->clear();
@@ -301,12 +391,17 @@ void BuildCapsuleBottomMesh(std::vector<MeshVertex>* vertices, std::vector<uint3
             indices->push_back(b);
         }
     }
+
+    BuildSurfaceGridOutline(lineIndices, segments, rings + 1, false, true);
 }
 
-void BuildCapsuleMidMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, int32 segments)
+void BuildCapsuleMidMesh(
+    std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, std::vector<uint32>* lineIndices, int32 segments
+)
 {
     MuliAssert(vertices != nullptr);
     MuliAssert(indices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     vertices->clear();
     indices->clear();
@@ -342,12 +437,21 @@ void BuildCapsuleMidMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>*
         indices->push_back(d);
         indices->push_back(b);
     }
+
+    lineIndices->clear();
+    lineIndices->reserve(2 * segments);
+    for (int32 segment = 0; segment < segments; ++segment)
+    {
+        lineIndices->push_back(uint32(segment));
+        lineIndices->push_back(uint32(segment + segments + 1));
+    }
 }
 
-void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices)
+void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, std::vector<uint32>* lineIndices)
 {
     MuliAssert(vertices != nullptr);
     MuliAssert(indices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     *vertices = {
         MeshVertex{ Vec3{ -1.0f, -1.0f, -1.0f }, Vec3{ 0.0f, 0.0f, -1.0f }, Vec2{ 0.0f, 0.0f } },
@@ -384,6 +488,10 @@ void BuildBoxMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indice
     *indices = {
         0,  2,  1,  0,  3,  2,  4,  5,  6,  4,  6,  7,  8,  10, 9,  8,  11, 10,
         12, 14, 13, 12, 15, 14, 16, 18, 17, 16, 19, 18, 20, 22, 21, 20, 23, 22,
+    };
+
+    *lineIndices = {
+        0, 1, 1, 2, 2, 3, 3, 0, 4, 5, 5, 6, 6, 7, 7, 4, 0, 4, 1, 5, 2, 6, 3, 7,
     };
 }
 
@@ -444,39 +552,165 @@ void BuildPlaneMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indi
     *indices = { 0, 2, 1, 0, 3, 2 };
 }
 
-void BuildConvexMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const ConvexShape& shape)
+void BuildConvexMesh(
+    std::vector<MeshVertex>* vertices,
+    std::vector<uint32>* triangleIndices,
+    std::vector<uint32>* lineIndices,
+    const ConvexShape& shape
+)
 {
+    struct Edge
+    {
+        uint32 a;
+        uint32 b;
+        Vec3 normal;
+        bool visible;
+    };
+
     MuliAssert(vertices != nullptr);
-    MuliAssert(indices != nullptr);
+    MuliAssert(triangleIndices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     vertices->clear();
-    indices->clear();
+    triangleIndices->clear();
+    lineIndices->clear();
 
-    std::span<const ConvexFace> faces = shape.GetFaces();
-    std::span<const Vec3> normals = shape.GetFaceNormals();
+    std::span<const Face> faces = shape.GetFaces();
+    std::span<const int32> faceIndices = shape.GetIndices();
 
-    vertices->reserve(faces.size() * 3);
-    indices->reserve(faces.size() * 3);
+    vertices->reserve(shape.GetIndices().size());
+    triangleIndices->reserve(shape.GetIndices().size() * 3);
+    lineIndices->reserve(shape.GetIndices().size() * 2);
+    std::vector<Edge> edges;
+    std::unordered_map<uint64, int32> edgeMap;
+    edges.reserve(shape.GetIndices().size());
+    edgeMap.reserve(shape.GetIndices().size());
 
     for (int32 i = 0; i < int32(faces.size()); ++i)
     {
-        const ConvexFace& face = faces[i];
-        const Vec3 normal = normals[i];
+        const Face& face = faces[i];
+        const Vec3 normal = face.normal;
+        uint32 base = uint32(vertices->size());
 
-        for (int32 j = 0; j < face.count; ++j)
+        for (int32 j = 0; j < face.vertexCount; ++j)
         {
-            Vec3 position = shape.GetVertex(face.indices[j]);
+            Vec3 position = shape.GetVertex(faceIndices[face.vertexStart + j]);
             Vec2 uv{ position.x, position.z };
             vertices->push_back(MeshVertex{ position, normal, uv });
-            indices->push_back(uint32(indices->size()));
+        }
+
+        for (int32 j = 1; j + 1 < face.vertexCount; ++j)
+        {
+            triangleIndices->push_back(base);
+            triangleIndices->push_back(base + uint32(j));
+            triangleIndices->push_back(base + uint32(j + 1));
+        }
+
+        for (int32 j = 0; j < face.vertexCount; ++j)
+        {
+            int32 next = (j + 1) % face.vertexCount;
+            uint32 id0 = uint32(faceIndices[face.vertexStart + j]);
+            uint32 id1 = uint32(faceIndices[face.vertexStart + next]);
+            uint32 minId = Min(id0, id1);
+            uint32 maxId = Max(id0, id1);
+            uint64 edge = (uint64(minId) << 32) | maxId;
+            auto it = edgeMap.find(edge);
+            if (it == edgeMap.end())
+            {
+                edgeMap.emplace(edge, int32(edges.size()));
+                edges.push_back(Edge{ base + uint32(j), base + uint32(next), normal, true });
+            }
+            else if (Dot(edges[it->second].normal, normal) > 1.0f - 1e-4f)
+            {
+                edges[it->second].visible = false;
+            }
+        }
+    }
+
+    for (const Edge& edge : edges)
+    {
+        if (edge.visible)
+        {
+            lineIndices->push_back(edge.a);
+            lineIndices->push_back(edge.b);
         }
     }
 }
 
-void BuildTriangleMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices)
+void BuildPolygonMesh(
+    std::vector<MeshVertex>* vertices,
+    std::vector<uint32>* triangleIndices,
+    std::vector<uint32>* lineIndices,
+    const PolygonShape& shape
+)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(triangleIndices != nullptr);
+    MuliAssert(lineIndices != nullptr);
+
+    vertices->clear();
+    triangleIndices->clear();
+    lineIndices->clear();
+
+    int32 count = shape.GetVertexCount();
+    Vec3 normal = shape.GetNormal();
+    Vec3 tangent, bitangent;
+    CoordinateSystem(normal, &tangent, &bitangent);
+
+    Vec2 uvMin{ max_float };
+    Vec2 uvMax{ -max_float };
+    std::vector<Vec2> uvs;
+    uvs.reserve(count);
+    for (int32 i = 0; i < count; ++i)
+    {
+        Vec3 vertex = shape.GetVertex(i);
+        Vec2 uv{ Dot(vertex, tangent), Dot(vertex, bitangent) };
+        uvs.push_back(uv);
+        uvMin = Min(uvMin, uv);
+        uvMax = Max(uvMax, uv);
+    }
+
+    Vec2 uvExtent = uvMax - uvMin;
+    uvExtent.x = Max(uvExtent.x, epsilon);
+    uvExtent.y = Max(uvExtent.y, epsilon);
+
+    vertices->reserve(2 * count);
+    for (int32 i = 0; i < count; ++i)
+    {
+        Vec2 uv{ (uvs[i].x - uvMin.x) / uvExtent.x, (uvs[i].y - uvMin.y) / uvExtent.y };
+        vertices->push_back(MeshVertex{ shape.GetVertex(i), normal, uv });
+    }
+    for (int32 i = 0; i < count; ++i)
+    {
+        Vec2 uv{ (uvs[i].x - uvMin.x) / uvExtent.x, (uvs[i].y - uvMin.y) / uvExtent.y };
+        vertices->push_back(MeshVertex{ shape.GetVertex(i), -normal, uv });
+    }
+
+    triangleIndices->reserve(6 * (count - 2));
+    for (int32 i = 1; i + 1 < count; ++i)
+    {
+        triangleIndices->push_back(0);
+        triangleIndices->push_back(i);
+        triangleIndices->push_back(i + 1);
+
+        triangleIndices->push_back(count);
+        triangleIndices->push_back(count + i + 1);
+        triangleIndices->push_back(count + i);
+    }
+
+    lineIndices->reserve(2 * count);
+    for (int32 i = 0; i < count; ++i)
+    {
+        lineIndices->push_back(i);
+        lineIndices->push_back((i + 1) % count);
+    }
+}
+
+void BuildTriangleMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, std::vector<uint32>* lineIndices)
 {
     MuliAssert(vertices != nullptr);
     MuliAssert(indices != nullptr);
+    MuliAssert(lineIndices != nullptr);
 
     *vertices = {
         MeshVertex{ Vec3{ 0.0f, 0.0f, 0.0f }, z_axis, Vec2{ 0.0f, 0.0f } },
@@ -488,25 +722,7 @@ void BuildTriangleMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* i
     };
 
     *indices = { 0, 1, 2, 3, 4, 5 };
-}
-
-void BuildQuadMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices)
-{
-    MuliAssert(vertices != nullptr);
-    MuliAssert(indices != nullptr);
-
-    *vertices = {
-        MeshVertex{ Vec3{ 0.0f, 0.0f, 0.0f }, z_axis, Vec2{ 0.0f, 0.0f } },
-        MeshVertex{ Vec3{ 1.0f, 0.0f, 0.0f }, z_axis, Vec2{ 1.0f, 0.0f } },
-        MeshVertex{ Vec3{ 2.0f, 0.0f, 0.0f }, z_axis, Vec2{ 1.0f, 1.0f } },
-        MeshVertex{ Vec3{ 3.0f, 0.0f, 0.0f }, z_axis, Vec2{ 0.0f, 1.0f } },
-        MeshVertex{ Vec3{ 0.0f, 0.0f, 0.0f }, -z_axis, Vec2{ 0.0f, 0.0f } },
-        MeshVertex{ Vec3{ 3.0f, 0.0f, 0.0f }, -z_axis, Vec2{ 0.0f, 1.0f } },
-        MeshVertex{ Vec3{ 2.0f, 0.0f, 0.0f }, -z_axis, Vec2{ 1.0f, 1.0f } },
-        MeshVertex{ Vec3{ 1.0f, 0.0f, 0.0f }, -z_axis, Vec2{ 1.0f, 0.0f } },
-    };
-
-    *indices = { 0, 1, 2, 0, 2, 3, 4, 5, 6, 4, 6, 7 };
+    *lineIndices = { 0, 1, 1, 2, 2, 0 };
 }
 
 void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const HeightFieldShape& shape)
