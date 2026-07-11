@@ -1381,8 +1381,6 @@ void World::Solve()
     }
     MuliProfileZoneEnd(solve_positions);
 
-    spinScope.Close();
-
     MuliProfileZoneNC(sleep_and_sync, "Sleep And Sync", color::sleep_and_sync, true);
     {
         ProfileScope profile_sleep_and_sync{ &profile.sleep_and_sync };
@@ -1393,7 +1391,6 @@ void World::Solve()
             Collider* collider;
             AABB aabb;
             Vec3 displacement;
-            bool reset;
         };
 
         // Build per-body collider spans(prefix sums) so workers can write without synchronization.
@@ -1413,8 +1410,12 @@ void World::Solve()
         int32 islandWordCount = (islandCount + 63) / 64;
         int32 bodyWordCount = (bodyIndex + 63) / 64;
 
-        int32 awakeIslandBitSize = workerCount * islandWordCount * sizeof(uint64);
-        int32 destroyBodyBitSize = workerCount * bodyWordCount * sizeof(uint64);
+        // Cache-line separated worker strides avoid false sharing
+        int32 islandWordStride = (islandWordCount + 7) & ~7;
+        int32 bodyWordStride = (bodyWordCount + 7) & ~7;
+
+        int32 awakeIslandBitSize = workerCount * islandWordStride * sizeof(uint64);
+        int32 destroyBodyBitSize = workerCount * bodyWordStride * sizeof(uint64);
 
         // Worker-local bits avoid atomics while collecting body results.
         uint64* awakeIslandBits = (uint64*)linearAllocator.Allocate(awakeIslandBitSize);
@@ -1433,8 +1434,8 @@ void World::Solve()
                 MuliProfileZoneN(sync_bodies, "Sync Bodies", true);
                 MuliAssert(workerIndex < workerCount);
 
-                uint64* awakeBits = awakeIslandBits + workerIndex * islandWordCount;
-                uint64* destroyBits = destroyBodyBits + workerIndex * bodyWordCount;
+                uint64* awakeBits = awakeIslandBits + workerIndex * islandWordStride;
+                uint64* destroyBits = destroyBodyBits + workerIndex * bodyWordStride;
 
                 for (int32 i = i0; i < i1; ++i)
                 {
@@ -1445,7 +1446,10 @@ void World::Solve()
                     if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
                         Length2(s->linearVelocity) > settings.rest_linear_tolerance)
                     {
-                        SetBit(awakeBits, body->islandIndex);
+                        if (GetBit(awakeBits, body->islandIndex) == false)
+                        {
+                            SetBit(awakeBits, body->islandIndex);
+                        }
                     }
 
                     Transform transform0;
@@ -1459,7 +1463,6 @@ void World::Solve()
                     }
 
                     int32 syncIndex = colliderStarts[i];
-                    bool rested = s->resting > settings.sleeping_time;
                     for (Collider* collider = body->colliderList; collider; collider = collider->next)
                     {
                         AABB aabb0;
@@ -1472,10 +1475,17 @@ void World::Solve()
                         aabb1.max += prediction;
 
                         ColliderSync* sync = colliderSyncs + syncIndex++;
-                        sync->collider = collider;
-                        sync->aabb = AABB::Union(aabb0, aabb1);
-                        sync->displacement = prediction;
-                        sync->reset = rested;
+                        AABB aabb = AABB::Union(aabb0, aabb1);
+                        if (constraintGraph.broadPhase.tree.GetAABB(collider->node).Contains(aabb))
+                        {
+                            sync->collider = nullptr;
+                        }
+                        else
+                        {
+                            sync->collider = collider;
+                            sync->aabb = aabb;
+                            sync->displacement = prediction;
+                        }
                     }
                 }
 
@@ -1484,18 +1494,20 @@ void World::Solve()
             settings.thread_pool
         );
 
+        spinScope.Close();
+
         // Merge worker-local results into worker 0 storage.
         uint64* awakeBits = awakeIslandBits;
         uint64* destroyBits = destroyBodyBits;
         for (int32 worker = 1; worker < workerCount; ++worker)
         {
-            uint64* otherAwakeBits = awakeIslandBits + worker * islandWordCount;
+            uint64* otherAwakeBits = awakeIslandBits + worker * islandWordStride;
             for (int32 i = 0; i < islandWordCount; ++i)
             {
                 awakeBits[i] |= otherAwakeBits[i];
             }
 
-            uint64* otherDestroyBits = destroyBodyBits + worker * bodyWordCount;
+            uint64* otherDestroyBits = destroyBodyBits + worker * bodyWordStride;
             for (int32 i = 0; i < bodyWordCount; ++i)
             {
                 destroyBits[i] |= otherDestroyBits[i];
@@ -1525,7 +1537,10 @@ void World::Solve()
                     for (int32 k = colliderStarts[b]; k < colliderStarts[b + 1]; ++k)
                     {
                         const ColliderSync& sync = colliderSyncs[k];
-                        constraintGraph.broadPhase.Update(sync.collider, sync.aabb, sync.displacement, sync.reset);
+                        if (sync.collider)
+                        {
+                            constraintGraph.broadPhase.Update(sync.collider, sync.aabb, sync.displacement, false);
+                        }
                     }
                 }
 
