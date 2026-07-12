@@ -17,7 +17,7 @@ public:
         Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         float size = 1.0f;
-        float gap = 0.1f;
+        float gap = 0.05f;
         float start = 0.5f + gap + 0.25f;
 
         for (int32 i = 0; i < count; ++i)

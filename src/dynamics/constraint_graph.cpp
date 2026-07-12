@@ -62,7 +62,8 @@ void ConstraintGraph::EvaluateContacts()
     int32 workerCount = world->settings.thread_pool ? world->settings.thread_pool->WorkerCount() : 1;
     int32 contactSlotCount = world->poolAllocator.GetSlotCount<Contact>();
     int32 contactWordCount = (contactSlotCount + 63) / 64;
-    int32 contactBitSize = workerCount * contactWordCount * int32(sizeof(uint64));
+    int32 contactWordStride = (contactWordCount + 7) & ~7;
+    int32 contactBitSize = workerCount * contactWordStride * int32(sizeof(uint64));
 
     uint64* contactBits = (uint64*)world->linearAllocator.Allocate(contactBitSize);
     memset(contactBits, 0, contactBitSize);
@@ -78,7 +79,7 @@ void ConstraintGraph::EvaluateContacts()
         0, activeCount, 64,
         [&](int32 begin, int32 end, int32 workerIndex) {
             MuliAssert(workerIndex < workerCount);
-            uint64* changedBits = contactBits + workerIndex * contactWordCount;
+            uint64* changedBits = contactBits + workerIndex * contactWordStride;
 
             int32 spanIndex = 0;
             while (spanIndex + 1 < spanCount && spans[spanIndex + 1].start <= begin)
@@ -133,6 +134,12 @@ void ConstraintGraph::EvaluateContacts()
 
             if ((contact->flag & Contact::flag_disjoint) != 0)
             {
+                if (contact->flag & Contact::flag_touching)
+                {
+                    contact->flag &= ~Contact::flag_touching;
+                    contact->flag |= Contact::flag_was_touching;
+                    contact->TriggerCallbacks();
+                }
                 continue;
             }
 
@@ -152,7 +159,7 @@ void ConstraintGraph::EvaluateContacts()
     // Merge worker-local contact state changes into worker 0 storage.
     for (int32 worker = 1; worker < workerCount; ++worker)
     {
-        uint64* otherBits = contactBits + worker * contactWordCount;
+        uint64* otherBits = contactBits + worker * contactWordStride;
         for (int32 i = 0; i < contactWordCount; ++i)
         {
             changedBits[i] |= otherBits[i];
