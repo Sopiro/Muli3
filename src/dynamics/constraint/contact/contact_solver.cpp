@@ -269,8 +269,8 @@ static bool SolvePosition(const PositionConstraint* constraint, ContactState* co
 
     // Important for NGS in 3D:
     // world inverse inertia changes when orientation changes.
-    Mat3 invIA = bodyA->body->GetWorldInverseInertiaTensor();
-    Mat3 invIB = bodyB->body->GetWorldInverseInertiaTensor();
+    Mat3 invIA = !bodyA->body->IsDynamic() ? Mat3::zero : bodyA->body->GetWorldInverseInertiaTensor();
+    Mat3 invIB = !bodyB->body->IsDynamic() ? Mat3::zero : bodyB->body->GetWorldInverseInertiaTensor();
 
     float k = bodyA->invMass + Dot(ran, invIA * ran) + bodyB->invMass + Dot(rbn, invIB * rbn);
 
@@ -369,12 +369,6 @@ void SolveContactVelocityConstraints(ContactState* contact)
 bool SolveContactPositionConstraints(ContactState* contact)
 {
     bool solved = true;
-
-    Body* bodyA = contact->bodyA->body;
-    Body* bodyB = contact->bodyB->body;
-
-    contact->invIA = bodyA->GetWorldInverseInertiaTensor();
-    contact->invIB = bodyB->GetWorldInverseInertiaTensor();
 
     for (int32 m = 0; m < contact->manifolds.size(); ++m)
     {
