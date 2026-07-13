@@ -66,12 +66,12 @@ public:
     {
         std::vector<Vec3> vertices;
         std::vector<int32> indices;
-        bool loaded = LoadObj(MULI3_RES_DIR "/sponza.obj", identity, Vec3{ 1.0f }, &vertices, &indices);
+        bool loaded = LoadObj(MULI3_RES_DIR "/background.obj", identity, Vec3{ 10.0f }, &vertices, &indices);
         MuliAssert(loaded);
 
         world->CreateMesh(vertices, indices);
 
-        camera.SetPosition(Vec3{ 0.0f, 10.0f, 0.0f });
+        camera.SetPosition(Vec3{ 0.0f, 3.0f, 10.0f });
     }
 };
 

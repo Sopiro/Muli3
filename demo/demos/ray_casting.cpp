@@ -173,6 +173,6 @@ static Demo* CreateRayCasting(Game& game)
     return new RayCasting(game);
 }
 
-static int32 ray_casting = register_demo("Collision", "Ray casting", CreateRayCasting, 2);
+static int32 ray_casting = register_demo("Raycast", "Ray casting", CreateRayCasting, 0);
 
 } // namespace muli3

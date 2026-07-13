@@ -71,7 +71,7 @@ target_link_libraries(demo PUBLIC
     imgui
 )
 
-target_compile_definitions(demo PRIVATE MULI3_RES_DIR="${CMAKE_SOURCE_DIR}/res")
+target_compile_definitions(demo PRIVATE MULI3_RES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/res")
 
 set_target_properties(demo PROPERTIES
     CXX_STANDARD 20

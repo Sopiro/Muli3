@@ -228,6 +228,6 @@ static Demo* CreateShapeCasting(Game& game)
     return new ShapeCasting(game);
 }
 
-static int32 shape_cast_world = register_demo("Collision", "Shape casting", CreateShapeCasting, 3);
+static int32 shape_cast_world = register_demo("Raycast", "Shape casting", CreateShapeCasting, 1);
 
 } // namespace muli3

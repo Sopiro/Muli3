@@ -10,8 +10,8 @@ constexpr int32 g_maxVertexCount = 1024 * 4;
 constexpr int32 g_colorCount = 10;
 constexpr int32 g_fillPass = 0;
 constexpr int32 g_outlinePass = 1;
-constexpr float g_shadowViewDistance = 100.0f;
-constexpr float g_shadowBoundsPadding = 5.0f;
+constexpr float g_shadowViewDistance = 50.0f;
+constexpr float g_shadowBoundsPadding = 2.0f;
 constexpr float g_shadowDepthPadding = 32.0f;
 
 Vec4 g_colors[g_colorCount];
