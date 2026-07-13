@@ -179,6 +179,13 @@ Body* World::CreateHeightField(
     return b;
 }
 
+Body* World::CreateMesh(std::span<const Vec3> vertices, std::span<const int32> indices, const Transform& transform)
+{
+    Body* body = CreateEmptyBody(transform, Body::static_body);
+    body->CreateMeshCollider(vertices, indices);
+    return body;
+}
+
 float World::Step(float dt)
 {
     profile = {};
@@ -542,6 +549,11 @@ void World::ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& tr
                 const HeightFieldShape* heightField = (const HeightFieldShape*)colliderShape;
                 hit = heightField->ShapeCast(colliderTransform, shape, tf, translation * input.maxFraction, &output);
             }
+            else if (colliderShape->GetType() == Shape::mesh)
+            {
+                const MeshShape* mesh = (const MeshShape*)colliderShape;
+                hit = mesh->ShapeCast(colliderTransform, shape, tf, translation * input.maxFraction, &output);
+            }
             else
             {
                 hit =
@@ -804,6 +816,11 @@ void World::ShapeCastAny(
             {
                 const HeightFieldShape* heightField = (const HeightFieldShape*)colliderShape;
                 hit = heightField->ShapeCast(colliderTransform, shape, tf, translation * input.maxFraction, &output);
+            }
+            else if (colliderShape->GetType() == Shape::mesh)
+            {
+                const MeshShape* mesh = (const MeshShape*)colliderShape;
+                hit = mesh->ShapeCast(colliderTransform, shape, tf, translation * input.maxFraction, &output);
             }
             else
             {
@@ -2200,6 +2217,10 @@ Shape* World::CloneShape(const Shape* shape, const Transform& transform)
     {
         return poolAllocator.New<HeightFieldShape>(*(const HeightFieldShape*)shape, transform);
     }
+    case Shape::mesh:
+    {
+        return poolAllocator.New<MeshShape>(*(const MeshShape*)shape, transform);
+    }
     default:
         MuliAssert(false);
         break;
@@ -2232,6 +2253,9 @@ void World::FreeShape(Shape* shape)
         break;
     case Shape::height_field:
         poolAllocator.Delete((HeightFieldShape*)shape);
+        break;
+    case Shape::mesh:
+        poolAllocator.Delete((MeshShape*)shape);
         break;
     default:
         MuliAssert(false);

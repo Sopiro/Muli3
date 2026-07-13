@@ -233,6 +233,12 @@ public:
         const Transform& transform = identity,
         const Material& material = default_material
     );
+    Collider* CreateMeshCollider(
+        std::span<const Vec3> vertices,
+        std::span<const int32> indices,
+        const Transform& transform = identity,
+        const Material& material = default_material
+    );
 
     BodyState* GetBodyState();
     const BodyState* GetBodyState() const;
@@ -619,7 +625,6 @@ inline void Body::SynchronizeTransform()
     BodyState* s = GetBodyState();
     transform.q = s->motion.q;
     transform.p = s->motion.c - transform.q.Rotate(s->motion.localCenter);
-    transform.s = Vec3(1);
 }
 
 inline Mat3 Body::GetWorldInertiaTensor() const

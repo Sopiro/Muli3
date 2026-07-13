@@ -32,9 +32,6 @@ Mat3::Mat3(const Quat& q)
 Mat4::Mat4(const Transform& t)
     : Mat4(Mat3(t.q), t.p)
 {
-    ex *= t.s.x;
-    ey *= t.s.y;
-    ez *= t.s.z;
 }
 
 } // namespace muli3

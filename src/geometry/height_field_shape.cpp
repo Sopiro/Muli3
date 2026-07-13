@@ -21,8 +21,8 @@ HeightFieldShape::HeightFieldShape(
     : Shape(Shape::height_field, 0.0f)
     , sampleCountX{ inSampleCountX }
     , sampleCountZ{ inSampleCountZ }
-    , cellSizeX{ inCellSizeX * Abs(transform.s.x) }
-    , cellSizeZ{ inCellSizeZ * Abs(transform.s.z) }
+    , cellSizeX{ inCellSizeX }
+    , cellSizeZ{ inCellSizeZ }
     , offset{ Mul(transform, inOffset) }
     , blockSize{ inBlockSize }
     , heights{ heightSamples.begin(), heightSamples.end() }
@@ -34,11 +34,6 @@ HeightFieldShape::HeightFieldShape(
     MuliAssert(blockSize > 0);
     MuliAssert(int32(heightSamples.size()) == sampleCountX * sampleCountZ);
 
-    for (float& h : heights)
-    {
-        h *= Abs(transform.s.y);
-    }
-
     center = offset + Vec3(0.5f * (sampleCountX - 1) * cellSizeX, 0.0f, 0.5f * (sampleCountZ - 1) * cellSizeZ);
     volume = 0.0f;
 
@@ -49,17 +44,12 @@ HeightFieldShape::HeightFieldShape(const HeightFieldShape& other, const Transfor
     : Shape(Shape::height_field, 0.0f)
     , sampleCountX{ other.sampleCountX }
     , sampleCountZ{ other.sampleCountZ }
-    , cellSizeX{ other.cellSizeX * Abs(transform.s.x) }
-    , cellSizeZ{ other.cellSizeZ * Abs(transform.s.z) }
+    , cellSizeX{ other.cellSizeX }
+    , cellSizeZ{ other.cellSizeZ }
     , offset{ Mul(transform, other.offset) }
     , blockSize{ other.blockSize }
     , heights{ other.heights }
 {
-    for (float& h : heights)
-    {
-        h *= Abs(transform.s.y);
-    }
-
     center = offset + Vec3(0.5f * (sampleCountX - 1) * cellSizeX, 0.0f, 0.5f * (sampleCountZ - 1) * cellSizeZ);
     volume = 0.0f;
 
@@ -398,7 +388,7 @@ bool HeightFieldShape::ShapeCast(
     }
 
     // Shape cast keeps the orientation fixed, so the local AABB only translates.
-    Vec3 localTranslation = transform.q.RotateInv(translation) / transform.s;
+    Vec3 localTranslation = transform.q.RotateInv(translation);
     if (Length2(localTranslation) <= epsilon)
     {
         return false;

@@ -98,7 +98,7 @@ void Contact::Update()
     }
     else
     {
-        touching = collide_function_map2[Shape::height_field - colliderA->GetType()](
+        touching = collide_function_map2[colliderA->GetType() - Shape::height_field](
             colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifolds
         );
     }

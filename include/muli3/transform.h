@@ -10,84 +10,63 @@ struct Transform
 {
     Vec3 p; // position
     Quat q; // orientation
-    Vec3 s; // scale
 
     constexpr Transform() = default;
 
     constexpr Transform(Identity)
         : p{ 0 }
         , q{ identity }
-        , s{ 1 }
     {
     }
 
     constexpr Transform(const Vec3& position)
         : p{ position }
         , q{ identity }
-        , s{ 1 }
     {
     }
 
     constexpr Transform(const Quat& orientation)
         : p{ 0 }
         , q{ orientation }
-        , s{ 1 }
     {
     }
 
     constexpr Transform(const Vec3& position, const Quat& orientation)
         : p{ position }
         , q{ orientation }
-        , s{ 1 }
     {
     }
 
-    constexpr Transform(const Vec3& position, const Quat& orientation, const Vec3& scale)
-        : p{ position }
-        , q{ orientation }
-        , s{ scale }
-    {
-    }
-
-    constexpr Transform(Float x, Float y, Float z, const Quat& orientation = Quat(1), const Vec3& scale = Vec3(1))
+    constexpr Transform(Float x, Float y, Float z, const Quat& orientation = Quat(1))
         : p{ x, y, z }
         , q{ orientation }
-        , s{ scale }
     {
     }
 
     Transform(const Mat4& m)
     {
-        s.x = std::sqrt(m[0][0] * m[0][0] + m[0][1] * m[0][1] + m[0][2] * m[0][2]);
-        s.y = std::sqrt(m[1][0] * m[1][0] + m[1][1] * m[1][1] + m[1][2] * m[1][2]);
-        s.z = std::sqrt(m[2][0] * m[2][0] + m[2][1] * m[2][1] + m[2][2] * m[2][2]);
-
-        q = Mat3(
-            Vec3(m[0][0], m[0][1], m[0][2]) / s.x, Vec3(m[1][0], m[1][1], m[1][2]) / s.y, Vec3(m[2][0], m[2][1], m[2][2]) / s.z
-        );
+        q = Mat3(Vec3(m[0][0], m[0][1], m[0][2]), Vec3(m[1][0], m[1][1], m[1][2]), Vec3(m[2][0], m[2][1], m[2][2]));
 
         p.x = m[3][0];
         p.y = m[3][1];
         p.z = m[3][2];
     }
 
-    constexpr void Set(const Vec3& position, const Quat& orientation, const Vec3& scale)
+    constexpr void Set(const Vec3& position, const Quat& orientation)
     {
         p = position;
         q = orientation;
-        s = scale;
     }
 
     constexpr void SetIdentity()
     {
         p.SetZero();
         q.SetIdentity();
-        s.Set(1, 1, 1);
     }
 
     std::string ToString() const
     {
-        return std::format("p:{}\nq:{}\ns:{}", p.ToString(), q.ToString(), s.ToString());
+        return std::format("p:{}\nq:{}", p.ToString(), q.ToString());
     }
 
     constexpr Transform& operator*=(const Transform& other);
@@ -95,23 +74,17 @@ struct Transform
     constexpr Transform GetInverse() const
     {
         Quat invQ = q.GetConjugate();
-        Vec3 invS = Vec3(1) / s;
-        return Transform{ invQ.Rotate(-(p * invS)), invQ, invS };
+        return Transform{ invQ.Rotate(-p), invQ };
     }
 
     static Transform Translate(const Vec3& position)
     {
-        return Transform(position, Quat(1), Vec3(1));
+        return Transform(position);
     }
 
     static Transform Rotate(const Vec3& rotation)
     {
-        return Transform(Vec3(0), Quat::FromEuler(rotation), Vec3(1));
-    }
-
-    static Transform Scale(const Vec3& scale)
-    {
-        return Transform(Vec3(0), Quat(1), scale);
+        return Transform(Quat::FromEuler(rotation));
     }
 
     static Transform LookAt(const Vec3& position, const Vec3& target, const Vec3& up)
@@ -124,43 +97,42 @@ struct Transform
 
 constexpr inline bool operator==(const Transform& a, const Transform& b)
 {
-    return a.p == b.p && a.q == b.q && a.s == b.s;
+    return a.p == b.p && a.q == b.q;
 }
 
 constexpr inline Vec3 operator*(const Transform& t, const Vec3& v)
 {
-    return t.q.Rotate(t.s * v) + t.p;
+    return t.q.Rotate(v) + t.p;
 }
 
 // A * V
 constexpr inline Vec3 Mul(const Transform& t, const Vec3& v)
 {
-    return t.q.Rotate(t.s * v) + t.p;
+    return t.q.Rotate(v) + t.p;
 }
 
 // A^{-1} * V
 constexpr inline Vec3 MulT(const Transform& t, const Vec3& v)
 {
-    return t.q.RotateInv(v - t.p) / t.s;
+    return t.q.RotateInv(v - t.p);
 }
 
 constexpr inline Transform operator*(const Transform& a, const Transform& b)
 {
-    return Transform{ a.q.Rotate(a.s * b.p) + a.p, a.q * b.q, a.s * b.s };
+    return Transform{ a.q.Rotate(b.p) + a.p, a.q * b.q };
 }
 
 // A * B
 constexpr inline Transform Mul(const Transform& a, const Transform& b)
 {
-    return Transform{ a.q.Rotate(a.s * b.p) + a.p, a.q * b.q, a.s * b.s };
+    return Transform{ a.q.Rotate(b.p) + a.p, a.q * b.q };
 }
 
 // A^{-1} * B
 constexpr inline Transform MulT(const Transform& a, const Transform& b)
 {
     Quat invQ = a.q.GetConjugate();
-    Vec3 invS = Vec3(1) / a.s;
-    return Transform{ invQ.Rotate((b.p - a.p) * invS), invQ * b.q, invS * b.s };
+    return Transform{ invQ.Rotate(b.p - a.p), invQ * b.q };
 }
 
 constexpr inline Transform& Transform::operator*=(const Transform& other)
@@ -213,7 +185,6 @@ inline void Motion::GetTransform(float beta, Transform* transform) const
 
     transform->q = q0 * (1.0f - beta) + q1 * beta;
     transform->q.Normalize();
-    transform->s = Vec3{ 1.0f, 1.0f, 1.0f };
     transform->p = c0 * (1.0f - beta) + c * beta - transform->q.Rotate(localCenter);
 }
 

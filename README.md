@@ -11,7 +11,7 @@
 Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded to 3D and multi-threading support.
 
 ### Collision
-  - Shapes: sphere, capsule, box, polygon, polyhedron, and height field
+  - Shapes: sphere, capsule, box, polygon, polyhedron, height field, and triangle mesh
   - Support for rounded shapes
   - Multiple colliders attached to a single body
   - Dynamic, static, and kinematic bodies

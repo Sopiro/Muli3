@@ -30,7 +30,8 @@ using Shapes = TypePack<
     class ConvexShape,
     class PolygonShape,
     class TriangleShape,
-    class HeightFieldShape>;
+    class HeightFieldShape,
+    class MeshShape>;
 
 class Shape : public DynamicDispatcher<Shapes>
 {
@@ -47,6 +48,7 @@ public:
         polygon,
         triangle,
         height_field,
+        mesh,
         shape_count,
     };
 

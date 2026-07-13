@@ -31,12 +31,12 @@ inline Point3 Ray::At(Float t) const
 
 inline Ray Mul(const Transform& tf, const Ray& ray)
 {
-    return Ray(Mul(tf, ray.o), tf.q.Rotate(tf.s * ray.d));
+    return Ray(Mul(tf, ray.o), tf.q.Rotate(ray.d));
 }
 
 inline Ray MulT(const Transform& tf, const Ray& ray)
 {
-    return Ray(MulT(tf, ray.o), tf.q.RotateInv(ray.d / tf.s));
+    return Ray(MulT(tf, ray.o), tf.q.RotateInv(ray.d));
 }
 
 } // namespace muli3

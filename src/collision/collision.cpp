@@ -2415,10 +2415,60 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
             point += manifold.contactPoints[i].anchorA;
             manifold.contactPoints[i].id = (triangleId << 8) | (manifold.contactPoints[i].id & 0xff);
         }
+        point /= manifold.contactCount;
 
         manifold.normal = ResolveGhostNormal(
             heightField->GetActiveEdgeBits(x, z, triangle), triangleShape, tfA, point, manifold.normal, Vec3::zero
         );
+
+        manifolds->push_back(manifold);
+    });
+
+    return manifolds->size() > 0;
+}
+
+bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldSet* manifolds)
+{
+    const MeshShape* mesh = (const MeshShape*)a;
+
+    AABB worldAABB;
+    b->ComputeAABB(tfB, &worldAABB);
+    Vec3 corners[8] = {
+        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.min.z }),
+        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.min.z }),
+        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.min.z }),
+        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.min.z }),
+        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.max.z }),
+        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.max.z }),
+        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.max.z }),
+        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.max.z }),
+    };
+
+    AABB localAABB{ corners[0], corners[0] };
+    for (int32 i = 1; i < 8; ++i)
+    {
+        localAABB = AABB::Union(localAABB, corners[i]);
+    }
+
+    mesh->Query(localAABB, [&](int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
+        TriangleShape triangleShape{ v0, v1, v2 };
+        ContactManifold manifold{};
+        bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
+        if (touching == false)
+        {
+            return;
+        }
+
+        Vec3 point = Vec3::zero;
+        for (int32 i = 0; i < manifold.contactCount; ++i)
+        {
+            point += manifold.contactPoints[i].anchorA;
+            manifold.contactPoints[i].id = (triangle << 8) | (manifold.contactPoints[i].id & 0xff);
+        }
+        point /= manifold.contactCount;
+
+        manifold.normal =
+            ResolveGhostNormal(mesh->GetActiveEdgeBits(triangle), triangleShape, tfA, point, manifold.normal, Vec3::zero);
 
         manifolds->push_back(manifold);
     });
@@ -2461,6 +2511,7 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::polygon][Shape::polygon] = PolygonVsPolygon;
 
     collide_function_map2[Shape::height_field - Shape::height_field] = HeightFieldVsShape;
+    collide_function_map2[Shape::mesh - Shape::height_field] = MeshVsShape;
 
     detection_function_initialized = true;
 }

@@ -32,13 +32,8 @@ void SphereShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
 
-    const Vec3 transformedCenter = Mul(transform, center);
-    const Vec3 r{
-        radius * Abs(transform.s.x),
-        radius * Abs(transform.s.y),
-        radius * Abs(transform.s.z),
-    };
-    *outAABB = AABB{ transformedCenter - r, transformedCenter + r };
+    Vec3 c = Mul(transform, center);
+    *outAABB = AABB{ c - radius, c + radius };
 }
 
 bool SphereShape::TestPoint(const Transform& transform, const Vec3& q) const

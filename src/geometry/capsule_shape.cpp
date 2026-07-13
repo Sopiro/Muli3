@@ -6,9 +6,9 @@ namespace muli3
 {
 
 CapsuleShape::CapsuleShape(float height, float inRadius, const Transform& transform)
-    : Shape{ Shape::capsule, inRadius * Max(Abs(transform.s.x), Abs(transform.s.z)) }
+    : Shape{ Shape::capsule, inRadius }
 {
-    float halfHeight = height * 0.5f * Abs(transform.s.y);
+    float halfHeight = height * 0.5f;
 
     va = Vec3{ 0.0f, -halfHeight, 0.0f };
     vb = Vec3{ 0.0f, halfHeight, 0.0f };
@@ -22,7 +22,7 @@ CapsuleShape::CapsuleShape(float height, float inRadius, const Transform& transf
 }
 
 CapsuleShape::CapsuleShape(const Vec3& p1, const Vec3& p2, float inRadius, const Transform& transform)
-    : Shape{ Shape::capsule, inRadius * Max(Abs(transform.s.x), Abs(transform.s.z)) }
+    : Shape{ Shape::capsule, inRadius }
 {
     va = p1;
     vb = p2;
@@ -84,10 +84,8 @@ void CapsuleShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 
     Vec3 a = Mul(transform, va);
     Vec3 b = Mul(transform, vb);
-    float scaledRadius = radius * Max(Abs(transform.s.x), Max(Abs(transform.s.y), Abs(transform.s.z)));
-    Vec3 r{ scaledRadius, scaledRadius, scaledRadius };
 
-    *outAABB = AABB{ Min(a, b) - r, Max(a, b) + r };
+    *outAABB = AABB{ Min(a, b) - radius, Max(a, b) + radius };
 }
 
 bool CapsuleShape::TestPoint(const Transform& transform, const Vec3& q) const

@@ -563,9 +563,7 @@ void ConvexShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
         max = Max(max, v);
     }
 
-    float scaledRadius = radius * Max(Abs(transform.s.x), Max(Abs(transform.s.y), Abs(transform.s.z)));
-    Vec3 r{ scaledRadius, scaledRadius, scaledRadius };
-    *outAABB = AABB{ min - r, max + r };
+    *outAABB = AABB{ min - radius, max + radius };
 }
 
 int32 ConvexShape::GetSupport(const Vec3& localDir) const

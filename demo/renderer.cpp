@@ -641,6 +641,11 @@ void Renderer::ClearMeshCache()
         MuliNotUsed(shape);
         mesh.Destroy();
     }
+    for (auto& [shape, mesh] : meshShapeMeshes)
+    {
+        MuliNotUsed(shape);
+        mesh.Destroy();
+    }
 
     shapeMeshes.clear();
     shapeMeshKeyCache.clear();
@@ -661,6 +666,7 @@ void Renderer::ClearMeshCache()
     shapeMeshInstanceBuffer.clear();
     shapeMeshCommands.clear();
     heightFieldMeshes.clear();
+    meshShapeMeshes.clear();
 
     if (shapeMeshVBO != 0)
     {
@@ -727,10 +733,15 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     if (shape->GetType() == Shape::sphere)
     {
         const SphereShape* sphere = (const SphereShape*)shape;
-        Transform renderTransform = transform;
-        renderTransform.p = Mul(transform, sphere->GetCenter());
-        renderTransform.s = renderTransform.s * Vec3{ sphere->GetRadius(), sphere->GetRadius(), sphere->GetRadius() };
-        sphereBatch.instances[pass].emplace_back(Mat4(renderTransform), color);
+        Mat3 rotation{ transform.q };
+        float radius = sphere->GetRadius();
+        Mat4 model{
+            Vec4{ rotation.ex * radius, 0.0f },
+            Vec4{ rotation.ey * radius, 0.0f },
+            Vec4{ rotation.ez * radius, 0.0f },
+            Vec4{ Mul(transform, sphere->GetCenter()), 1.0f },
+        };
+        sphereBatch.instances[pass].emplace_back(model, color);
     }
     else if (shape->GetType() == Shape::capsule)
     {
@@ -739,7 +750,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         Vec3 b = Mul(transform, capsule->GetVertexB());
         Vec3 axis = b - a;
         float height = axis.Normalize();
-        float radius = capsule->GetRadius() * Max(Abs(transform.s.x), Max(Abs(transform.s.y), Abs(transform.s.z)));
+        float radius = capsule->GetRadius();
         Vec3 center = (a + b) * 0.5f;
 
         if (height == 0.0f)
@@ -799,11 +810,15 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     else if (shape->GetType() == Shape::box)
     {
         const BoxShape* box = (const BoxShape*)shape;
-        Transform renderTransform = transform;
-        renderTransform.p = Mul(transform, box->GetCenter());
-        renderTransform.q = transform.q * box->GetRotation();
-        renderTransform.s = renderTransform.s * box->GetHalfExtents();
-        boxBatch.instances[pass].emplace_back(Mat4(renderTransform), color);
+        Mat3 rotation{ transform.q * box->GetRotation() };
+        Vec3 halfExtents = box->GetHalfExtents();
+        Mat4 model{
+            Vec4{ rotation.ex * halfExtents.x, 0.0f },
+            Vec4{ rotation.ey * halfExtents.y, 0.0f },
+            Vec4{ rotation.ez * halfExtents.z, 0.0f },
+            Vec4{ Mul(transform, box->GetCenter()), 1.0f },
+        };
+        boxBatch.instances[pass].emplace_back(model, color);
     }
     else if (shape->GetType() == Shape::convex)
     {
@@ -851,6 +866,11 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     else if (shape->GetType() == Shape::height_field)
     {
         DrawHeightField((const HeightFieldShape*)shape, transform, color, wireframe, shader);
+        return;
+    }
+    else if (shape->GetType() == Shape::mesh)
+    {
+        DrawMeshShape((const MeshShape*)shape, transform, color, wireframe, shader);
         return;
     }
 
@@ -1031,12 +1051,68 @@ Mesh& Renderer::GetHeightFieldMesh(const HeightFieldShape* shape)
     return mesh;
 }
 
+Mesh& Renderer::GetMeshShapeMesh(const MeshShape* shape)
+{
+    auto it = meshShapeMeshes.find(shape);
+    if (it != meshShapeMeshes.end())
+    {
+        return it->second;
+    }
+
+    std::vector<MeshVertex> vertices;
+    std::vector<uint32> indices;
+    BuildMeshShapeMesh(&vertices, &indices, *shape);
+
+    Mesh& mesh = meshShapeMeshes[shape];
+    mesh.Upload(vertices, indices, GL_TRIANGLES);
+    glBindVertexArray(mesh.GetVAO());
+    glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
+    SetShapeInstanceAttributes();
+    glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    return mesh;
+}
+
 void Renderer::DrawHeightField(
     const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
 )
 {
     ShapeInstance instance{ Mat4(transform), color };
     Mesh& mesh = GetHeightFieldMesh(shape);
+
+    GLint previousDepthFunc = GL_LESS;
+    GLboolean cullFaceEnabled = GL_FALSE;
+    if (wireframe)
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        cullFaceEnabled = glIsEnabled(GL_CULL_FACE);
+        glDepthFunc(GL_LEQUAL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glDisable(GL_CULL_FACE);
+    }
+
+    shader.Use();
+    UploadShapeInstances(&instance, 1);
+    mesh.DrawInstanced(1);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    if (wireframe)
+    {
+        if (cullFaceEnabled)
+        {
+            glEnable(GL_CULL_FACE);
+        }
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glDepthFunc(previousDepthFunc);
+    }
+}
+
+void Renderer::DrawMeshShape(
+    const MeshShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
+)
+{
+    ShapeInstance instance{ Mat4(transform), color };
+    Mesh& mesh = GetMeshShapeMesh(shape);
 
     GLint previousDepthFunc = GL_LESS;
     GLboolean cullFaceEnabled = GL_FALSE;

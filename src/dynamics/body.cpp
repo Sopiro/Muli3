@@ -283,6 +283,17 @@ Collider* Body::CreateHeightFieldCollider(
     return CreateCollider(&heightField, tf, 0.0f, material);
 }
 
+Collider* Body::CreateMeshCollider(
+    std::span<const Vec3> vertices,
+    std::span<const int32> indices,
+    const Transform& tf,
+    const Material& material
+)
+{
+    MeshShape mesh{ vertices, indices };
+    return CreateCollider(&mesh, tf, 0.0f, material);
+}
+
 bool Body::TestPoint(const Vec3& q) const
 {
     MuliAssert(colliderCount > 0);

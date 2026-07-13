@@ -116,6 +116,9 @@ private:
     void DrawHeightField(
         const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
     );
+    void DrawMeshShape(
+        const MeshShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
+    );
     size_t GetShapeMeshKey(const Shape* shape);
     size_t GetConvexMeshKey(const ConvexShape* shape) const;
     size_t GetPolygonMeshKey(const PolygonShape* shape) const;
@@ -128,6 +131,7 @@ private:
         std::span<const uint32> outlineIndices
     );
     Mesh& GetHeightFieldMesh(const HeightFieldShape* shape);
+    Mesh& GetMeshShapeMesh(const MeshShape* shape);
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
@@ -157,6 +161,7 @@ private:
     std::vector<ShapeInstance> shapeMeshInstanceBuffer;
     std::vector<DrawElementsIndirectCommand> shapeMeshCommands;
     std::unordered_map<const HeightFieldShape*, Mesh> heightFieldMeshes;
+    std::unordered_map<const MeshShape*, Mesh> meshShapeMeshes;
 
     int32 pointCount = 0;
     std::vector<Vertex> points;

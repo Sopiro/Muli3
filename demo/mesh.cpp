@@ -2,6 +2,7 @@
 #include "muli3/convex_shape.h"
 #include "muli3/frame.h"
 #include "muli3/height_field_shape.h"
+#include "muli3/mesh_shape.h"
 #include "muli3/polygon_shape.h"
 
 namespace muli3
@@ -761,6 +762,31 @@ void BuildHeightFieldMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>
                 indices->push_back(base + 2);
             }
         }
+    }
+}
+
+void BuildMeshShapeMesh(std::vector<MeshVertex>* vertices, std::vector<uint32>* indices, const MeshShape& shape)
+{
+    MuliAssert(vertices != nullptr);
+    MuliAssert(indices != nullptr);
+
+    vertices->clear();
+    indices->clear();
+    vertices->reserve(size_t(shape.GetTriangleCount()) * 3);
+    indices->reserve(size_t(shape.GetTriangleCount()) * 3);
+
+    for (int32 triangle = 0; triangle < shape.GetTriangleCount(); ++triangle)
+    {
+        Vec3 a, b, c;
+        shape.GetTriangle(triangle, &a, &b, &c);
+        Vec3 normal = Normalize(Cross(b - a, c - a));
+        uint32 base = uint32(vertices->size());
+        vertices->push_back(MeshVertex{ a, normal, Vec2{ a.x, a.z } });
+        vertices->push_back(MeshVertex{ b, normal, Vec2{ b.x, b.z } });
+        vertices->push_back(MeshVertex{ c, normal, Vec2{ c.x, c.z } });
+        indices->push_back(base);
+        indices->push_back(base + 1);
+        indices->push_back(base + 2);
     }
 }
 

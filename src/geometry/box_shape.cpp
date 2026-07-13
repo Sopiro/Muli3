@@ -10,11 +10,7 @@ constexpr static Vec3 boxNormals[6] = {
 
 BoxShape::BoxShape(float width, float height, float depth, float inRadius, const Transform& transform)
     : Shape{ Shape::box, inRadius }
-    , halfExtents{
-        width * 0.5f * Abs(transform.s.x),
-        height * 0.5f * Abs(transform.s.y),
-        depth * 0.5f * Abs(transform.s.z),
-    }
+    , halfExtents{ width * 0.5f, height * 0.5f, depth * 0.5f }
     , rotation{ transform.q }
 {
     center = transform.p;
@@ -28,11 +24,7 @@ BoxShape::BoxShape(float width, float height, float depth, float inRadius, const
 
 BoxShape::BoxShape(const BoxShape& other, const Transform& transform)
     : Shape{ Shape::box, other.radius }
-    , halfExtents{
-        other.halfExtents.x * Abs(transform.s.x),
-        other.halfExtents.y * Abs(transform.s.y),
-        other.halfExtents.z * Abs(transform.s.z),
-    }
+    , halfExtents{ other.halfExtents }
     , rotation{ transform.q * other.rotation }
 {
     center = Mul(transform, other.center);
