@@ -153,7 +153,7 @@ Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density,
     MuliAssert(shape->GetRadius() >= minimum_radius);
 
     Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
-    collider->Create(this, shape, tf, density, material);
+    collider->Clone(this, shape, tf, density, material);
 
     collider->next = colliderList;
     colliderList = collider;
@@ -279,19 +279,42 @@ Collider* Body::CreateHeightFieldCollider(
     const Material& material
 )
 {
-    HeightFieldShape heightField{ sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize };
-    return CreateCollider(&heightField, tf, 0.0f, material);
+    HeightFieldShape* heightField = world->poolAllocator.New<HeightFieldShape>(
+        sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize, tf
+    );
+
+    Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
+    collider->Create(this, heightField, 0.0f, material);
+
+    collider->next = colliderList;
+    colliderList = collider;
+    ++colliderCount;
+
+    world->constraintGraph.AddCollider(collider);
+
+    ResetMassData();
+
+    return collider;
 }
 
 Collider* Body::CreateMeshCollider(
-    std::span<const Vec3> vertices,
-    std::span<const int32> indices,
-    const Transform& tf,
-    const Material& material
+    std::span<const Vec3> vertices, std::span<const int32> indices, const Transform& tf, const Material& material
 )
 {
-    MeshShape mesh{ vertices, indices };
-    return CreateCollider(&mesh, tf, 0.0f, material);
+    MeshShape* mesh = world->poolAllocator.New<MeshShape>(vertices, indices, tf);
+
+    Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
+    collider->Create(this, mesh, 0.0f, material);
+
+    collider->next = colliderList;
+    colliderList = collider;
+    ++colliderCount;
+
+    world->constraintGraph.AddCollider(collider);
+
+    ResetMassData();
+
+    return collider;
 }
 
 bool Body::TestPoint(const Vec3& q) const

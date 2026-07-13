@@ -73,7 +73,8 @@ private:
     Collider();
     ~Collider();
 
-    void Create(Body* body, Shape* shape, const Transform& transform, float density, const Material& material);
+    void Clone(Body* body, Shape* shape, const Transform& transform, float density, const Material& material);
+    void Create(Body* body, Shape* shape, float density, const Material& material);
     void Destroy(World* world);
 
     Body* body;

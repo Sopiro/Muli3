@@ -33,10 +33,15 @@ Collider::~Collider()
     next = nullptr;
 }
 
-void Collider::Create(Body* inBody, Shape* inShape, const Transform& transform, float inDensity, const Material& inMaterial)
+void Collider::Clone(Body* inBody, Shape* inShape, const Transform& transform, float inDensity, const Material& inMaterial)
+{
+    Create(inBody, inBody->world->CloneShape(inShape, transform), inDensity, inMaterial);
+}
+
+void Collider::Create(Body* inBody, Shape* inShape, float inDensity, const Material& inMaterial)
 {
     body = inBody;
-    shape = body->world->CloneShape(inShape, transform);
+    shape = inShape;
     density = inDensity;
     material = inMaterial;
 }

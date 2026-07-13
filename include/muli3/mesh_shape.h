@@ -42,22 +42,36 @@ public:
     void Query(const AABB& localAABB, Callback&& callback) const;
 
 private:
+    struct BVHPrimitive
+    {
+        AABB bounds;
+        Vec3 centroid;
+        int32 triangle;
+    };
+
     struct BVHNode
     {
         AABB bounds;
-        int32 child1;
-        int32 child2;
-        int32 triangle;
+
+        union
+        {
+            int32 child2;
+            int32 triangleOffset;
+        };
+
+        int32 triangleCount;
+        uint8 axis;
     };
 
     std::vector<Vec3> vertices;
     std::vector<int32> indices;
     std::vector<uint8> activeEdges;
+    std::vector<int32> bvhTriangles;
     std::vector<BVHNode> nodes;
     AABB localBounds;
 
     void Build();
-    int32 BuildNode(std::vector<int32>* triangles, int32 begin, int32 end);
+    int32 BuildNode(std::vector<BVHPrimitive>* primitives, int32 begin, int32 end);
 };
 
 inline int32 MeshShape::GetVertexCount() const
@@ -138,23 +152,28 @@ inline void MeshShape::Query(const AABB& localAABB, Callback&& callback) const
 
     while (count > 0)
     {
-        const BVHNode& node = nodes[stack[--count]];
+        int32 nodeIndex = stack[--count];
+        const BVHNode& node = nodes[nodeIndex];
         if (node.bounds.TestOverlap(localAABB) == false)
         {
             continue;
         }
 
-        if (node.triangle != -1)
+        if (node.triangleCount > 0)
         {
-            Vec3 a, b, c;
-            GetTriangle(node.triangle, &a, &b, &c);
-            callback(node.triangle, a, b, c);
+            for (int32 i = 0; i < node.triangleCount; ++i)
+            {
+                int32 triangle = bvhTriangles[node.triangleOffset + i];
+                Vec3 a, b, c;
+                GetTriangle(triangle, &a, &b, &c);
+                callback(triangle, a, b, c);
+            }
         }
         else
         {
             MuliAssert(count + 2 <= int32(std::size(stack)));
-            stack[count++] = node.child1;
             stack[count++] = node.child2;
+            stack[count++] = nodeIndex + 1;
         }
     }
 }
