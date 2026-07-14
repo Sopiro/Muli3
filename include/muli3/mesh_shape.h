@@ -146,7 +146,7 @@ template <typename Callback>
 inline void MeshShape::Query(const AABB& localAABB, Callback&& callback) const
 {
     // A balanced BVH needs one pending node per level, so this fixed stack covers meshes far larger than practical memory limits.
-    int32 stack[128];
+    int32 stack[64];
     int32 count = 0;
     stack[count++] = 0;
 

@@ -14,9 +14,13 @@ MeshShape::MeshShape(std::span<const Vec3> inVertices, std::span<const int32> in
     MuliAssert(vertices.size() >= 3);
     MuliAssert(indices.size() >= 3 && indices.size() % 3 == 0);
 
-    for (Vec3& vertex : vertices)
+    // Shape-local transforms are baked into the vertices before building the acceleration data.
+    if (transform != identity)
     {
-        vertex = Mul(transform, vertex);
+        for (Vec3& vertex : vertices)
+        {
+            vertex = Mul(transform, vertex);
+        }
     }
 
     Build();
@@ -27,9 +31,12 @@ MeshShape::MeshShape(const MeshShape& other, const Transform& transform)
     , vertices{ other.vertices }
     , indices{ other.indices }
 {
-    for (Vec3& vertex : vertices)
+    if (transform != identity)
     {
-        vertex = Mul(transform, vertex);
+        for (Vec3& vertex : vertices)
+        {
+            vertex = Mul(transform, vertex);
+        }
     }
 
     Build();
@@ -37,9 +44,11 @@ MeshShape::MeshShape(const MeshShape& other, const Transform& transform)
 
 int32 MeshShape::BuildNode(std::vector<BVHPrimitive>* primitives, int32 begin, int32 end)
 {
+    // Reserve the parent first so the left child is always stored at nodeIndex + 1.
     int32 nodeIndex = int32(nodes.size());
     nodes.emplace_back();
 
+    // Bounds drive traversal while centroid bounds define the SAH bucket coordinates.
     AABB bounds;
     AABB centroidBounds;
     for (int32 i = begin; i < end; ++i)
@@ -90,6 +99,7 @@ int32 MeshShape::BuildNode(std::vector<BVHPrimitive>* primitives, int32 begin, i
         Bucket buckets[bucketCount];
         float scale = bucketCount * (1.0f - epsilon) / extent[axis];
 
+        // Accumulate primitive bounds into a small fixed number of spatial buckets.
         for (int32 i = begin; i < end; ++i)
         {
             BVHPrimitive& primitive = (*primitives)[i];
@@ -154,6 +164,7 @@ int32 MeshShape::BuildNode(std::vector<BVHPrimitive>* primitives, int32 begin, i
 
     if (middle == -1)
     {
+        // Keep leaf triangles contiguous so traversal only stores an offset and count in each node.
         int32 triangleOffset = int32(bvhTriangles.size());
         for (int32 i = begin; i < end; ++i)
         {
@@ -170,6 +181,8 @@ int32 MeshShape::BuildNode(std::vector<BVHPrimitive>* primitives, int32 begin, i
     int32 child2 = BuildNode(primitives, middle, end);
     MuliNotUsed(child1);
     MuliAssert(child1 == nodeIndex + 1);
+
+    // Only the second child needs an explicit index in the depth-first node layout.
     nodes[nodeIndex].bounds = bounds;
     nodes[nodeIndex].child2 = child2;
     nodes[nodeIndex].triangleCount = 0;
@@ -198,6 +211,7 @@ void MeshShape::Build()
     }
 
     // Match shared index edges and deactivate coplanar and concave internal edges.
+    // Boundary and sharp convex edges stay active so their feature normals remain valid.
     struct Edge
     {
         int32 triangle;
@@ -306,7 +320,7 @@ Vec3 MeshShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 
     // Closest-point queries are uncommon for static meshes.
     // Walk the BVH without allocating scratch memory.
-    int32 stack[128];
+    int32 stack[64];
     int32 count = 0;
 
     stack[count++] = 0;
@@ -369,6 +383,8 @@ bool MeshShape::RayCast(const Transform& transform, const RayCastInput& input, R
     localInput.from = MulT(transform, input.from);
     localInput.to = MulT(transform, input.to);
     Ray ray{ localInput.from, localInput.to - localInput.from };
+
+    // Reuse inverse directions for every node slab test during traversal.
     Vec3 invDir{ 1.0f / ray.d.x, 1.0f / ray.d.y, 1.0f / ray.d.z };
     int32 isDirNegative[3] = { int32(invDir.x < 0.0f), int32(invDir.y < 0.0f), int32(invDir.z < 0.0f) };
 
@@ -376,7 +392,7 @@ bool MeshShape::RayCast(const Transform& transform, const RayCastInput& input, R
     float bestFraction = input.maxFraction;
     Vec3 bestNormal = Vec3::zero;
 
-    int32 stack[128];
+    int32 stack[64];
     int32 count = 0;
 
     stack[count++] = 0;
@@ -447,49 +463,99 @@ bool MeshShape::ShapeCast(
     MuliAssert(output != nullptr);
     MuliAssert(shape->GetType() < Shape::height_field);
 
-    AABB worldAABB;
-    shape->ComputeAABB(shapeTransform, &worldAABB);
-    Vec3 corners[8] = {
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.max.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.max.z }),
-    };
+    // Cast the center of the shape AABB against BVH bounds enlarged by its extents.
+    Transform localTransform = MulT(transform, shapeTransform);
 
-    AABB sweptAABB{ corners[0], corners[0] };
-    for (int32 i = 1; i < 8; ++i)
-    {
-        sweptAABB = AABB::Union(sweptAABB, corners[i]);
-    }
+    AABB shapeBounds;
+    shape->ComputeAABB(localTransform, &shapeBounds);
+
+    Vec3 shapeCenter = shapeBounds.GetCenter();
+    Vec3 shapeExtent = shapeBounds.GetExtents() * 0.5f;
     Vec3 localTranslation = transform.q.RotateInv(translation);
-    sweptAABB = AABB::Union(sweptAABB, AABB{ sweptAABB.min + localTranslation, sweptAABB.max + localTranslation });
+
+    Ray ray{ shapeCenter, localTranslation };
+    Vec3 invDir{ 1.0f / ray.d.x, 1.0f / ray.d.y, 1.0f / ray.d.z };
+    int32 isDirNegative[3] = { int32(invDir.x < 0.0f), int32(invDir.y < 0.0f), int32(invDir.z < 0.0f) };
 
     bool hit = false;
     float bestFraction = 1.0f;
     ShapeCastOutput bestOutput;
-    Query(sweptAABB, [&](int32 triangle, const Vec3& a, const Vec3& b, const Vec3& c) {
-        TriangleShape triangleShape{ a, b, c };
-        ShapeCastOutput candidate;
-        if (muli3::ShapeCast(
-                shape, shapeTransform, &triangleShape, transform, translation * bestFraction, Vec3::zero, &candidate
-            ))
+
+    int32 stack[64];
+    int32 count = 0;
+
+    stack[count++] = 0;
+    while (count > 0)
+    {
+        int32 nodeIndex = stack[--count];
+        const BVHNode& node = nodes[nodeIndex];
+
+        AABB bounds{ node.bounds.min - shapeExtent, node.bounds.max + shapeExtent };
+        if (bounds.TestRay(ray.o, 0.0f, bestFraction, invDir, isDirNegative) == false)
         {
-            candidate.t *= bestFraction;
-            candidate.normal = ResolveGhostNormal(
-                GetActiveEdgeBits(triangle), triangleShape, transform, candidate.point, candidate.normal, translation
-            );
-            if (candidate.t <= bestFraction)
+            continue;
+        }
+
+        if (node.triangleCount > 0)
+        {
+            for (int32 i = 0; i < node.triangleCount; ++i)
             {
-                hit = true;
-                bestFraction = candidate.t;
-                bestOutput = candidate;
+                int32 triangle = bvhTriangles[node.triangleOffset + i];
+                Vec3 a, b, c;
+                GetTriangle(triangle, &a, &b, &c);
+
+                // Reject leaf triangles before running the more expensive convex cast.
+                AABB triangleBounds{ a, a };
+                triangleBounds = AABB::Union(triangleBounds, b);
+                triangleBounds = AABB::Union(triangleBounds, c);
+                triangleBounds.min -= shapeExtent;
+                triangleBounds.max += shapeExtent;
+                if (triangleBounds.TestRay(ray.o, 0.0f, bestFraction, invDir, isDirNegative) == false)
+                {
+                    continue;
+                }
+
+                TriangleShape triangleShape{ a, b, c };
+                ShapeCastOutput candidate;
+
+                // Shorten later casts to the closest fraction found so far.
+                if (muli3::ShapeCast(
+                        shape, shapeTransform, &triangleShape, transform, translation * bestFraction, Vec3::zero, &candidate
+                    ))
+                {
+                    // ShapeCast returns a fraction relative to the shortened translation.
+                    candidate.t *= bestFraction;
+                    candidate.normal = ResolveGhostNormal(
+                        GetActiveEdgeBits(triangle), triangleShape, transform, candidate.point, candidate.normal, translation
+                    );
+                    if (candidate.t <= bestFraction)
+                    {
+                        hit = true;
+                        bestFraction = candidate.t;
+                        bestOutput = candidate;
+                    }
+                }
             }
         }
-    });
+        else
+        {
+            MuliAssert(count + 2 <= int32(std::size(stack)));
+            int32 child1 = nodeIndex + 1;
+            int32 child2 = node.child2;
+
+            // Put the far child on the stack first to find a close hit earlier.
+            if (isDirNegative[node.axis])
+            {
+                stack[count++] = child1;
+                stack[count++] = child2;
+            }
+            else
+            {
+                stack[count++] = child2;
+                stack[count++] = child1;
+            }
+        }
+    }
 
     if (hit)
     {

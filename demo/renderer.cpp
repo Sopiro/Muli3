@@ -1265,19 +1265,19 @@ void Renderer::FlushShapeMeshes(int32 pass, bool wireframe)
     shapeMeshInstanceCount[pass] = 0;
 }
 
-void Renderer::FlushPoints()
+void Renderer::FlushPoints(bool overlay)
 {
-    FlushPrimitive(GL_POINTS, points, pointCount);
+    FlushPrimitive(GL_POINTS, points, pointCount, overlay);
     pointCount = 0;
 }
 
-void Renderer::FlushLines()
+void Renderer::FlushLines(bool overlay)
 {
-    FlushPrimitive(GL_LINES, lines, lineCount);
+    FlushPrimitive(GL_LINES, lines, lineCount, overlay);
     lineCount = 0;
 }
 
-void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount)
+void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount, bool overlay)
 {
     if (vertexCount == 0)
     {
@@ -1285,7 +1285,17 @@ void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& verti
     }
 
     const GLboolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
-    glDisable(GL_DEPTH_TEST);
+    GLint previousDepthFunc = GL_LESS;
+    if (overlay)
+    {
+        glDisable(GL_DEPTH_TEST);
+    }
+    else
+    {
+        glGetIntegerv(GL_DEPTH_FUNC, &previousDepthFunc);
+        glEnable(GL_DEPTH_TEST);
+        glDepthFunc(GL_LEQUAL);
+    }
     glEnable(GL_PROGRAM_POINT_SIZE);
 
     primitiveShader.Use();
@@ -1300,9 +1310,18 @@ void Renderer::FlushPrimitive(GLenum primitive, const std::vector<Vertex>& verti
     glDrawArrays(primitive, 0, vertexCount);
     glBindVertexArray(0);
 
+    if (overlay == false)
+    {
+        glDepthFunc(previousDepthFunc);
+    }
+
     if (depthTestEnabled)
     {
         glEnable(GL_DEPTH_TEST);
+    }
+    else
+    {
+        glDisable(GL_DEPTH_TEST);
     }
 }
 

@@ -58,9 +58,9 @@ public:
     void FlushShapes();
     void ClearMeshCache();
 
-    void FlushAll();
-    void FlushPoints();
-    void FlushLines();
+    void FlushAll(bool overlay = true);
+    void FlushPoints(bool overlay = true);
+    void FlushLines(bool overlay = true);
 
 private:
     struct ShapeInstance
@@ -132,7 +132,7 @@ private:
     );
     Mesh& GetHeightFieldMesh(const HeightFieldShape* shape);
     Mesh& GetMeshShapeMesh(const MeshShape* shape);
-    void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount);
+    void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount, bool overlay);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
     bool initialized = false;
@@ -254,12 +254,12 @@ inline void Renderer::DrawShape(const Shape* shape, const Transform& transform)
     DrawShape(shape, transform, DrawMode{});
 }
 
-inline void Renderer::FlushAll()
+inline void Renderer::FlushAll(bool overlay)
 {
     FlushQueuedShapes(shapeShader, false);
     FlushQueuedShapes(shapeShader, true);
-    if (lineCount > 0) FlushLines();
-    if (pointCount > 0) FlushPoints();
+    if (lineCount > 0) FlushLines(overlay);
+    if (pointCount > 0) FlushPoints(overlay);
 }
 
 } // namespace muli3

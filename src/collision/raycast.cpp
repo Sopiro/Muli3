@@ -273,7 +273,7 @@ bool ShapeCast(
     }
 
     output->point = pointA + a->GetRadius() * n + translationA * t;
-    output->normal = n;
+    output->normal = -n;
     output->t = t;
     return true;
 }

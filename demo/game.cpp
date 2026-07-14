@@ -13,6 +13,66 @@ extern int32 GetUpdateRate();
 extern void SetUpdateRate(int32 newUpdateRate);
 extern Vec4 g_colors2[constraint_color_count];
 
+Game::Game()
+{
+    bool rendererInitialized = renderer.Initialize();
+    MuliAssert(rendererInitialized);
+    if (!rendererInitialized)
+    {
+        std::exit(1);
+    }
+
+    sort_demos();
+    demoCount = GetDemoFrames().size();
+    MuliAssert(demoCount > 0);
+
+    demoIndex = demoCount;
+
+    workerCount = 8;
+    RecreateThreadPool();
+    InitDemo(20);
+    Window::Get()->SetCursorHidden(false);
+}
+
+Game::~Game()
+{
+    delete demo;
+    renderer.Shutdown();
+}
+
+void Game::Update(float deltaTime)
+{
+    if (restart)
+    {
+        InitDemo(newIndex);
+        restart = false;
+    }
+
+    dt = deltaTime;
+    time += dt;
+    UpdateUI();
+    UpdateInput();
+}
+
+void Game::FixedUpdate()
+{
+    demo->Step();
+
+    if (profileStopped)
+    {
+        return;
+    }
+
+    if (profileWriteIndex == profile_capacity + profileReadIndex)
+    {
+        ++profileReadIndex;
+    }
+
+    int32 index = (int32)(profileWriteIndex & (profile_capacity - 1));
+    profiles[index] = demo->GetWorld().GetProfile();
+    ++profileWriteIndex;
+}
+
 static Vec4 GetBodyColor(Renderer& renderer, const Body& body, const DebugOptions& options)
 {
     if (body.IsStatic())
@@ -194,66 +254,6 @@ static void DrawBody(Renderer& renderer, const Body& body, const Vec4& color, bo
     {
         renderer.DrawShape(collider->GetShape(), body.GetTransform(), color, wireframe);
     }
-}
-
-Game::Game()
-{
-    bool rendererInitialized = renderer.Initialize();
-    MuliAssert(rendererInitialized);
-    if (!rendererInitialized)
-    {
-        std::exit(1);
-    }
-
-    sort_demos();
-    demoCount = GetDemoFrames().size();
-    MuliAssert(demoCount > 0);
-
-    demoIndex = demoCount;
-
-    workerCount = 8;
-    RecreateThreadPool();
-    InitDemo(27);
-    Window::Get()->SetCursorHidden(false);
-}
-
-Game::~Game()
-{
-    delete demo;
-    renderer.Shutdown();
-}
-
-void Game::Update(float deltaTime)
-{
-    if (restart)
-    {
-        InitDemo(newIndex);
-        restart = false;
-    }
-
-    dt = deltaTime;
-    time += dt;
-    UpdateUI();
-    UpdateInput();
-}
-
-void Game::FixedUpdate()
-{
-    demo->Step();
-
-    if (profileStopped)
-    {
-        return;
-    }
-
-    if (profileWriteIndex == profile_capacity + profileReadIndex)
-    {
-        ++profileReadIndex;
-    }
-
-    int32 index = (int32)(profileWriteIndex & (profile_capacity - 1));
-    profiles[index] = demo->GetWorld().GetProfile();
-    ++profileWriteIndex;
 }
 
 void Game::Render()

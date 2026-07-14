@@ -10,7 +10,7 @@
 namespace muli3
 {
 
-static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box", "Quad", "Triangle", "Convex" };
+static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box", "Polygon", "Triangle", "Convex" };
 
 static bool LoadMeshObj(
     const char* path, const Transform& transform, const Vec3& scale, std::vector<Vec3>* vertices, std::vector<int32>* indices
@@ -130,6 +130,8 @@ public:
 
     void Render() override
     {
+        renderer.FlushAll();
+
         Vec4 missColor{ 0.95f, 0.75f, 0.15f, 0.75f };
         Vec4 hitColor{ 0.0f, 0.0f, 1.0f, 1.0f };
         Vec4 lineColor{ 0.0f, 0.0f, 0.0f, 0.6f };
@@ -154,7 +156,7 @@ public:
             }
         }
 
-        renderer.FlushAll();
+        renderer.FlushAll(false);
         renderer.SetPointSize(prevPointSize);
         renderer.SetLineWidth(prevLineWidth);
     }
@@ -215,6 +217,7 @@ public:
     float maxDistance = 30.0f;
     Vec3 rot = Vec3::zero;
     bool rotate = false;
+    bool showOverlay = false;
     int32 item = 1;
 
     MeshShapeCasting(Game& game)
@@ -243,7 +246,10 @@ public:
             rot.z = 55.0f * std::sin(rotateTime * 1.4f + 0.7f) + 20.0f * std::cos(rotateTime * 2.1f);
         }
 
-        UpdateShapeTraceOverlay();
+        if (showOverlay)
+        {
+            UpdateShapeTraceOverlay();
+        }
         RecordShapeTrace();
     }
 
@@ -257,6 +263,7 @@ public:
             ImGui::Combo("shape", &item, shapeCastItems, IM_ARRAYSIZE(shapeCastItems));
             ImGui::DragFloat("Cast distance", &maxDistance, 1.0f, 0.0f, 100.0f, "%.2f");
             ImGui::Checkbox("Rotate", &rotate);
+            ImGui::Checkbox("Overlay", &showOverlay);
             ImGui::DragFloat3("Rot", &rot.x, 1.0f, -360.0f, 360.0f);
             if (ImGui::Button("Cast shape"))
             {
@@ -273,6 +280,8 @@ public:
 
     void Render() override
     {
+        renderer.FlushAll();
+
         float prevPointSize = renderer.GetPointSize();
         float prevLineWidth = renderer.GetLineWidth();
         renderer.SetPointSize(6.0f);
@@ -282,9 +291,12 @@ public:
         {
             DrawShapeTrace(trace, trace.shape.get(), false);
         }
-        DrawShapeTrace(overlayTrace, nextShape.get(), true);
+        if (showOverlay)
+        {
+            DrawShapeTrace(overlayTrace, nextShape.get(), true);
+        }
 
-        renderer.FlushAll();
+        renderer.FlushAll(false);
         renderer.SetPointSize(prevPointSize);
         renderer.SetLineWidth(prevLineWidth);
     }
@@ -314,8 +326,13 @@ private:
             return std::make_unique<BoxShape>(0.55f);
         case 3:
         {
-            Vec3 vertices[4] = { Vec3{ -0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, -0.3f, 0.0f }, Vec3{ 0.35f, 0.3f, 0.0f },
-                                 Vec3{ -0.35f, 0.3f, 0.0f } };
+            constexpr int32 segmentCount = 16;
+            Vec3 vertices[segmentCount];
+            for (int32 i = 0; i < segmentCount; ++i)
+            {
+                float angle = two_pi * i / segmentCount;
+                vertices[i] = Vec3{ 0.4f * std::cos(angle), 0.4f * std::sin(angle), 0.0f };
+            }
             return std::make_unique<PolygonShape>(vertices, default_radius);
         }
         case 4:
@@ -412,7 +429,10 @@ private:
 
         nextShape = CreateShape();
         nextItem = item;
-        UpdateShapeTraceOverlay();
+        if (showOverlay)
+        {
+            UpdateShapeTraceOverlay();
+        }
     }
 
     void RecordRandomShapeTrace()

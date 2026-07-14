@@ -6,7 +6,7 @@
 namespace muli3
 {
 
-static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box", "Quad", "Triangle" };
+static const char* shapeCastItems[] = { "Sphere", "Capsule", "Box", "Polygon", "Triangle" };
 
 class ShapeCasting : public Demo
 {
@@ -45,13 +45,14 @@ public:
         };
         targetBodies[4] = world->CreateTriangle(triangleVertices, Transform{ Vec3{ 1.5f, 0.0f, 0.0f } });
 
-        Vec3 quadVertices[4] = {
-            Vec3{ -0.35f, -0.3f, 0.0f },
-            Vec3{ 0.35f, -0.3f, 0.0f },
-            Vec3{ 0.35f, 0.3f, 0.0f },
-            Vec3{ -0.35f, 0.3f, 0.0f },
-        };
-        targetBodies[5] = world->CreatePolygon(quadVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
+        constexpr int32 segmentCount = 16;
+        Vec3 polygonVertices[segmentCount];
+        for (int32 i = 0; i < segmentCount; ++i)
+        {
+            float angle = two_pi * i / segmentCount;
+            polygonVertices[i] = Vec3{ 0.35f * std::cos(angle), 0.35f * std::sin(angle), 0.0f };
+        }
+        targetBodies[5] = world->CreatePolygon(polygonVertices, Transform{ Vec3{ 2.5f, 0.0f, 0.0f } });
 
         UpdateTargetRotation();
         UpdateShape();
@@ -177,8 +178,13 @@ private:
             break;
         case 3:
         {
-            Vec3 vertices[4] = { Vec3{ -0.25f, -0.22f, 0.0f }, Vec3{ 0.25f, -0.22f, 0.0f }, Vec3{ 0.25f, 0.22f, 0.0f },
-                                 Vec3{ -0.25f, 0.22f, 0.0f } };
+            constexpr int32 segmentCount = 16;
+            Vec3 vertices[segmentCount];
+            for (int32 i = 0; i < segmentCount; ++i)
+            {
+                float angle = two_pi * i / segmentCount;
+                vertices[i] = Vec3{ 0.26f * std::cos(angle), 0.26f * std::sin(angle), 0.0f };
+            }
             shape.reset(new PolygonShape(vertices, default_radius));
         }
         break;
