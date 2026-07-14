@@ -7,8 +7,8 @@ enum BodyDrawMode
 {
     body_draw_solid,
     body_draw_solid_wireframe,
-    body_draw_wireframe,
     body_draw_depth_wireframe,
+    body_draw_wireframe,
     body_draw_none,
     body_draw_mode_count,
 };

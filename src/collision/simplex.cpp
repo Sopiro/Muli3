@@ -1,4 +1,4 @@
-#include "muli3/collision.h"
+#include "muli3/simplex.h"
 
 namespace muli3
 {

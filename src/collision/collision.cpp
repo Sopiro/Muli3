@@ -2377,27 +2377,8 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
 
     AABB worldAABB;
     b->ComputeAABB(tfB, &worldAABB);
+    AABB localAABB = MulT(tfA, worldAABB);
 
-    Vec3 corners[8] = {
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.max.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.max.z }),
-    };
-
-    Vec3 min = corners[0];
-    Vec3 max = min;
-    for (int32 i = 1; i < 8; ++i)
-    {
-        min = Min(min, corners[i]);
-        max = Max(max, corners[i]);
-    }
-
-    AABB localAABB = AABB{ min, max };
     heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };
 
@@ -2433,22 +2414,7 @@ bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Tra
 
     AABB worldAABB;
     b->ComputeAABB(tfB, &worldAABB);
-    Vec3 corners[8] = {
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(tfA, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.max.z }),
-        MulT(tfA, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.max.z }),
-    };
-
-    AABB localAABB{ corners[0], corners[0] };
-    for (int32 i = 1; i < 8; ++i)
-    {
-        localAABB = AABB::Union(localAABB, corners[i]);
-    }
+    AABB localAABB = MulT(tfA, worldAABB);
 
     mesh->Query(localAABB, [&](int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };

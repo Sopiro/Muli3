@@ -677,4 +677,40 @@ inline IteratorB3i end(const AABB3i& b)
     return IteratorB3i(b, end);
 }
 
+inline AABB Mul(const Transform& t, const AABB& aabb)
+{
+    Vec3 corners[8] = {
+        Mul(t, Vec3{ aabb.min.x, aabb.min.y, aabb.min.z }), Mul(t, Vec3{ aabb.max.x, aabb.min.y, aabb.min.z }),
+        Mul(t, Vec3{ aabb.min.x, aabb.max.y, aabb.min.z }), Mul(t, Vec3{ aabb.max.x, aabb.max.y, aabb.min.z }),
+        Mul(t, Vec3{ aabb.min.x, aabb.min.y, aabb.max.z }), Mul(t, Vec3{ aabb.max.x, aabb.min.y, aabb.max.z }),
+        Mul(t, Vec3{ aabb.min.x, aabb.max.y, aabb.max.z }), Mul(t, Vec3{ aabb.max.x, aabb.max.y, aabb.max.z }),
+    };
+
+    AABB outAABB{ corners[0], corners[0] };
+    for (int32 i = 1; i < 8; ++i)
+    {
+        outAABB = AABB::Union(outAABB, corners[i]);
+    }
+
+    return outAABB;
+}
+
+inline AABB MulT(const Transform& t, const AABB& aabb)
+{
+    Vec3 corners[8] = {
+        MulT(t, Vec3{ aabb.min.x, aabb.min.y, aabb.min.z }), MulT(t, Vec3{ aabb.max.x, aabb.min.y, aabb.min.z }),
+        MulT(t, Vec3{ aabb.min.x, aabb.max.y, aabb.min.z }), MulT(t, Vec3{ aabb.max.x, aabb.max.y, aabb.min.z }),
+        MulT(t, Vec3{ aabb.min.x, aabb.min.y, aabb.max.z }), MulT(t, Vec3{ aabb.max.x, aabb.min.y, aabb.max.z }),
+        MulT(t, Vec3{ aabb.min.x, aabb.max.y, aabb.max.z }), MulT(t, Vec3{ aabb.max.x, aabb.max.y, aabb.max.z }),
+    };
+
+    AABB outAABB{ corners[0], corners[0] };
+    for (int32 i = 1; i < 8; ++i)
+    {
+        outAABB = AABB::Union(outAABB, corners[i]);
+    }
+
+    return outAABB;
+}
+
 } // namespace muli3

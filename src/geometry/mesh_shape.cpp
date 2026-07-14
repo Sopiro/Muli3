@@ -288,23 +288,7 @@ void MeshShape::ComputeMass(float density, MassData* outMassData) const
 void MeshShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
-
-    Vec3 corners[8] = {
-        Mul(transform, Vec3{ localBounds.min.x, localBounds.min.y, localBounds.min.z }),
-        Mul(transform, Vec3{ localBounds.max.x, localBounds.min.y, localBounds.min.z }),
-        Mul(transform, Vec3{ localBounds.min.x, localBounds.max.y, localBounds.min.z }),
-        Mul(transform, Vec3{ localBounds.max.x, localBounds.max.y, localBounds.min.z }),
-        Mul(transform, Vec3{ localBounds.min.x, localBounds.min.y, localBounds.max.z }),
-        Mul(transform, Vec3{ localBounds.max.x, localBounds.min.y, localBounds.max.z }),
-        Mul(transform, Vec3{ localBounds.min.x, localBounds.max.y, localBounds.max.z }),
-        Mul(transform, Vec3{ localBounds.max.x, localBounds.max.y, localBounds.max.z }),
-    };
-
-    *outAABB = AABB{ corners[0], corners[0] };
-    for (int32 i = 1; i < 8; ++i)
-    {
-        *outAABB = AABB::Union(*outAABB, corners[i]);
-    }
+    *outAABB = Mul(transform, localBounds);
 }
 
 bool MeshShape::TestPoint(const Transform& transform, const Vec3& q) const

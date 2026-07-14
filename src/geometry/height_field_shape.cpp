@@ -222,27 +222,7 @@ void HeightFieldShape::ComputeMass(float density, MassData* outMassData) const
 void HeightFieldShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 {
     MuliAssert(outAABB != nullptr);
-
-    Vec3 corners[8] = {
-        Mul(transform, Vec3(localBounds.min.x, localBounds.min.y, localBounds.min.z)),
-        Mul(transform, Vec3(localBounds.max.x, localBounds.min.y, localBounds.min.z)),
-        Mul(transform, Vec3(localBounds.min.x, localBounds.max.y, localBounds.min.z)),
-        Mul(transform, Vec3(localBounds.max.x, localBounds.max.y, localBounds.min.z)),
-        Mul(transform, Vec3(localBounds.min.x, localBounds.min.y, localBounds.max.z)),
-        Mul(transform, Vec3(localBounds.max.x, localBounds.min.y, localBounds.max.z)),
-        Mul(transform, Vec3(localBounds.min.x, localBounds.max.y, localBounds.max.z)),
-        Mul(transform, Vec3(localBounds.max.x, localBounds.max.y, localBounds.max.z)),
-    };
-
-    Vec3 min = corners[0];
-    Vec3 max = corners[0];
-    for (int32 i = 1; i < 8; ++i)
-    {
-        min = Min(min, corners[i]);
-        max = Max(max, corners[i]);
-    }
-
-    *outAABB = AABB{ min, max };
+    *outAABB = Mul(transform, localBounds);
 }
 
 AABB HeightFieldShape::GetBlockAABB(int32 bx, int32 bz) const
@@ -368,24 +348,7 @@ bool HeightFieldShape::ShapeCast(
 
     AABB worldAABB;
     shape->ComputeAABB(shapeTransform, &worldAABB);
-
-    // Transform all corners to the height field space.
-    Vec3 corners[8] = {
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.min.z }),
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.min.y, worldAABB.max.z }),
-        MulT(transform, Vec3{ worldAABB.min.x, worldAABB.max.y, worldAABB.max.z }),
-        MulT(transform, Vec3{ worldAABB.max.x, worldAABB.max.y, worldAABB.max.z }),
-    };
-
-    AABB localAABB{ corners[0], corners[0] };
-    for (int32 i = 1; i < 8; ++i)
-    {
-        localAABB = AABB::Union(localAABB, corners[i]);
-    }
+    AABB localAABB = MulT(transform, worldAABB);
 
     // Shape cast keeps the orientation fixed, so the local AABB only translates.
     Vec3 localTranslation = transform.q.RotateInv(translation);
