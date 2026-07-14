@@ -6,45 +6,6 @@
 namespace muli3
 {
 
-static void FixFaceWinding(std::span<const Vec3> vertices, std::vector<Face>* faces, std::vector<int32>* indices)
-{
-    // After an arbitrary transform, especially one with negative scale, the face
-    // orientation can flip. Re-orient all triangles so their normals point outward.
-    Vec3 inside = Vec3::zero;
-    for (const Vec3& vertex : vertices)
-    {
-        inside += vertex;
-    }
-    inside *= 1.0f / vertices.size();
-
-    for (Face& face : *faces)
-    {
-        Vec3 a = vertices[(*indices)[face.vertexStart]];
-        Vec3 b = vertices[(*indices)[face.vertexStart + 1]];
-        Vec3 c = vertices[(*indices)[face.vertexStart + 2]];
-
-        Vec3 normal = Cross(b - a, c - a);
-        if (Dot(normal, inside - a) > 0.0f)
-        {
-            std::reverse(indices->begin() + face.vertexStart, indices->begin() + face.vertexStart + face.vertexCount);
-        }
-    }
-}
-
-static void ComputeFaceNormals(std::span<const Vec3> vertices, std::vector<Face>* faces, std::span<const int32> indices)
-{
-    // Faces are planar polygons, so the first three vertices determine the normal.
-    for (Face& face : *faces)
-    {
-        Vec3 a = vertices[indices[face.vertexStart]];
-        Vec3 b = vertices[indices[face.vertexStart + 1]];
-        Vec3 c = vertices[indices[face.vertexStart + 2]];
-
-        face.normal = Cross(b - a, c - a);
-        face.normal.Normalize();
-    }
-}
-
 ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
     : Shape{ Shape::convex, inRadius }
 {
@@ -53,13 +14,18 @@ ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const
     MuliAssert(vertices.size() >= 4);
     MuliAssert(faces.size() > 0);
 
-    for (Vec3& vertex : vertices)
+    if (transform != identity)
     {
-        vertex = Mul(transform, vertex);
-    }
+        for (Vec3& vertex : vertices)
+        {
+            vertex = Mul(transform, vertex);
+        }
 
-    FixFaceWinding(vertices, &faces, &indices);
-    ComputeFaceNormals(vertices, &faces, indices);
+        for (Face& face : faces)
+        {
+            face.normal = transform.q.Rotate(face.normal);
+        }
+    }
 
     MassData massData;
     ComputeMass(1.0f, &massData);
@@ -79,7 +45,7 @@ ConvexShape::ConvexShape(
     , indices{ inIndices.begin(), inIndices.end() }
     , faces{ inFaces.begin(), inFaces.end() }
 {
-    // Behavior is undefined if vertices/indices/faces do not describe a valid closed convex hull.
+    // Faces must have consistent outward winding and describe a valid closed convex hull.
 
     MuliAssert(vertices.size() >= 4);
     MuliAssert(faces.size() > 0);
@@ -92,13 +58,21 @@ ConvexShape::ConvexShape(
         MuliAssert(int32(face.vertexStart) + int32(face.vertexCount) <= int32(indices.size()));
     }
 
-    for (Vec3& vertex : vertices)
+    if (transform != identity)
     {
-        vertex = Mul(transform, vertex);
+        for (Vec3& vertex : vertices)
+        {
+            vertex = Mul(transform, vertex);
+        }
     }
 
-    FixFaceWinding(vertices, &faces, &indices);
-    ComputeFaceNormals(vertices, &faces, indices);
+    for (Face& face : faces)
+    {
+        Vec3 a = vertices[indices[face.vertexStart]];
+        Vec3 b = vertices[indices[face.vertexStart + 1]];
+        Vec3 c = vertices[indices[face.vertexStart + 2]];
+        face.normal = Normalize(Cross(b - a, c - a));
+    }
 
     MassData massData;
     ComputeMass(1.0f, &massData);

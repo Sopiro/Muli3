@@ -13,7 +13,7 @@ class ShapeCasting : public Demo
 public:
     Transform tf = identity;
     Vec3 rot = Vec3::zero;
-    Vec3 targetRot = { 0, 15, 0 };
+    Vec3 targetRot = { 0, -60, -30 };
 
     std::unique_ptr<Shape> shape;
 
@@ -36,7 +36,12 @@ public:
         targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ -2.5f, 0.0f, 0.0f } });
         targetBodies[1] = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } });
         targetBodies[2] = world->CreateBox(0.3f, Transform{ Vec3{ -0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
-        targetBodies[3] = world->CreateBox(0.35f, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } }, Body::dynamic_body);
+
+        Vec3 convexVertices[] = {
+            Vec3{ -0.35f, 0.0f, 0.0f }, Vec3{ 0.35f, 0.0f, 0.0f },  Vec3{ 0.0f, -0.35f, 0.0f },
+            Vec3{ 0.0f, 0.35f, 0.0f },  Vec3{ 0.0f, 0.0f, -0.35f }, Vec3{ 0.0f, 0.0f, 0.35f },
+        };
+        targetBodies[3] = world->CreateConvex(convexVertices, Transform{ Vec3{ 0.5f, 0.0f, 0.0f } });
 
         Vec3 triangleVertices[3] = {
             Vec3{ -0.35f, -0.3f, 0.0f },

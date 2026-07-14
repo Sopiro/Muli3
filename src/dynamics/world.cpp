@@ -128,6 +128,137 @@ Body* World::CreateConvex(
     return b;
 }
 
+Body* World::CreateCylinder(
+    float height,
+    float topRadius,
+    float bottomRadius,
+    int32 segmentCount,
+    const Transform& transform,
+    Body::Type type,
+    float convexRadius,
+    float density
+)
+{
+    MuliAssert(3 <= segmentCount && segmentCount <= (std::numeric_limits<uint16>::max() / 6));
+    MuliAssert(height > 0.0f);
+    MuliAssert(topRadius >= 0.0f && bottomRadius >= 0.0f);
+
+    float halfHeight = height * 0.5f;
+    bool hasTop = topRadius > linear_slop;
+    bool hasBottom = bottomRadius > linear_slop;
+    MuliAssert(hasTop || hasBottom);
+
+    if (hasTop && hasBottom)
+    {
+        std::vector<Vec3> vertices(segmentCount * 2);
+        std::vector<int32> indices(segmentCount * 6);
+        std::vector<Face> faces(segmentCount + 2);
+
+        // Keep the complete polygon caps and quad sides for stable manifold clipping.
+        for (int32 i = 0; i < segmentCount; ++i)
+        {
+            float angle = two_pi * i / segmentCount;
+            float x = std::cos(angle);
+            float z = std::sin(angle);
+            vertices[i * 2] = Vec3{ x * bottomRadius, -halfHeight, z * bottomRadius };
+            vertices[i * 2 + 1] = Vec3{ x * topRadius, halfHeight, z * topRadius };
+        }
+
+        int32 indexCount = 0;
+
+        faces[0].vertexStart = indexCount;
+        faces[0].vertexCount = segmentCount;
+        for (int32 i = 0; i < segmentCount; ++i)
+        {
+            indices[indexCount++] = i * 2;
+        }
+
+        faces[1].vertexStart = indexCount;
+        faces[1].vertexCount = segmentCount;
+        for (int32 i = segmentCount - 1; i >= 0; --i)
+        {
+            indices[indexCount++] = i * 2 + 1;
+        }
+
+        for (int32 i = 0; i < segmentCount; ++i)
+        {
+            int32 next = (i + 1) % segmentCount;
+            Face& face = faces[i + 2];
+            face.vertexStart = indexCount;
+            face.vertexCount = 4;
+            indices[indexCount++] = i * 2;
+            indices[indexCount++] = i * 2 + 1;
+            indices[indexCount++] = next * 2 + 1;
+            indices[indexCount++] = next * 2;
+        }
+
+        MuliAssert(indexCount == segmentCount * 6);
+        ConvexShape convex{ vertices, indices, faces, convexRadius };
+        Body* body = CreateEmptyBody(transform, type);
+        body->CreateCollider(&convex, identity, density);
+        return body;
+    }
+
+    std::vector<Vec3> vertices(segmentCount + 1);
+    std::vector<int32> indices(segmentCount * 4);
+    std::vector<Face> faces(segmentCount + 1);
+    float ringRadius = hasBottom ? bottomRadius : topRadius;
+    float ringY = hasBottom ? -halfHeight : halfHeight;
+    float apexY = -ringY;
+
+    for (int32 i = 0; i < segmentCount; ++i)
+    {
+        float angle = two_pi * i / segmentCount;
+        vertices[i] = Vec3{ ringRadius * std::cos(angle), ringY, ringRadius * std::sin(angle) };
+    }
+    int32 apex = segmentCount;
+    vertices[apex] = Vec3{ 0.0f, apexY, 0.0f };
+
+    int32 indexCount = 0;
+    faces[0].vertexStart = indexCount;
+    faces[0].vertexCount = segmentCount;
+    if (hasBottom)
+    {
+        for (int32 i = 0; i < segmentCount; ++i)
+        {
+            indices[indexCount++] = i;
+        }
+    }
+    else
+    {
+        for (int32 i = segmentCount - 1; i >= 0; --i)
+        {
+            indices[indexCount++] = i;
+        }
+    }
+
+    for (int32 i = 0; i < segmentCount; ++i)
+    {
+        int32 next = (i + 1) % segmentCount;
+        Face& face = faces[i + 1];
+        face.vertexStart = indexCount;
+        face.vertexCount = 3;
+        if (hasBottom)
+        {
+            indices[indexCount++] = i;
+            indices[indexCount++] = apex;
+            indices[indexCount++] = next;
+        }
+        else
+        {
+            indices[indexCount++] = apex;
+            indices[indexCount++] = i;
+            indices[indexCount++] = next;
+        }
+    }
+
+    MuliAssert(indexCount == segmentCount * 4);
+    ConvexShape convex{ vertices, indices, faces, convexRadius };
+    Body* body = CreateEmptyBody(transform, type);
+    body->CreateCollider(&convex, identity, density);
+    return body;
+}
+
 Body* World::CreateTriangle(
     const Vec3& a, const Vec3& b, const Vec3& c, const Transform& transform, Body::Type type, float radius, float density
 )

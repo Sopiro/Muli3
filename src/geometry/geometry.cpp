@@ -380,6 +380,7 @@ void ComputeConvexHull(
         Face face;
         face.vertexStart = int32(outIndices->size());
         face.vertexCount = 3;
+        face.normal = hullFace.normal;
         outIndices->push_back(remap[hullFace.indices[0]]);
         outIndices->push_back(remap[hullFace.indices[1]]);
         outIndices->push_back(remap[hullFace.indices[2]]);

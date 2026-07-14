@@ -86,6 +86,16 @@ public:
         float radius = default_radius,
         float density = default_density
     );
+    Body* CreateCylinder(
+        float height,
+        float topRadius,
+        float bottomRadius,
+        int32 segmentCount = 16,
+        const Transform& transform = identity,
+        Body::Type type = Body::dynamic_body,
+        float convexRadius = default_radius,
+        float density = default_density
+    );
     Body* CreateTriangle(
         const Vec3& a,
         const Vec3& b,
@@ -127,11 +137,7 @@ public:
         const Vec3& offset = Vec3{ 0.0f },
         int32 blockSize = 4
     );
-    Body* CreateMesh(
-        std::span<const Vec3> vertices,
-        std::span<const int32> indices,
-        const Transform& transform = identity
-    );
+    Body* CreateMesh(std::span<const Vec3> vertices, std::span<const int32> indices, const Transform& transform = identity);
 
     GrabJoint* CreateGrabJoint(
         Body* body, const Vec3& anchor, const Vec3& target, float frequency = 10.0f, float dampingRatio = 1.0f
