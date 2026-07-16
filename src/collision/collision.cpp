@@ -379,7 +379,7 @@ static void FindContactPoints(
     }
     origin /= faceA.vertexCount;
 
-    Vec3 mid = (clippedA[faceA.vertexCount - 1] - clippedA[0]) * 0.5f;
+    Vec3 mid = (clippedA[faceA.vertexCount - 1] + clippedA[0]) * 0.5f;
     Vec3 tangent1 = GramSchmidt(mid - origin, n);
 
     // Offset shape B vertices along the face normal by its collision radius.
