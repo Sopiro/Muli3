@@ -88,6 +88,7 @@ in vec4 vShadowPosition;
 in vec3 vBaseColor;
 
 uniform vec3 uLightDirection;
+uniform vec3 uCameraPosition;
 uniform sampler2DShadow uShadowMap;
 
 out vec4 FragColor;
@@ -143,10 +144,16 @@ void main()
     vec3 lightDir = normalize(-uLightDirection);
     float diffuse = max(dot(normal, lightDir), 0.0);
     float shadow = ComputeShadow(normal, lightDir);
+
+    vec3 viewDir = normalize(uCameraPosition - vWorldPosition);
+    vec3 halfDir = normalize(lightDir + viewDir);
+    float specular = pow(max(dot(normal, halfDir), 0.0), 32.0) * step(0.0001, diffuse);
+
     float ambient = 0.58;
     float lighting = ambient + diffuse * shadow * (1.0 - ambient);
+    vec3 specularColor = vec3(0.18) * specular * shadow;
 
-    FragColor = vec4(albedo * lighting, 1.0);
+    FragColor = vec4(albedo * lighting + specularColor, 1.0);
 }
 )";
 
@@ -1353,6 +1360,7 @@ void Renderer::BeginFrame(const Camera& camera, float aspectRatio)
 {
     ++frame;
     lightDirection = Normalize(Vec3{ 0.45f, -1.0f, -0.35f });
+    cameraPosition = camera.GetPosition();
     lightViewProjectionMatrix = ComputeLightViewProjection(camera, aspectRatio, lightDirection);
     SetViewMatrix(camera.GetViewMatrix());
     SetProjectionMatrix(camera.GetProjectionMatrix(aspectRatio));
@@ -1396,6 +1404,7 @@ void Renderer::BeginShapePass()
     shapeShader.SetMat4("uProjection", projectionMatrix);
     shapeShader.SetMat4("uLightViewProjection", lightViewProjectionMatrix);
     shapeShader.SetVec3("uLightDirection", lightDirection);
+    shapeShader.SetVec3("uCameraPosition", cameraPosition);
     currentShapeShader = &shapeShader;
 }
 

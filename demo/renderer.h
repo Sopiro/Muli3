@@ -125,10 +125,7 @@ private:
     const ShapeMeshRange& GetConvexMesh(const ConvexShape* shape, size_t key);
     const ShapeMeshRange& GetPolygonMesh(const PolygonShape* shape, size_t key);
     const ShapeMeshRange& StoreShapeMesh(
-        size_t key,
-        std::span<const MeshVertex> vertices,
-        std::span<const uint32> indices,
-        std::span<const uint32> outlineIndices
+        size_t key, std::span<const MeshVertex> vertices, std::span<const uint32> indices, std::span<const uint32> outlineIndices
     );
     Mesh& GetHeightFieldMesh(const HeightFieldShape* shape);
     Mesh& GetMeshShapeMesh(const MeshShape* shape);
@@ -173,11 +170,12 @@ private:
 
     Mat4 lightViewProjectionMatrix{ identity };
     Vec3 lightDirection{ 0.0f, -1.0f, 0.0f };
+    Vec3 cameraPosition{ 0.0f };
     Shader* currentShapeShader = nullptr;
     GLint viewport[4]{};
     uint64 frame = 0;
 
-    float pointSize = 5.0f;
+    float pointSize = 6.0f;
     float lineWidth = 1.0f;
 };
 
