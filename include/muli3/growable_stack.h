@@ -192,6 +192,16 @@ public:
         return array;
     }
 
+    T& at(int32 index)
+    {
+        return array[index];
+    }
+
+    const T& at(int32 index) const
+    {
+        return array[index];
+    }
+
     T& operator[](int32 index)
     {
         return array[index];

@@ -243,13 +243,11 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
 
 static constexpr int32 default_clipped_vertex_count = 32;
 
-struct ClippedFace
-{
-    GrowableStack<Point, default_clipped_vertex_count> points;
-};
+using ClippedFace = GrowableStack<Vec3, default_clipped_vertex_count>;
 
 static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
 {
+    // Solve da + t * (db - da) = 0 using the signed distances at the edge endpoints.
     const float denom = da - db;
     if (Abs(denom) < epsilon)
     {
@@ -260,44 +258,94 @@ static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
     return a + t * (b - a);
 }
 
-static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, const Vec3& dir)
+static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, const Vec3& n)
 {
-    out->points.clear();
+    // Clip the polygon against the half-space whose boundary passes through p and whose normal points along n.
+    MuliAssert(in.size() != 0);
+    out->clear();
 
-    if (in.points.size() == 0)
-    {
-        return;
-    }
-
-    Point p0 = in.points[in.points.size() - 1];
-    float d0 = Dot(p0.p - p, dir);
+    // Start with the closing edge from the last vertex to the first vertex.
+    Vec3 p0 = in[in.size() - 1];
+    float d0 = Dot(p0 - p, n);
     bool inside0 = d0 >= -epsilon;
 
-    for (int32 i = 0; i < in.points.size(); ++i)
+    for (int32 i = 0; i < in.size(); ++i)
     {
-        Point p1 = in.points[i];
-        float d1 = Dot(p1.p - p, dir);
+        Vec3 p1 = in[i];
+        float d1 = Dot(p1 - p, n);
         bool inside1 = d1 >= -epsilon;
 
         if (inside0 && inside1)
         {
-            out->points.push_back(p1);
+            // Keep p1 when both endpoints are inside the clipping half-space.
+            out->push_back(p1);
         }
         else if (inside0 && !inside1)
         {
-            Vec3 intersection = IntersectPlaneEdge(p0.p, p1.p, d0, d1);
-            out->points.push_back(Point{ intersection, p0.id });
+            // Keep only the intersection when the edge leaves the clipping half-space.
+            Vec3 intersection = IntersectPlaneEdge(p0, p1, d0, d1);
+
+            out->emplace_back(intersection);
         }
         else if (!inside0 && inside1)
         {
-            Vec3 intersection = IntersectPlaneEdge(p0.p, p1.p, d0, d1);
-            out->points.push_back(Point{ intersection, p0.id });
-            out->points.push_back(p1);
+            // Keep the intersection and p1 when the edge enters the clipping half-space.
+            Vec3 intersection = IntersectPlaneEdge(p0, p1, d0, d1);
+
+            out->emplace_back(intersection);
+            out->push_back(p1);
         }
 
+        // Nothing to do with outside -> outside case
+        // Advance to the next edge.
         p0 = p1;
         d0 = d1;
         inside0 = inside1;
+    }
+}
+
+static void AssignContactId(ContactManifold* manifold, const Vec3& origin, const Vec3& tangent1)
+{
+    if (manifold->contactCount == 1)
+    {
+        manifold->contactPoints[0].id = 0;
+        return;
+    }
+
+    Vec3 tangent2 = Cross(manifold->normal, tangent1);
+
+    int32 indices[max_contact_point_count];
+    float angles[max_contact_point_count];
+
+    for (int32 i = 0; i < manifold->contactCount; ++i)
+    {
+        Vec3 point = manifold->contactPoints[i].anchorA;
+        Vec3 delta = point - origin;
+
+        float angle = std::atan2(Dot(delta, tangent2), Dot(delta, tangent1));
+
+        indices[i] = i;
+        angles[i] = angle < 0.0f ? angle + two_pi : angle;
+    }
+
+    // Sort from the positive tangent axis in counter-clockwise order around the contact normal.
+    for (int32 i = 1; i < manifold->contactCount; ++i)
+    {
+        int32 index = indices[i];
+        int32 j = i - 1;
+
+        while (j >= 0 && angles[indices[j]] > angles[index])
+        {
+            indices[j + 1] = indices[j];
+            --j;
+        }
+
+        indices[j + 1] = index;
+    }
+
+    for (int32 i = 0; i < manifold->contactCount; ++i)
+    {
+        manifold->contactPoints[indices[i]].id = i;
     }
 }
 
@@ -307,24 +355,38 @@ static void FindContactPoints(
 {
     manifold->normal = n;
 
+    // Find the faces on A and B that oppose each other along the collision normal.
     Face faceA = a->GetFeaturedFace(tfA, n);
     Face faceB = b->GetFeaturedFace(tfB, -n);
 
+    // Build the face polygons in world space for clipping.
     ClippedFace clippedA, clippedB;
-    clippedA.points.resize(faceA.vertexCount);
-    clippedB.points.resize(faceB.vertexCount);
+    clippedA.resize(faceA.vertexCount);
+    clippedB.resize(faceB.vertexCount);
 
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+
+    Vec3 origin(0);
+
+    // Offset shape A vertices along the face normal by its collision radius.
     for (int32 i = 0; i < faceA.vertexCount; ++i)
     {
         int32 vertexIndex = a->GetVertexIndex(faceA.vertexStart + i);
-        clippedA.points[i].id = vertexIndex;
-        clippedA.points[i].p = Mul(tfA, a->GetVertex(vertexIndex)) + faceA.normal * a->GetRadius();
+        Vec3 point = Mul(tfA, a->GetVertex(vertexIndex));
+        origin += point;
+        clippedA[i] = point + faceA.normal * ra;
     }
+    origin /= faceA.vertexCount;
+
+    Vec3 mid = (clippedA[faceA.vertexCount - 1] - clippedA[0]) * 0.5f;
+    Vec3 tangent1 = GramSchmidt(mid - origin, n);
+
+    // Offset shape B vertices along the face normal by its collision radius.
     for (int32 i = 0; i < faceB.vertexCount; ++i)
     {
         int32 vertexIndex = b->GetVertexIndex(faceB.vertexStart + i);
-        clippedB.points[i].id = vertexIndex;
-        clippedB.points[i].p = Mul(tfB, b->GetVertex(vertexIndex)) + faceB.normal * b->GetRadius();
+        clippedB[i] = Mul(tfB, b->GetVertex(vertexIndex)) + faceB.normal * rb;
     }
 
     ClippedFace* ref; // Reference face
@@ -335,6 +397,7 @@ static void FindContactPoints(
     float aParallelness = AbsDot(faceA.normal, n);
     float bParallelness = AbsDot(faceB.normal, n);
 
+    // Keep A as reference when B has fewer vertices and cannot bound A's face.
     if (std::min(faceA.vertexCount, faceB.vertexCount) < 3 && (faceB.vertexCount < faceA.vertexCount))
     {
         ref = &clippedA;
@@ -343,92 +406,97 @@ static void FindContactPoints(
     }
     else if (bParallelness > aParallelness)
     {
+        // Otherwise use the face whose normal is more closely aligned with the collision normal.
         ref = &clippedB;
         inc = &clippedA;
         flipped = true;
     }
     else
     {
+        // Keep shape A as reference on ties for deterministic selection.
         ref = &clippedA;
         inc = &clippedB;
         flipped = false;
     }
 
+    // Define the reference plane using its outward normal and any point on the face.
     Vec3 planeNormal = flipped ? faceB.normal : faceA.normal;
-    Vec3 planePoint = ref->points[0].p;
+    Vec3 planePoint = ref->at(0);
 
+    // Ping-pong buffers and indices.
     ClippedFace out;
     ClippedFace* faces[2] = { inc, &out };
 
-    // ping pong indices
     int32 input = 0;
     int32 output = 1;
 
-    for (int32 i0 = ref->points.size() - 1, i1 = 0; i1 < ref->points.size(); i0 = i1, ++i1)
+    for (int32 i0 = ref->size() - 1, i1 = 0; i1 < ref->size(); i0 = i1, ++i1)
     {
-        Vec3 edge = ref->points[i1].p - ref->points[i0].p;
+        // Build the inward-facing side plane of this reference edge.
+        Vec3 edge = ref->at(i1) - ref->at(i0);
         Vec3 inward = Normalize(Cross(planeNormal, edge));
 
-        ClipFace(faces[output], *faces[input], ref->points[i0].p, inward);
+        // Clip the current polygon against this side plane.
+        ClipFace(faces[output], *faces[input], ref->at(i0), inward);
 
-        if (faces[output]->points.size() == 0)
+        if (faces[output]->size() == 0)
         {
             manifold->contactCount = 0;
             return;
         }
 
+        // Pass this result to the next reference side plane.
         std::swap(input, output);
     }
 
-    // Keep only points that under the reference plane.
-    faces[output]->points.clear();
-    for (int32 i = 0; i < faces[input]->points.size(); ++i)
+    // Keep only points behind the reference plane.
+    faces[output]->clear();
+    for (int32 i = 0; i < faces[input]->size(); ++i)
     {
-        float separation = Dot(faces[input]->points[i].p - planePoint, planeNormal);
+        // Negative separation lies behind the outward-facing reference plane.
+        float separation = Dot(faces[input]->at(i) - planePoint, planeNormal);
         if (separation < 0.0f)
         {
-            faces[output]->points.push_back(faces[input]->points[i]);
+            faces[output]->push_back(faces[input]->at(i));
         }
     }
 
-    if (faces[output]->points.size() == 0)
+    if (faces[output]->size() == 0)
     {
         manifold->contactCount = 0;
         return;
     }
 
     GrowableStack<ContactPoint, default_clipped_vertex_count> candidates;
-    candidates.resize(faces[output]->points.size());
-    for (int32 i = 0; i < faces[output]->points.size(); ++i)
+    candidates.resize(faces[output]->size());
+    for (int32 i = 0; i < faces[output]->size(); ++i)
     {
-        Point point = faces[output]->points[i];
-        float separation = Dot(point.p - planePoint, planeNormal);
+        Vec3 point = faces[output]->at(i);
+        float separation = Dot(point - planePoint, planeNormal);
 
-        Vec3 anchorA, anchorB;
+        // The clipped point lies on the incident face, so project the other anchor onto the reference plane.
         if (flipped)
         {
-            anchorA = point.p;
-            anchorB = point.p - planeNormal * separation;
+            candidates[i].anchorA = point;
+            candidates[i].anchorB = point - planeNormal * separation;
         }
         else
         {
-            anchorA = point.p - planeNormal * separation;
-            anchorB = point.p;
+            candidates[i].anchorA = point - planeNormal * separation;
+            candidates[i].anchorB = point;
         }
-
-        candidates[i].anchorA = anchorA;
-        candidates[i].anchorB = anchorB;
     }
 
-    if (faces[output]->points.size() <= max_contact_point_count)
+    // Keep the complete clipped polygon when it already fits the manifold capacity.
+    if (faces[output]->size() <= max_contact_point_count)
     {
-        for (int32 i = 0; i < faces[output]->points.size(); ++i)
+        for (int32 i = 0; i < faces[output]->size(); ++i)
         {
             manifold->contactPoints[i] = candidates[i];
-            manifold->contactPoints[i].id = a->GetVertexIndex(faceA.vertexStart + i % faceA.vertexCount);
         }
 
-        manifold->contactCount = faces[output]->points.size();
+        manifold->contactCount = faces[output]->size();
+        AssignContactId(manifold, origin, tangent1);
         return;
     }
 
@@ -440,13 +508,14 @@ static void FindContactPoints(
     constexpr float minDepth2 = Sqr(linear_slop);
 
     Vec3 centerA = Mul(tfA, a->GetCenter());
+
     GrowableStack<Vec3, default_clipped_vertex_count> projected;
     GrowableStack<float, default_clipped_vertex_count> depth2;
-    projected.resize(faces[output]->points.size());
-    depth2.resize(faces[output]->points.size());
+    projected.resize(faces[output]->size());
+    depth2.resize(faces[output]->size());
 
     // Work in the contact tangent plane around shape A.
-    for (int32 i = 0; i < faces[output]->points.size(); ++i)
+    for (int32 i = 0; i < faces[output]->size(); ++i)
     {
         Vec3 r = candidates[i].anchorA - centerA;
         projected[i] = GramSchmidt(r, n);
@@ -456,7 +525,7 @@ static void FindContactPoints(
     // Start with the point that is farthest from the center and deepest
     int32 point1 = 0;
     float value = Max(minDepth2, Length2(projected[0])) * depth2[0];
-    for (int32 i = 1; i < faces[output]->points.size(); ++i)
+    for (int32 i = 1; i < faces[output]->size(); ++i)
     {
         float v = Max(minDepth2, Length2(projected[i])) * depth2[i];
         if (v > value)
@@ -469,7 +538,7 @@ static void FindContactPoints(
     // Use the farthest weighted point from point1 as the main patch axis
     int32 point2 = -1;
     value = -max_float;
-    for (int32 i = 0; i < faces[output]->points.size(); ++i)
+    for (int32 i = 0; i < faces[output]->size(); ++i)
     {
         if (i == point1)
         {
@@ -491,7 +560,7 @@ static void FindContactPoints(
     Vec3 perp = Cross(projected[point2] - projected[point1], n);
 
     // Keep one point on each side of the main axis to maximize patch area
-    for (int32 i = 0; i < faces[output]->points.size(); ++i)
+    for (int32 i = 0; i < faces[output]->size(); ++i)
     {
         if (i == point1 || i == point2)
         {
@@ -526,10 +595,10 @@ static void FindContactPoints(
     for (int32 i = 0; i < contactCount; ++i)
     {
         manifold->contactPoints[i] = candidates[indices[i]];
-        manifold->contactPoints[i].id = a->GetVertexIndex(faceA.vertexStart + i % faceA.vertexCount);
     }
 
     manifold->contactCount = contactCount;
+    AssignContactId(manifold, origin, tangent1);
 }
 
 bool SphereVsSphere(
@@ -2391,10 +2460,10 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
 
         Vec3 point = Vec3::zero;
         int32 triangleId = ((z * heightField->GetCellCountX() + x) << 1) | triangle;
+        manifold.id = triangleId + 1;
         for (int32 i = 0; i < manifold.contactCount; ++i)
         {
             point += manifold.contactPoints[i].anchorA;
-            manifold.contactPoints[i].id = (triangleId << 8) | (manifold.contactPoints[i].id & 0xff);
         }
         point /= manifold.contactCount;
 
@@ -2426,10 +2495,10 @@ bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Tra
         }
 
         Vec3 point = Vec3::zero;
+        manifold.id = triangle + 1;
         for (int32 i = 0; i < manifold.contactCount; ++i)
         {
             point += manifold.contactPoints[i].anchorA;
-            manifold.contactPoints[i].id = (triangle << 8) | (manifold.contactPoints[i].id & 0xff);
         }
         point /= manifold.contactCount;
 

@@ -12,15 +12,18 @@ constexpr int32 max_contact_point_count = 4;
 
 struct ContactPoint
 {
+    int32 id;
+
     Vec3 anchorA;
     Vec3 anchorB;
-    int32 id;
 
     float impulse;
 };
 
 struct ContactManifold
 {
+    int32 id;
+
     int32 contactCount;
     ContactPoint contactPoints[max_contact_point_count];
     Vec3 normal;

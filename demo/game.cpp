@@ -573,6 +573,9 @@ void Game::Render()
         }
     }
 
+    renderer.FlushPoints(false);
+    renderer.FlushLines(false);
+
     demo->Render();
     renderer.EndFrame();
 }

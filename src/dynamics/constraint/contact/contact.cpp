@@ -119,8 +119,8 @@ void Contact::Update()
 
     constexpr float normalMatchThreshold = 0.995f;
 
-    GrowableStack<int32, 4> used;
-    used.resize(oldManifolds.size());
+    GrowableStack<uint8, 4> usedManifold;
+    usedManifold.resize(oldManifolds.size());
 
     for (int32 i = 0; i < s->manifolds.size(); ++i)
     {
@@ -130,7 +130,7 @@ void Contact::Update()
         float bestSimilarity = normalMatchThreshold;
         for (int32 j = 0; j < oldManifolds.size(); ++j)
         {
-            if (used[j] != 0 || oldManifolds[j].contactCount == 0)
+            if (usedManifold[j] != 0 || oldManifolds[j].contactCount == 0 || manifold.id != oldManifolds[j].id)
             {
                 continue;
             }
@@ -148,16 +148,18 @@ void Contact::Update()
             continue;
         }
 
-        used[oldIndex] = 1;
+        usedManifold[oldIndex] = 1;
 
         const ContactManifold& oldManifold = oldManifolds[oldIndex];
+        bool usedPoint[max_contact_point_count]{};
         for (int32 j = 0; j < manifold.contactCount; ++j)
         {
             for (int32 k = 0; k < oldManifold.contactCount; ++k)
             {
-                if (manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
+                if (!usedPoint[k] && manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
                 {
                     manifold.contactPoints[j].impulse = oldManifold.contactPoints[k].impulse;
+                    usedPoint[k] = true;
                     break;
                 }
             }
