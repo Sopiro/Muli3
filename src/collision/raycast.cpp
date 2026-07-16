@@ -225,14 +225,23 @@ bool ShapeCast(
                 return false;
             }
 
-            t = (vp - target) / vr;
-            if (t > 1.0f)
+            float newT = (vp - target) / vr;
+            if (newT > 1.0f)
             {
                 return false;
             }
 
+            // Keep the simplex in the new ray frame instead of rebuilding it.
+            // This preserves the selected feature across clipping advances.
+            Vec3 shift = (newT - t) * r;
+            for (int32 i = 0; i < simplex.count; ++i)
+            {
+                simplex.vertices[i].pointB.p += shift;
+                simplex.vertices[i].point -= shift;
+            }
+
+            t = newT;
             n = -v;
-            simplex.count = 0;
         }
 
         SupportPoint* vertex = simplex.vertices + simplex.count;
@@ -265,12 +274,6 @@ bool ShapeCast(
     }
 
     simplex.GetWitnessPoint(&pointA, &pointB);
-
-    if (Length2(v) > 0.0f)
-    {
-        n = -v;
-        n.Normalize();
-    }
 
     output->point = pointA + a->GetRadius() * n + translationA * t;
     output->normal = -n;
