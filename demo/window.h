@@ -19,7 +19,7 @@ public:
     void SetCursorHidden(bool hidden);
 
     bool ShouldClose() const;
-    void BeginFrame(const Vec3& clearColor) const;
+    void BeginFrame() const;
     void EndFrame() const;
 
     GLFWwindow* GetNativeHandle() const;

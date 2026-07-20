@@ -1,6 +1,7 @@
 #include "muli3/height_field_shape.h"
 #include "muli3/distance.h"
 #include "muli3/ghost.h"
+#include "muli3/hash.h"
 #include "muli3/parallel_for.h"
 #include "muli3/settings.h"
 #include "muli3/shapes.h"
@@ -207,6 +208,12 @@ void HeightFieldShape::Build()
             ProcessEdge(x, z, 1, 2, x, z - 1, 0);
         }
     });
+
+    hash = Hash(
+        uint32(Shape::height_field), uint32(sampleCountX), uint32(sampleCountZ), cellSizeX, cellSizeZ, offset.x, offset.y,
+        offset.z
+    );
+    hash = HashBuffer(heights.data(), heights.size() * sizeof(float), hash);
 }
 
 void HeightFieldShape::ComputeMass(float density, MassData* outMassData) const

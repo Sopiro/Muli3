@@ -16,8 +16,6 @@ static int32 updateRate;
 static float targetFrameTime;
 static float targetUpdateTime;
 
-static Vec3 clearColor = { 0.72f, 0.76f, 0.82f };
-
 int32 GetFrameRate()
 {
     return frameRate;
@@ -97,7 +95,7 @@ static void MainLoop()
 
     if (frameTime > targetFrameTime)
     {
-        window->BeginFrame(clearColor);
+        window->BeginFrame();
         {
             game->Update(frameTime);
             game->Render();

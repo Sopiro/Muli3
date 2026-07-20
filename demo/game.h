@@ -30,6 +30,14 @@ public:
 private:
     static constexpr int32 profile_capacity = 256;
 
+    struct RenderItem
+    {
+        const Shape* shape;
+        Transform transform;
+        Vec4 color;
+        bool visible;
+    };
+
     void UpdateUI();
     void UpdateInput();
     void InitDemo(size_t index);
@@ -53,6 +61,12 @@ private:
     bool profileStopped = false;
     bool profileShowOverlay = false;
     bool profileShowAverage = false;
+    Vec3 skyColor = color::HexToRGB(0xC2CEDC);
+    float skyIntensity = 1.0f;
+    Vec3 lightDirection = { 0.45f, -1.0f, -0.35f };
+    Vec3 lightColor = { 1.0f, 1.0f, 1.0f };
+    float lightIntensity = 1.5f;
+    std::vector<RenderItem> renderItems;
     DebugOptions options;
 };
 

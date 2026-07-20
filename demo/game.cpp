@@ -30,6 +30,7 @@ Game::Game()
 
     workerCount = 8;
     RecreateThreadPool();
+    renderItems.reserve(2048);
     InitDemo(30);
     Window::Get()->SetCursorHidden(false);
 }
@@ -248,14 +249,6 @@ static void DrawTwistArc(
     renderer.DrawLine(origin, origin + currentDir * radius, currentColor);
 }
 
-static void DrawBody(Renderer& renderer, const Body& body, const Vec4& color, bool wireframe)
-{
-    for (const Collider* collider = body.GetColliderList(); collider; collider = collider->GetNext())
-    {
-        renderer.DrawShape(collider->GetShape(), body.GetTransform(), color, wireframe);
-    }
-}
-
 void Game::Render()
 {
     Window* window = Window::Get();
@@ -263,44 +256,82 @@ void Game::Render()
     float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
     World& world = demo->GetWorld();
 
-    renderer.BeginFrame(demo->GetCamera(), aspectRatio);
+    renderer.BeginFrame(demo->GetCamera(), aspectRatio, skyColor, skyIntensity, lightDirection, lightColor, lightIntensity);
 
-    renderer.BeginShadowPass();
-    if (options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe)
+    bool drawSolid = options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe;
+    bool drawDepth = options.body_draw_mode == body_draw_depth_wireframe;
+    bool drawWireframe = options.body_draw_mode == body_draw_solid_wireframe || options.body_draw_mode == body_draw_wireframe ||
+                         options.body_draw_mode == body_draw_depth_wireframe;
+
+    Camera& camera = demo->GetCamera();
+    Mat4 vp = camera.GetProjectionMatrix(aspectRatio) * camera.GetViewMatrix();
+    Vec4 row0{ vp.ex.x, vp.ey.x, vp.ez.x, vp.ew.x };
+    Vec4 row1{ vp.ex.y, vp.ey.y, vp.ez.y, vp.ew.y };
+    Vec4 row2{ vp.ex.z, vp.ey.z, vp.ez.z, vp.ew.z };
+    Vec4 row3{ vp.ex.w, vp.ey.w, vp.ez.w, vp.ew.w };
+    Vec4 frustumPlanes[] = { row3 + row0, row3 - row0, row3 + row1, row3 - row1, row3 + row2, row3 - row2 };
+
+    renderItems.clear();
+    if (drawSolid || drawDepth || drawWireframe)
     {
         for (Body* body = world.GetBodyList(); body; body = body->GetNext())
         {
-            DrawBody(renderer, *body, Renderer::default_white, false);
+            Vec4 color = GetBodyColor(renderer, *body, options);
+            Transform transform = body->GetTransform();
+            for (const Collider* collider = body->GetColliderList(); collider; collider = collider->GetNext())
+            {
+                AABB bounds = collider->GetAABB();
+                Vec3 center = (bounds.min + bounds.max) * 0.5f;
+                Vec3 extents = (bounds.max - bounds.min) * 0.5f;
+                bool visible = true;
+                for (const Vec4& plane : frustumPlanes)
+                {
+                    float distance = plane.x * center.x + plane.y * center.y + plane.z * center.z + plane.w;
+                    float radius = std::abs(plane.x) * extents.x + std::abs(plane.y) * extents.y + std::abs(plane.z) * extents.z;
+                    if (distance + radius < 0.0f)
+                    {
+                        visible = false;
+                        break;
+                    }
+                }
+                renderItems.push_back({ collider->GetShape(), transform, color, visible });
+            }
+        }
+    }
+
+    renderer.BeginShadowPass();
+    if (drawSolid)
+    {
+        for (const RenderItem& item : renderItems)
+        {
+            renderer.DrawShape(item.shape, item.transform, Renderer::default_white, false);
         }
     }
     renderer.EndShadowPass();
 
-    renderer.BeginShapePass();
-    if (options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe)
+    renderer.BeginAoPass();
+    if (drawSolid || drawDepth)
     {
-        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        for (const RenderItem& item : renderItems)
         {
-            DrawBody(renderer, *body, GetBodyColor(renderer, *body, options), false);
+            if (item.visible)
+            {
+                renderer.DrawShape(item.shape, item.transform, item.color, false);
+            }
         }
-        renderer.FlushShapes();
     }
-    else if (options.body_draw_mode == body_draw_depth_wireframe)
-    {
-        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
-        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
-        {
-            DrawBody(renderer, *body, Renderer::default_white, false);
-        }
-        renderer.FlushShapes();
-        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    }
+    renderer.EndAoPass();
 
-    if (options.body_draw_mode == body_draw_solid_wireframe || options.body_draw_mode == body_draw_wireframe ||
-        options.body_draw_mode == body_draw_depth_wireframe)
+    renderer.BeginShapePass(drawSolid);
+
+    if (drawWireframe)
     {
-        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        for (const RenderItem& item : renderItems)
         {
-            DrawBody(renderer, *body, Renderer::default_black, true);
+            if (item.visible)
+            {
+                renderer.DrawShape(item.shape, item.transform, Renderer::default_black, true);
+            }
         }
         renderer.FlushShapes();
     }
@@ -654,6 +685,11 @@ void Game::UpdateUI()
                 ImGui::SetNextItemOpen(false, ImGuiCond_Once);
                 if (ImGui::CollapsingHeader("Debug Options"))
                 {
+                    ImGui::ColorEdit3("Sky Color", &skyColor.x);
+                    ImGui::SliderFloat("Sky Intensity", &skyIntensity, 0.0f, 4.0f, "%.2f");
+                    ImGui::ColorEdit3("Light Color", &lightColor.x);
+                    ImGui::DragFloat3("Light Direction", &lightDirection.x, 0.01f, -1.0f, 1.0f, "%.2f");
+                    ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.0f, 10.0f, "%.2f");
                     ImGui::Checkbox("Show Profiler", &options.show_profiler);
                     ImGui::Checkbox("Camera Reset", &options.reset_camera);
                     ImGui::Checkbox("Colorize Island", &options.colorize_island);

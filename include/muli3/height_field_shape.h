@@ -66,6 +66,8 @@ public:
         std::function<void(int32 x, int32 z, int32 triangle, const Vec3& a, const Vec3& b, const Vec3& c)> callback
     ) const;
 
+    uint64 GetHash() const;
+
 private:
     int32 sampleCountX;
     int32 sampleCountZ;
@@ -94,6 +96,8 @@ private:
     std::vector<uint8> activeEdges;
 
     AABB localBounds;
+
+    uint64 hash;
 
     void Build();
     AABB GetBlockAABB(int32 bx, int32 bz) const;
@@ -217,6 +221,11 @@ inline void HeightFieldShape::GetTriangle(int32 x, int32 z, int32 triangle, Vec3
         *b = p11;
         *c = p10;
     }
+}
+
+inline uint64 HeightFieldShape::GetHash() const
+{
+    return hash;
 }
 
 } // namespace muli3

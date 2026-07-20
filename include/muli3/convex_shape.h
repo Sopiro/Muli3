@@ -36,10 +36,16 @@ public:
     std::span<const int32> GetIndices() const;
     std::span<const Face> GetFaces() const;
 
+    uint64 GetHash() const;
+
 private:
     std::vector<Vec3> vertices;
     std::vector<int32> indices;
     std::vector<Face> faces;
+
+    uint64 hash;
+
+    void Initialize();
 
     bool TestPointLocal(const Vec3& q) const;
     Vec3 GetClosestPointLocal(const Vec3& q) const;
@@ -75,6 +81,11 @@ inline std::span<const int32> ConvexShape::GetIndices() const
 inline std::span<const Face> ConvexShape::GetFaces() const
 {
     return faces;
+}
+
+inline uint64 ConvexShape::GetHash() const
+{
+    return hash;
 }
 
 } // namespace muli3

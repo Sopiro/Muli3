@@ -14,10 +14,9 @@ Window::Window(int32 width, int32 height, const char* title)
         std::exit(1);
     }
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_SAMPLES, 4);
 
     handle = glfwCreateWindow(width, height, title, nullptr, nullptr);
     if (!handle)
@@ -31,12 +30,7 @@ Window::Window(int32 width, int32 height, const char* title)
     if (videoMode)
     {
         glfwSetWindowMonitor(
-            handle,
-            nullptr,
-            (videoMode->width / 2) - (width / 2),
-            (videoMode->height / 2) - (height / 2),
-            width,
-            height,
+            handle, nullptr, (videoMode->width / 2) - (width / 2), (videoMode->height / 2) - (height / 2), width, height,
             GLFW_DONT_CARE
         );
         refreshRate = videoMode->refreshRate;
@@ -65,7 +59,7 @@ Window::Window(int32 width, int32 height, const char* title)
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(handle, false);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    ImGui_ImplOpenGL3_Init("#version 450");
 }
 
 Window::~Window()
@@ -86,7 +80,7 @@ void Window::SetFramebufferSizeChangeCallback(std::function<void(int32, int32)> 
     framebufferSizeChangeCallback = std::move(callback);
 }
 
-void Window::BeginFrame(const Vec3& clearColor) const
+void Window::BeginFrame() const
 {
     glfwPollEvents();
 
@@ -95,8 +89,6 @@ void Window::BeginFrame(const Vec3& clearColor) const
     ImGui::NewFrame();
 
     glViewport(0, 0, width, height);
-    glClearColor(clearColor.x, clearColor.y, clearColor.z, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 void Window::EndFrame() const

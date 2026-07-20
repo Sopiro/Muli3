@@ -105,11 +105,12 @@ void Mesh::Draw() const
     glBindVertexArray(0);
 }
 
-void Mesh::DrawInstanced(GLsizei instanceCount, bool outline) const
+void Mesh::DrawInstanced(GLsizei instanceCount, bool outline, GLuint baseInstance) const
 {
     glBindVertexArray(outline ? outlineVao : vao);
-    glDrawElementsInstanced(
-        outline ? GL_LINES : primitive, outline ? outlineIndexCount : indexCount, GL_UNSIGNED_INT, nullptr, instanceCount
+    glDrawElementsInstancedBaseInstance(
+        outline ? GL_LINES : primitive, outline ? outlineIndexCount : indexCount, GL_UNSIGNED_INT, nullptr, instanceCount,
+        baseInstance
     );
     glBindVertexArray(0);
 }

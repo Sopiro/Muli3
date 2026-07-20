@@ -41,6 +41,8 @@ public:
     template <typename Callback>
     void Query(const AABB& localAABB, Callback&& callback) const;
 
+    uint64 GetHash() const;
+
 private:
     struct BVHPrimitive
     {
@@ -69,6 +71,8 @@ private:
     std::vector<int32> bvhTriangles;
     std::vector<BVHNode> nodes;
     AABB localBounds;
+
+    uint64 hash;
 
     void Build();
     int32 BuildNode(std::vector<BVHPrimitive>* primitives, int32 begin, int32 end);
@@ -140,6 +144,11 @@ inline void MeshShape::GetTriangle(int32 triangle, Vec3* a, Vec3* b, Vec3* c) co
     *a = vertices[indices[index]];
     *b = vertices[indices[index + 1]];
     *c = vertices[indices[index + 2]];
+}
+
+inline uint64 MeshShape::GetHash() const
+{
+    return hash;
 }
 
 template <typename Callback>

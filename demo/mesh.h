@@ -31,7 +31,7 @@ public:
     );
     void Destroy();
     void Draw() const;
-    void DrawInstanced(GLsizei instanceCount, bool outline = false) const;
+    void DrawInstanced(GLsizei instanceCount, bool outline = false, GLuint baseInstance = 0) const;
     GLuint GetVAO() const;
     GLuint GetOutlineVAO() const;
 

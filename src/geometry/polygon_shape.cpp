@@ -1,5 +1,6 @@
 #include "muli3/polygon_shape.h"
 #include "muli3/distance.h"
+#include "muli3/hash.h"
 #include "muli3/settings.h"
 
 namespace muli3
@@ -61,6 +62,10 @@ PolygonShape::PolygonShape(std::span<const Vec3> inVertices, float inRadius, con
         center = massData.centerOfMass;
         volume = massData.mass;
     }
+
+    // Compute geometry hash
+    hash = Hash(uint32(Shape::polygon), uint32(vertices.size()));
+    hash = HashBuffer(vertices.data(), vertices.size() * sizeof(Vec3), hash);
 }
 
 PolygonShape::PolygonShape(const PolygonShape& other, const Transform& transform)

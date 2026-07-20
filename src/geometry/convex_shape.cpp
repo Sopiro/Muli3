@@ -1,6 +1,7 @@
 #include "muli3/convex_shape.h"
 #include "muli3/distance.h"
 #include "muli3/geometry.h"
+#include "muli3/hash.h"
 #include "muli3/shape.h"
 
 namespace muli3
@@ -27,10 +28,7 @@ ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const
         }
     }
 
-    MassData massData;
-    ComputeMass(1.0f, &massData);
-    center = massData.centerOfMass;
-    volume = massData.mass;
+    Initialize();
 }
 
 ConvexShape::ConvexShape(
@@ -74,10 +72,7 @@ ConvexShape::ConvexShape(
         face.normal = Normalize(Cross(b - a, c - a));
     }
 
-    MassData massData;
-    ComputeMass(1.0f, &massData);
-    center = massData.centerOfMass;
-    volume = massData.mass;
+    Initialize();
 }
 
 ConvexShape::ConvexShape(const ConvexShape& other, const Transform& transform)
@@ -718,6 +713,26 @@ bool ConvexShape::RayCast(const Transform& transform, const RayCastInput& input,
     output->fraction = near;
     output->normal = transform.q.Rotate(faces[index].normal);
     return true;
+}
+
+void ConvexShape::Initialize()
+{
+    MassData massData;
+    ComputeMass(1.0f, &massData);
+    center = massData.centerOfMass;
+    volume = massData.mass;
+
+    // Compute geometry hash
+    hash = Hash(uint32(Shape::convex), uint32(vertices.size()), uint32(indices.size()), uint32(faces.size()));
+    hash = HashBuffer(vertices.data(), vertices.size() * sizeof(Vec3), hash);
+    hash = HashBuffer(indices.data(), indices.size() * sizeof(int32), hash);
+
+    for (const Face& face : faces)
+    {
+        hash = HashBuffer(&face.vertexStart, sizeof(face.vertexStart), hash);
+        hash = HashBuffer(&face.vertexCount, sizeof(face.vertexCount), hash);
+        hash = HashBuffer(&face.normal, sizeof(Vec3), hash);
+    }
 }
 
 } // namespace muli3

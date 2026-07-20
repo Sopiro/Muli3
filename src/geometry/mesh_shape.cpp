@@ -1,6 +1,7 @@
 #include "muli3/mesh_shape.h"
 #include "muli3/distance.h"
 #include "muli3/ghost.h"
+#include "muli3/hash.h"
 #include "muli3/shapes.h"
 
 namespace muli3
@@ -274,6 +275,11 @@ void MeshShape::Build()
     localBounds = nodes[0].bounds;
     center = localBounds.GetCenter();
     volume = 0.0f;
+
+    // Compute geometry hash
+    hash = Hash(uint32(Shape::mesh), uint32(vertices.size()), uint32(indices.size()));
+    hash = HashBuffer(vertices.data(), vertices.size() * sizeof(Vec3), hash);
+    hash = HashBuffer(indices.data(), indices.size() * sizeof(int32), hash);
 }
 
 void MeshShape::ComputeMass(float density, MassData* outMassData) const

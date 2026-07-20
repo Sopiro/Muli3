@@ -32,10 +32,20 @@ public:
     bool Initialize();
     void Shutdown();
 
-    void BeginFrame(const Camera& camera, float aspectRatio);
+    void BeginFrame(
+        const Camera& camera,
+        float aspectRatio,
+        const Vec3& skyColor,
+        float skyIntensity,
+        const Vec3& lightDirection,
+        const Vec3& lightColor,
+        float lightIntensity
+    );
     void BeginShadowPass();
     void EndShadowPass();
-    void BeginShapePass();
+    void BeginAoPass();
+    void EndAoPass();
+    void BeginShapePass(bool shadeGeometry = true);
     void EndFrame();
 
     float GetPointSize() const;
@@ -66,7 +76,20 @@ private:
     struct ShapeInstance
     {
         Mat4 model;
+        Mat3 normal;
         Vec4 color;
+
+        ShapeInstance(const Mat4& model, const Vec4& color)
+            : model{ model }
+            , color{ color }
+        {
+            Mat3 rotationScale{
+                Vec3{ model.ex.x, model.ex.y, model.ex.z },
+                Vec3{ model.ey.x, model.ey.y, model.ey.z },
+                Vec3{ model.ez.x, model.ez.y, model.ez.z },
+            };
+            normal = rotationScale.GetInverse().GetTranspose();
+        }
     };
 
     struct InstancedMeshBatch
@@ -84,12 +107,6 @@ private:
         GLint baseVertex = 0;
     };
 
-    struct ShapeMeshKeyCache
-    {
-        size_t key = 0;
-        uint64 frame = 0;
-    };
-
     struct DrawElementsIndirectCommand
     {
         GLuint count = 0;
@@ -100,11 +117,15 @@ private:
     };
 
     bool CreateShadowResources();
+    bool CreateFrameResources(int32 width, int32 height);
     bool CreatePrimitiveResources();
     bool CreateShapeResources();
+
     void SetShapeInstanceAttributes();
-    void UploadShapeInstances(const ShapeInstance* instances, size_t count);
+    GLuint UploadShapeInstances(const ShapeInstance* instances, size_t count);
+
     void DestroyShadowResources();
+    void DestroyFrameResources();
     void DestroyPrimitiveResources();
     void DestroyShapeResources();
 
@@ -113,41 +134,73 @@ private:
     void FlushQueuedShapes(const Shader& shader, bool wireframe);
     void FlushInstancedMesh(InstancedMeshBatch& batch, int32 pass, bool wireframe);
     void FlushShapeMeshes(int32 pass, bool wireframe);
+
     void DrawHeightField(
         const HeightFieldShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
     );
     void DrawMeshShape(
         const MeshShape* shape, const Transform& transform, const Vec4& color, bool wireframe, const Shader& shader
     );
-    size_t GetShapeMeshKey(const Shape* shape);
-    size_t GetConvexMeshKey(const ConvexShape* shape) const;
-    size_t GetPolygonMeshKey(const PolygonShape* shape) const;
-    const ShapeMeshRange& GetConvexMesh(const ConvexShape* shape, size_t key);
-    const ShapeMeshRange& GetPolygonMesh(const PolygonShape* shape, size_t key);
+
+    const ShapeMeshRange& GetConvexMesh(const ConvexShape* shape, uint64 hash);
+    const ShapeMeshRange& GetPolygonMesh(const PolygonShape* shape, uint64 hash);
     const ShapeMeshRange& StoreShapeMesh(
-        size_t key, std::span<const MeshVertex> vertices, std::span<const uint32> indices, std::span<const uint32> outlineIndices
+        uint64 hash, std::span<const MeshVertex> vertices, std::span<const uint32> indices, std::span<const uint32> outlineIndices
     );
+
     Mesh& GetHeightFieldMesh(const HeightFieldShape* shape);
     Mesh& GetMeshShapeMesh(const MeshShape* shape);
+
     void FlushPrimitive(GLenum primitive, const std::vector<Vertex>& vertices, int32 vertexCount, bool overlay);
     void EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requiredCount);
 
-    bool initialized = false;
-    Shader shapeShader, shadowShader, primitiveShader;
+    Shader shapeShader, shadowShader, geometryShader, aoResolveShader, aoShader, aoBlurShader, deferredShader, presentShader,
+        primitiveShader;
     InstancedMeshBatch sphereBatch, capsuleTopBatch, capsuleBottomBatch, capsuleMidBatch, boxBatch, triangleBatch;
 
-    GLuint shadowFramebuffer;
-    GLuint shadowDepthTexture;
+    GLuint shadowFramebuffer = 0;
+    GLuint shadowDepthTexture = 0;
 
-    GLuint primVAO, primVBO, shapeInstanceVBO;
+    GLuint sceneFramebuffer = 0;
+    GLuint sceneColorTexture = 0;
+    GLuint presentFramebuffer = 0;
+    GLuint presentColorTexture = 0;
+    GLuint debugColorTexture = 0;
+
+    GLuint geometryFramebuffer = 0;
+    GLuint geometryNormalTexture = 0;
+    GLuint geometryAlbedoTexture = 0;
+    GLuint geometryDepthTexture = 0;
+
+    GLuint aoInputFramebuffer = 0;
+    GLuint aoNormalTexture = 0;
+    GLuint aoDepthTexture = 0;
+    GLuint aoFramebuffer = 0;
+    GLuint aoTexture = 0;
+    GLuint aoBlurFramebuffer = 0;
+    GLuint aoBlurTexture = 0;
+    GLuint aoNoiseTexture = 0;
+
+    GLuint fullscreenVAO = 0;
+
+    int32 frameWidth = 0;
+    int32 frameHeight = 0;
+
+    Vec3 skyColor;
+    Vec3 environmentColor;
+
+    GLuint primVAO = 0;
+    GLuint primVBO = 0;
+    GLuint shapeInstanceVBO = 0;
     GLuint shapeMeshVAO = 0, shapeMeshOutlineVAO = 0, shapeMeshVBO = 0, shapeMeshEBO = 0, shapeMeshOutlineEBO = 0,
            shapeMeshIndirectVBO = 0;
     int32 primitiveCapacity = 0;
+    size_t shapeInstanceCapacity = 2048;
+    size_t shapeInstanceOffset = 0;
     size_t queuedShapeCount[2]{};
-    std::unordered_map<size_t, ShapeMeshRange> shapeMeshes;
-    std::unordered_map<const Shape*, ShapeMeshKeyCache> shapeMeshKeyCache;
-    std::unordered_map<size_t, std::vector<ShapeInstance>> shapeMeshInstances[2];
-    std::vector<size_t> activeShapeMeshKeys[2];
+    std::unordered_map<uint64, ShapeMeshRange> shapeMeshes;
+    std::unordered_map<uint64, std::vector<ShapeInstance>> shapeMeshInstances[2];
+    std::vector<uint64> activeShapeMeshKeys[2];
     size_t shapeMeshInstanceCount[2]{};
     std::vector<MeshVertex> shapeMeshVertices;
     std::vector<uint32> shapeMeshIndices;
@@ -157,8 +210,8 @@ private:
     size_t shapeMeshOutlineIndexCapacity = 0;
     std::vector<ShapeInstance> shapeMeshInstanceBuffer;
     std::vector<DrawElementsIndirectCommand> shapeMeshCommands;
-    std::unordered_map<const HeightFieldShape*, Mesh> heightFieldMeshes;
-    std::unordered_map<const MeshShape*, Mesh> meshShapeMeshes;
+    std::unordered_map<uint64, Mesh> heightFieldMeshes;
+    std::unordered_map<uint64, Mesh> meshShapeMeshes;
 
     int32 pointCount = 0;
     std::vector<Vertex> points;
@@ -170,11 +223,11 @@ private:
 
     Mat4 lightViewProjectionMatrix{ identity };
     Vec3 lightDirection{ 0.0f, -1.0f, 0.0f };
+    Vec3 lightColor{ 1.0f };
+    float lightIntensity = 1.5f;
     Vec3 cameraPosition{ 0.0f };
     Shader* currentShapeShader = nullptr;
     GLint viewport[4]{};
-    uint64 frame = 0;
-
     float pointSize = 6.0f;
     float lineWidth = 1.0f;
 };
@@ -197,7 +250,6 @@ inline void Renderer::SetPointSize(float size)
 inline void Renderer::SetLineWidth(float width)
 {
     lineWidth = width;
-    glLineWidth(lineWidth);
 }
 
 inline void Renderer::SetProjectionMatrix(const Mat4& projection)

@@ -31,10 +31,14 @@ public:
     std::span<const Vec3> GetVertices() const;
     const Vec3& GetNormal() const;
 
+    uint64 GetHash() const;
+
 private:
     std::vector<Vec3> vertices;
     std::vector<int32> indices;
     Vec3 normal;
+
+    uint64 hash;
 
     Vec3 GetClosestPointLocal(const Vec3& q) const;
 };
@@ -64,6 +68,11 @@ inline std::span<const Vec3> PolygonShape::GetVertices() const
 inline const Vec3& PolygonShape::GetNormal() const
 {
     return normal;
+}
+
+inline uint64 PolygonShape::GetHash() const
+{
+    return hash;
 }
 
 } // namespace muli3
