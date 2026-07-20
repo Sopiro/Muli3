@@ -10,7 +10,7 @@ public:
     Logo(Game& game)
         : Demo(game)
     {
-        world->CreateBox(40.0f, 0.5f, 12.0f, identity, Body::static_body);
+        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
         Body* b = world->CreateEmptyBody();
 

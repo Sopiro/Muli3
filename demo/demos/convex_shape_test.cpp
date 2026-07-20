@@ -15,7 +15,7 @@ public:
     ConvexShapeTest(Game& game)
         : Demo(game)
     {
-        world->CreateBox(28.0f, 0.5f, 28.0f, identity, Body::static_body);
+        world->CreateBox(50.0f, 0.5f, 50.0f, identity, Body::static_body);
 
         float r = 1.5f;
         float xzBound = std::min(10.0f, bodyCount * 0.1f);

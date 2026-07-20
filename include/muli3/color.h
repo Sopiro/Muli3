@@ -52,6 +52,16 @@ constexpr inline Vec3 HSLToRGB(const Vec3& hsl)
     return result;
 }
 
+constexpr inline Vec3 HexToRGB(uint32 hex)
+{
+    constexpr float inv255 = 1.0f / 255.0f;
+    return {
+        float((hex >> 16) & 0xFF) * inv255,
+        float((hex >> 8) & 0xFF) * inv255,
+        float(hex & 0xFF) * inv255,
+    };
+}
+
 constexpr inline uint32 RGBToHex(const Vec3& rgb)
 {
     uint32 r = std::min<uint32>(uint32(rgb.x * 256), 255);

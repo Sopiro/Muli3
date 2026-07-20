@@ -111,20 +111,18 @@ void DrawProfileGraph(
         drawList->AddText(ImVec2{ graphMin.x - 4.0f - size.x, y - size.y * 0.5f }, borderColor, text);
     }
 
-    float graphWidth = graphMax.x - graphMin.x;
-    float columnStep = graphWidth / (float)profileCapacity;
-    float barWidth = (std::max)(1.0f, columnStep - 1.0f);
-    float scale = graphHeight / (maxValue - minValue);
     float innerLeft = graphMin.x + 1.0f;
     float innerRight = graphMax.x - 1.0f;
     float innerTop = graphMin.y + 1.0f;
     float innerBottom = graphMax.y - 1.0f;
+    float columnStep = (innerRight - innerLeft) / (float)profileCapacity;
+    float scale = graphHeight / (maxValue - minValue);
     int32 startSlot = profileCapacity - count;
 
     for (int32 i = 0; i < count; ++i)
     {
         float x0 = innerLeft + columnStep * (float)(startSlot + i);
-        float x1 = (std::min)(x0 + barWidth, innerRight);
+        float x1 = innerLeft + columnStep * (float)(startSlot + i + 1);
         float stack = 0.0f;
 
         for (int32 j = entryCount - 1; j >= 0; --j)
