@@ -14,10 +14,10 @@ static Vec3 SampleUniformHemisphere(Vec2 u)
     return Vec3(r * std::cos(phi), z, r * std::sin(phi));
 }
 
-class Ragdolls : public Demo
+class RagdollTest : public Demo
 {
 public:
-    Ragdolls(Game& game)
+    RagdollTest(Game& game)
         : Demo(game)
     {
         Body* ground = world->CreateBox(50.0f, 0.2f, 50.0f, identity, Body::static_body);
@@ -33,17 +33,17 @@ public:
         Vec3 p = SampleUniformHemisphere(RandVec2());
         p *= 8.0f;
 
-        c->SetLinearVelocity(-p * Rand(4.0f, 8.0f) + Vec3{ 0.0f, Rand(5.0f, 15.0f), 0.0f });
+        c->SetLinearVelocity(-p * Rand(4.0f, 8.0f) + Vec3{ 0.0f, Rand(5.0f, 10.0f), 0.0f });
         p.y += 0.5f;
         c->SetPosition(p);
     }
 };
 
-static Demo* CreateRagdoll(Game& game)
+static Demo* CreateRagdollTest(Game& game)
 {
-    return new Ragdolls(game);
+    return new RagdollTest(game);
 }
 
-static int32 single_box = register_demo("Ragdoll", "Ragdoll", CreateRagdoll, 0);
+static int32 single_box = register_demo("Ragdoll", "Ragdoll", CreateRagdollTest, 0);
 
 } // namespace muli3

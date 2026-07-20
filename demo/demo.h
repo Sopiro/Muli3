@@ -4,6 +4,8 @@
 #include "common.h"
 #include "options.h"
 
+#include "input.h" // IWYU pragma: export
+
 namespace muli3
 {
 

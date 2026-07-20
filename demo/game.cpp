@@ -249,8 +249,13 @@ static void DrawTwistArc(
     renderer.DrawLine(origin, origin + currentDir * radius, currentColor);
 }
 
-void Game::Render()
+void Game::Render(float alpha)
 {
+    if (options.pause)
+    {
+        alpha = 1.0f;
+    }
+
     Window* window = Window::Get();
     Vec2 windowSize = window->GetWindowSize();
     float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
@@ -278,6 +283,11 @@ void Game::Render()
         {
             Vec4 color = GetBodyColor(renderer, *body, options);
             Transform transform = body->GetTransform();
+            if (body->IsStatic() == false && body->IsSleeping() == false)
+            {
+                body->GetMotion().GetTransform(alpha, &transform);
+            }
+
             for (const Collider* collider = body->GetColliderList(); collider; collider = collider->GetNext())
             {
                 AABB bounds = collider->GetAABB();

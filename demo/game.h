@@ -15,12 +15,13 @@ public:
 
     void Update(float dt);
     void FixedUpdate();
-    void Render();
+    void Render(float alpha);
 
     Renderer& GetRenderer();
     ThreadPool* GetThreadPool() const;
     DebugOptions& GetDebugOptions();
     float GetTime() const;
+    float GetDeltaTime() const;
     float GetFixedDeltaTime() const;
     void SetFixedDeltaTime(float newFixedDeltaTime);
     void RestartDemo();
@@ -88,6 +89,11 @@ inline DebugOptions& Game::GetDebugOptions()
 inline float Game::GetTime() const
 {
     return time;
+}
+
+inline float Game::GetDeltaTime() const
+{
+    return dt;
 }
 
 inline float Game::GetFixedDeltaTime() const

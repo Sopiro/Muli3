@@ -57,7 +57,7 @@ static bool Init()
     game = new Game();
 
     SetFrameRate(window->GetRefreshRate());
-    SetUpdateRate(window->GetRefreshRate());
+    SetUpdateRate(60);
     return true;
 }
 
@@ -98,7 +98,7 @@ static void MainLoop()
         window->BeginFrame();
         {
             game->Update(frameTime);
-            game->Render();
+            game->Render(updateTime / targetUpdateTime);
         }
         window->EndFrame();
 

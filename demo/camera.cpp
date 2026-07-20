@@ -1,4 +1,5 @@
 #include "camera.h"
+#include "input.h"
 #include "window.h"
 
 namespace muli3

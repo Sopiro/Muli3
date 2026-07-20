@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common.h"
-#include "input.h"
 
 namespace muli3
 {

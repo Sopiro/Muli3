@@ -18,7 +18,7 @@ public:
         float radius = 0.28f;
         float gap = 0.05f;
 
-        float groundTop = 0.25f;
+        float groundTop = 0.3f;
 
         for (int32 i = 0; i < verticalCount; ++i)
         {

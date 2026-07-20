@@ -1,4 +1,5 @@
 #include "game.h"
+#include "input.h"
 #include "window.h"
 
 namespace muli3
@@ -257,7 +258,7 @@ void Demo::EnableCameraControl()
         ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
     }
 
-    camera.Update(dt, window->GetCursorHidden());
+    camera.Update(game.GetDeltaTime(), window->GetCursorHidden());
 }
 
 bool Demo::IsGrabJointActive() const
