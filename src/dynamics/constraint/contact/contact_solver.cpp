@@ -66,12 +66,12 @@ static void SolveNormal(ContactPoint* point, NormalConstraint* constraint, Conta
     // Apply impulse
     // V2 = V2' + M^-1 * Pc
     // Pc = J^t * lambda
-    if (!bodyA->body->IsStatic())
+    if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= constraint->n * (bodyA->invMass * lambda);
         bodyA->angularVelocity -= contact->invIA * constraint->wa * lambda;
     }
-    if (!bodyB->body->IsStatic())
+    if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += constraint->n * (bodyB->invMass * lambda);
         bodyB->angularVelocity += contact->invIB * constraint->wb * lambda;
@@ -106,6 +106,11 @@ static void PrepareFriction(FrictionConstraint* constraint, ContactState* contac
     constraint->ra = ra;
     constraint->rb = rb;
 
+    for (int32 i = 0; i < manifold->contactCount; ++i)
+    {
+        constraint->da[i] = Dist(manifold->contactPoints[i].anchorA - bodyA->motion.c, ra);
+    }
+
     constraint->wa1 = Cross(ra, tangent1);
     constraint->wb1 = Cross(rb, tangent1);
     constraint->wa2 = Cross(ra, tangent2);
@@ -136,11 +141,10 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
     float totalTwistLimit = 0.0f;
     for (int32 i = 0; i < manifold->contactCount; ++i)
     {
-        Vec3 ra = manifold->contactPoints[i].anchorA - bodyA->motion.c;
         float impulse = manifold->contactPoints[i].impulse;
 
         totalNormalImpulse += impulse;
-        totalTwistLimit += Dist(ra, constraint->ra) * impulse;
+        totalTwistLimit += constraint->da[i] * impulse;
     }
 
     // Twist friction limits angular motion around the contact normal.
@@ -151,11 +155,11 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
     manifold->angularImpulse = Clamp(manifold->angularImpulse + twistLambda, -maxTwistFriction, maxTwistFriction);
     twistLambda = manifold->angularImpulse - oldAngularImpulse;
 
-    if (!bodyA->body->IsStatic())
+    if (bodyA->invMass > 0.0f)
     {
         bodyA->angularVelocity -= contact->invIA * manifold->normal * twistLambda;
     }
-    if (!bodyB->body->IsStatic())
+    if (bodyB->invMass > 0.0f)
     {
         bodyB->angularVelocity += contact->invIB * manifold->normal * twistLambda;
     }
@@ -189,12 +193,12 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
     deltaLambda = impulse - oldImpulse;
     manifold->linearImpulse = constraint->t1 * impulse.x + constraint->t2 * impulse.y;
 
-    if (!bodyA->body->IsStatic())
+    if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= (constraint->t1 * deltaLambda.x + constraint->t2 * deltaLambda.y) * bodyA->invMass;
         bodyA->angularVelocity -= contact->invIA * (constraint->wa1 * deltaLambda.x + constraint->wa2 * deltaLambda.y);
     }
-    if (!bodyB->body->IsStatic())
+    if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += (constraint->t1 * deltaLambda.x + constraint->t2 * deltaLambda.y) * bodyB->invMass;
         bodyB->angularVelocity += contact->invIB * (constraint->wb1 * deltaLambda.x + constraint->wb2 * deltaLambda.y);
@@ -206,12 +210,12 @@ static void WarmStartNormal(ContactPoint* point, NormalConstraint* constraint, C
     BodyState* bodyA = contact->bodyA;
     BodyState* bodyB = contact->bodyB;
 
-    if (!bodyA->body->IsStatic())
+    if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= constraint->n * (bodyA->invMass * point->impulse);
         bodyA->angularVelocity -= contact->invIA * (constraint->wa * point->impulse);
     }
-    if (!bodyB->body->IsStatic())
+    if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += constraint->n * (bodyB->invMass * point->impulse);
         bodyB->angularVelocity += contact->invIB * (constraint->wb * point->impulse);
@@ -225,13 +229,13 @@ static void WarmStartFriction(const ContactManifold* manifold, const FrictionCon
 
     Vec2 impulse{ Dot(manifold->linearImpulse, constraint->t1), Dot(manifold->linearImpulse, constraint->t2) };
 
-    if (!bodyA->body->IsStatic())
+    if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= manifold->linearImpulse * bodyA->invMass;
         bodyA->angularVelocity -= contact->invIA * (constraint->wa1 * impulse.x + constraint->wa2 * impulse.y +
                                                     manifold->normal * manifold->angularImpulse);
     }
-    if (!bodyB->body->IsStatic())
+    if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += manifold->linearImpulse * bodyB->invMass;
         bodyB->angularVelocity += contact->invIB * (constraint->wb1 * impulse.x + constraint->wb2 * impulse.y +
@@ -246,60 +250,80 @@ static void PreparePosition(PositionConstraint* constraint, ContactState* contac
 
     constraint->localPointA = bodyA->motion.q.RotateInv(manifold->contactPoints[index].anchorA - bodyA->motion.c);
     constraint->localPointB = bodyB->motion.q.RotateInv(manifold->contactPoints[index].anchorB - bodyB->motion.c);
-    constraint->localNormal = bodyA->motion.q.RotateInv(manifold->normal);
 }
 
-static bool SolvePosition(const PositionConstraint* constraint, ContactState* contact)
+static bool SolvePosition(const PositionConstraint* constraint, const Vec3& localNormal, ContactState* contact)
 {
     BodyState* bodyA = contact->bodyA;
     BodyState* bodyB = contact->bodyB;
 
-    // Current world-space anchors and normal from the current pose.
-    Vec3 pointA = bodyA->motion.q.Rotate(constraint->localPointA) + bodyA->motion.c;
-    Vec3 pointB = bodyB->motion.q.Rotate(constraint->localPointB) + bodyB->motion.c;
-    Vec3 normal = bodyA->motion.q.Rotate(constraint->localNormal);
-
-    float separation = Dot(pointB - pointA, normal);
-
-    Vec3 ra = pointA - bodyA->motion.c;
-    Vec3 rb = pointB - bodyB->motion.c;
+    // Contact arms and normal follow the current poses during each nonlinear iteration.
+    Vec3 ra = bodyA->motion.q.Rotate(constraint->localPointA);
+    Vec3 rb = bodyB->motion.q.Rotate(constraint->localPointB);
+    Vec3 normal = bodyA->motion.q.Rotate(localNormal);
+    float separation = Dot((bodyB->motion.c - bodyA->motion.c) + rb - ra, normal);
+    if (separation >= -linear_slop)
+    {
+        return true;
+    }
 
     Vec3 ran = Cross(ra, normal);
     Vec3 rbn = Cross(rb, normal);
 
-    // Important for NGS in 3D:
-    // world inverse inertia changes when orientation changes.
-    Mat3 invIA = !bodyA->body->IsDynamic() ? Mat3::zero : bodyA->body->GetWorldInverseInertiaTensor();
-    Mat3 invIB = !bodyB->body->IsDynamic() ? Mat3::zero : bodyB->body->GetWorldInverseInertiaTensor();
+    // K = mA^-1 + mB^-1
+    // + (ra x n)ᵀ Iw_A^-1 (ra x n)
+    // + (rb x n)ᵀ Iw_B^-1 (rb x n)
+    //
+    // The world inverse inertia is Iw^-1 = R * Il^-1 * R^T.
+    //
+    // x^T * Iw^-1 * x
+    // = x^T * R * Il^-1 * R^T * x
+    // = (R^T * x)^T * Il^-1 * (R^T * x),
+    //
+    // localRan is R^T * (ra x n), and angularA is Il^-1 * localRan.
+    Vec3 angularA = Vec3::zero;
+    Vec3 angularB = Vec3::zero;
+    float k = bodyA->invMass + bodyB->invMass;
 
-    float k = bodyA->invMass + Dot(ran, invIA * ran) + bodyB->invMass + Dot(rbn, invIB * rbn);
+    if (bodyA->invMass > 0.0f)
+    {
+        Vec3 localRan = bodyA->motion.q.RotateInv(ran);
+        angularA = bodyA->invInertia * localRan;
+        k += Dot(localRan, angularA);
+    }
+    if (bodyB->invMass > 0.0f)
+    {
+        Vec3 localRbn = bodyB->motion.q.RotateInv(rbn);
+        angularB = bodyB->invInertia * localRbn;
+        k += Dot(localRbn, angularB);
+    }
 
     // Only correct penetration deeper than linear_slop.
     // separation < -linear_slop -> c < 0 -> positive lambda.
-    float c = Clamp(position_correction * (separation + linear_slop), -max_position_correction, 0.0f);
+    float c = Max(position_correction * (separation + linear_slop), -max_position_correction);
 
     // Compute normal impulse
     float lambda = k > 0.0f ? -c / k : 0.0f;
-    Vec3 impulse = normal * lambda;
+    Vec3 linearCorrection = normal * lambda;
 
     // Apply immediately
-    if (!bodyA->body->IsStatic())
+    if (bodyA->invMass > 0.0f)
     {
-        bodyA->motion.c -= bodyA->invMass * impulse;
+        bodyA->motion.c -= bodyA->invMass * linearCorrection;
 
-        Vec3 angularImpulseA = -Cross(ra, impulse);
-        Vec3 angularCorrectionA = invIA * angularImpulseA;
-        Quat w{ angularCorrectionA, 0.0f };
+        // Rotate Il^-1 * R^T * angularImpulse back to world space.
+        Vec3 angularCorrection = bodyA->motion.q.Rotate(-angularA * lambda);
+        Quat w{ angularCorrection, 0.0f };
         bodyA->motion.q = bodyA->motion.q + (w * bodyA->motion.q) * 0.5f;
     }
 
-    if (!bodyB->body->IsStatic())
+    if (bodyB->invMass > 0.0f)
     {
-        bodyB->motion.c += bodyB->invMass * impulse;
+        bodyB->motion.c += bodyB->invMass * linearCorrection;
 
-        Vec3 angularImpulseB = Cross(rb, impulse);
-        Vec3 angularCorrectionB = invIB * angularImpulseB;
-        Quat w{ angularCorrectionB, 0.0f };
+        // Rotate Il^-1 * R^T * angularImpulse back to world space.
+        Vec3 angularCorrection = bodyB->motion.q.Rotate(angularB * lambda);
+        Quat w{ angularCorrection, 0.0f };
         bodyB->motion.q = bodyB->motion.q + (w * bodyB->motion.q) * 0.5f;
     }
 
@@ -325,6 +349,7 @@ void PrepareContact(ContactState* contact)
         ContactConstraint* constraint = contact->contactConstraints.data() + m;
 
         PrepareFriction(&constraint->frictionContact, contact, manifold);
+        constraint->localNormal = contact->bodyA->motion.q.RotateInv(manifold->normal);
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
@@ -377,7 +402,7 @@ bool SolveContactPositionConstraints(ContactState* contact)
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            solved &= SolvePosition(constraint->positionContact + i, contact);
+            solved &= SolvePosition(constraint->positionContact + i, constraint->localNormal, contact);
         }
     }
 

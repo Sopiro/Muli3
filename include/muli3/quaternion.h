@@ -158,10 +158,11 @@ struct Quat
 
         Float dot2 = (x * vx + y * vy + z * vz);
 
-        return Vec3(
-            (vx * w2 + (y * vz - z * vy) * w + x * dot2), (vy * w2 + (z * vx - x * vz) * w + y * dot2),
-            (vz * w2 + (x * vy - y * vx) * w + z * dot2)
-        );
+        return Vec3{
+            vx * w2 + (y * vz - z * vy) * w + x * dot2,
+            vy * w2 + (z * vx - x * vz) * w + y * dot2,
+            vz * w2 + (x * vy - y * vx) * w + z * dot2,
+        };
     }
 
     constexpr Vec3 RotateInv(const Vec3& v) const
@@ -173,10 +174,11 @@ struct Quat
 
         Float dot2 = (x * vx + y * vy + z * vz);
 
-        return Vec3(
-            (vx * w2 - (y * vz - z * vy) * w + x * dot2), (vy * w2 - (z * vx - x * vz) * w + y * dot2),
-            (vz * w2 - (x * vy - y * vx) * w + z * dot2)
-        );
+        return Vec3{
+            vx * w2 - (y * vz - z * vy) * w + x * dot2,
+            vy * w2 - (z * vx - x * vz) * w + y * dot2,
+            vz * w2 - (x * vy - y * vx) * w + z * dot2,
+        };
     }
 
     constexpr void SetIdentity()
@@ -284,12 +286,12 @@ constexpr inline Float Dot(const Quat& a, const Quat& b)
 // Quaternion multiplication
 constexpr inline Quat operator*(const Quat& a, const Quat& b)
 {
-    // clang-format off
-    return Quat(a.w * b.x + b.w * a.x + a.y * b.z - b.y * a.z,
-                a.w * b.y + b.w * a.y + a.z * b.x - b.z * a.x,
-                a.w * b.z + b.w * a.z + a.x * b.y - b.x * a.y,
-                a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z);
-    // clang-format on
+    return Quat{
+        a.w * b.x + b.w * a.x + a.y * b.z - b.y * a.z,
+        a.w * b.y + b.w * a.y + a.z * b.x - b.z * a.x,
+        a.w * b.z + b.w * a.z + a.x * b.y - b.x * a.y,
+        a.w * b.w - a.x * b.x - a.y * b.y - a.z * b.z,
+    };
 }
 
 constexpr inline Quat operator+(const Quat& a, const Quat& b)

@@ -22,22 +22,23 @@ struct NormalConstraint
 
 struct FrictionConstraint
 {
-    Vec3 t1, t2;       // Tangent frame
-    Vec3 ra, rb;       // Centered contact arms
+    Vec3 t1, t2;                       // Tangent frame
+    Vec3 ra, rb;                       // Centered contact arms
 
-    Vec3 wa1, wa2;     // Cross(ra, tangent)
-    Vec3 wb1, wb2;     // Cross(rb, tangent)
+    Vec3 wa1, wa2;                     // Cross(ra, tangent)
+    Vec3 wb1, wb2;                     // Cross(rb, tangent)
 
-    Mat2 linearMass;   // Linear effective mass
-    Vec2 bias;         // Linear bias
-    float angularMass; // Angular effective mass
+    Mat2 linearMass;                   // Linear effective mass
+    Vec2 bias;                         // Linear bias
+    float angularMass;                 // Angular effective mass
+
+    float da[max_contact_point_count]; // Friction lever arms
 };
 
 struct PositionConstraint
 {
     Vec3 localPointA;
     Vec3 localPointB;
-    Vec3 localNormal;
 };
 
 struct ContactConstraint
@@ -45,6 +46,7 @@ struct ContactConstraint
     NormalConstraint normalContact[max_contact_point_count];
     FrictionConstraint frictionContact;
     PositionConstraint positionContact[max_contact_point_count];
+    Vec3 localNormal; // Shared position constraint normal
 };
 
 using ContactConstraintSet = GrowableStack<ContactConstraint, 1>;
