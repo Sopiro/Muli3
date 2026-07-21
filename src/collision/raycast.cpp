@@ -193,7 +193,7 @@ bool ShapeCast(
     Vec3 pointB = Mul(tfB, b->GetVertex(idB));
     Vec3 v = pointA - pointB;
 
-    const float target = Max(default_radius, radii - (minimum_radius - linear_slop * 0.1f));
+    const float target = Max(default_radius, radii + linear_slop * 0.1f);
     const float tolerance = linear_slop * 0.1f;
 
     const int32 maxIterations = gjk_max_iteration;

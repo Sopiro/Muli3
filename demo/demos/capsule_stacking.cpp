@@ -27,7 +27,6 @@ public:
             float z = 0.0f;
 
             Body* b = world->CreateCapsule(height, radius, Vec3{ x, y, z }, Body::dynamic_body);
-            b->SetGyroscopicTorqueEnabled(true);
         }
 
         Quat horizontalX{ -pi * 0.5f, z_axis };
@@ -39,7 +38,6 @@ public:
             float z = 0.0f;
 
             Body* b = world->CreateCapsule(height, radius, Transform{ Vec3{ x, y, z }, horizontalX }, Body::dynamic_body);
-            b->SetGyroscopicTorqueEnabled(true);
         }
 
         camera.SetPosition(Vec3{ 0.0f, 10.0f, 18.0f });

@@ -44,7 +44,6 @@ public:
             strut->SetFriction(0.8f);
             strut->SetLinearDamping(0.08f);
             strut->SetAngularDamping(0.08f);
-            strut->SetGyroscopicTorqueEnabled(true);
 
             bottomBodies[i] = strut;
             topBodies[topIndex] = strut;

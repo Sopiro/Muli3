@@ -353,7 +353,6 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
         body->SetCollisionFilter(filter);
         body->SetLinearDamping(linearDamping);
         body->SetAngularDamping(angularDamping);
-        body->SetGyroscopicTorqueEnabled(true);
     }
 
     return ragdoll;

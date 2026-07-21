@@ -27,7 +27,6 @@ public:
         arm->CreateBoxCollider(0.25f, 2.0f, 0.25f);
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
-        arm->SetGyroscopicTorqueEnabled(true);
 
         joint = world->CreateLimitedRevoluteJoint(
             base, arm, base->GetPosition(), z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency,

@@ -36,7 +36,6 @@ public:
 
             Body* b = world->CreateSphere(r, Transform{ Vec3{ x, r, z } }, Body::dynamic_body);
             b->SetRotation(Quat::FromEuler(RandVec3(Vec3{ 0.0f, 0.0f, 0.0f }, Vec3{ two_pi, two_pi, two_pi })));
-            // b->SetGyroscopicTorqueEnabled(true);
         }
 
         k = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 0.25f, 0.0f } }, Body::kinematic_body);

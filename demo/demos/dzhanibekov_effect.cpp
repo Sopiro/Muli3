@@ -18,7 +18,6 @@ public:
         spinner->CreateBoxCollider(0.5f, 2.5f, 0.5f, Transform{ Vec3{ 0.0f, 0.0f, 0.0f } });
         spinner->CreateBoxCollider(1.0f, 0.5f, 0.5f, Transform{ Vec3{ 0.75f, 0.0f, 0.0f } });
 
-        spinner->SetGyroscopicTorqueEnabled(true);
         spinner->SetAngularVelocity(8.0f, 0.05f, 0.15f);
 
         spinner->SetLinearDamping(0.0f);
@@ -55,11 +54,6 @@ public:
             ImGui::Text("Lz: %.4f", L.z);
             ImGui::Text("|L|: %.4f", magnitude);
             ImGui::Separator();
-            bool applyGyroscopicForce = spinner->GetGyroscopicTorqueEnabled();
-            if (ImGui::Checkbox("Enable gyroscopic torque", &applyGyroscopicForce))
-            {
-                spinner->SetGyroscopicTorqueEnabled(applyGyroscopicForce);
-            }
         }
         ImGui::End();
     }

@@ -87,7 +87,6 @@ public:
                     body = world->CreateCapsule(0.8f, 0.35f, Transform{ p });
                 }
                 body->SetRotation(Quat::FromEuler(Vec3{ 0.15f * x, 0.28f * z, 0.1f * (x + z) }));
-                body->SetGyroscopicTorqueEnabled(true);
             }
         }
 

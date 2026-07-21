@@ -29,7 +29,6 @@ inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 inline constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
 
 // Defaults
-inline constexpr float minimum_radius = 0.0f;
 inline constexpr float default_radius = linear_slop;
 inline constexpr float default_density = 1.0f;
 inline constexpr float default_friction = 0.5f;

@@ -62,7 +62,6 @@ public:
             }
             b->SetPosition(pos);
             b->SetRotation(Quat::FromEuler(RandVec3()));
-            b->SetGyroscopicTorqueEnabled(true);
         }
 
         camera.SetPosition(Vec3{ 0.0f, 1.0f, 6.0f });

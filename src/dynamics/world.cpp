@@ -1225,11 +1225,7 @@ void World::Solve()
 
                         s->linearVelocity += s->force * s->invMass * step.dt;
                         s->angularVelocity += b->GetWorldInverseInertiaTensor() * s->torque * step.dt;
-
-                        if (b->GetGyroscopicTorqueEnabled())
-                        {
-                            s->angularVelocity = SolveGyroscopic(s->motion.q, b->inertia, s->angularVelocity, step.dt);
-                        }
+                        s->angularVelocity = SolveGyroscopic(s->motion.q, b->inertia, s->angularVelocity, step.dt);
 
                         s->linearVelocity *= 1.0f / (1.0f + s->linearDamping * step.dt);
                         s->angularVelocity *= 1.0f / (1.0f + s->angularDamping * step.dt);

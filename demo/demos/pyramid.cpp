@@ -13,23 +13,26 @@ public:
     Pyramid(Game& game)
         : Demo(game)
     {
+        float radius = 0.0f;
         float size = 1.0f;
-        float gap = 0.05f;
+        float gap = radius + size * 0.02f;
         float xStep = size + gap;
         float yStep = size + gap;
         float xStart = -(rows - 1.0f) * xStep * 0.5f;
         float yStart = 0.25f + size * 0.5f;
 
+        float density = 1;
+
         for (int32 y = 0; y < rows; ++y)
         {
             for (int32 x = 0; x < rows - y; ++x)
             {
-                world->CreateBox(
+                Body* b = world->CreateBox(
                     size,
                     Transform{
                         Vec3{ xStart + y * xStep * 0.5f + x * xStep, yStart + y * yStep, 0.0f },
                     },
-                    Body::dynamic_body
+                    Body::dynamic_body, radius, density
                 );
             }
         }

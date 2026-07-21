@@ -60,9 +60,6 @@ public:
     float GetAngularDamping() const;
     void SetAngularDamping(float angularDamping);
 
-    void SetGyroscopicTorqueEnabled(bool enabled);
-    bool GetGyroscopicTorqueEnabled() const;
-
     const Vec3& GetForce() const;
     void SetForce(const Vec3& force);
     const Vec3& GetTorque() const;
@@ -278,7 +275,6 @@ private:
         flag_enabled = 1 << 0,
         flag_island = 1 << 1,
         flag_sleeping = 1 << 2,
-        flag_gyroscopic_torque = 1 << 3,
     };
 
     void ResetMassData();
@@ -381,23 +377,6 @@ inline float Body::GetAngularDamping() const
 inline void Body::SetAngularDamping(float newAngularDamping)
 {
     GetBodyState()->angularDamping = newAngularDamping;
-}
-
-inline void Body::SetGyroscopicTorqueEnabled(bool enabled)
-{
-    if (enabled)
-    {
-        flag |= flag_gyroscopic_torque;
-    }
-    else
-    {
-        flag &= ~flag_gyroscopic_torque;
-    }
-}
-
-inline bool Body::GetGyroscopicTorqueEnabled() const
-{
-    return (flag & flag_gyroscopic_torque) == flag_gyroscopic_torque;
 }
 
 inline const Vec3& Body::GetForce() const

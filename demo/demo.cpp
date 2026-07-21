@@ -167,7 +167,6 @@ void Demo::EnableBodyCreate()
     if (body)
     {
         body->SetLinearVelocity(forward * 18.0f);
-        body->SetGyroscopicTorqueEnabled(!alt);
     }
 
     throwCooldown = 0.03f;

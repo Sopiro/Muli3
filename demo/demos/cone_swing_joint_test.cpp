@@ -23,7 +23,6 @@ public:
         arm->CreateBoxCollider(0.25f, 2.0f, 0.25f);
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
-        arm->SetGyroscopicTorqueEnabled(true);
 
         world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
         world->CreateConeSwingJoint(base, arm, -y_axis, DegToRad(coneSwingAngle), coneSwingFrequency, coneSwingDampingRatio);

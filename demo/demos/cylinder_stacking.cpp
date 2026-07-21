@@ -28,7 +28,6 @@ public:
             float halfHeight = height * 0.5f + convexRadius;
             float y = groundTop + halfHeight + i * (halfHeight * 2.0f + gap);
             Body* body = world->CreateCylinder(height, topRadius, bottomRadius, segments, Transform{ Vec3{ -4.0f, y, 0.0f } });
-            body->SetGyroscopicTorqueEnabled(true);
         }
 
         Quat horizontal{ -pi * 0.5f, z_axis };
@@ -38,7 +37,6 @@ public:
             float y = groundTop + outerRadius + i * (outerRadius * 2.0f + gap);
             Body* body =
                 world->CreateCylinder(height, topRadius, bottomRadius, segments, Transform{ Vec3{ 4.0f, y, 0.0f }, horizontal });
-            body->SetGyroscopicTorqueEnabled(true);
         }
 
         camera.SetPosition(Vec3{ 0.0f, 8.0f, 18.0f });

@@ -150,7 +150,7 @@ Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density,
         return nullptr;
     }
 
-    MuliAssert(shape->GetRadius() >= minimum_radius);
+    MuliAssert(shape->GetRadius() >= 0.0f);
 
     Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
     collider->Clone(this, shape, tf, density, material);

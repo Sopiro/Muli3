@@ -89,7 +89,7 @@ inline Shape::Shape(Type type, float radius)
     , center{ 0.0f }
     , radius{ radius }
 {
-    MuliAssert(radius >= minimum_radius);
+    MuliAssert(radius >= 0.0f);
 }
 
 inline Shape::Type Shape::GetType() const
