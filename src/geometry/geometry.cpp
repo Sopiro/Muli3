@@ -374,16 +374,165 @@ void ComputeConvexHull(
         outVertices->push_back(uniquePoints[index]);
     }
 
-    // The rest of the engine currently expects triangle faces.
-    for (const HullFace& hullFace : hullFaces)
+    // The hull is built from triangles because triangles make horizon updates simple.
+    // Convert the finished triangle mesh into polygon faces
+    // so clipping can use the complete flat surface instead of an arbitrary triangle on it.
+    std::vector<int32> faceGroups(hullFaces.size(), -1);
+    std::vector<int32> pendingFaces;
+    int32 groupCount = 0;
+
+    // Flood-fill each connected coplanar region.
+    // Faces on the same plane but not connected by an edge must remain separate groups.
+    for (int32 root = 0; root < int32(hullFaces.size()); ++root)
     {
+        if (faceGroups[root] >= 0)
+        {
+            continue;
+        }
+
+        const HullFace& rootFace = hullFaces[root];
+        const Vec3& planePoint = uniquePoints[rootFace.indices[0]];
+        faceGroups[root] = groupCount;
+        pendingFaces.clear();
+        pendingFaces.push_back(root);
+
+        // Always compare candidates against the root plane.
+        // Comparing only with the current neighbor could merge a chain of gradually bending faces.
+        while (!pendingFaces.empty())
+        {
+            int32 currentIndex = pendingFaces.back();
+            pendingFaces.pop_back();
+            const HullFace& currentFace = hullFaces[currentIndex];
+
+            for (int32 candidateIndex = 0; candidateIndex < int32(hullFaces.size()); ++candidateIndex)
+            {
+                if (faceGroups[candidateIndex] >= 0)
+                {
+                    continue;
+                }
+
+                const HullFace& candidate = hullFaces[candidateIndex];
+
+                // Coplanar faces have parallel outward normals. This also rejects
+                // coincident faces with opposite winding.
+                if (Dot(rootFace.normal, candidate.normal) < 1.0f - tolerance)
+                {
+                    continue;
+                }
+
+                // A matching normal alone is not enough because parallel faces can lie on different planes.
+                // All three vertices must be within the hull tolerance of the root plane.
+                bool coplanar = true;
+                for (int32 index : candidate.indices)
+                {
+                    if (Abs(Dot(rootFace.normal, uniquePoints[index] - planePoint)) > tolerance)
+                    {
+                        coplanar = false;
+                        break;
+                    }
+                }
+
+                if (!coplanar)
+                {
+                    continue;
+                }
+
+                // Consistently wound adjacent triangles traverse their shared edge in opposite directions:
+                // current a -> b, candidate b -> a.
+                bool adjacent = false;
+                for (int32 i = 0; i < 3 && !adjacent; ++i)
+                {
+                    int32 a = currentFace.indices[i];
+                    int32 b = currentFace.indices[(i + 1) % 3];
+                    for (int32 j = 0; j < 3; ++j)
+                    {
+                        if (candidate.indices[j] == b && candidate.indices[(j + 1) % 3] == a)
+                        {
+                            adjacent = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (adjacent)
+                {
+                    // Continue from the newly found face so the entire connected
+                    // region is collected even when it does not touch the root.
+                    faceGroups[candidateIndex] = groupCount;
+                    pendingFaces.push_back(candidateIndex);
+                }
+            }
+        }
+
+        ++groupCount;
+    }
+
+    std::vector<HullEdge> boundaryEdges;
+    std::vector<bool> usedEdges;
+
+    for (int32 group = 0; group < groupCount; ++group)
+    {
+        boundaryEdges.clear();
+        int32 firstFace = -1;
+
+        // AddBoundaryEdge cancels opposite directed pairs.
+        // Every triangulation edge occurs twice, while every polygon boundary edge occurs once,
+        // so only one directed boundary loop remains for this group.
+        for (int32 i = 0; i < int32(hullFaces.size()); ++i)
+        {
+            if (faceGroups[i] != group)
+            {
+                continue;
+            }
+
+            if (firstFace < 0)
+            {
+                firstFace = i;
+            }
+
+            const HullFace& hullFace = hullFaces[i];
+            for (int32 j = 0; j < 3; ++j)
+            {
+                AddBoundaryEdge(&boundaryEdges, hullFace.indices[j], hullFace.indices[(j + 1) % 3]);
+            }
+        }
+
         Face face;
-        face.vertexStart = int32(outIndices->size());
-        face.vertexCount = 3;
-        face.normal = hullFace.normal;
-        outIndices->push_back(remap[hullFace.indices[0]]);
-        outIndices->push_back(remap[hullFace.indices[1]]);
-        outIndices->push_back(remap[hullFace.indices[2]]);
+        face.vertexStart = uint16(outIndices->size());
+        face.vertexCount = uint16(boundaryEdges.size());
+        face.normal = hullFaces[firstFace].normal;
+
+        // AddBoundaryEdge does not preserve loop order.
+        // Follow matching endpoints to emit the polygon vertices in the original outward winding.
+        usedEdges.assign(boundaryEdges.size(), false);
+        int32 edgeIndex = 0;
+        for (int32 i = 0; i < int32(boundaryEdges.size()); ++i)
+        {
+            const HullEdge& edge = boundaryEdges[edgeIndex];
+            outIndices->push_back(remap[edge.a]);
+            usedEdges[edgeIndex] = true;
+
+            if (i + 1 == int32(boundaryEdges.size()))
+            {
+                // A closed convex face must end at the first boundary vertex.
+                MuliAssert(edge.b == boundaryEdges[0].a);
+                break;
+            }
+
+            int32 nextEdge = -1;
+            for (int32 j = 0; j < int32(boundaryEdges.size()); ++j)
+            {
+                if (!usedEdges[j] && boundaryEdges[j].a == edge.b)
+                {
+                    nextEdge = j;
+                    break;
+                }
+            }
+
+            MuliAssert(nextEdge >= 0);
+            edgeIndex = nextEdge;
+        }
+
         outFaces->push_back(face);
     }
 }
