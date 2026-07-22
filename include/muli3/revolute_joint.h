@@ -80,7 +80,7 @@ private:
 
     void ApplyLinearImpulse(const Vec3& lambda);
     void ApplySwingImpulse(const Vec2& lambda);
-    void ApplyAngleImpulse(float lambda);
+    void ApplyTwistImpulse(float lambda);
 };
 
 inline const Vec3& RevoluteJoint::GetLocalAnchorA() const

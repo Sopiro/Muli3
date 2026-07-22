@@ -245,7 +245,7 @@ void RevoluteJoint::WarmStart()
 
     if (limitState != revolute_limit_inactive)
     {
-        ApplyAngleImpulse(angleImpulseSum);
+        ApplyTwistImpulse(angleImpulseSum);
     }
 }
 
@@ -290,7 +290,7 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
     lambda = newImpulseSum - angleImpulseSum;
     angleImpulseSum = newImpulseSum;
 
-    ApplyAngleImpulse(lambda);
+    ApplyTwistImpulse(lambda);
 }
 
 void RevoluteJoint::ApplyLinearImpulse(const Vec3& lambda)
@@ -299,12 +299,12 @@ void RevoluteJoint::ApplyLinearImpulse(const Vec3& lambda)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity -= lambda * sA->invMass;
         sA->angularVelocity -= s->invIA * Cross(ra, lambda);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += lambda * sB->invMass;
         sB->angularVelocity += s->invIB * Cross(rb, lambda);
@@ -319,17 +319,17 @@ void RevoluteJoint::ApplySwingImpulse(const Vec2& lambda)
 
     Vec3 p = swingAxis1 * lambda.x + swingAxis2 * lambda.y;
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->angularVelocity -= s->invIA * p;
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->angularVelocity += s->invIB * p;
     }
 }
 
-void RevoluteJoint::ApplyAngleImpulse(float lambda)
+void RevoluteJoint::ApplyTwistImpulse(float lambda)
 {
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
@@ -337,11 +337,11 @@ void RevoluteJoint::ApplyAngleImpulse(float lambda)
 
     Vec3 p = twistAxis * lambda;
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->angularVelocity -= s->invIA * p;
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->angularVelocity += s->invIB * p;
     }

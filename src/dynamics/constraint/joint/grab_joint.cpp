@@ -65,7 +65,7 @@ void GrabJoint::ApplyImpulse(const Vec3& lambda)
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity += lambda * sA->invMass;
         sA->angularVelocity += s->invIA * Cross(r, lambda);

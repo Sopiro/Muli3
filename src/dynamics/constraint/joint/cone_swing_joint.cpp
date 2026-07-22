@@ -135,11 +135,11 @@ void ConeSwingJoint::ApplyImpulse(float lambda)
 
     Vec3 p = swingAxis * lambda;
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->angularVelocity -= s->invIA * p;
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->angularVelocity += s->invIB * p;
     }

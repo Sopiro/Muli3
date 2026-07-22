@@ -62,7 +62,7 @@ void FixedRotationJoint::ApplyImpulse(const Vec3& lambda)
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->angularVelocity += s->invIA * lambda;
     }

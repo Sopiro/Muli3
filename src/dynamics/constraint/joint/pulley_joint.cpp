@@ -118,12 +118,12 @@ void PulleyJoint::ApplyImpulse(float lambda)
 
     // pa and pb are the linear parts of J^T * lambda. Their moments about
     // each center of mass produce the corresponding angular impulses.
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity += pa * sA->invMass;
         sA->angularVelocity += s->invIA * Cross(ra, pa);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += pb * sB->invMass;
         sB->angularVelocity += s->invIB * Cross(rb, pb);

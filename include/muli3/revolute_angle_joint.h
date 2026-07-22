@@ -58,7 +58,7 @@ private:
     int32 limitState;
 
     void ApplySwingImpulse(const Vec2& lambda);
-    void ApplyAngleImpulse(float lambda);
+    void ApplyTwistImpulse(float lambda);
 };
 
 inline const Vec3& RevoluteAngleJoint::GetLocalAxisA() const

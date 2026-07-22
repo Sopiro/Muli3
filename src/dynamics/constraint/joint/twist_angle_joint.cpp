@@ -236,11 +236,11 @@ void TwistAngleJoint::ApplyAngleImpulse(float lambda)
 
     Vec3 p = twistAxis * lambda;
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->angularVelocity -= s->invIA * p;
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->angularVelocity += s->invIB * p;
     }

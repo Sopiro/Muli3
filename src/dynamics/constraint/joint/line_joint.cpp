@@ -100,12 +100,12 @@ void LineJoint::ApplyImpulse(const Vec2& lambda)
 
     Vec3 p = t1 * lambda.x + t2 * lambda.y;
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity -= p * sA->invMass;
         sA->angularVelocity -= s->invIA * (sa1 * lambda.x + sa2 * lambda.y);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += p * sB->invMass;
         sB->angularVelocity += s->invIB * (sb1 * lambda.x + sb2 * lambda.y);

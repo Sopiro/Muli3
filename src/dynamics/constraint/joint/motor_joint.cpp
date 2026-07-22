@@ -139,12 +139,12 @@ void MotorJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambd
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity -= sA->invMass * linearLambda;
         sA->angularVelocity -= s->invIA * (Cross(ra, linearLambda) + angularLambda);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += sB->invMass * linearLambda;
         sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);

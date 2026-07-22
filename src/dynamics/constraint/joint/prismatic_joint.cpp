@@ -128,12 +128,12 @@ void PrismaticJoint::ApplyImpulse(const Vec2& linearLambda, const Vec3& angularL
 
     Vec3 p = t1 * linearLambda.x + t2 * linearLambda.y;
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity -= p * sA->invMass;
         sA->angularVelocity -= s->invIA * (sa1 * linearLambda.x + sa2 * linearLambda.y + angularLambda);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += p * sB->invMass;
         sB->angularVelocity += s->invIB * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);

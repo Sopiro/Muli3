@@ -118,12 +118,12 @@ void WeldJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity -= linearLambda * sA->invMass;
         sA->angularVelocity -= s->invIA * (Cross(ra, linearLambda) + angularLambda);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += linearLambda * sB->invMass;
         sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);

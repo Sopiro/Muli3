@@ -84,12 +84,12 @@ void BallSocketJoint::ApplyImpulse(const Vec3& lambda)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    if (!bodyA->IsStatic())
+    if (sA->invMass > 0.0f)
     {
         sA->linearVelocity -= lambda * sA->invMass;
         sA->angularVelocity -= s->invIA * Cross(ra, lambda);
     }
-    if (!bodyB->IsStatic())
+    if (sB->invMass > 0.0f)
     {
         sB->linearVelocity += lambda * sB->invMass;
         sB->angularVelocity += s->invIB * Cross(rb, lambda);
