@@ -41,10 +41,11 @@ private:
     float maxAngle;
     float currentAngle;
 
-    Vec3 swingAxis;
-    float swingM;
-    float swingBias;
-    float swingImpulseSum;
+    Vec3 swingAxis1;
+    Vec3 swingAxis2;
+    Mat2 swingM;
+    Vec2 swingBias;
+    Vec2 swingImpulseSum;
     float swingBeta;
     float swingGamma;
 
@@ -56,7 +57,7 @@ private:
     float angleGamma;
     int32 limitState;
 
-    void ApplySwingImpulse(float lambda);
+    void ApplySwingImpulse(const Vec2& lambda);
     void ApplyAngleImpulse(float lambda);
 };
 

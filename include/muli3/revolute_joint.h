@@ -62,10 +62,11 @@ private:
     float linearBeta;
     float linearGamma;
 
-    Vec3 swingAxis;
-    float swingM;
-    float swingBias;
-    float swingImpulseSum;
+    Vec3 swingAxis1;
+    Vec3 swingAxis2;
+    Mat2 swingM;
+    Vec2 swingBias;
+    Vec2 swingImpulseSum;
     float swingBeta;
     float swingGamma;
 
@@ -78,7 +79,7 @@ private:
     int32 limitState;
 
     void ApplyLinearImpulse(const Vec3& lambda);
-    void ApplySwingImpulse(float lambda);
+    void ApplySwingImpulse(const Vec2& lambda);
     void ApplyAngleImpulse(float lambda);
 };
 
