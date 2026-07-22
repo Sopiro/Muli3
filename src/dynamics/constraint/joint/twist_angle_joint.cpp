@@ -163,6 +163,8 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     else
     {
         float center = 0.5f * (minAngle + maxAngle);
+
+        // Move the configured interval to the 2-pi branch nearest the measured angle.
         float shift = two_pi * std::round((currentAngle - center) / two_pi);
         float lower = minAngle + shift;
         float upper = maxAngle + shift;

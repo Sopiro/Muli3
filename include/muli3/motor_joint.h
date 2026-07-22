@@ -81,7 +81,7 @@ inline float MotorJoint::GetMaxForce() const
 
 inline void MotorJoint::SetMaxForce(float newMaxForce)
 {
-    maxForce = newMaxForce;
+    maxForce = newMaxForce < 0.0f ? max_float : newMaxForce;
 }
 
 inline float MotorJoint::GetMaxTorque() const
@@ -91,7 +91,7 @@ inline float MotorJoint::GetMaxTorque() const
 
 inline void MotorJoint::SetMaxTorque(float newMaxTorque)
 {
-    maxTorque = newMaxTorque;
+    maxTorque = newMaxTorque < 0.0f ? max_float : newMaxTorque;
 }
 
 inline const Vec3& MotorJoint::GetLinearOffset() const

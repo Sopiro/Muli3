@@ -21,8 +21,10 @@ MotorJoint::MotorJoint(
     linearOffset = Vec3::zero;
     angularOffset = Vec3::zero;
 
-    maxForce = maxJointForce < 0 ? max_float : Clamp<float>(maxJointForce, 0.0f, max_float);
-    maxTorque = maxJointTorque < 0 ? max_float : Clamp<float>(maxJointTorque, 0.0f, max_float);
+    // Negative limits select an unbounded servo.
+    // Finite limits are converted to impulses per step.
+    maxForce = maxJointForce < 0 ? max_float : Clamp(maxJointForce, 0.0f, max_float);
+    maxTorque = maxJointTorque < 0 ? max_float : Clamp(maxJointTorque, 0.0f, max_float);
 }
 
 void MotorJoint::Prepare(const Timestep& step)
@@ -100,7 +102,7 @@ void MotorJoint::SolveVelocityConstraints(const Timestep& step)
     Vec3 angularJV = sB->angularVelocity - sA->angularVelocity;
     Vec3 angularLambda = angularM * -(angularJV + angularBias + angularImpulseSum * angularGamma);
 
-    // Clamp linear impulse
+    // Clamp the accumulated impulse so the force limit is independent of the iteration count.
     {
         float maxLinearImpulse = maxForce * step.dt;
         Vec3 oldLinearImpulse = linearImpulseSum;
@@ -114,7 +116,7 @@ void MotorJoint::SolveVelocityConstraints(const Timestep& step)
         linearLambda = linearImpulseSum - oldLinearImpulse;
     }
 
-    // Clamp angular impulse
+    // Torque is limited in the same accumulated-impulse space.
     {
         float maxAngularImpulse = maxTorque * step.dt;
         Vec3 oldAngularImpulse = angularImpulseSum;

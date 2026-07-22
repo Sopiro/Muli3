@@ -1032,15 +1032,15 @@ static Vec3 SolveGyroscopic(const Quat& q, const Mat3& inertia, const Vec3& w, f
 
 void World::Solve()
 {
-    islandCount = 0;
-    sleepingBodyCount = 0;
-
     SolverSet& awakeSet = solverSets[awake_set];
     int32 awakeBodyCount = int32(awakeSet.bodyStates.size());
     if (awakeBodyCount == 0)
     {
         return;
     }
+
+    islandCount = 0;
+    sleepingBodyCount = 0;
 
     struct Island
     {

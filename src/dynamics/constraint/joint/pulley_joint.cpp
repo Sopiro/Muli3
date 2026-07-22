@@ -25,7 +25,7 @@ PulleyJoint::PulleyJoint(
     groundAnchorA = inGroundAnchorA;
     groundAnchorB = inGroundAnchorB;
 
-    ratio = pulleyRatio;
+    ratio = Max(pulleyRatio, 1e-3f);
     length = Length(anchorA - groundAnchorA) + ratio * Length(anchorB - groundAnchorB);
 }
 

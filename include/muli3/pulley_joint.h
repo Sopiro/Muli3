@@ -82,7 +82,7 @@ inline float PulleyJoint::GetPulleyLength() const
 
 inline void PulleyJoint::SetPulleyLength(float newLength)
 {
-    length = newLength;
+    length = Max(newLength, 0.0f);
 }
 
 } // namespace muli3
