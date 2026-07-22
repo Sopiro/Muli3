@@ -1,6 +1,8 @@
 #include "demo.h"
+#include "game.h"
 #include "muli3/random.h"
 #include "ragdoll.h"
+#include "window.h"
 
 namespace muli3
 {
@@ -13,6 +15,8 @@ static Vec3 SampleUniformHemisphere(Vec2 u)
 
     return Vec3(r * std::cos(phi), z, r * std::sin(phi));
 }
+
+extern bool hideJoint;
 
 class RagdollTest : public Demo
 {
@@ -33,9 +37,20 @@ public:
         Vec3 p = SampleUniformHemisphere(RandVec2());
         p *= 8.0f;
 
-        c->SetLinearVelocity(-p * Rand(4.0f, 8.0f) + Vec3{ 0.0f, Rand(5.0f, 10.0f), 0.0f });
+        c->SetLinearVelocity(-p * Rand(3.0f, 6.0f) + Vec3{ 0.0f, Rand(1.0f, 5.0f), 0.0f });
         p.y += 0.5f;
         c->SetPosition(p);
+    }
+
+    void UpdateUI() override
+    {
+        ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
+
+        if (ImGui::Begin("Ragdoll", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (ImGui::Checkbox("Hide Joints", &hideJoint)) game.RestartDemo();
+        }
+        ImGui::End();
     }
 };
 

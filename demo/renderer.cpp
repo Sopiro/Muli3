@@ -1,5 +1,6 @@
 #include "renderer.h"
 #include "muli3/color.h"
+#include "muli3/frame.h"
 
 namespace muli3
 {
@@ -1659,23 +1660,13 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
             localAxis = y_axis;
         }
 
-        Vec3 localX = x_axis - Dot(x_axis, localAxis) * localAxis;
-        if (localX.Normalize() == 0.0f)
-        {
-            localX = z_axis - Dot(z_axis, localAxis) * localAxis;
-            localX.Normalize();
-        }
+        Vec3 localX;
+        CoordinateSystem(localAxis, &localX);
 
+        // Build the radial frame in local space so its orientation remains continuous as the body rotates.
         Vec3 x = transform.q.Rotate(localX);
-        x = x - Dot(x, axis) * axis;
-        if (x.Normalize() == 0.0f)
-        {
-            x = z_axis - Dot(z_axis, axis) * axis;
-            if (x.Normalize() == 0.0f)
-            {
-                x = x_axis;
-            }
-        }
+        x -= Dot(x, axis) * axis;
+        x.Normalize();
         Vec3 z = Cross(x, axis);
         float halfHeight = height * 0.5f;
 

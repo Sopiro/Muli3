@@ -43,7 +43,6 @@ protected:
 
     Ray GetMouseRay() const;
     bool GetMouseWorldPointOnGrabPlane(Vec3* point) const;
-    bool IsGrabJointActive() const;
 
     Game& game;
     Renderer& renderer;

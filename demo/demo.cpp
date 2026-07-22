@@ -43,18 +43,13 @@ void Demo::UpdateInput()
 
 void Demo::Step()
 {
-    if (options.pause)
+    if (options.pause && !options.step)
     {
-        if (options.step)
-        {
-            options.step = false;
-            world->Step(dt);
-        }
+        return;
     }
-    else
-    {
-        world->Step(dt);
-    }
+
+    options.step = false;
+    world->Step(dt);
 }
 
 void Demo::FindTargetBody()
@@ -65,7 +60,7 @@ void Demo::FindTargetBody()
     cursorPos = Input::GetMousePosition();
     screenBounds = Window::Get()->GetWindowSize();
 
-    if (Window::Get()->GetCursorHidden() || ImGui::GetIO().WantCaptureMouse)
+    if (cursorJoint || Window::Get()->GetCursorHidden() || ImGui::GetIO().WantCaptureMouse)
     {
         return;
     }
@@ -118,12 +113,19 @@ void Demo::EnableBodyCreate()
         return;
     }
 
-    bool shift = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT);
-    bool alt = Input::IsKeyDown(GLFW_KEY_LEFT_ALT);
-    bool ctrl = Input::IsKeyDown(GLFW_KEY_LEFT_CONTROL);
-    bool createSphere = Input::IsKeyDown(GLFW_KEY_1) || Input::IsKeyDown(GLFW_KEY_KP_1);
-    bool createCapsule = Input::IsKeyDown(GLFW_KEY_2) || Input::IsKeyDown(GLFW_KEY_KP_2);
-    bool createBox = Input::IsKeyDown(GLFW_KEY_3) || Input::IsKeyDown(GLFW_KEY_KP_3);
+    bool repeatCreate = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT);
+    auto isCreateKey = [repeatCreate](int key, int keypad) {
+        if (repeatCreate)
+        {
+            return Input::IsKeyDown(key) || Input::IsKeyDown(keypad);
+        }
+
+        return Input::IsKeyPressed(key) || Input::IsKeyPressed(keypad);
+    };
+
+    bool createSphere = isCreateKey(GLFW_KEY_1, GLFW_KEY_KP_1);
+    bool createCapsule = isCreateKey(GLFW_KEY_2, GLFW_KEY_KP_2);
+    bool createBox = isCreateKey(GLFW_KEY_3, GLFW_KEY_KP_3);
 
     if (!createSphere && !createCapsule && !createBox)
     {
@@ -131,7 +133,7 @@ void Demo::EnableBodyCreate()
         return;
     }
 
-    if (shift)
+    if (repeatCreate)
     {
         throwCooldown -= dt;
         if (throwCooldown > 0.0f)
@@ -139,34 +141,29 @@ void Demo::EnableBodyCreate()
             return;
         }
     }
-    else if (!Input::IsKeyPressed(GLFW_KEY_1) && !Input::IsKeyPressed(GLFW_KEY_KP_1) && !Input::IsKeyPressed(GLFW_KEY_2) &&
-             !Input::IsKeyPressed(GLFW_KEY_KP_2) && !Input::IsKeyPressed(GLFW_KEY_3) && !Input::IsKeyPressed(GLFW_KEY_KP_3))
-    {
-        return;
-    }
 
-    Camera& cam = GetCamera();
-    Vec3 forward = cam.GetForward();
-    Vec3 position = cam.GetPosition() + forward * 1.4f;
-    Transform transform{ position, Quat::FromEuler(cam.rotation) };
+    Vec3 forward = camera.GetForward();
+    Vec3 position = camera.GetPosition() + forward * 1.4f;
+    Vec3 velocity = forward * 18.0f;
     Body* body = nullptr;
 
-    if (createSphere)
+    if (createSphere || createCapsule || createBox)
     {
-        body = world->CreateSphere(0.25f, transform);
-    }
-    if (createCapsule)
-    {
-        body = world->CreateCapsule(0.6f, 0.2f, transform);
-    }
-    if (createBox)
-    {
-        body = world->CreateBox(0.45f, transform);
-    }
+        Transform transform{ position, Quat::FromEuler(camera.rotation) };
+        if (createSphere)
+        {
+            body = world->CreateSphere(0.25f, transform);
+        }
+        else if (createCapsule)
+        {
+            body = world->CreateCapsule(0.6f, 0.2f, transform);
+        }
+        else
+        {
+            body = world->CreateBox(0.45f, transform);
+        }
 
-    if (body)
-    {
-        body->SetLinearVelocity(forward * 18.0f);
+        body->SetLinearVelocity(velocity);
     }
 
     throwCooldown = 0.03f;
@@ -183,11 +180,6 @@ bool Demo::EnableBodyGrab()
         }
 
         return false;
-    }
-
-    if (!IsGrabJointActive())
-    {
-        cursorJoint = nullptr;
     }
 
     if (targetBody && Input::IsMousePressed(GLFW_MOUSE_BUTTON_LEFT))
@@ -234,6 +226,7 @@ bool Demo::EnableBodyGrab()
         }
         else if (Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
         {
+            world->Destroy(cursorJoint);
             cursorJoint = nullptr;
             return true;
         }
@@ -245,51 +238,33 @@ bool Demo::EnableBodyGrab()
 void Demo::EnableCameraControl()
 {
     Window* window = Window::Get();
+    bool cursorHidden = window->GetCursorHidden();
 
-    if (!window->GetCursorHidden() && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
+    if (!cursorHidden && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
     {
         window->SetCursorHidden(true);
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
+        cursorHidden = true;
     }
-    else if (window->GetCursorHidden() && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT))
+    else if (cursorHidden && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT))
     {
         window->SetCursorHidden(false);
         ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+        cursorHidden = false;
     }
 
-    camera.Update(game.GetDeltaTime(), window->GetCursorHidden());
-}
-
-bool Demo::IsGrabJointActive() const
-{
-    if (cursorJoint == nullptr)
-    {
-        return false;
-    }
-
-    for (const Joint* joint = world->GetJoints(); joint; joint = joint->GetNext())
-    {
-        if (joint == cursorJoint)
-        {
-            return true;
-        }
-    }
-
-    return false;
+    camera.Update(game.GetDeltaTime(), cursorHidden);
 }
 
 Ray Demo::GetMouseRay() const
 {
-    Vec2 windowSize = Window::Get()->GetWindowSize();
-    Vec2 mouse = Input::GetMousePosition();
-
-    float x = 2.0f * mouse.x / windowSize.x - 1.0f;
-    float y = 1.0f - 2.0f * mouse.y / windowSize.y;
+    float x = 2.0f * cursorPos.x / screenBounds.x - 1.0f;
+    float y = 1.0f - 2.0f * cursorPos.y / screenBounds.y;
 
     Vec4 clipNear{ x, y, -1.0f, 1.0f };
     Vec4 clipFar{ x, y, 1.0f, 1.0f };
 
-    float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
+    float aspectRatio = screenBounds.y > 0.0f ? screenBounds.x / screenBounds.y : 1.0f;
     Mat4 invViewProjection = (camera.GetProjectionMatrix(aspectRatio) * camera.GetViewMatrix()).GetInverse();
 
     Vec4 worldNear4 = invViewProjection * clipNear;

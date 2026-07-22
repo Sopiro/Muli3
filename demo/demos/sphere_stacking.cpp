@@ -1,7 +1,12 @@
 #include "demo.h"
+#include "game.h"
+#include "window.h"
 
 namespace muli3
 {
+
+static int32 count = 10;
+static float error = 0.0f;
 
 class SphereStacking : public Demo
 {
@@ -11,34 +16,34 @@ public:
     {
         world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
 
-        constexpr int size = 10;
-        constexpr float radius = 0.5f;
-        constexpr float xzStep = 1.25f;
-        constexpr float yStep = 1.2f;
-        float xStart = -(size - 1.0f) * xzStep * 0.5f;
-        float zStart = -(size - 1.0f) * xzStep * 0.5f;
-        float yStart = 1.5f;
+        float radius = 0.5f;
+        float diameter = radius * 2.0f;
+        float gap = 0.05f;
+        float start = 0.25f + radius + gap;
 
-        for (int x = 0; x < size; ++x)
+        for (int32 i = 0; i < count; ++i)
         {
-            for (int y = 0; y < x; ++y)
-            {
-                for (int z = 0; z < y; ++z)
-                {
-                    world->CreateSphere(
-                        radius,
-                        Transform{
-                            Vec3{
-                                xStart + (float)x * xzStep,
-                                yStart + (float)y * yStep,
-                                zStart + (float)z * xzStep,
-                            },
-                        },
-                        Body::dynamic_body
-                    );
-                }
-            }
+            float x = std::sin((float)i * 12.9898f) * error;
+            float z = std::sin((float)i * 78.2330f) * error;
+
+            world->CreateSphere(radius, Transform{ Vec3{ x, start + i * (diameter + gap), z } }, Body::dynamic_body);
         }
+
+        float h = Max(12.0f, (float)count * (diameter + gap));
+        camera.SetPosition(Vec3{ 0.0f, h * 0.7f, h * 1.5f });
+        camera.SetRotation(-90.0f, -15.0f);
+    }
+
+    void UpdateUI() override
+    {
+        ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
+
+        if (ImGui::Begin("Sphere stacking", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            if (ImGui::SliderInt("Count", &count, 1, 100)) game.RestartDemo();
+            if (ImGui::SliderFloat("Error", &error, 0.0f, 0.1f, "%.2f")) game.RestartDemo();
+        }
+        ImGui::End();
     }
 };
 

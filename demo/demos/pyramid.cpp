@@ -19,7 +19,7 @@ public:
         float xStep = size + gap;
         float yStep = size + gap;
         float xStart = -(rows - 1.0f) * xStep * 0.5f;
-        float yStart = 0.25f + size * 0.5f;
+        float yStart = (0.5f + default_radius + size) * 0.5f + gap;
 
         float density = 1;
 
