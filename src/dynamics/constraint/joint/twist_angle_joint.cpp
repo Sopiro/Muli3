@@ -140,7 +140,7 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     // projected onto twistAxis, so J = [0, -twistAxis, 0, twistAxis].
     float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
 
-    ComputeBetaAndGamma(&beta, &gamma, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
 
     angleK += gamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;

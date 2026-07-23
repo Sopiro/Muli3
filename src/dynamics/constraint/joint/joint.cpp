@@ -54,7 +54,9 @@ const JointState* Joint::GetJointState() const
     }
 }
 
-void Joint::ComputeBetaAndGamma(float* outBeta, float* outGamma, float effectiveMass, float dt)
+void Joint::ComputeBetaAndGamma(
+    float* outBeta, float* outGamma, float frequency, float dampingRatio, float effectiveMass, float dt
+)
 {
     // The velocity solver uses K = J * M^-1 * J^T and solves
     // (K + gamma * I) * deltaLambda = -(J * V + beta / dt * C + gamma * accumulatedLambda).

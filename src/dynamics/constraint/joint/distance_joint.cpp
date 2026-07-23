@@ -89,7 +89,7 @@ void DistanceJoint::Prepare(const Timestep& step)
             + Dot(crossDB, s->invIB * crossDB);
     // clang-format on
 
-    ComputeBetaAndGamma(&beta, &gamma, k != 0.0f ? 1.0f / k : 0.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k != 0.0f ? 1.0f / k : 0.0f, step.dt);
 
     k += gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;

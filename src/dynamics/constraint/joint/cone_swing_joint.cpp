@@ -88,7 +88,7 @@ void ConeSwingJoint::Prepare(const Timestep& step)
 
     // K = J * M^-1 * J^T for the one-dimensional angular constraint.
     float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis);
-    ComputeBetaAndGamma(&beta, &gamma, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
 
     k += gamma;
     m = k != 0.0f ? 1.0f / k : 0.0f;

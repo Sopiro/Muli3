@@ -22,7 +22,7 @@ void FixedRotationJoint::Prepare(const Timestep& step)
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
 
     Mat3 k = s->invIA;
-    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k.TraceInverse() / 3.0f, step.dt);
 
     k.ex.x += gamma;
     k.ey.y += gamma;

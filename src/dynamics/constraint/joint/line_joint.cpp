@@ -58,7 +58,7 @@ void LineJoint::Prepare(const Timestep& step)
     k[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     k[1][0] = k[0][1];
 
-    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k.TraceInverse() / 2.0f, step.dt);
 
     k[0][0] += gamma;
     k[1][1] += gamma;

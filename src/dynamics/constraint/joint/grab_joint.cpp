@@ -28,7 +28,7 @@ void GrabJoint::Prepare(const Timestep& step)
 
     Mat3 k = Mat3(sA->invMass) + skewR.GetTranspose() * s->invIA * skewR;
 
-    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k.TraceInverse() / 3.0f, step.dt);
 
     k.ex.x += gamma;
     k.ey.y += gamma;

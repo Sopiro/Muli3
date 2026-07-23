@@ -39,7 +39,7 @@ void BallSocketJoint::Prepare(const Timestep& step)
            + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    ComputeBetaAndGamma(&beta, &gamma, k.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k.TraceInverse() / 3.0f, step.dt);
 
     k.ex.x += gamma;
     k.ey.y += gamma;

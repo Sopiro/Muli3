@@ -48,7 +48,7 @@ void WeldJoint::Prepare(const Timestep& step)
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    ComputeBetaAndGamma(&linearBeta, &linearGamma, linearK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, frequency, dampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += linearGamma;
     linearK.ey.y += linearGamma;
@@ -58,7 +58,7 @@ void WeldJoint::Prepare(const Timestep& step)
 
     // Ka = Ja * M^-1 * Ja^T = invIA + invIB.
     Mat3 angularK = s->invIA + s->invIB;
-    ComputeBetaAndGamma(&angularBeta, &angularGamma, angularK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&angularBeta, &angularGamma, frequency, dampingRatio, angularK.TraceInverse() / 3.0f, step.dt);
 
     angularK.ex.x += angularGamma;
     angularK.ey.y += angularGamma;

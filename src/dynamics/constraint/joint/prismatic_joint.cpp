@@ -61,7 +61,7 @@ void PrismaticJoint::Prepare(const Timestep& step)
     lk[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     lk[1][0] = lk[0][1];
 
-    ComputeBetaAndGamma(&linearBeta, &linearGamma, lk.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, frequency, dampingRatio, lk.TraceInverse() / 2.0f, step.dt);
 
     lk[0][0] += linearGamma;
     lk[1][1] += linearGamma;
@@ -71,7 +71,7 @@ void PrismaticJoint::Prepare(const Timestep& step)
     // Relative orientation is fixed: Cdot = wb - wa and
     // Ja = [0, -I, 0, I]. This removes all three rotational DOFs.
     Mat3 ak = s->invIA + s->invIB;
-    ComputeBetaAndGamma(&angularBeta, &angularGamma, ak.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&angularBeta, &angularGamma, frequency, dampingRatio, ak.TraceInverse() / 3.0f, step.dt);
     ak.ex.x += angularGamma;
     ak.ey.y += angularGamma;
     ak.ez.z += angularGamma;

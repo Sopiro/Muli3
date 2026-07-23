@@ -123,7 +123,7 @@ public:
 protected:
     Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio);
 
-    void ComputeBetaAndGamma(float* outBeta, float* outGamma, float effectiveMass, float dt);
+    void ComputeBetaAndGamma(float* outBeta, float* outGamma, float frequency, float dampingRatio, float effectiveMass, float dt);
 
     JointState* GetJointState();
     const JointState* GetJointState() const;
@@ -131,14 +131,14 @@ protected:
     Body* bodyA;
     Body* bodyB;
 
-private:
-    friend class World;
-    friend class ConstraintGraph;
-
     // Following parameters are used to soften the joint
     // Frequency values less than or equal to zero make joints rigid
     float frequency;    // 0 < Frequency
-    float dampingRatio; // 0 <= Damping Ratio <= 1
+    float dampingRatio; // 0 <= Damping Ratio
+
+private:
+    friend class World;
+    friend class ConstraintGraph;
 
     Joint* prev;
     Joint* next;
@@ -178,7 +178,7 @@ inline void Joint::SetParameters(float newFrequency, float newDampingRatio)
     if (newFrequency > 0.0f)
     {
         frequency = newFrequency;
-        dampingRatio = std::clamp(newDampingRatio, 0.0f, 1.0f);
+        dampingRatio = Max(newDampingRatio, 0.0f);
     }
     else
     {

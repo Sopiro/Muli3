@@ -134,7 +134,7 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     swingK[0][1] = Dot(swingAxis1, invInertiaSum * swingAxis2);
     swingK[1][0] = swingK[0][1];
 
-    ComputeBetaAndGamma(&swingBeta, &swingGamma, swingK.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&swingBeta, &swingGamma, frequency, dampingRatio, swingK.TraceInverse() / 2.0f, step.dt);
     swingK[0][0] += swingGamma;
     swingK[1][1] += swingGamma;
     swingM = swingK.GetInverse();
@@ -164,7 +164,7 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     // Effective mass without soft constraint
     motorM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
-    ComputeBetaAndGamma(&angleBeta, &angleGamma, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
+    ComputeBetaAndGamma(&angleBeta, &angleGamma, frequency, dampingRatio, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
 
     angleK += angleGamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
