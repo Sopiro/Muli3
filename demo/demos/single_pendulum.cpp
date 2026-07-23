@@ -25,7 +25,7 @@ public:
         world->CreateBallSocketJoint(body, ground, anchor, frequency, dampingRatio);
 
         camera.SetPosition(Vec3{ 0.0f, 5.2f, 9.0f });
-        camera.SetRotation(-90.0f, -18.0f);
+        camera.SetRotation(0.0f, -18.0f);
     }
 
     void UpdateUI() override

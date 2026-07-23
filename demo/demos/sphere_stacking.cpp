@@ -31,7 +31,7 @@ public:
 
         float h = Max(12.0f, (float)count * (diameter + gap));
         camera.SetPosition(Vec3{ 0.0f, h * 0.7f, h * 1.5f });
-        camera.SetRotation(-90.0f, -15.0f);
+        camera.SetRotation(0.0f, -15.0f);
     }
 
     void UpdateUI() override

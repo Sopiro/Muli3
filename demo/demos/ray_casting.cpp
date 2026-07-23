@@ -22,7 +22,7 @@ public:
         settings.sleeping = false;
 
         camera.SetPosition(Vec3{ 0.0f, 0.0f, 5.0f });
-        camera.SetRotation(-90.0f, 0.0f);
+        camera.SetRotation(0.0f, 0.0f);
         camera.speed = 0.35f;
 
         targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ -2.5f, 0.0f, 0.0f } });

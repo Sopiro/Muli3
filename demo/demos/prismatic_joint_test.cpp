@@ -20,7 +20,7 @@ public:
         world->CreateLimitedDistanceJoint(ground, body, ground->GetPosition(), body->GetPosition(), -1.0f, 8.0f);
 
         camera.SetPosition(Vec3{ 0.0f, 5.0f, 10.0f });
-        camera.SetRotation(-90.0f, -18.0f);
+        camera.SetRotation(0.0f, -18.0f);
     }
 };
 

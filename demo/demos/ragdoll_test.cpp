@@ -29,7 +29,7 @@ public:
         CreateRagdoll(world, Vec3{ 0, 4, 0 }, 1.0f, 1, 10.0f);
 
         camera.SetPosition(Vec3{ 0.0f, 5.0f, 8.0f });
-        camera.SetRotation(-90.0f, -20.0f);
+        camera.SetRotation(0.0f, -20.0f);
 
         // Srand(123);
 

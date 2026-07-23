@@ -39,7 +39,7 @@ public:
         }
 
         camera.SetPosition(Vec3{ 0.0f, 6.2f, 14.0f });
-        camera.SetRotation(-90.0f, -9.0f);
+        camera.SetRotation(0.0f, -9.0f);
     }
 
     void UpdateInput() override

@@ -54,7 +54,7 @@ public:
         world->CreateBox(groundHalfX * 2.0f, 0.5f, groundHalfZ * 2.0f, identity, Body::static_body);
 
         camera.SetPosition(Vec3{ 0.0f, Max(h * 0.9f, r * 0.7f), r * 2.1f });
-        camera.SetRotation(-90.0f, -18.0f);
+        camera.SetRotation(0.0f, -18.0f);
     }
 
     void UpdateUI() override

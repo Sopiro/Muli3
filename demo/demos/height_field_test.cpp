@@ -91,7 +91,7 @@ public:
         }
 
         camera.SetPosition(Vec3{ 0.0f, 9.5f, 18.0f });
-        camera.SetRotation(-90.0f, -28.0f);
+        camera.SetRotation(0.0f, -28.0f);
     }
 
     void UpdateUI() override

@@ -28,7 +28,7 @@ public:
         world->CreateConeSwingJoint(base, arm, -y_axis, DegToRad(coneSwingAngle), coneSwingFrequency, coneSwingDampingRatio);
 
         camera.SetPosition(Vec3{ 0.0f, 4.8f, 8.5f });
-        camera.SetRotation(-90.0f, -15.0f);
+        camera.SetRotation(0.0f, -15.0f);
     }
 
     void UpdateUI() override

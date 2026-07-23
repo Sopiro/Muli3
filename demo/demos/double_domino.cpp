@@ -40,7 +40,7 @@ public:
         world->CreateQuad(w, h, Transform({ -w / 2, 0, -h / 2 }, Quat::FromEuler({ pi / 2, 0, 0 })), Body::static_body);
 
         camera.SetPosition(Vec3{ 0.0f, w / 5.0f, w * 0.75f - 30 });
-        camera.SetRotation(-90.0f, -16.0f);
+        camera.SetRotation(0.0f, -16.0f);
     }
 
     void UpdateUI() override

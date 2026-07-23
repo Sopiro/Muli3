@@ -44,7 +44,7 @@ public:
         k->SetAngularVelocity(0.0f, DegToRad(speed), 0.0f);
 
         camera.SetPosition(Vec3{ 0.0f, 13.0f, 17.0f });
-        camera.SetRotation(-90.0f, -34.0f);
+        camera.SetRotation(0.0f, -34.0f);
     }
 
     void UpdateUI() override
@@ -71,6 +71,6 @@ static Demo* CreateKinematicBody(Game& game)
     return new KinematicBody(game);
 }
 
-static int32 kinematic_body = register_demo("Dynamics", "Kinematic body", CreateKinematicBody, 4);
+static int32 kinematic_body = register_demo("Dynamics", "Kinematic body", CreateKinematicBody, 6);
 
 } // namespace muli3

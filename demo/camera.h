@@ -46,7 +46,7 @@ inline void Camera::SetPosition(const Vec3& newPosition)
 inline void Camera::SetRotation(float yaw, float pitch)
 {
     rotation.x = DegToRad(pitch);
-    rotation.y = DegToRad(yaw + 90.0f);
+    rotation.y = DegToRad(yaw);
     rotation.z = 0.0f;
 }
 

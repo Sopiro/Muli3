@@ -24,7 +24,7 @@ public:
         spinner->SetAngularDamping(0.0f);
 
         camera.SetPosition(Vec3{ 0.0f, 2.0f, 10.0f });
-        camera.SetRotation(-90.0f, -8.0f);
+        camera.SetRotation(0.0f, -8.0f);
     }
 
     void UpdateUI() override

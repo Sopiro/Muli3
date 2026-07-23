@@ -38,7 +38,7 @@ public:
         );
 
         camera.SetPosition(Vec3{ 0.0f, 12.0f, 20.0f });
-        camera.SetRotation(-90.0f, -35.0f);
+        camera.SetRotation(0.0f, -35.0f);
         camera.speed = 0.65f;
     }
 
@@ -193,7 +193,7 @@ public:
         );
 
         camera.SetPosition(Vec3{ 0.0f, 12.0f, 20.0f });
-        camera.SetRotation(-90.0f, -35.0f);
+        camera.SetRotation(0.0f, -35.0f);
         camera.speed = 0.65f;
     }
 

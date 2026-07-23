@@ -65,7 +65,7 @@ public:
         }
 
         camera.SetPosition(Vec3{ 0.0f, 1.0f, 6.0f });
-        camera.SetRotation(-90.0f, 0.0f);
+        camera.SetRotation(0.0f, 0.0f);
     }
 };
 

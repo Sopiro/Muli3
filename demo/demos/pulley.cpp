@@ -29,7 +29,7 @@ public:
         );
 
         camera.SetPosition(Vec3{ 0.0f, 4.2f, 8.0f });
-        camera.SetRotation(-90.0f, -14.0f);
+        camera.SetRotation(0.0f, -14.0f);
     }
 
     void Render() override

@@ -22,7 +22,7 @@ public:
         }
 
         camera.SetPosition(Vec3{ 0.0f, 6.0f, 11.0f });
-        camera.SetRotation(-90.0f, -22.0f);
+        camera.SetRotation(0.0f, -22.0f);
     }
 };
 
