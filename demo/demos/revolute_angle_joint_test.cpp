@@ -5,10 +5,15 @@
 namespace muli3
 {
 
+static bool ballSocketEnabled = true;
 static float revoluteMinAngle = -60.0f;
 static float revoluteMaxAngle = 60.0f;
 static float revoluteFrequency = 20.0f;
 static float revoluteDampingRatio = 1.0f;
+
+static bool revoluteMotorEnabled = false;
+static float revoluteMotorSpeed = 90.0f;
+static float revoluteMaxMotorTorque = 20.0f;
 
 class RevoluteAngleJointDemo : public Demo
 {
@@ -28,10 +33,17 @@ public:
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
 
-        world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
+        if (ballSocketEnabled)
+        {
+            world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
+        }
+
         joint = world->CreateLimitedRevoluteAngleJoint(
             base, arm, z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency, revoluteDampingRatio
         );
+        joint->SetMotorEnabled(revoluteMotorEnabled);
+        joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
+        joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
         camera.SetRotation(0.0f, 0.0f);
@@ -48,6 +60,26 @@ public:
             ImGui::Text("Ball socket + revolute angle");
             ImGui::Text("Only the hinge rotation around");
             ImGui::Text("the blue axis is left free.");
+
+            if (ImGui::Checkbox("Ball socket", &ballSocketEnabled))
+            {
+                game.RestartDemo();
+            }
+            if (ImGui::Checkbox("Enable motor", &revoluteMotorEnabled))
+            {
+                joint->SetMotorEnabled(revoluteMotorEnabled);
+                joint->GetBodyB()->Awake();
+            }
+
+            if (ImGui::SliderFloat("Motor speed", &revoluteMotorSpeed, -360.0f, 360.0f, "%.1f deg/s"))
+            {
+                joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
+            }
+
+            if (ImGui::SliderFloat("Max motor torque", &revoluteMaxMotorTorque, 0.0f, 100.0f, "%.1f"))
+            {
+                joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
+            }
 
             if (ImGui::SliderFloat("Min angle", &revoluteMinAngle, -180.0f, 180.0f, "%.1f deg"))
             {

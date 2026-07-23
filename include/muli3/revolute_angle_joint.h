@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-// Angular part of a revolute joint: keeps hinge axes aligned and limits twist around the axis
-// 2 DOF angular alignment constraint + optional 1 DOF angular limit constraint
+// Angular part of a revolute joint: keeps hinge axes aligned and controls twist around the axis
+// 2 DOF angular alignment constraint + optional 1 DOF angular limit and motor constraint
 class RevoluteAngleJoint : public Joint
 {
 public:
@@ -29,6 +29,13 @@ public:
     void SetJointMinAngle(float newMinAngle);
     float GetJointMaxAngle() const;
     void SetJointMaxAngle(float newMaxAngle);
+
+    bool IsMotorEnabled() const;
+    void SetMotorEnabled(bool enabled);
+    float GetMotorSpeed() const;
+    void SetMotorSpeed(float speed);
+    float GetMaxMotorTorque() const;
+    void SetMaxMotorTorque(float torque);
 
 private:
     Vec3 localAxisA;
@@ -56,6 +63,12 @@ private:
     float angleBeta;
     float angleGamma;
     int32 limitState;
+
+    bool motorEnabled;
+    float motorSpeed;
+    float maxMotorTorque;
+    float motorM;
+    float motorImpulseSum;
 
     void ApplySwingImpulse(const Vec2& lambda);
     void ApplyTwistImpulse(float lambda);
@@ -107,6 +120,40 @@ inline void RevoluteAngleJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = newMaxAngle;
     minAngle = Min(minAngle, maxAngle);
+}
+
+inline bool RevoluteAngleJoint::IsMotorEnabled() const
+{
+    return motorEnabled;
+}
+
+inline void RevoluteAngleJoint::SetMotorEnabled(bool enabled)
+{
+    motorEnabled = enabled;
+    if (!motorEnabled)
+    {
+        motorImpulseSum = 0.0f;
+    }
+}
+
+inline float RevoluteAngleJoint::GetMotorSpeed() const
+{
+    return motorSpeed;
+}
+
+inline void RevoluteAngleJoint::SetMotorSpeed(float speed)
+{
+    motorSpeed = speed;
+}
+
+inline float RevoluteAngleJoint::GetMaxMotorTorque() const
+{
+    return maxMotorTorque;
+}
+
+inline void RevoluteAngleJoint::SetMaxMotorTorque(float torque)
+{
+    maxMotorTorque = torque < 0.0f ? max_float : torque;
 }
 
 } // namespace muli3

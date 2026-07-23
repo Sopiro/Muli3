@@ -87,6 +87,11 @@ RevoluteJoint::RevoluteJoint(
     , angleBeta{ 0.0f }
     , angleGamma{ 0.0f }
     , limitState{ revolute_limit_inactive }
+    , motorEnabled{ false }
+    , motorSpeed{ 0.0f }
+    , maxMotorTorque{ 0.0f }
+    , motorM{ 0.0f }
+    , motorImpulseSum{ 0.0f }
 {
     Vec3 worldAxis = Length2(axis) > epsilon ? Normalize(axis) : y_axis;
     Vec3 normalAxis;
@@ -192,6 +197,10 @@ void RevoluteJoint::Prepare(const Timestep& step)
     // Twist limit: the signed hinge angle changes with relative angular
     // velocity along twistAxis, so Jt = [0, -twistAxis, 0, twistAxis].
     float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
+
+    // Effective mass without soft constraint
+    motorM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
+
     ComputeBetaAndGamma(&angleBeta, &angleGamma, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
     angleK += angleGamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
@@ -236,6 +245,11 @@ void RevoluteJoint::Prepare(const Timestep& step)
     }
 
     angleImpulseSum = ClampImpulse(angleImpulseSum, limitState);
+
+    if (!motorEnabled || limitState == revolute_limit_equal)
+    {
+        motorImpulseSum = 0.0f;
+    }
 }
 
 void RevoluteJoint::WarmStart()
@@ -247,17 +261,19 @@ void RevoluteJoint::WarmStart()
     {
         ApplyTwistImpulse(angleImpulseSum);
     }
+
+    if (motorEnabled && limitState != revolute_limit_equal)
+    {
+        ApplyTwistImpulse(motorImpulseSum);
+    }
 }
 
 void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
 {
-    MuliNotUsed(step);
-
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Solve the three blocks in order: anchor position, axis alignment, then
-    // the optional twist limit around the aligned hinge axis.
+    // Solve the anchor position and axis alignment before controlling twist.
     Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
     Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
     ApplyLinearImpulse(linearLambda);
@@ -268,6 +284,21 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
     Vec2 swingLambda = Mul(swingM, -(swingJV + swingBias + swingImpulseSum * swingGamma));
     ApplySwingImpulse(swingLambda);
     swingImpulseSum += swingLambda;
+
+    if (motorEnabled && limitState != revolute_limit_equal)
+    {
+        // Drive only the free twist DOF.
+        // The accumulated impulse is clamped by torque * dt so the motor applies the same torque at any update rate.
+        float motorJV = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity) - motorSpeed;
+        float lambda = -motorM * motorJV;
+        float maxImpulse = maxMotorTorque * step.dt;
+        float newImpulseSum = Clamp(motorImpulseSum + lambda, -maxImpulse, maxImpulse);
+
+        lambda = newImpulseSum - motorImpulseSum;
+        motorImpulseSum = newImpulseSum;
+
+        ApplyTwistImpulse(lambda);
+    }
 
     if (limitState == revolute_limit_inactive)
     {

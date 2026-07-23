@@ -10,6 +10,10 @@ static float revoluteDampingRatio = 1.0f;
 static float revoluteMinAngle = -60.0f;
 static float revoluteMaxAngle = 60.0f;
 
+static bool revoluteMotorEnabled = false;
+static float revoluteMotorSpeed = 90.0f;
+static float revoluteMaxMotorTorque = 20.0f;
+
 class RevoluteJointDemo : public Demo
 {
 public:
@@ -32,6 +36,9 @@ public:
             base, arm, base->GetPosition(), z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency,
             revoluteDampingRatio
         );
+        joint->SetMotorEnabled(revoluteMotorEnabled);
+        joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
+        joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
         camera.SetRotation(0.0f, 0.0f);
@@ -46,6 +53,22 @@ public:
             float currentAngle = joint ? RadToDeg(joint->GetJointAngle()) : 0.0f;
             ImGui::Text("Current angle: %.2f deg", currentAngle);
             ImGui::Text("3D hinge joint with twist limit");
+
+            if (ImGui::Checkbox("Enable motor", &revoluteMotorEnabled))
+            {
+                joint->SetMotorEnabled(revoluteMotorEnabled);
+                joint->GetBodyB()->Awake();
+            }
+
+            if (ImGui::SliderFloat("Motor speed", &revoluteMotorSpeed, -360.0f, 360.0f, "%.1f deg/s"))
+            {
+                joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
+            }
+
+            if (ImGui::SliderFloat("Max motor torque", &revoluteMaxMotorTorque, 0.0f, 100.0f, "%.1f"))
+            {
+                joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
+            }
 
             if (ImGui::SliderFloat("Min angle", &revoluteMinAngle, -180.0f, 180.0f, "%.1f deg"))
             {

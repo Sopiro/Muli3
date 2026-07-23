@@ -5,8 +5,8 @@
 namespace muli3
 {
 
-// Revolute(Hinge) constraint: BallSocketJoint + hinge axis alignment + optional twist limit
-// 5 DOF constraint + optional 1 DOF angular limit constraint
+// Revolute(Hinge) constraint: BallSocketJoint + hinge axis alignment with twist control
+// 5 DOF constraint + optional 1 DOF angular limit and motor constraint
 class RevoluteJoint : public Joint
 {
 public:
@@ -40,6 +40,13 @@ public:
     void SetJointMinAngle(float newMinAngle);
     float GetJointMaxAngle() const;
     void SetJointMaxAngle(float newMaxAngle);
+
+    bool IsMotorEnabled() const;
+    void SetMotorEnabled(bool enabled);
+    float GetMotorSpeed() const;
+    void SetMotorSpeed(float speed);
+    float GetMaxMotorTorque() const;
+    void SetMaxMotorTorque(float torque);
 
 private:
     Vec3 localAnchorA;
@@ -77,6 +84,12 @@ private:
     float angleBeta;
     float angleGamma;
     int32 limitState;
+
+    bool motorEnabled;
+    float motorSpeed;
+    float maxMotorTorque;
+    float motorM;
+    float motorImpulseSum;
 
     void ApplyLinearImpulse(const Vec3& lambda);
     void ApplySwingImpulse(const Vec2& lambda);
@@ -149,6 +162,40 @@ inline void RevoluteJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = newMaxAngle;
     minAngle = Min(minAngle, maxAngle);
+}
+
+inline bool RevoluteJoint::IsMotorEnabled() const
+{
+    return motorEnabled;
+}
+
+inline void RevoluteJoint::SetMotorEnabled(bool enabled)
+{
+    motorEnabled = enabled;
+    if (!motorEnabled)
+    {
+        motorImpulseSum = 0.0f;
+    }
+}
+
+inline float RevoluteJoint::GetMotorSpeed() const
+{
+    return motorSpeed;
+}
+
+inline void RevoluteJoint::SetMotorSpeed(float speed)
+{
+    motorSpeed = speed;
+}
+
+inline float RevoluteJoint::GetMaxMotorTorque() const
+{
+    return maxMotorTorque;
+}
+
+inline void RevoluteJoint::SetMaxMotorTorque(float torque)
+{
+    maxMotorTorque = torque < 0.0f ? max_float : torque;
 }
 
 } // namespace muli3

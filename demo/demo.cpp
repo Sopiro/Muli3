@@ -226,7 +226,6 @@ bool Demo::EnableBodyGrab()
         }
         else if (Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
         {
-            world->Destroy(cursorJoint);
             cursorJoint = nullptr;
             return true;
         }
