@@ -614,8 +614,8 @@ void Game::Render(float alpha)
         }
     }
 
-    renderer.FlushPoints(false);
-    renderer.FlushLines(false);
+    renderer.FlushPoints(options.overlay_contact_point);
+    renderer.FlushLines(options.overlay_contact_normal);
 
     demo->Render();
     renderer.EndFrame();
@@ -715,7 +715,11 @@ void Game::UpdateUI()
                     ImGui::Checkbox("Show BVH", &options.show_bvh);
                     ImGui::Checkbox("Show AABB", &options.show_aabb);
                     ImGui::Checkbox("Show Contact Point", &options.show_contact_point);
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Overlay##Point", &options.overlay_contact_point);
                     ImGui::Checkbox("Show Contact Normal", &options.show_contact_normal);
+                    ImGui::SameLine();
+                    ImGui::Checkbox("Overlay##Normal", &options.overlay_contact_normal);
                 }
 
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);

@@ -492,6 +492,25 @@ void Body::SetType(Body::Type newType)
         return;
     }
 
+    ContactEdge* ce = contactList;
+    while (ce)
+    {
+        ContactEdge* ce0 = ce;
+        ce = ce->next;
+        world->constraintGraph.Destroy(ce0->contact);
+    }
+    contactList = nullptr;
+
+    bool dynamicTransition = IsDynamic() != (newType == dynamic_body);
+    if (dynamicTransition)
+    {
+        // Recolor joints when the body starts or stops participating in graph coloring.
+        for (JointEdge* je = jointList; je; je = je->next)
+        {
+            world->TransferJoint(je->joint, disabled_set);
+        }
+    }
+
     type = newType;
     flag &= ~flag_sleeping;
     ResetMassData();
@@ -545,15 +564,6 @@ void Body::SetType(Body::Type newType)
 
         world->TransferJoint(joint, targetSet);
     }
-
-    ContactEdge* ce = contactList;
-    while (ce)
-    {
-        ContactEdge* ce0 = ce;
-        ce = ce->next;
-        world->constraintGraph.Destroy(ce0->contact);
-    }
-    contactList = nullptr;
 
     for (Collider* collider = colliderList; collider; collider = collider->next)
     {

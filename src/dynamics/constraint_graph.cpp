@@ -446,12 +446,12 @@ int32 ConstraintGraph::AssignColor(Body* bodyA, Body* bodyB)
 
     constexpr uint32 colorMask = (1u << constraint_overflow_index) - 1u;
 
-    bool staticA = bodyA->IsStatic();
-    bool staticB = bodyB->IsStatic();
+    bool nonDynamicA = bodyA->IsDynamic() == false;
+    bool nonDynamicB = bodyB->IsDynamic() == false;
 
     uint32 usedColors = 0;
-    usedColors |= staticA ? 0 : bodyA->usedColors;
-    usedColors |= staticB ? 0 : bodyB->usedColors;
+    usedColors |= nonDynamicA ? 0 : bodyA->usedColors;
+    usedColors |= nonDynamicB ? 0 : bodyB->usedColors;
 
     uint32 freeColors = ~usedColors & colorMask;
     if (freeColors == 0)
@@ -459,12 +459,13 @@ int32 ConstraintGraph::AssignColor(Body* bodyA, Body* bodyB)
         return constraint_overflow_index;
     }
 
-    // if (staticA || staticB)
-    // {
-    //     // Find the highest free color index.
-    //     return 31 - std::countl_zero(freeColors);
-    // }
-    // else
+    if (nonDynamicA || nonDynamicB)
+    {
+        // Find the highest free color index.
+        // Solving non-dynamic constraints after dynamic-only constraints improves convergence.
+        return 31 - std::countl_zero(freeColors);
+    }
+    else
     {
         // Find the lowest free color index.
         return std::countr_zero(freeColors);
@@ -479,11 +480,11 @@ void ConstraintGraph::AddColor(Body* bodyA, Body* bodyB, int32 colorIndex)
     }
 
     uint32 colorBit = 1u << colorIndex;
-    if (bodyA->IsStatic() == false)
+    if (bodyA->IsDynamic())
     {
         bodyA->usedColors |= colorBit;
     }
-    if (bodyB->IsStatic() == false)
+    if (bodyB->IsDynamic())
     {
         bodyB->usedColors |= colorBit;
     }

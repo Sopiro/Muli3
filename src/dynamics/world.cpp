@@ -1412,11 +1412,11 @@ void World::Solve()
             {
                 if (SolveContactPositionConstraints(&state) == false)
                 {
-                    if (!state.bodyA->body->IsStatic())
+                    if (state.bodyA->invMass > 0.0f)
                     {
                         state.bodyA->resting = 0.0f;
                     }
-                    if (!state.bodyB->body->IsStatic())
+                    if (state.bodyB->invMass > 0.0f)
                     {
                         state.bodyB->resting = 0.0f;
                     }
@@ -1437,11 +1437,11 @@ void World::Solve()
                             ContactState* state = &batch.contactStates[i];
                             if (SolveContactPositionConstraints(state) == false)
                             {
-                                if (!state->bodyA->body->IsStatic())
+                                if (state->bodyA->invMass > 0.0f)
                                 {
                                     state->bodyA->resting = 0.0f;
                                 }
-                                if (!state->bodyB->body->IsStatic())
+                                if (state->bodyB->invMass > 0.0f)
                                 {
                                     state->bodyB->resting = 0.0f;
                                 }
@@ -3019,13 +3019,13 @@ void World::Validate() const
 
             if (colorIndex != constraint_overflow_index)
             {
-                if (bodyA->IsStatic() == false)
+                if (bodyA->IsDynamic())
                 {
                     MuliAssert(bodyA->IsSleeping() == false);
                     MuliAssert((bodyA->usedColors & colorBit) != 0);
                     MuliAssert(colorBodies.insert(bodyA).second);
                 }
-                if (bodyA != bodyB && bodyB->IsStatic() == false)
+                if (bodyA != bodyB && bodyB->IsDynamic())
                 {
                     MuliAssert(bodyB->IsSleeping() == false);
                     MuliAssert((bodyB->usedColors & colorBit) != 0);
@@ -3055,13 +3055,13 @@ void World::Validate() const
 
             if (colorIndex != constraint_overflow_index)
             {
-                if (bodyA->IsStatic() == false)
+                if (bodyA->IsDynamic())
                 {
                     MuliAssert(bodyA->IsSleeping() == false);
                     MuliAssert((bodyA->usedColors & colorBit) != 0);
                     MuliAssert(colorBodies.insert(bodyA).second);
                 }
-                if (bodyA != bodyB && bodyB->IsStatic() == false)
+                if (bodyA != bodyB && bodyB->IsDynamic())
                 {
                     MuliAssert(bodyB->IsSleeping() == false);
                     MuliAssert((bodyB->usedColors & colorBit) != 0);
@@ -3098,7 +3098,7 @@ void World::Validate() const
 
     for (Body* body = bodyList; body; body = body->next)
     {
-        if (body->IsStatic())
+        if (body->IsDynamic() == false)
         {
             continue;
         }

@@ -51,7 +51,7 @@ public:
     std::string ts = "";
     void Render() override
     {
-        if (world->GetStepIndex() < 2500)
+        if (world->GetStepIndex() < 800)
         {
             for (int i = 0; i < s; ++i)
             {
@@ -64,11 +64,11 @@ public:
             }
         }
 
-        if (world->GetStepIndex() == 2500)
+        if (world->GetStepIndex() == 800)
         {
             auto hash = HashBuffer(ts.data(), ts.size());
             std::cout << hash << std::endl;
-            if (hash == 7449028296676420098u)
+            if (hash == 9162016333196995659u)
             {
                 std::cout << "Hash matched!" << std::endl;
             }

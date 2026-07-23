@@ -24,6 +24,8 @@ struct DebugOptions
     bool show_profiler = false;
     bool show_contact_point = false;
     bool show_contact_normal = false;
+    bool overlay_contact_point = false;
+    bool overlay_contact_normal = false;
     bool reset_camera = false;
     bool colorize_island = true;
 };
