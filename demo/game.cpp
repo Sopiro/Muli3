@@ -117,7 +117,9 @@ static bool IsSameBodyPair(const Joint* joint, const Body* bodyA, const Body* bo
            (joint->GetBodyA() == bodyB && joint->GetBodyB() == bodyA);
 }
 
-static Vec3 GetAngularJointAnchor(const World& world, const Joint* joint)
+static Vec3 GetAngularJointAnchor(
+    const World& world, const Joint* joint, const Transform& transformA, const Transform& transformB
+)
 {
     const Body* bodyA = joint->GetBodyA();
     const Body* bodyB = joint->GetBodyB();
@@ -135,12 +137,12 @@ static Vec3 GetAngularJointAnchor(const World& world, const Joint* joint)
         }
 
         const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)other;
-        Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
-        Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+        Vec3 anchorA = Mul(transformA, ballSocketJoint->GetLocalAnchorA());
+        Vec3 anchorB = Mul(transformB, ballSocketJoint->GetLocalAnchorB());
         return (anchorA + anchorB) * 0.5f;
     }
 
-    return (bodyA->GetPosition() + bodyB->GetPosition()) * 0.5f;
+    return (transformA.p + transformB.p) * 0.5f;
 }
 
 static void DrawBasis(Renderer& renderer, const Vec3& origin, const Quat& rotation, float scale, float alpha)
@@ -249,6 +251,22 @@ static void DrawTwistArc(
     renderer.DrawLine(origin, origin + currentDir * radius, currentColor);
 }
 
+static Transform GetRenderTransform(const Body* body, float alpha)
+{
+    Transform transform;
+
+    if (!body->IsStatic() && !body->IsSleeping())
+    {
+        body->GetMotion().GetTransform(alpha, &transform);
+    }
+    else
+    {
+        transform = body->GetTransform();
+    }
+
+    return transform;
+};
+
 void Game::Render(float alpha)
 {
     if (options.pause)
@@ -261,6 +279,8 @@ void Game::Render(float alpha)
     float aspectRatio = windowSize.y > 0.0f ? windowSize.x / windowSize.y : 1.0f;
     World& world = demo->GetWorld();
 
+    // Camera tracking must use the same interpolated transforms as body rendering.
+    demo->Update(alpha);
     renderer.BeginFrame(demo->GetCamera(), aspectRatio, skyColor, skyIntensity, lightDirection, lightColor, lightIntensity);
 
     bool drawSolid = options.body_draw_mode == body_draw_solid || options.body_draw_mode == body_draw_solid_wireframe;
@@ -282,11 +302,7 @@ void Game::Render(float alpha)
         for (Body* body = world.GetBodyList(); body; body = body->GetNext())
         {
             Vec4 color = GetBodyColor(renderer, *body, options);
-            Transform transform = body->GetTransform();
-            if (body->IsStatic() == false && body->IsSleeping() == false)
-            {
-                body->GetMotion().GetTransform(alpha, &transform);
-            }
+            Transform transform = GetRenderTransform(body, alpha);
 
             for (const Collider* collider = body->GetColliderList(); collider; collider = collider->GetNext())
             {
@@ -361,7 +377,8 @@ void Game::Render(float alpha)
             {
                 const Body* body = joint->GetBodyA();
                 const GrabJoint* grabJoint = (const GrabJoint*)joint;
-                Vec3 anchor = Mul(body->GetTransform(), grabJoint->GetLocalAnchor());
+                Transform transform = GetRenderTransform(body, alpha);
+                Vec3 anchor = Mul(transform, grabJoint->GetLocalAnchor());
                 renderer.DrawPoint(anchor);
                 renderer.DrawPoint(grabJoint->GetTarget());
                 renderer.DrawLine(anchor, grabJoint->GetTarget());
@@ -371,7 +388,8 @@ void Game::Render(float alpha)
             {
                 const Body* body = joint->GetBodyA();
                 const FixedRotationJoint* fixedRotationJoint = (const FixedRotationJoint*)joint;
-                Vec3 position = body->GetPosition();
+                Transform transform = GetRenderTransform(body, alpha);
+                Vec3 position = transform.p;
                 renderer.DrawPoint(position);
                 DrawBasis(renderer, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.55f);
             }
@@ -382,10 +400,12 @@ void Game::Render(float alpha)
                 const Body* bodyB = joint->GetBodyB();
                 const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
 
-                Vec3 positionA = bodyA->GetPosition();
-                Vec3 positionB = bodyB->GetPosition();
-                Vec3 axisA = bodyA->GetRotation().Rotate(coneSwingJoint->GetLocalAxisA());
-                Vec3 axisB = bodyB->GetRotation().Rotate(coneSwingJoint->GetLocalAxisB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 positionA = transformA.p;
+                Vec3 positionB = transformB.p;
+                Vec3 axisA = transformA.q.Rotate(coneSwingJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(coneSwingJoint->GetLocalAxisB());
                 DrawAxis(renderer, positionB, axisB, 0.7f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
                 DrawConeLimit(
                     renderer, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f }
@@ -397,9 +417,11 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const RevoluteAngleJoint* revoluteAngleJoint = (const RevoluteAngleJoint*)joint;
-                Vec3 anchor = GetAngularJointAnchor(world, joint);
-                Vec3 axisA = bodyA->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisA());
-                Vec3 axisB = bodyB->GetRotation().Rotate(revoluteAngleJoint->GetLocalAxisB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchor = GetAngularJointAnchor(world, joint, transformA, transformB);
+                Vec3 axisA = transformA.q.Rotate(revoluteAngleJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(revoluteAngleJoint->GetLocalAxisB());
                 Vec3 t1, t2;
                 CoordinateSystem(axisA, &t1, &t2);
 
@@ -418,19 +440,21 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const RevoluteJoint* revoluteJoint = (const RevoluteJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), revoluteJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), revoluteJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, revoluteJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, revoluteJoint->GetLocalAnchorB());
                 Vec3 anchor = (anchorA + anchorB) * 0.5f;
-                Vec3 axisA = bodyA->GetRotation().Rotate(revoluteJoint->GetLocalAxisA());
-                Vec3 axisB = bodyB->GetRotation().Rotate(revoluteJoint->GetLocalAxisB());
-                Vec3 refAxisA = bodyA->GetRotation().Rotate(revoluteJoint->GetLocalNormalAxisA());
+                Vec3 axisA = transformA.q.Rotate(revoluteJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(revoluteJoint->GetLocalAxisB());
+                Vec3 refAxisA = transformA.q.Rotate(revoluteJoint->GetLocalNormalAxisA());
                 Vec3 binormalA = Cross(axisA, refAxisA);
                 binormalA.Normalize();
 
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
-                renderer.DrawLine(anchorA, bodyA->GetPosition());
-                renderer.DrawLine(anchorB, bodyB->GetPosition());
+                renderer.DrawLine(anchorA, transformA.p);
+                renderer.DrawLine(anchorB, transformB.p);
                 renderer.DrawLine(anchorA, anchorB, Vec4{ 0.12f, 0.12f, 0.12f, 0.35f });
 
                 DrawCircle(renderer, anchor, axisA, 0.45f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
@@ -443,14 +467,52 @@ void Game::Render(float alpha)
                 );
             }
             break;
+            case Joint::universal_angle_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const UniversalAngleJoint* universalAngleJoint = (const UniversalAngleJoint*)joint;
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchor = GetAngularJointAnchor(world, joint, transformA, transformB);
+                Vec3 axisA = transformA.q.Rotate(universalAngleJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(universalAngleJoint->GetLocalAxisB());
+                Vec3 referenceAxisA = transformA.q.Rotate(universalAngleJoint->GetLocalReferenceAxisA());
+                Vec3 tangentAxisA = Cross(axisA, referenceAxisA);
+                tangentAxisA.Normalize();
+                Vec3 spinReferenceAxis = GramSchmidt(axisA, axisB);
+                if (spinReferenceAxis.Normalize() == 0.0f)
+                {
+                    CoordinateSystem(axisB, &spinReferenceAxis);
+                }
+                Vec3 spinTangentAxis = Cross(axisB, spinReferenceAxis);
+                spinTangentAxis.Normalize();
+
+                DrawCircle(renderer, anchor, axisA, 0.45f, Vec4{ 0.15f, 0.15f, 0.15f, 0.25f });
+                DrawAxis(renderer, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.8f });
+                DrawAxis(renderer, anchor, axisB, 0.55f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    renderer, anchor, axisA, referenceAxisA, tangentAxisA, 0.45f, universalAngleJoint->GetSteeringMinAngle(),
+                    universalAngleJoint->GetSteeringMaxAngle(), universalAngleJoint->GetSteeringAngle(),
+                    Vec4{ 0.95f, 0.3f, 0.2f, 0.55f }, Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+                DrawTwistArc(
+                    renderer, anchor, axisB, spinReferenceAxis, spinTangentAxis, 0.35f, universalAngleJoint->GetSpinMinAngle(),
+                    universalAngleJoint->GetSpinMaxAngle(), universalAngleJoint->GetSpinAngle(), Vec4{ 0.2f, 0.85f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
             case Joint::twist_angle_joint:
             {
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const TwistAngleJoint* twistAngleJoint = (const TwistAngleJoint*)joint;
-                Vec3 anchor = GetAngularJointAnchor(world, joint);
-                Vec3 axisA = bodyA->GetRotation().Rotate(twistAngleJoint->GetLocalAxisA());
-                Vec3 axisB = bodyB->GetRotation().Rotate(twistAngleJoint->GetLocalAxisB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchor = GetAngularJointAnchor(world, joint, transformA, transformB);
+                Vec3 axisA = transformA.q.Rotate(twistAngleJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(twistAngleJoint->GetLocalAxisB());
                 Vec3 t1, t2;
                 CoordinateSystem(axisA, &t1, &t2);
 
@@ -469,12 +531,14 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const BallSocketJoint* ballSocketJoint = (const BallSocketJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), ballSocketJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), ballSocketJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, ballSocketJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, ballSocketJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
-                renderer.DrawLine(anchorA, bodyA->GetPosition());
-                renderer.DrawLine(anchorB, bodyB->GetPosition());
+                renderer.DrawLine(anchorA, transformA.p);
+                renderer.DrawLine(anchorB, transformB.p);
             }
             break;
             case Joint::distance_joint:
@@ -482,8 +546,10 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const DistanceJoint* distanceJoint = (const DistanceJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), distanceJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), distanceJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, distanceJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, distanceJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
 
@@ -502,12 +568,14 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const WeldJoint* weldJoint = (const WeldJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), weldJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), weldJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, weldJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, weldJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
-                renderer.DrawLine(anchorA, bodyA->GetPosition());
-                renderer.DrawLine(anchorB, bodyB->GetPosition());
+                renderer.DrawLine(anchorA, transformA.p);
+                renderer.DrawLine(anchorB, transformB.p);
             }
             break;
             case Joint::line_joint:
@@ -515,8 +583,10 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const LineJoint* lineJoint = (const LineJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), lineJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), lineJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, lineJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, lineJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
                 renderer.DrawLine(anchorA, anchorB);
@@ -527,8 +597,10 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const PrismaticJoint* prismaticJoint = (const PrismaticJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), prismaticJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), prismaticJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, prismaticJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, prismaticJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
                 renderer.DrawLine(anchorA, anchorB);
@@ -539,8 +611,10 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const PulleyJoint* pulleyJoint = (const PulleyJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), pulleyJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), pulleyJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, pulleyJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, pulleyJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(pulleyJoint->GetGroundAnchorA());
                 renderer.DrawPoint(anchorB);
@@ -554,8 +628,10 @@ void Game::Render(float alpha)
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
                 const MotorJoint* motorJoint = (const MotorJoint*)joint;
-                Vec3 anchorA = Mul(bodyA->GetTransform(), motorJoint->GetLocalAnchorA());
-                Vec3 anchorB = Mul(bodyB->GetTransform(), motorJoint->GetLocalAnchorB());
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, motorJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, motorJoint->GetLocalAnchorB());
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
             }

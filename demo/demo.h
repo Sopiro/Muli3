@@ -21,6 +21,7 @@ public:
 
     virtual void UpdateInput();
     virtual void Step();
+    virtual void Update(float alpha) {}
     virtual void UpdateUI() {}
     virtual void Render() {}
 

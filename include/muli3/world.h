@@ -171,6 +171,14 @@ public:
         float frequency = 10.0f,
         float dampingRatio = 1.0f
     );
+    UniversalAngleJoint* CreateUniversalAngleJoint(
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& axisA,
+        const Vec3& axisB,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
+    );
     TwistAngleJoint* CreateTwistAngleJoint(
         Body* bodyA,
         Body* bodyB,

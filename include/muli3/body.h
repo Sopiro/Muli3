@@ -260,6 +260,7 @@ private:
     friend class ConeSwingJoint;
     friend class RevoluteJoint;
     friend class RevoluteAngleJoint;
+    friend class UniversalAngleJoint;
     friend class TwistAngleJoint;
     friend class BallSocketJoint;
     friend class DistanceJoint;

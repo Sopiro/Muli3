@@ -1964,6 +1964,21 @@ RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
     return raj;
 }
 
+UniversalAngleJoint* World::CreateUniversalAngleJoint(
+    Body* bodyA, Body* bodyB, const Vec3& axisA, const Vec3& axisB, float frequency, float dampingRatio
+)
+{
+    if (bodyA->world != this || bodyB->world != this)
+    {
+        return nullptr;
+    }
+
+    UniversalAngleJoint* uaj = poolAllocator.New<UniversalAngleJoint>(bodyA, bodyB, axisA, axisB, frequency, dampingRatio);
+
+    AddJoint(uaj);
+    return uaj;
+}
+
 TwistAngleJoint* World::CreateTwistAngleJoint(
     Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
@@ -2276,6 +2291,9 @@ void World::FreeJoint(Joint* joint)
         break;
     case Joint::Type::revolute_angle_joint:
         poolAllocator.Delete((RevoluteAngleJoint*)joint);
+        break;
+    case Joint::Type::universal_angle_joint:
+        poolAllocator.Delete((UniversalAngleJoint*)joint);
         break;
     case Joint::Type::twist_angle_joint:
         poolAllocator.Delete((TwistAngleJoint*)joint);

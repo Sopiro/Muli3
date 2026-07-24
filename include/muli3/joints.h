@@ -14,6 +14,7 @@
 #include "revolute_angle_joint.h"  // IWYU pragma: export
 #include "revolute_joint.h"        // IWYU pragma: export
 #include "twist_angle_joint.h"     // IWYU pragma: export
+#include "universal_angle_joint.h" // IWYU pragma: export
 #include "weld_joint.h"            // IWYU pragma: export
 
 namespace muli3
