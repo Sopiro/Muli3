@@ -1617,7 +1617,7 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
 
 bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
-    // would it be better to use GJK/EPA?
+    // Would it be better to use GJK/EPA?
     const TriangleShape* triangle = (const TriangleShape*)a;
     const ConvexShape* convex = (const ConvexShape*)b;
 
@@ -1636,7 +1636,7 @@ bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, cons
     }
 
     int32 vertexCountB = convex->GetVertexCount();
-    GrowableStack<Vec3, 16> verticesB;
+    GrowableStack<Vec3, 32> verticesB;
     verticesB.resize(vertexCountB);
     for (int32 i = 0; i < vertexCountB; ++i)
     {
@@ -2535,7 +2535,7 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::triangle][Shape::sphere] = TriangleVsSphere;
     collide_function_map[Shape::triangle][Shape::capsule] = TriangleVsCapsule;
     collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
-    collide_function_map[Shape::triangle][Shape::convex] = TriangleVsConvex;
+    collide_function_map[Shape::triangle][Shape::convex] = ConvexVsConvex;
     collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
     collide_function_map[Shape::triangle][Shape::polygon] = TriangleVsPolygon;
 
