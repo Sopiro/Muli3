@@ -241,7 +241,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
     result->penetrationDepth = best.distance;
 }
 
-static constexpr int32 default_clipped_vertex_count = 32;
+static constexpr int32 default_clipped_vertex_count = 64;
 
 using ClippedFace = GrowableStack<Vec3, default_clipped_vertex_count>;
 
@@ -1171,38 +1171,85 @@ bool ConvexVsSphere(
     const ConvexShape* convex = (const ConvexShape*)a;
 
     Vec3 centerB = Mul(transformB, b->GetCenter());
-    Vec3 closest = a->GetClosestPoint(transformA, centerB);
-    Vec3 normal = centerB - closest;
-    float distance = normal.Normalize();
-
-    float rb = b->GetRadius();
-    if (distance > rb)
-    {
-        return false;
-    }
-
     Vec3 localCenterB = MulT(transformA, centerB);
+
+    float ra = a->GetRadius();
+    float rb = b->GetRadius();
+    float radii = ra + rb;
+
     std::span<const Face> faces = convex->GetFaces();
     std::span<const int32> indices = convex->GetIndices();
 
     int32 faceIndex = 0;
-    float maxSeparation = Dot(faces[0].normal, localCenterB - convex->GetVertex(indices[faces[0].vertexStart]));
+    float maxSeparation = -max_float;
+    float minDistance2 = max_float;
+    Vec3 localClosest;
 
-    for (int32 i = 1; i < int32(faces.size()); ++i)
+    // The closest core feature belongs to at least one face whose plane is violated by the sphere center.
+    for (int32 i = 0; i < int32(faces.size()); ++i)
     {
-        float separation = Dot(faces[i].normal, localCenterB - convex->GetVertex(indices[faces[i].vertexStart]));
+        const Face& face = faces[i];
+        const Vec3& va = convex->GetVertex(indices[face.vertexStart]);
+        float separation = Dot(face.normal, localCenterB - va);
+        if (separation > radii)
+        {
+            return false;
+        }
+
         if (separation > maxSeparation)
         {
             maxSeparation = separation;
             faceIndex = i;
         }
+
+        if (separation <= 0.0f)
+        {
+            continue;
+        }
+
+        // Triangulate faces and test aganist sub triangles
+        for (int32 j = 1; j + 1 < face.vertexCount; ++j)
+        {
+            const Vec3& vb = convex->GetVertex(indices[face.vertexStart + j]);
+            const Vec3& vc = convex->GetVertex(indices[face.vertexStart + j + 1]);
+            Vec3 closest = ClosestPointVsTriangle(localCenterB, va, vb, vc);
+            float distance2 = Dist2(localCenterB, closest);
+
+            if (distance2 < minDistance2)
+            {
+                minDistance2 = distance2;
+                localClosest = closest;
+            }
+        }
     }
 
-    if (distance <= epsilon)
+    Vec3 normal;
+    Vec3 closest;
+    if (maxSeparation > 0.0f)
     {
+        if (minDistance2 > Sqr(radii))
+        {
+            return false;
+        }
+
+        Vec3 localNormal = localCenterB - localClosest;
+        float distance = localNormal.Normalize();
+        if (distance > epsilon)
+        {
+            normal = transformA.q.Rotate(localNormal);
+            closest = Mul(transformA, localClosest) + normal * ra;
+        }
+        else
+        {
+            normal = transformA.q.Rotate(faces[faceIndex].normal);
+            closest = centerB + normal * (ra - maxSeparation);
+        }
+    }
+    else
+    {
+        // The sphere center is in the core hull. Use the nearest face as the exit direction.
         normal = transformA.q.Rotate(faces[faceIndex].normal);
-        distance = convex->GetRadius() - maxSeparation;
-        closest = centerB - normal * distance;
+        closest = centerB + normal * (ra - maxSeparation);
     }
 
     manifold->contactPoints[0].anchorA = closest;
@@ -1885,7 +1932,7 @@ bool Collide(
         InitializeDetectionFunctionMap();
     }
 
-    static ContactManifold defaultManifold;
+    ContactManifold defaultManifold;
     if (manifold == nullptr)
     {
         manifold = &defaultManifold;
@@ -1894,6 +1941,12 @@ bool Collide(
 
     Shape::Type shapeA = a->GetType();
     Shape::Type shapeB = b->GetType();
+
+    if (shapeA > Shape::triangle || shapeB > Shape::triangle)
+    {
+        MuliAssert(false);
+        return false;
+    }
 
     if (shapeB > shapeA)
     {
