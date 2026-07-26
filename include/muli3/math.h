@@ -30,16 +30,28 @@ constexpr inline T Abs(T a)
     return a > T(0) ? a : -a;
 }
 
-template <typename T, typename U>
-constexpr inline auto Min(T a, U b)
+template <typename T>
+constexpr inline T Min(T a)
 {
-    return a < b ? a : b;
+    return a;
 }
 
-template <typename T, typename U>
-constexpr inline auto Max(T a, U b)
+template <typename T, typename U, typename... Args>
+constexpr inline auto Min(T a, U b, Args... args)
 {
-    return a > b ? a : b;
+    return Min(a < b ? a : b, args...);
+}
+
+template <typename T>
+constexpr inline T Max(T a)
+{
+    return a;
+}
+
+template <typename T, typename U, typename... Args>
+constexpr inline auto Max(T a, U b, Args... args)
+{
+    return Max(a > b ? a : b, args...);
 }
 
 template <typename T>

@@ -1107,12 +1107,12 @@ bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transf
         float pb = extentsB.x * AbsDot(axesB[0], n) + extentsB.y * AbsDot(axesB[1], n) + extentsB.z * AbsDot(axesB[2], n);
 
         // Distance between box centers projected onto axis n
-        float d = AbsDot(dir, n);
+        float d = Dot(dir, n);
 
-        float separation = pa + pb + radii - d;
+        float separation = pa + pb + radii - Abs(d);
 
         // Found separation axis
-        if (separation < 0)
+        if (separation < 0.0f)
         {
             return false;
         }
@@ -1121,12 +1121,7 @@ bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transf
         if (separation < minPenetration)
         {
             minPenetration = separation;
-            normal = n;
-
-            if (Dot(dir, n) < 0)
-            {
-                normal = -normal;
-            }
+            normal = d > 0.0f ? n : -n;
         }
 
         return true;
@@ -1350,6 +1345,60 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
     return manifold->contactCount > 0;
 }
 
+static bool TestAxis(
+    float* minPenetration, Vec3* normal, const Vec3& axis, float minA, float maxA, float minB, float maxB, float radii
+)
+{
+    float separation1 = minB - maxA;
+    float separation2 = minA - maxB;
+
+    float separation = Max(separation1, separation2);
+    if (separation > radii)
+    {
+        return false;
+    }
+
+    float penetration = radii - separation;
+    if (penetration < *minPenetration)
+    {
+        *normal = separation1 > separation2 ? axis : -axis;
+        *minPenetration = penetration;
+    }
+
+    return true;
+}
+
+template <int32 sizeA, int32 sizeB>
+static bool TestAxis(
+    float* minPenetration,
+    Vec3* normal,
+    const Vec3& axis,
+    const Vec3 (&verticesA)[sizeA],
+    const Vec3 (&verticesB)[sizeB],
+    float radii
+)
+{
+    float minA = Dot(axis, verticesA[0]);
+    float maxA = minA;
+    for (int32 i = 1; i < sizeA; ++i)
+    {
+        float projection = Dot(axis, verticesA[i]);
+        minA = Min(minA, projection);
+        maxA = Max(maxA, projection);
+    }
+
+    float minB = Dot(axis, verticesB[0]);
+    float maxB = minB;
+    for (int32 i = 1; i < sizeB; ++i)
+    {
+        float projection = Dot(axis, verticesB[i]);
+        minB = Min(minB, projection);
+        maxB = Max(maxB, projection);
+    }
+
+    return TestAxis(minPenetration, normal, axis, minA, maxA, minB, maxB, radii);
+}
+
 bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
 {
     const TriangleShape* triangle = (const TriangleShape*)a;
@@ -1359,7 +1408,7 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
 
     const Vec3* vertices = triangle->GetVertices();
 
-    Vec3 triangleNormal = triangle->GetNormal();
+    Vec3 normalA = triangle->GetNormal();
     Vec3 closest = ClosestPointVsTriangle(localP, vertices[0], vertices[1], vertices[2]);
 
     Vec3 normal = localP - closest;
@@ -1372,10 +1421,10 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
         return false;
     }
 
-    float separation = Dot(localP - vertices[0], triangleNormal);
+    float separation = Dot(localP - vertices[0], normalA);
     if (distance <= epsilon)
     {
-        normal = separation < 0.0f ? -triangleNormal : triangleNormal;
+        normal = separation < 0.0f ? -normalA : normalA;
     }
 
     normal = tfA.q.Rotate(normal);
@@ -1393,7 +1442,7 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
     const TriangleShape* triangle = (const TriangleShape*)a;
     const CapsuleShape* capsule = (const CapsuleShape*)b;
 
-    Vec3 triangleNormal = tfA.q.Rotate(triangle->GetNormal());
+    Vec3 normalA = tfA.q.Rotate(triangle->GetNormal());
     Vec3 verticesA[3] = {
         Mul(tfA, triangle->GetVertex(0)),
         Mul(tfA, triangle->GetVertex(1)),
@@ -1401,80 +1450,51 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
     };
 
     // Shift along the triangle normal to keep plane projections near zero.
-    float planeOffset = Dot(verticesA[0], triangleNormal);
+    float planeOffset = Dot(verticesA[0], normalA);
     for (int32 i = 0; i < 3; ++i)
     {
-        verticesA[i] -= triangleNormal * planeOffset;
+        verticesA[i] -= normalA * planeOffset;
     }
 
-    Vec3 pointsB[2] = {
-        Mul(tfB, capsule->GetVertexA()) - triangleNormal * planeOffset,
-        Mul(tfB, capsule->GetVertexB()) - triangleNormal * planeOffset,
+    Vec3 verticesB[2] = {
+        Mul(tfB, capsule->GetVertexA()) - normalA * planeOffset,
+        Mul(tfB, capsule->GetVertexB()) - normalA * planeOffset,
     };
 
     float radii = a->GetRadius() + b->GetRadius();
     float minPenetration = max_float;
-    Vec3 normal = triangleNormal;
+    Vec3 normal = normalA;
 
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < 3; ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(pointsB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < 2; ++i)
-        {
-            float value = Dot(pointsB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(triangleNormal))
+    float projectionA = Dot(verticesA[0], normalA);
+    float projectionB0 = Dot(verticesB[0], normalA);
+    float projectionB1 = Dot(verticesB[1], normalA);
+    if (!TestAxis(
+            &minPenetration, &normal, normalA, projectionA, projectionA, Min(projectionB0, projectionB1),
+            Max(projectionB0, projectionB1), radii
+        ))
     {
         return false;
     }
 
-    Vec3 segment = pointsB[1] - pointsB[0];
+    Vec3 segment = verticesB[1] - verticesB[0];
+
     // Triangle edge vs capsule axis.
     for (int32 i = 0; i < 3; ++i)
     {
         Vec3 edge = verticesA[(i + 1) % 3] - verticesA[i];
-        if (!TestAxis(Cross(edge, segment)))
+        Vec3 n = Cross(edge, segment);
+        if (n.Normalize() == 0.0f)
+        {
+            continue;
+        }
+
+        float edgeProjectionA = Dot(verticesA[i], n);
+        float oppositeProjectionA = Dot(verticesA[(i + 2) % 3], n);
+        float projectionB = Dot(verticesB[0], n);
+        if (!TestAxis(
+                &minPenetration, &normal, n, Min(edgeProjectionA, oppositeProjectionA), Max(edgeProjectionA, oppositeProjectionA),
+                projectionB, projectionB, radii
+            ))
         {
             return false;
         }
@@ -1483,8 +1503,14 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
     // Capsule caps against triangle interior.
     for (int32 i = 0; i < 2; ++i)
     {
-        Vec3 closest = ClosestPointVsTriangle(pointsB[i], verticesA[0], verticesA[1], verticesA[2]);
-        if (!TestAxis(pointsB[i] - closest))
+        Vec3 closest = ClosestPointVsTriangle(verticesB[i], verticesA[0], verticesA[1], verticesA[2]);
+        Vec3 axis = verticesB[i] - closest;
+        if (axis.Normalize() == 0.0f)
+        {
+            continue;
+        }
+
+        if (!TestAxis(&minPenetration, &normal, axis, verticesA, verticesB, radii))
         {
             return false;
         }
@@ -1493,8 +1519,14 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
     // Triangle vertices against the capsule segment.
     for (int32 i = 0; i < 3; ++i)
     {
-        Vec3 closest = ClosestPointVsSegment(verticesA[i], pointsB[0], pointsB[1]);
-        if (!TestAxis(closest - verticesA[i]))
+        Vec3 closest = ClosestPointVsSegment(verticesA[i], verticesB[0], verticesB[1]);
+        Vec3 axis = closest - verticesA[i];
+        if (axis.Normalize() == 0.0f)
+        {
+            continue;
+        }
+
+        if (!TestAxis(&minPenetration, &normal, axis, verticesA, verticesB, radii))
         {
             return false;
         }
@@ -1509,7 +1541,7 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
     const TriangleShape* triangle = (const TriangleShape*)a;
     const BoxShape* box = (const BoxShape*)b;
 
-    Vec3 triangleNormal = tfA.q.Rotate(triangle->GetNormal());
+    Vec3 normalA = tfA.q.Rotate(triangle->GetNormal());
     Vec3 verticesA[3] = {
         Mul(tfA, triangle->GetVertex(0)),
         Mul(tfA, triangle->GetVertex(1)),
@@ -1517,82 +1549,52 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
     };
 
     // Shift along the triangle normal to keep plane projections near zero.
-    float planeOffset = Dot(verticesA[0], triangleNormal);
+    float planeOffset = Dot(verticesA[0], normalA);
     for (int32 i = 0; i < 3; ++i)
     {
-        verticesA[i] -= triangleNormal * planeOffset;
+        verticesA[i] -= normalA * planeOffset;
     }
 
-    Vec3 verticesB[8];
-    for (int32 i = 0; i < 8; ++i)
-    {
-        verticesB[i] = Mul(tfB, box->GetVertex(i)) - triangleNormal * planeOffset;
-    }
+    Vec3 centerB = Mul(tfB, box->GetCenter()) - normalA * planeOffset;
+
+    Quat qB = tfB.q * box->GetRotation();
+    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
+    Vec3 extentsB = box->GetHalfExtents();
 
     float radii = a->GetRadius() + b->GetRadius();
     float minPenetration = max_float;
-    Vec3 normal = triangleNormal;
+    Vec3 normal = normalA;
 
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
+    float projectionA = Dot(verticesA[0], normalA);
+    float projectionB =
+        extentsB.x * AbsDot(axesB[0], normalA) + extentsB.y * AbsDot(axesB[1], normalA) + extentsB.z * AbsDot(axesB[2], normalA);
 
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < 3; ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(verticesB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < 8; ++i)
-        {
-            float value = Dot(verticesB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(triangleNormal))
+    float centerProjectionB = Dot(centerB, normalA);
+    if (!TestAxis(
+            &minPenetration, &normal, normalA, projectionA, projectionA, centerProjectionB - projectionB,
+            centerProjectionB + projectionB, radii
+        ))
     {
         return false;
     }
 
-    Quat qB = tfB.q * box->GetRotation();
-    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
-
     // Box face normals.
     for (int32 i = 0; i < 3; ++i)
     {
-        if (!TestAxis(axesB[i]))
+        Vec3 axis = axesB[i];
+
+        float projectionA0 = Dot(verticesA[0], axis);
+        float projectionA1 = Dot(verticesA[1], axis);
+        float projectionA2 = Dot(verticesA[2], axis);
+
+        float minA = Min(projectionA0, projectionA1, projectionA2);
+        float maxA = Max(projectionA0, projectionA1, projectionA2);
+
+        float centerProjectionB = Dot(centerB, axis);
+        if (!TestAxis(
+                &minPenetration, &normal, axis, minA, maxA, centerProjectionB - extentsB[i], centerProjectionB + extentsB[i],
+                radii
+            ))
         {
             return false;
         }
@@ -1604,126 +1606,28 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
         Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
         for (int32 j = 0; j < 3; ++j)
         {
-            if (!TestAxis(Cross(edgeA, axesB[j])))
+            Vec3 n = Cross(edgeA, axesB[j]);
+            if (n.Normalize() == 0.0f)
+            {
+                continue;
+            }
+
+            float edgeProjectionA = Dot(verticesA[i], n);
+            float oppositeProjectionA = Dot(verticesA[(i + 2) % 3], n);
+
+            float minA = Min(edgeProjectionA, oppositeProjectionA);
+            float maxA = Max(edgeProjectionA, oppositeProjectionA);
+
+            float projectionB =
+                extentsB.x * AbsDot(axesB[0], n) + extentsB.y * AbsDot(axesB[1], n) + extentsB.z * AbsDot(axesB[2], n);
+            float centerProjectionB = Dot(centerB, n);
+
+            if (!TestAxis(
+                    &minPenetration, &normal, n, minA, maxA, centerProjectionB - projectionB, centerProjectionB + projectionB,
+                    radii
+                ))
             {
                 return false;
-            }
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool TriangleVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    // Would it be better to use GJK/EPA?
-    const TriangleShape* triangle = (const TriangleShape*)a;
-    const ConvexShape* convex = (const ConvexShape*)b;
-
-    Vec3 triangleNormal = tfA.q.Rotate(triangle->GetNormal());
-    Vec3 verticesA[3] = {
-        Mul(tfA, triangle->GetVertex(0)),
-        Mul(tfA, triangle->GetVertex(1)),
-        Mul(tfA, triangle->GetVertex(2)),
-    };
-
-    // Shift along the triangle normal to keep plane projections near zero.
-    float planeOffset = Dot(verticesA[0], triangleNormal);
-    for (int32 i = 0; i < 3; ++i)
-    {
-        verticesA[i] -= triangleNormal * planeOffset;
-    }
-
-    int32 vertexCountB = convex->GetVertexCount();
-    GrowableStack<Vec3, 32> verticesB;
-    verticesB.resize(vertexCountB);
-    for (int32 i = 0; i < vertexCountB; ++i)
-    {
-        verticesB[i] = Mul(tfB, convex->GetVertex(i)) - triangleNormal * planeOffset;
-    }
-
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = triangleNormal;
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < 3; ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(verticesB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < verticesB.size(); ++i)
-        {
-            float value = Dot(verticesB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(triangleNormal))
-    {
-        return false;
-    }
-
-    // Convex face normals.
-    for (const Face& face : convex->GetFaces())
-    {
-        if (!TestAxis(tfB.q.Rotate(face.normal)))
-        {
-            return false;
-        }
-    }
-
-    // Triangle edge vs convex edge axes.
-    std::span<const int32> convexIndices = convex->GetIndices();
-    for (int32 i = 0; i < 3; ++i)
-    {
-        Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
-        for (const Face& face : convex->GetFaces())
-        {
-            for (int32 j = 0; j < face.vertexCount; ++j)
-            {
-                int32 i0 = convexIndices[face.vertexStart + j];
-                int32 i1 = convexIndices[face.vertexStart + (j + 1) % face.vertexCount];
-                if (!TestAxis(Cross(edgeA, verticesB[i1] - verticesB[i0])))
-                {
-                    return false;
-                }
             }
         }
     }
@@ -1763,61 +1667,26 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
     float minPenetration = max_float;
     Vec3 normal = normalA;
 
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < 3; ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(verticesB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < 3; ++i)
-        {
-            float value = Dot(verticesB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(normalA))
+    // Test on triangle B face normal
+    float projectionA = Dot(verticesA[0], normalA);
+    float projectionB0 = Dot(verticesB[0], normalA);
+    float projectionB1 = Dot(verticesB[1], normalA);
+    float projectionB2 = Dot(verticesB[2], normalA);
+    float minB = Min(projectionB0, projectionB1, projectionB2);
+    float maxB = Max(projectionB0, projectionB1, projectionB2);
+    if (!TestAxis(&minPenetration, &normal, normalA, projectionA, projectionA, minB, maxB, radii))
     {
         return false;
     }
 
-    // Triangle B face normal.
-    if (!TestAxis(normalB))
+    // Test on triangle B face normal
+    float projectionB = Dot(verticesB[0], normalB);
+    float projectionA0 = Dot(verticesA[0], normalB);
+    float projectionA1 = Dot(verticesA[1], normalB);
+    float projectionA2 = Dot(verticesA[2], normalB);
+    float minA = Min(projectionA0, projectionA1, projectionA2);
+    float maxA = Max(projectionA0, projectionA1, projectionA2);
+    if (!TestAxis(&minPenetration, &normal, normalB, minA, maxA, projectionB, projectionB, radii))
     {
         return false;
     }
@@ -1829,117 +1698,22 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
         for (int32 j = 0; j < 3; ++j)
         {
             Vec3 edgeB = verticesB[(j + 1) % 3] - verticesB[j];
-            if (!TestAxis(Cross(edgeA, edgeB)))
+
+            Vec3 axis = Cross(edgeA, edgeB);
+            if (axis.Normalize() == 0.0f)
             {
-                return false;
-            }
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool TriangleVsPolygon(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const TriangleShape* triangle = (const TriangleShape*)a;
-    const PolygonShape* polygon = (const PolygonShape*)b;
-
-    Vec3 normalA = tfA.q.Rotate(triangle->GetNormal());
-    Vec3 normalB = tfB.q.Rotate(polygon->GetNormal());
-
-    Vec3 verticesA[3] = {
-        Mul(tfA, triangle->GetVertex(0)),
-        Mul(tfA, triangle->GetVertex(1)),
-        Mul(tfA, triangle->GetVertex(2)),
-    };
-
-    GrowableStack<Vec3, default_clipped_vertex_count> verticesB;
-    verticesB.resize(polygon->GetVertexCount());
-    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
-    {
-        verticesB[i] = Mul(tfB, polygon->GetVertex(i));
-    }
-
-    float planeOffset = Dot(verticesA[0], normalA);
-    for (int32 i = 0; i < 3; ++i)
-    {
-        verticesA[i] -= normalA * planeOffset;
-    }
-    for (Vec3& vertex : verticesB)
-    {
-        vertex -= normalA * planeOffset;
-    }
-
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = normalA;
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < 3; ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(verticesB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < verticesB.size(); ++i)
-        {
-            float value = Dot(verticesB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
+                continue;
             }
 
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(normalA))
-    {
-        return false;
-    }
-
-    if (!TestAxis(normalB))
-    {
-        return false;
-    }
-
-    for (int32 i = 0; i < 3; ++i)
-    {
-        Vec3 edgeA = verticesA[(i + 1) % 3] - verticesA[i];
-        for (int32 j = 0; j < verticesB.size(); ++j)
-        {
-            Vec3 edgeB = verticesB[(j + 1) % verticesB.size()] - verticesB[j];
-            if (!TestAxis(Cross(edgeA, edgeB)))
+            float edgeProjectionA = Dot(verticesA[i], axis);
+            float oppositeProjectionA = Dot(verticesA[(i + 2) % 3], axis);
+            float edgeProjectionB = Dot(verticesB[j], axis);
+            float oppositeProjectionB = Dot(verticesB[(j + 2) % 3], axis);
+            if (!TestAxis(
+                    &minPenetration, &normal, axis, Min(edgeProjectionA, oppositeProjectionA),
+                    Max(edgeProjectionA, oppositeProjectionA), Min(edgeProjectionB, oppositeProjectionB),
+                    Max(edgeProjectionB, oppositeProjectionB), radii
+                ))
             {
                 return false;
             }
@@ -1986,458 +1760,6 @@ bool PolygonVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const
     manifold->contactCount = 1;
 
     return true;
-}
-
-bool PolygonVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const PolygonShape* polygon = (const PolygonShape*)a;
-    const CapsuleShape* capsule = (const CapsuleShape*)b;
-
-    Vec3 polygonNormal = tfA.q.Rotate(polygon->GetNormal());
-
-    GrowableStack<Vec3, default_clipped_vertex_count> verticesA;
-    verticesA.resize(polygon->GetVertexCount());
-    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
-    {
-        verticesA[i] = Mul(tfA, polygon->GetVertex(i));
-    }
-
-    float planeOffset = Dot(verticesA[0], polygonNormal);
-    for (Vec3& vertex : verticesA)
-    {
-        vertex -= polygonNormal * planeOffset;
-    }
-
-    Vec3 pointsB[2] = {
-        Mul(tfB, capsule->GetVertexA()) - polygonNormal * planeOffset,
-        Mul(tfB, capsule->GetVertexB()) - polygonNormal * planeOffset,
-    };
-
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = polygonNormal;
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < verticesA.size(); ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(pointsB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < 2; ++i)
-        {
-            float value = Dot(pointsB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(polygonNormal))
-    {
-        return false;
-    }
-
-    Vec3 segment = pointsB[1] - pointsB[0];
-    for (int32 i = 0; i < int32(verticesA.size()); ++i)
-    {
-        Vec3 edge = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
-        if (!TestAxis(Cross(edge, segment)))
-        {
-            return false;
-        }
-    }
-
-    for (int32 i = 0; i < 2; ++i)
-    {
-        Vec3 closest = ClosestPointVsPolygon(pointsB[i], verticesA);
-        if (!TestAxis(pointsB[i] - closest))
-        {
-            return false;
-        }
-    }
-
-    for (int32 i = 0; i < verticesA.size(); ++i)
-    {
-        Vec3 closest = ClosestPointVsSegment(verticesA[i], pointsB[0], pointsB[1]);
-        if (!TestAxis(closest - verticesA[i]))
-        {
-            return false;
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool PolygonVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const PolygonShape* polygon = (const PolygonShape*)a;
-    const BoxShape* box = (const BoxShape*)b;
-
-    Vec3 polygonNormal = tfA.q.Rotate(polygon->GetNormal());
-    GrowableStack<Vec3, 16> verticesA;
-    verticesA.resize(polygon->GetVertexCount());
-    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
-    {
-        verticesA[i] = Mul(tfA, polygon->GetVertex(i));
-    }
-
-    float planeOffset = Dot(verticesA[0], polygonNormal);
-    for (Vec3& vertex : verticesA)
-    {
-        vertex -= polygonNormal * planeOffset;
-    }
-
-    Vec3 verticesB[8];
-    for (int32 i = 0; i < 8; ++i)
-    {
-        verticesB[i] = Mul(tfB, box->GetVertex(i)) - polygonNormal * planeOffset;
-    }
-
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = polygonNormal;
-    std::span<const Vec3> pointsA{ verticesA.data(), size_t(verticesA.size()) };
-    std::span<const Vec3> pointsB{ verticesB, 8 };
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(pointsA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < int32(pointsA.size()); ++i)
-        {
-            float value = Dot(pointsA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(pointsB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < int32(pointsB.size()); ++i)
-        {
-            float value = Dot(pointsB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(polygonNormal))
-    {
-        return false;
-    }
-
-    Quat qB = tfB.q * box->GetRotation();
-    Vec3 axesB[3] = { qB.Rotate(x_axis), qB.Rotate(y_axis), qB.Rotate(z_axis) };
-
-    for (int32 i = 0; i < 3; ++i)
-    {
-        if (!TestAxis(axesB[i]))
-        {
-            return false;
-        }
-    }
-
-    for (int32 i = 0; i < int32(verticesA.size()); ++i)
-    {
-        Vec3 edgeA = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
-        for (int32 j = 0; j < 3; ++j)
-        {
-            if (!TestAxis(Cross(edgeA, axesB[j])))
-            {
-                return false;
-            }
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool PolygonVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const PolygonShape* polygon = (const PolygonShape*)a;
-    const ConvexShape* convex = (const ConvexShape*)b;
-
-    Vec3 polygonNormal = tfA.q.Rotate(polygon->GetNormal());
-
-    GrowableStack<Vec3, default_clipped_vertex_count> verticesA;
-    verticesA.resize(polygon->GetVertexCount());
-    for (int32 i = 0; i < polygon->GetVertexCount(); ++i)
-    {
-        verticesA[i] = Mul(tfA, polygon->GetVertex(i));
-    }
-
-    float planeOffset = Dot(verticesA[0], polygonNormal);
-    for (Vec3& vertex : verticesA)
-    {
-        vertex -= polygonNormal * planeOffset;
-    }
-
-    int32 vertexCountB = convex->GetVertexCount();
-    GrowableStack<Vec3, default_clipped_vertex_count> verticesB;
-    verticesB.resize(vertexCountB);
-    for (int32 i = 0; i < vertexCountB; ++i)
-    {
-        verticesB[i] = Mul(tfB, convex->GetVertex(i)) - polygonNormal * planeOffset;
-    }
-
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = polygonNormal;
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < verticesA.size(); ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(verticesB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < verticesB.size(); ++i)
-        {
-            float value = Dot(verticesB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(polygonNormal))
-    {
-        return false;
-    }
-
-    for (const Face& face : convex->GetFaces())
-    {
-        if (!TestAxis(tfB.q.Rotate(face.normal)))
-        {
-            return false;
-        }
-    }
-
-    std::span<const int32> convexIndices = convex->GetIndices();
-    for (int32 i = 0; i < verticesA.size(); ++i)
-    {
-        Vec3 edgeA = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
-        for (const Face& face : convex->GetFaces())
-        {
-            for (int32 j = 0; j < face.vertexCount; ++j)
-            {
-                int32 i0 = convexIndices[face.vertexStart + j];
-                int32 i1 = convexIndices[face.vertexStart + (j + 1) % face.vertexCount];
-                if (!TestAxis(Cross(edgeA, verticesB[i1] - verticesB[i0])))
-                {
-                    return false;
-                }
-            }
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
-}
-
-bool PolygonVsPolygon(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
-{
-    const PolygonShape* polygonA = (const PolygonShape*)a;
-    const PolygonShape* polygonB = (const PolygonShape*)b;
-
-    Vec3 normalA = tfA.q.Rotate(polygonA->GetNormal());
-    Vec3 normalB = tfB.q.Rotate(polygonB->GetNormal());
-
-    GrowableStack<Vec3, default_clipped_vertex_count> verticesA;
-    GrowableStack<Vec3, default_clipped_vertex_count> verticesB;
-
-    verticesA.resize(polygonA->GetVertexCount());
-    verticesB.resize(polygonB->GetVertexCount());
-
-    for (int32 i = 0; i < polygonA->GetVertexCount(); ++i)
-    {
-        verticesA[i] = Mul(tfA, polygonA->GetVertex(i));
-    }
-    for (int32 i = 0; i < polygonB->GetVertexCount(); ++i)
-    {
-        verticesB[i] = Mul(tfB, polygonB->GetVertex(i));
-    }
-
-    float planeOffset = Dot(verticesA[0], normalA);
-    for (Vec3& vertex : verticesA)
-    {
-        vertex -= normalA * planeOffset;
-    }
-    for (Vec3& vertex : verticesB)
-    {
-        vertex -= normalA * planeOffset;
-    }
-
-    float radii = a->GetRadius() + b->GetRadius();
-    float minPenetration = max_float;
-    Vec3 normal = normalA;
-
-    auto TestAxis = [&](Vec3 n) -> bool {
-        if (n.Normalize() == 0.0f)
-        {
-            return true;
-        }
-
-        float minA = Dot(verticesA[0], n);
-        float maxA = minA;
-        for (int32 i = 1; i < verticesA.size(); ++i)
-        {
-            float value = Dot(verticesA[i], n);
-            minA = Min(minA, value);
-            maxA = Max(maxA, value);
-        }
-
-        float minB = Dot(verticesB[0], n);
-        float maxB = minB;
-        for (int32 i = 1; i < verticesB.size(); ++i)
-        {
-            float value = Dot(verticesB[i], n);
-            minB = Min(minB, value);
-            maxB = Max(maxB, value);
-        }
-
-        float positiveSeparation = minB - maxA;
-        float negativeSeparation = minA - maxB;
-        float separation = Max(positiveSeparation, negativeSeparation);
-        if (separation > radii)
-        {
-            return false;
-        }
-
-        float penetration = radii - separation;
-        if (penetration < minPenetration)
-        {
-            bool positive = positiveSeparation > negativeSeparation;
-            if (Abs(positiveSeparation - negativeSeparation) <= epsilon)
-            {
-                positive = minB + maxB > minA + maxA;
-            }
-
-            normal = positive ? n : -n;
-            minPenetration = penetration;
-        }
-
-        return true;
-    };
-
-    if (!TestAxis(normalA))
-    {
-        return false;
-    }
-
-    if (!TestAxis(normalB))
-    {
-        return false;
-    }
-
-    for (int32 i = 0; i < verticesA.size(); ++i)
-    {
-        Vec3 edgeA = verticesA[(i + 1) % verticesA.size()] - verticesA[i];
-        for (int32 j = 0; j < verticesB.size(); ++j)
-        {
-            Vec3 edgeB = verticesB[(j + 1) % verticesB.size()] - verticesB[j];
-            if (!TestAxis(Cross(edgeA, edgeB)))
-            {
-                return false;
-            }
-        }
-    }
-
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
-    return manifold->contactCount > 0;
 }
 
 bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldSet* manifolds)
@@ -2537,13 +1859,13 @@ void InitializeDetectionFunctionMap()
     collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
     collide_function_map[Shape::triangle][Shape::convex] = ConvexVsConvex;
     collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
-    collide_function_map[Shape::triangle][Shape::polygon] = TriangleVsPolygon;
+    collide_function_map[Shape::triangle][Shape::polygon] = ConvexVsConvex;
 
     collide_function_map[Shape::polygon][Shape::sphere] = PolygonVsSphere;
-    collide_function_map[Shape::polygon][Shape::capsule] = PolygonVsCapsule;
-    collide_function_map[Shape::polygon][Shape::box] = PolygonVsBox;
-    collide_function_map[Shape::polygon][Shape::convex] = PolygonVsConvex;
-    collide_function_map[Shape::polygon][Shape::polygon] = PolygonVsPolygon;
+    collide_function_map[Shape::polygon][Shape::capsule] = ConvexVsConvex;
+    collide_function_map[Shape::polygon][Shape::box] = ConvexVsConvex;
+    collide_function_map[Shape::polygon][Shape::convex] = ConvexVsConvex;
+    collide_function_map[Shape::polygon][Shape::polygon] = ConvexVsConvex;
 
     collide_function_map2[Shape::height_field - Shape::height_field] = HeightFieldVsShape;
     collide_function_map2[Shape::mesh - Shape::height_field] = MeshVsShape;
