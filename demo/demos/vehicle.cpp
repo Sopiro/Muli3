@@ -14,7 +14,7 @@ static float vehicleMaxSteeringAngle = 45.0f;
 static float vehicleSteeringFrequency = 10.0f;
 static float vehicleSteeringDampingRatio = 0.7f;
 static float vehicleMaxSteeringTorque = 5.0f;
-static float vehicleSpinSpeedDegrees = 1800.0f;
+static float vehicleSpinSpeedDegrees = 2400.0f;
 static float vehicleDriveTorque = 5.0f;
 static bool vehicleChaseCamera = true;
 
@@ -65,7 +65,7 @@ public:
         chassis->SetCollisionFilter(filter);
 
         // Keep the chassis upright while leaving yaw free.
-        Joint* j = world->CreateRevoluteAngleJoint(ground, chassis, y_axis, 0.8f, 1.0f);
+        Joint* j = world->CreateRevoluteAngleJoint(ground, chassis, y_axis, 0.5f, 1.0f);
 
         Vec3 wheelAnchors[4] = {
             Vec3{ -0.8f, -0.5f, -1.5f },

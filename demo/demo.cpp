@@ -126,8 +126,9 @@ void Demo::EnableBodyCreate()
     bool createSphere = isCreateKey(GLFW_KEY_1, GLFW_KEY_KP_1);
     bool createCapsule = isCreateKey(GLFW_KEY_2, GLFW_KEY_KP_2);
     bool createBox = isCreateKey(GLFW_KEY_3, GLFW_KEY_KP_3);
+    bool createCylinder = isCreateKey(GLFW_KEY_4, GLFW_KEY_KP_4);
 
-    if (!createSphere && !createCapsule && !createBox)
+    if (!createSphere && !createCapsule && !createBox && !createCylinder)
     {
         throwCooldown = 0.0f;
         return;
@@ -147,7 +148,7 @@ void Demo::EnableBodyCreate()
     Vec3 velocity = forward * 18.0f;
     Body* body = nullptr;
 
-    if (createSphere || createCapsule || createBox)
+    if (createSphere || createCapsule || createBox || createCylinder)
     {
         Transform transform{ position, Quat::FromEuler(camera.rotation) };
         if (createSphere)
@@ -158,9 +159,13 @@ void Demo::EnableBodyCreate()
         {
             body = world->CreateCapsule(0.6f, 0.2f, transform);
         }
-        else
+        else if (createBox)
         {
             body = world->CreateBox(0.45f, transform);
+        }
+        else
+        {
+            body = world->CreateCylinder(0.45f, 0.25f, 0.25f, 16, transform);
         }
 
         body->SetLinearVelocity(velocity);

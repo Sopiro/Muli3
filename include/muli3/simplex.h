@@ -26,6 +26,7 @@ struct Simplex
     Simplex() = default;
 
     void AddVertex(const SupportPoint& vertex);
+    bool HasSupportPoint(const Vec3& point);
     void Save(Vec3* saveVertices, int32* saveCount);
     void Advance(const Vec3& q);
     Vec3 GetSearchDirection() const;
@@ -47,6 +48,19 @@ inline void Simplex::AddVertex(const SupportPoint& vertex)
 {
     MuliAssert(count < max_simplex_vertex_count);
     vertices[count++] = vertex;
+}
+
+inline bool Simplex::HasSupportPoint(const Vec3& point)
+{
+    for (int32 i = 0; i < count; ++i)
+    {
+        if (vertices[i].point == point)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 inline void Simplex::Save(Vec3* saveVertices, int32* saveCount)

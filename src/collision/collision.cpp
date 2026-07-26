@@ -1327,64 +1327,130 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
     }
     else
     {
-        // Expand to a full simplex if the gjk termination simplex has fewer vertices.
-        // Origin-on-line cases need perpendicular fallback directions to avoid a degenerate tetrahedron.
-        switch (simplex.count)
+        // Expand the GJK simplex to a non-degenerate tetrahedron for EPA.
+        if (simplex.count == 1)
         {
-        case 1:
-        {
-            Vec3 d = Normalize(tfA.p - tfB.p);
-            SupportPoint support = CSOSupport(a, tfA, b, tfB, d);
-            if (support.point == simplex.vertices[0].point)
-            {
-                support = CSOSupport(a, tfA, b, tfB, -d);
-            }
+            Vec3 direction = tfA.p - tfB.p;
+            const Vec3 directions[] = { direction, -direction, x_axis, -x_axis, y_axis, -y_axis, z_axis, -z_axis };
 
-            simplex.AddVertex(support);
+            for (const Vec3& candidate : directions)
+            {
+                if (Length2(candidate) <= Sqr(epsilon))
+                {
+                    continue;
+                }
+
+                SupportPoint support = CSOSupport(a, tfA, b, tfB, candidate);
+                if (!simplex.HasSupportPoint(support.point))
+                {
+                    simplex.AddVertex(support);
+                    break;
+                }
+            }
         }
 
-            [[fallthrough]];
-
-        case 2:
+        if (simplex.count == 2)
         {
-            Vec3 edge = Normalize(simplex.vertices[1].point - simplex.vertices[0].point);
-            Vec3 normal = GramSchmidt(-simplex.vertices[0].point, edge);
-            SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
-            if (support.point == simplex.vertices[0].point || support.point == simplex.vertices[1].point)
-            {
-                support = CSOSupport(a, tfA, b, tfB, -normal);
-            }
+            Vec3 edge = simplex.vertices[1].point - simplex.vertices[0].point;
+            float edgeLength2 = Length2(edge);
+            Vec3 edgeDirection = edge / SafeSqrt(edgeLength2);
+            Vec3 direction = GramSchmidt(-simplex.vertices[0].point, edgeDirection);
 
-            simplex.AddVertex(support);
+            Vec3 tangent1, tangent2;
+            CoordinateSystem(edgeDirection, &tangent1, &tangent2);
+
+            const Vec3 directions[] = { direction, -direction, tangent1, -tangent1, tangent2, -tangent2 };
+
+            for (const Vec3& candidate : directions)
+            {
+                if (Length2(candidate) <= Sqr(epsilon))
+                {
+                    continue;
+                }
+
+                SupportPoint support = CSOSupport(a, tfA, b, tfB, candidate);
+                if (simplex.HasSupportPoint(support.point))
+                {
+                    continue;
+                }
+
+                Vec3 supportEdge = support.point - simplex.vertices[0].point;
+                float area2 = Length2(Cross(edge, supportEdge));
+                if (area2 > epsilon * edgeLength2 * Length2(supportEdge))
+                {
+                    simplex.AddVertex(support);
+                    break;
+                }
+            }
         }
 
-            [[fallthrough]];
-
-        case 3:
+        if (simplex.count == 3)
         {
             Vec3 edge1 = simplex.vertices[1].point - simplex.vertices[0].point;
             Vec3 edge2 = simplex.vertices[2].point - simplex.vertices[0].point;
+            Vec3 faceNormal = Cross(edge1, edge2);
+            float normalLength2 = Length2(faceNormal);
 
-            Vec3 normal = Cross(edge1, edge2);
-            normal.Normalize();
+            const Vec3 directions[2] = { faceNormal, -faceNormal };
 
-            SupportPoint support = CSOSupport(a, tfA, b, tfB, normal);
-            if (support.point == simplex.vertices[0].point || support.point == simplex.vertices[1].point ||
-                support.point == simplex.vertices[2].point)
+            for (const Vec3& candidate : directions)
             {
-                support = CSOSupport(a, tfA, b, tfB, -normal);
+                if (Length2(candidate) <= Sqr(epsilon))
+                {
+                    continue;
+                }
+
+                SupportPoint support = CSOSupport(a, tfA, b, tfB, candidate);
+                if (simplex.HasSupportPoint(support.point))
+                {
+                    continue;
+                }
+
+                Vec3 supportEdge = support.point - simplex.vertices[0].point;
+                float volume = Dot(faceNormal, supportEdge);
+                if (Sqr(volume) > epsilon * normalLength2 * Length2(supportEdge))
+                {
+                    simplex.AddVertex(support);
+                    break;
+                }
+            }
+        }
+
+        if (simplex.count == max_simplex_vertex_count)
+        {
+            EPAResult epaResult;
+            EPA(a, tfA, b, tfB, simplex, &epaResult);
+            normal = epaResult.contactNormal;
+        }
+        else
+        {
+            // Lower-dimensional core shapes cannot form a tetrahedron..
+            // Just use their simplex plane as the collision normal.
+            if (simplex.count == 3)
+            {
+                Vec3 edge1 = simplex.vertices[1].point - simplex.vertices[0].point;
+                Vec3 edge2 = simplex.vertices[2].point - simplex.vertices[0].point;
+                normal = NormalizeSafe(Cross(edge1, edge2));
+            }
+            else if (simplex.count == 2)
+            {
+                Vec3 edge = NormalizeSafe(simplex.vertices[1].point - simplex.vertices[0].point);
+                CoordinateSystem(edge, &normal);
+            }
+            else
+            {
+                normal = NormalizeSafe(tfB.p - tfA.p);
             }
 
-            simplex.AddVertex(support);
+            if (Length2(normal) <= epsilon * epsilon)
+            {
+                normal = Vec3{ 1.0f, 0.0f, 0.0f };
+            }
+            else if (Dot(normal, tfB.p - tfA.p) < 0.0f)
+            {
+                normal = -normal;
+            }
         }
-        default:
-            MuliAssert(simplex.count == max_simplex_vertex_count);
-        }
-
-        EPAResult epaResult;
-        EPA(a, tfA, b, tfB, simplex, &epaResult);
-
-        normal = epaResult.contactNormal;
     }
 
     FindContactPoints(normal, a, tfA, b, tfB, manifold);
