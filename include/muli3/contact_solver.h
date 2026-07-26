@@ -59,6 +59,5 @@ bool SolveContactPositionConstraints(ContactState* contact);
 void PrepareJoint(JointState* joint, const Timestep& step);
 void WarmStartJoint(JointState* joint);
 void SolveJointVelocityConstraints(JointState* joint, const Timestep& step);
-bool SolveJointPositionConstraints(JointState* joint, const Timestep& step);
 
 } // namespace muli3

@@ -12,21 +12,6 @@ enum
     revolute_limit_equal,
 };
 
-static float NormalizeAngle(float angle)
-{
-    while (angle > pi)
-    {
-        angle -= two_pi;
-    }
-
-    while (angle < -pi)
-    {
-        angle += two_pi;
-    }
-
-    return angle;
-}
-
 static float ClampImpulse(float impulse, int32 limitState)
 {
     // Lower limits accept positive twist impulses; upper limits accept negative impulses.

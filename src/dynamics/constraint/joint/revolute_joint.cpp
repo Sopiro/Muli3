@@ -14,21 +14,6 @@ enum
 
 static constexpr float revolute_joint_max_angular_correction = 10.0f * pi / 180.0f;
 
-static float NormalizeAngle(float angle)
-{
-    while (angle > pi)
-    {
-        angle -= two_pi;
-    }
-
-    while (angle < -pi)
-    {
-        angle += two_pi;
-    }
-
-    return angle;
-}
-
 static float ClampImpulse(float impulse, int32 limitState)
 {
     switch (limitState)

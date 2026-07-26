@@ -35,10 +35,4 @@ inline void Joint::SolveVelocityConstraints(const Timestep& step)
     Dispatch([&](auto joint) { joint->SolveVelocityConstraints(step); });
 }
 
-inline bool Joint::SolvePositionConstraints(const Timestep& step)
-{
-    MuliNotUsed(step);
-    return true;
-}
-
 } // namespace muli3

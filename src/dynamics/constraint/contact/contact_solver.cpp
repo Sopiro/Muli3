@@ -424,9 +424,4 @@ void SolveJointVelocityConstraints(JointState* j, const Timestep& step)
     j->joint->SolveVelocityConstraints(step);
 }
 
-bool SolveJointPositionConstraints(JointState* j, const Timestep& step)
-{
-    return j->joint->SolvePositionConstraints(step);
-}
-
 } // namespace muli3

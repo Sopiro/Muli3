@@ -97,7 +97,6 @@ public:
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
-    bool SolvePositionConstraints(const Timestep& step);
 
     Body* GetBodyA() const;
     Body* GetBodyB() const;

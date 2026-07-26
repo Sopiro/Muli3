@@ -178,4 +178,25 @@ constexpr inline int32 FindInterval(int32 size, const Predicate& pred)
     return Clamp(first - 1, 0, size - 2);
 }
 
+constexpr inline float NormalizeAngle(float angle)
+{
+    if (angle >= -pi && angle <= pi)
+    {
+        return angle;
+    }
+
+    angle = std::fmod(angle, two_pi);
+
+    if (angle > pi)
+    {
+        angle -= two_pi;
+    }
+    else if (angle < -pi)
+    {
+        angle += two_pi;
+    }
+
+    return angle;
+}
+
 } // namespace muli3
