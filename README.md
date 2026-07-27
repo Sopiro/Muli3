@@ -4,7 +4,7 @@
 
 [![Build](https://github.com/Sopiro/Muli3/actions/workflows/cmake-multi-platform.yml/badge.svg)](https://github.com/Sopiro/Muli3/actions/workflows/cmake-multi-platform.yml)
 
-3D Rigidbody physics engine.
+3D Rigid body physics engine.
 
 ## Features
 
@@ -18,7 +18,7 @@ Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded t
   - Collision filtering
   - Dynamic AABB tree broad phase
   - One-shot contact manifold generation
-  - Accelerated raycast, shapecast, and area queries
+  - Raycast, shapecast, and area queries
 
  ### Physics Simulation
   - PGS solver with a separate position correction (PGS NGS)
@@ -28,7 +28,7 @@ Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded t
   - Deterministic simulation
   - Contact callbacks: begin, touching, end, pre-solve, post-solve, and destroy
   - Physics material: friction, restitution, and surface speed
-  - Various joint types
+  - Joints with limits and motors
 
 ### Others
   - Cross platform library (C++20)

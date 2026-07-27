@@ -48,18 +48,23 @@ public:
             pos.y += 30.0f;
 
             float r = Rand();
-            if (r < 0.3)
+            if (r < 0.25)
             {
                 b = world->CreateSphere(size / 2);
             }
-            else if (r < 0.6)
+            else if (r < 0.5)
             {
                 b = world->CreateCapsule(size, size / 4);
             }
-            else
+            else if (r < 0.75)
             {
                 b = world->CreateBox(size);
             }
+            else
+            {
+                b = world->CreateCylinder(size, size / 2, size / 2);
+            }
+
             b->SetPosition(pos);
             b->SetRotation(Quat::FromEuler(RandVec3()));
         }
