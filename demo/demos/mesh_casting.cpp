@@ -378,7 +378,7 @@ private:
         trace->to = to;
         trace->point = trace->to;
         trace->normal = Vec3::zero;
-        trace->q = Quat::FromEuler({ DegToRad(rot.x), DegToRad(rot.y), DegToRad(rot.z) });
+        trace->q = Quat::FromEuler(DegToRad(rot.x), DegToRad(rot.y), DegToRad(rot.z));
         trace->colorIndex = colorIndex;
         trace->hit = false;
 

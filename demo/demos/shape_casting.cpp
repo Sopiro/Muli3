@@ -122,7 +122,7 @@ public:
         Vec3 closestPoint = Vec3::zero;
         Vec3 closestNormal = Vec3::zero;
         tf.p = from;
-        tf.q = Quat::FromEuler({ DegToRad(rot.x), DegToRad(rot.y), DegToRad(rot.z) });
+        tf.q = Quat::FromEuler(DegToRad(rot.x), DegToRad(rot.y), DegToRad(rot.z));
         Vec3 translation = to - from;
 
         Renderer::DrawMode dm{};
@@ -205,7 +205,7 @@ private:
 
     void UpdateTargetRotation()
     {
-        Quat q = Quat::FromEuler({ DegToRad(targetRot.x), DegToRad(targetRot.y), DegToRad(targetRot.z) });
+        Quat q = Quat::FromEuler(DegToRad(targetRot.x), DegToRad(targetRot.y), DegToRad(targetRot.z));
         for (Body* body : targetBodies)
         {
             body->SetRotation(q);

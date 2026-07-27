@@ -37,7 +37,7 @@ public:
 
         float w = Max(15.0f, (float)rows) * (boxWidth + xGap) - xGap + 30;
         float h = 20.0f;
-        world->CreateQuad(w, h, Transform({ -w / 2, 0, -h / 2 }, Quat::FromEuler({ pi / 2, 0, 0 })), Body::static_body);
+        world->CreateQuad(w, h, Transform({ -w / 2, 0, -h / 2 }, Quat::FromEuler(pi / 2, 0, 0)), Body::static_body);
 
         camera.SetPosition(Vec3{ 0.0f, w / 5.0f, w * 0.75f - 30 });
         camera.SetRotation(0.0f, -16.0f);

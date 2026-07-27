@@ -15,19 +15,17 @@ public:
         ground->SetFriction(groundFriction);
 
         Body* b = world->CreateBox(
-            6.5f, 0.1f, 1.2f, Transform{ Vec3{ -0.6f, 5.0f, 0.0f }, Quat::FromEuler(Vec3{ 0.0f, 0.0f, -0.15f }) },
-            Body::static_body
+            6.5f, 0.1f, 1.2f, Transform{ Vec3{ -0.6f, 5.0f, 0.0f }, Quat::FromEuler(0.0f, 0.0f, -0.15f) }, Body::static_body
         );
         b->SetFriction(groundFriction);
 
         b = world->CreateBox(
-            6.5f, 0.1f, 1.2f, Transform{ Vec3{ 0.0f, 3.0f, 0.0f }, Quat::FromEuler(Vec3{ 0.0f, 0.0f, 0.15f }) }, Body::static_body
+            6.5f, 0.1f, 1.2f, Transform{ Vec3{ 0.0f, 3.0f, 0.0f }, Quat::FromEuler(0.0f, 0.0f, 0.15f) }, Body::static_body
         );
         b->SetFriction(groundFriction);
 
         b = world->CreateBox(
-            6.5f, 0.1f, 1.2f, Transform{ Vec3{ -0.6f, 1.0f, 0.0f }, Quat::FromEuler(Vec3{ 0.0f, 0.0f, -0.15f }) },
-            Body::static_body
+            6.5f, 0.1f, 1.2f, Transform{ Vec3{ -0.6f, 1.0f, 0.0f }, Quat::FromEuler(0.0f, 0.0f, -0.15f) }, Body::static_body
         );
         b->SetFriction(groundFriction);
 

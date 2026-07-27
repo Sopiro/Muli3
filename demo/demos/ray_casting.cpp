@@ -145,7 +145,7 @@ public:
 private:
     void UpdateTargetRotation()
     {
-        Quat q = Quat::FromEuler({ DegToRad(targetRot.x), DegToRad(targetRot.y), DegToRad(targetRot.z) });
+        Quat q = Quat::FromEuler(DegToRad(targetRot.x), DegToRad(targetRot.y), DegToRad(targetRot.z));
         for (Body* body : targetBodies)
         {
             body->SetRotation(q);

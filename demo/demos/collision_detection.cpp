@@ -66,7 +66,7 @@ public:
             ImGui::SetNextItemWidth(120.0f);
             if (ImGui::DragFloat3("rot1", &rot1.x, 0.5f))
             {
-                tf1.q = Quat::FromEuler(Vec3{ DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z) });
+                tf1.q = Quat::FromEuler(DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z));
                 changed = true;
             }
 
@@ -74,7 +74,7 @@ public:
             ImGui::SetNextItemWidth(120.0f);
             if (ImGui::DragFloat3("rot2", &rot2.x, 0.5f))
             {
-                tf2.q = Quat::FromEuler(Vec3{ DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z) });
+                tf2.q = Quat::FromEuler(DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z));
                 changed = true;
             }
 
@@ -188,8 +188,8 @@ private:
         tf2 = Transform{ Vec3{ 0, 0.0f, 0.0f } };
         rot1 = { 0, 0, 0 };
         rot2 = { 15, 30, 0 };
-        tf1.q = Quat::FromEuler(Vec3{ DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z) });
-        tf2.q = Quat::FromEuler(Vec3{ DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z) });
+        tf1.q = Quat::FromEuler(DegToRad(rot1.x), DegToRad(rot1.y), DegToRad(rot1.z));
+        tf2.q = Quat::FromEuler(DegToRad(rot2.x), DegToRad(rot2.y), DegToRad(rot2.z));
         size1 = Vec3{ 1.0f };
         size2 = Vec3{ 1.0f };
         convexRadius1 = default_radius;

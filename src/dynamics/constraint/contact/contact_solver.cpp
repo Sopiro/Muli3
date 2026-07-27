@@ -314,7 +314,7 @@ static bool SolvePosition(const PositionConstraint* constraint, const Vec3& loca
         // Rotate Il^-1 * R^T * angularImpulse back to world space.
         Vec3 angularCorrection = bodyA->motion.q.Rotate(-angularA * lambda);
         Quat w{ angularCorrection, 0.0f };
-        bodyA->motion.q = bodyA->motion.q + (w * bodyA->motion.q) * 0.5f;
+        bodyA->motion.q = Normalize(bodyA->motion.q + (w * bodyA->motion.q) * 0.5f);
     }
 
     if (bodyB->invMass > 0.0f)
@@ -324,7 +324,7 @@ static bool SolvePosition(const PositionConstraint* constraint, const Vec3& loca
         // Rotate Il^-1 * R^T * angularImpulse back to world space.
         Vec3 angularCorrection = bodyB->motion.q.Rotate(angularB * lambda);
         Quat w{ angularCorrection, 0.0f };
-        bodyB->motion.q = bodyB->motion.q + (w * bodyB->motion.q) * 0.5f;
+        bodyB->motion.q = Normalize(bodyB->motion.q + (w * bodyB->motion.q) * 0.5f);
     }
 
     return -separation <= position_solver_threshold;
@@ -366,12 +366,12 @@ void WarmStartContact(ContactState* contact)
         ContactManifold* manifold = contact->manifolds.data() + m;
         ContactConstraint* constraint = contact->contactConstraints.data() + m;
 
-        WarmStartFriction(manifold, &constraint->frictionContact, contact);
-
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
             WarmStartNormal(manifold->contactPoints + i, constraint->normalContact + i, contact);
         }
+
+        WarmStartFriction(manifold, &constraint->frictionContact, contact);
     }
 }
 
@@ -382,12 +382,12 @@ void SolveContactVelocityConstraints(ContactState* contact)
         ContactManifold* manifold = contact->manifolds.data() + m;
         ContactConstraint* constraint = contact->contactConstraints.data() + m;
 
-        SolveFriction(&constraint->frictionContact, contact, manifold);
-
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
             SolveNormal(manifold->contactPoints + i, constraint->normalContact + i, contact);
         }
+
+        SolveFriction(&constraint->frictionContact, contact, manifold);
     }
 }
 

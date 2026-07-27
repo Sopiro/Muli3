@@ -75,7 +75,7 @@ struct Tuple2
     template <typename U>
     constexpr auto operator/(U d) const -> Child<decltype(T{} / U{})>
     {
-        MuliAssert(d != 0 && !muli3::IsNullish(d));
+        MuliAssert(!muli3::IsNullish(d) && d != 0);
         return { x / d, y / d };
     }
 
@@ -109,8 +109,7 @@ struct Tuple2
     template <typename U>
     constexpr Child<T>& operator/=(U d)
     {
-        MuliAssert(d != 0);
-        MuliAssert(!muli3::IsNullish(d));
+        MuliAssert(!muli3::IsNullish(d) && d != 0);
         x /= d;
         y /= d;
         return static_cast<Child<T>&>(*this);
@@ -206,7 +205,7 @@ struct Tuple3
     template <typename U>
     constexpr auto operator/(U d) const -> Child<decltype(T{} / U{})>
     {
-        MuliAssert(d != 0);
+        MuliAssert(!muli3::IsNullish(d) && d != 0);
         return { x / d, y / d, z / d };
     }
 
@@ -243,7 +242,7 @@ struct Tuple3
     template <typename U>
     constexpr Child<T>& operator/=(U d)
     {
-        MuliAssert(d != 0);
+        MuliAssert(!muli3::IsNullish(d) && d != 0);
         x /= d;
         y /= d;
         z /= d;
@@ -343,7 +342,7 @@ struct Tuple4
     template <typename U>
     constexpr auto operator/(U d) const -> Child<decltype(T{} / U{})>
     {
-        MuliAssert(d != 0);
+        MuliAssert(!muli3::IsNullish(d) && d != 0);
         return { x / d, y / d, z / d, w / d };
     }
 
@@ -383,7 +382,7 @@ struct Tuple4
     template <typename U>
     constexpr Child<T>& operator/=(U d)
     {
-        MuliAssert(d != 0);
+        MuliAssert(!muli3::IsNullish(d) && d != 0);
         x /= d;
         y /= d;
         z /= d;

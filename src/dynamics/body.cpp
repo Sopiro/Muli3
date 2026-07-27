@@ -102,7 +102,7 @@ void Body::SetRotation(const Quat& rotation)
 
 void Body::SetRotation(float x, float y, float z)
 {
-    SetRotation(Quat::FromEuler({ x, y, z }));
+    SetRotation(Quat::FromEuler(x, y, z));
 }
 
 void Body::Translate(const Vec3& delta)

@@ -6,6 +6,10 @@
 namespace muli3
 {
 
+inline Float Length(const Quat& q);
+inline constexpr Quat operator*(const Quat& q, Float s);
+inline constexpr Quat operator*(Float s, const Quat& q);
+
 struct Quat
 {
     Float x, y, z, w;
@@ -101,9 +105,58 @@ struct Quat
         return Quat(-x, -y, -z, -w);
     }
 
-    constexpr Quat operator*(Float s) const
+    constexpr Quat& operator+=(Quat q)
     {
-        return Quat(x * s, y * s, z * s, w * s);
+        x += q.x;
+        y += q.y;
+        z += q.z;
+        w += q.w;
+        return *this;
+    }
+
+    constexpr Quat& operator-=(Quat q)
+    {
+        x -= q.x;
+        y -= q.y;
+        z -= q.z;
+        w -= q.w;
+        return *this;
+    }
+
+    constexpr Quat& operator*=(Float s)
+    {
+        x += s;
+        y += s;
+        z += s;
+        w += s;
+        return *this;
+    }
+
+    constexpr Quat& operator/=(Float s)
+    {
+        MuliAssert(s != 0);
+        x -= s;
+        y -= s;
+        z -= s;
+        w -= s;
+        return *this;
+    }
+
+    Float Normalize()
+    {
+        Float length = Length(*this);
+        if (length < std::numeric_limits<Float>::epsilon())
+        {
+            return Float(0);
+        }
+
+        Float inv_length = Float(1) / length;
+        x *= inv_length;
+        y *= inv_length;
+        z *= inv_length;
+        w *= inv_length;
+
+        return length;
     }
 
     constexpr bool IsIdentity() const
@@ -111,31 +164,12 @@ struct Quat
         return x == 0 && y == 0 && z == 0 && w == 1;
     }
 
-    constexpr Float Length2() const
+    constexpr void SetIdentity()
     {
-        return x * x + y * y + z * z + w * w;
-    }
-
-    Float Length() const
-    {
-        return std::sqrt(Length2());
-    }
-
-    Float Normalize()
-    {
-        Float length = Length();
-        if (length < epsilon)
-        {
-            return 0;
-        }
-
-        Float invLength = 1 / length;
-        x *= invLength;
-        y *= invLength;
-        z *= invLength;
-        w *= invLength;
-
-        return length;
+        x = 0;
+        y = 0;
+        z = 0;
+        w = 1;
     }
 
     constexpr Quat GetConjugate() const
@@ -179,14 +213,6 @@ struct Quat
             vy * w2 - (z * vx - x * vz) * w + y * dot2,
             vz * w2 - (x * vy - y * vx) * w + z * dot2,
         };
-    }
-
-    constexpr void SetIdentity()
-    {
-        x = 0;
-        y = 0;
-        z = 0;
-        w = 1;
     }
 
     // Computes rotation of x-axis
@@ -243,14 +269,14 @@ struct Quat
         return Vec3{ roll, pitch, yaw };
     }
 
-    static Quat FromEuler(const Vec3& eulerAngles)
+    static Quat FromEuler(Float x, Float y, Float z)
     {
-        Float cr = std::cos(eulerAngles.x * 0.5f);
-        Float sr = std::sin(eulerAngles.x * 0.5f);
-        Float cp = std::cos(eulerAngles.y * 0.5f);
-        Float sp = std::sin(eulerAngles.y * 0.5f);
-        Float cy = std::cos(eulerAngles.z * 0.5f);
-        Float sy = std::sin(eulerAngles.z * 0.5f);
+        Float cr = std::cos(x * 0.5f);
+        Float sr = std::sin(x * 0.5f);
+        Float cp = std::cos(y * 0.5f);
+        Float sp = std::sin(y * 0.5f);
+        Float cy = std::cos(z * 0.5f);
+        Float sy = std::sin(z * 0.5f);
 
         Quat q;
         q.w = cr * cp * cy + sr * sp * sy;
@@ -259,6 +285,11 @@ struct Quat
         q.z = cr * cp * sy - sr * sp * cy;
 
         return q;
+    }
+
+    static Quat FromEuler(const Vec3& eulerAngles)
+    {
+        return FromEuler(eulerAngles.x, eulerAngles.y, eulerAngles.z);
     }
 
     std::string ToString() const
@@ -273,16 +304,6 @@ const inline Quat Quat::zero{ 0.0f };
 
 // Quat inline functions begin
 
-constexpr inline bool operator==(const Quat& a, const Quat& b)
-{
-    return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
-}
-
-constexpr inline Float Dot(const Quat& a, const Quat& b)
-{
-    return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
-}
-
 // Quaternion multiplication
 constexpr inline Quat operator*(const Quat& a, const Quat& b)
 {
@@ -294,14 +315,97 @@ constexpr inline Quat operator*(const Quat& a, const Quat& b)
     };
 }
 
+constexpr inline Float Dot(const Quat& a, const Quat& b)
+{
+    return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+}
+
 constexpr inline Quat operator+(const Quat& a, const Quat& b)
 {
     return Quat(a.x + b.x, a.y + b.y, a.z + b.z, a.w + b.w);
 }
 
+constexpr inline Quat operator+(const Quat& a, Float b)
+{
+    return Quat(a.x + b, a.y + b, a.z + b, a.w + b);
+}
+
 constexpr inline Quat operator-(const Quat& a, const Quat& b)
 {
     return Quat(a.x - b.x, a.y - b.y, a.z - b.z, a.w - b.w);
+}
+
+constexpr inline Quat operator-(const Quat& a, Float b)
+{
+    return Quat(a.x - b, a.y - b, a.z - b, a.w - b);
+}
+
+constexpr inline Quat operator*(const Quat& q, Float s)
+{
+    return Quat(q.x * s, q.y * s, q.z * s, q.w * s);
+}
+
+constexpr inline Quat operator*(Float s, const Quat& q)
+{
+    return Quat(q.x * s, q.y * s, q.z * s, q.w * s);
+}
+
+// constexpr inline Quat operator*(const Quat& a, const Quat& b)
+// {
+//     return Quat(a.x * b.x, a.y * b.y, a.z * b.z, a.w * b.w);
+// }
+
+constexpr inline Quat operator/(const Quat& q, Float s)
+{
+    return Quat(q.x / s, q.y / s, q.z / s, q.w / s);
+}
+
+constexpr inline Quat operator/(Float s, const Quat& q)
+{
+    return Quat(s / q.x, s / q.y, s / q.z, s / q.w);
+}
+
+constexpr inline Quat operator/(const Quat& a, const Quat& b)
+{
+    return Quat(a.x / b.x, a.y / b.y, a.z / b.z, a.w / b.w);
+}
+
+constexpr inline bool operator==(const Quat& a, const Quat& b)
+{
+    return a.x == b.x && a.y == b.y && a.z == b.z && a.w == b.w;
+}
+
+constexpr inline bool operator!=(const Quat& a, const Quat& b)
+{
+    return a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w;
+}
+
+constexpr inline Float Length2(const Quat& q)
+{
+    return q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
+}
+
+inline Float Length(const Quat& q)
+{
+    return std::sqrt(Length2(q));
+}
+
+constexpr inline Quat Normalize(const Quat& q)
+{
+    Float inv_length = Float(1) / Length(q);
+    return q * inv_length;
+}
+
+constexpr inline Quat NormalizeSafe(const Quat& q)
+{
+    Float length = Length(q);
+    if (length < std::numeric_limits<Float>::epsilon())
+    {
+        return Quat::zero;
+    }
+
+    Float inv_length = Float(1) / length;
+    return q * inv_length;
 }
 
 // Compute angle between two quaternions
