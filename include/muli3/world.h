@@ -90,7 +90,7 @@ public:
         float height,
         float topRadius,
         float bottomRadius,
-        int32 segmentCount = 16,
+        uint16 segmentCount = 16,
         const Transform& transform = identity,
         Body::Type type = Body::dynamic_body,
         float convexRadius = default_radius,
@@ -172,12 +172,7 @@ public:
         float dampingRatio = 1.0f
     );
     UniversalAngleJoint* CreateUniversalAngleJoint(
-        Body* bodyA,
-        Body* bodyB,
-        const Vec3& axisA,
-        const Vec3& axisB,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        Body* bodyA, Body* bodyB, const Vec3& axisA, const Vec3& axisB, float frequency = 10.0f, float dampingRatio = 1.0f
     );
     TwistAngleJoint* CreateTwistAngleJoint(
         Body* bodyA,

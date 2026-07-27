@@ -377,7 +377,7 @@ static void FindContactPoints(
         origin += point;
         clippedA[i] = point + faceA.normal * ra;
     }
-    origin /= faceA.vertexCount;
+    origin /= float(faceA.vertexCount);
 
     Vec3 mid = (clippedA[faceA.vertexCount - 1] + clippedA[0]) * 0.5f;
     Vec3 tangent1 = GramSchmidt(mid - origin, n);

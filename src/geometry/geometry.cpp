@@ -311,11 +311,11 @@ void ComputeConvexHull(
                 continue;
             }
 
-            const HullFace& face = hullFaces[i];
+            const HullFace& hullFace = hullFaces[i];
             for (int32 j = 0; j < 3; ++j)
             {
-                int32 a = face.indices[j];
-                int32 b = face.indices[(j + 1) % 3];
+                int32 a = hullFace.indices[j];
+                int32 b = hullFace.indices[(j + 1) % 3];
 
                 AddBoundaryEdge(&edges, a, b);
             }

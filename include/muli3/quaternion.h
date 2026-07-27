@@ -6,7 +6,7 @@
 namespace muli3
 {
 
-inline Float Length(const Quat& q);
+inline constexpr Float Length(const Quat& q);
 inline constexpr Quat operator*(const Quat& q, Float s);
 inline constexpr Quat operator*(Float s, const Quat& q);
 
@@ -385,7 +385,7 @@ constexpr inline Float Length2(const Quat& q)
     return q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w;
 }
 
-inline Float Length(const Quat& q)
+constexpr inline Float Length(const Quat& q)
 {
     return std::sqrt(Length2(q));
 }

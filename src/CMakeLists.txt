@@ -42,9 +42,9 @@ if(MULI3_PROFILE)
 endif()
 
 if(MSVC)
-    target_compile_options(muli3 PRIVATE /W4 /wd4819)
+    target_compile_options(muli3 PRIVATE /W4 /WX /wd4819)
 else()
-    target_compile_options(muli3 PRIVATE -Wall -Wextra -Wpedantic)
+    target_compile_options(muli3 PRIVATE -Wall -Wextra -Wpedantic -Werror)
 endif()
 
 install(

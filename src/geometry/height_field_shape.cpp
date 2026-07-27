@@ -252,8 +252,8 @@ void HeightFieldShape::Query(
     std::function<void(int32 x, int32 z, int32 triangle, const Vec3& a, const Vec3& b, const Vec3& c)> callback
 ) const
 {
-    const float cellCountX = sampleCountX - 1;
-    const float cellCountZ = sampleCountZ - 1;
+    const float cellCountX = float(sampleCountX - 1);
+    const float cellCountZ = float(sampleCountZ - 1);
 
     // Clamp the query bounds to the height field in XZ
     AABB bounds = localAABB;
@@ -287,8 +287,8 @@ void HeightFieldShape::Query(
             // Visit only the cells shared by the block and query range
             int32 x0 = Max(minCellX, bx * blockSize);
             int32 z0 = Max(minCellZ, bz * blockSize);
-            int32 x1 = Min(maxCellX, Min((bx + 1) * blockSize - 1, cellCountX - 1));
-            int32 z1 = Min(maxCellZ, Min((bz + 1) * blockSize - 1, cellCountZ - 1));
+            int32 x1 = Min(maxCellX, (bx + 1) * blockSize - 1, int32(cellCountX - 1));
+            int32 z1 = Min(maxCellZ, (bz + 1) * blockSize - 1, int32(cellCountZ - 1));
 
             for (int32 z = z0; z <= z1; ++z)
             {
@@ -579,8 +579,8 @@ bool HeightFieldShape::ShapeCast(
                 float h10 = GetHeight(x + 1, z);
                 float h01 = GetHeight(x, z + 1);
                 float h11 = GetHeight(x + 1, z + 1);
-                float cellMinY = offset.y + Min(Min(h00, h10), Min(h01, h11));
-                float cellMaxY = offset.y + Max(Max(h00, h10), Max(h01, h11));
+                float cellMinY = offset.y + Min(h00, h10, h01, h11);
+                float cellMaxY = offset.y + Max(h00, h10, h01, h11);
                 float sweptMinY = Min(localAABB.min.y, localAABB.min.y + localTranslation.y * bestFraction);
                 float sweptMaxY = Max(localAABB.max.y, localAABB.max.y + localTranslation.y * bestFraction);
 
@@ -733,8 +733,8 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
         float h10 = GetHeight(cell[0] + 1, cell[1]);
         float h01 = GetHeight(cell[0], cell[1] + 1);
         float h11 = GetHeight(cell[0] + 1, cell[1] + 1);
-        float minHeight = offset.y + Min(Min(h00, h10), Min(h01, h11));
-        float maxHeight = offset.y + Max(Max(h00, h10), Max(h01, h11));
+        float minHeight = offset.y + Min(h00, h10, h01, h11);
+        float maxHeight = offset.y + Max(h00, h10, h01, h11);
 
         float rayHeight = localInput.from.y + d.y * bestFraction;
 

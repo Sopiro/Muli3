@@ -132,7 +132,7 @@ Body* World::CreateCylinder(
     float height,
     float topRadius,
     float bottomRadius,
-    int32 segmentCount,
+    uint16 segmentCount,
     const Transform& transform,
     Body::Type type,
     float convexRadius,
@@ -164,7 +164,7 @@ Body* World::CreateCylinder(
             vertices[i * 2 + 1] = Vec3{ x * topRadius, halfHeight, z * topRadius };
         }
 
-        int32 indexCount = 0;
+        uint16 indexCount = 0;
 
         faces[0].vertexStart = indexCount;
         faces[0].vertexCount = segmentCount;
@@ -1429,7 +1429,7 @@ void World::Solve()
                 ConstraintBatch& batch = constraintGraph.batches[color];
 
                 ParallelFor(
-                    0, batch.contactStates.size(), minConstraintRange,
+                    0, int32(batch.contactStates.size()), minConstraintRange,
                     [&](int32 i0, int32 i1) {
                         MuliProfileZoneN(solve_position_contact, "Solve Position Contact", true);
                         for (int32 i = i0; i < i1; ++i)
