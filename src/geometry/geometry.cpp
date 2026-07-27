@@ -311,11 +311,11 @@ void ComputeConvexHull(
                 continue;
             }
 
-            const HullFace& hullFace = hullFaces[i];
+            const HullFace& f = hullFaces[i];
             for (int32 j = 0; j < 3; ++j)
             {
-                int32 a = hullFace.indices[j];
-                int32 b = hullFace.indices[(j + 1) % 3];
+                int32 a = f.indices[j];
+                int32 b = f.indices[(j + 1) % 3];
 
                 AddBoundaryEdge(&edges, a, b);
             }
@@ -332,9 +332,9 @@ void ComputeConvexHull(
             }
         }
 
-        for (const HullEdge& edge : edges)
+        for (const HullEdge& e : edges)
         {
-            if (CreateFace(uniquePoints, edge.a, edge.b, bestPoint, center, tolerance, &face))
+            if (CreateFace(uniquePoints, e.a, e.b, bestPoint, center, tolerance, &face))
             {
                 newFaces.push_back(face);
             }
@@ -353,9 +353,9 @@ void ComputeConvexHull(
     usedIndices.reserve(uniquePoints.size());
 
     // Discard input points that never became hull vertices and compact the indices.
-    for (const HullFace& face : hullFaces)
+    for (const HullFace& f : hullFaces)
     {
-        for (int32 index : face.indices)
+        for (int32 index : f.indices)
         {
             if (!Contains(usedIndices, index))
             {
@@ -497,10 +497,10 @@ void ComputeConvexHull(
             }
         }
 
-        Face face;
-        face.vertexStart = uint16(outIndices->size());
-        face.vertexCount = uint16(boundaryEdges.size());
-        face.normal = hullFaces[firstFace].normal;
+        Face f;
+        f.vertexStart = uint16(outIndices->size());
+        f.vertexCount = uint16(boundaryEdges.size());
+        f.normal = hullFaces[firstFace].normal;
 
         // AddBoundaryEdge does not preserve loop order.
         // Follow matching endpoints to emit the polygon vertices in the original outward winding.
@@ -533,7 +533,7 @@ void ComputeConvexHull(
             edgeIndex = nextEdge;
         }
 
-        outFaces->push_back(face);
+        outFaces->push_back(f);
     }
 }
 

@@ -366,14 +366,14 @@ Vec3 TriangleShape::GetClosestPoint(const Transform& transform, const Vec3& q) c
 {
     Vec3 localQ = MulT(transform, q);
     Vec3 closest = ClosestPointVsTriangle(localQ, vertices[0], vertices[1], vertices[2]);
-    Vec3 normal = localQ - closest;
-    float distance = normal.Normalize();
+    Vec3 n = localQ - closest;
+    float distance = n.Normalize();
     if (distance <= radius)
     {
         return q;
     }
 
-    return Mul(transform, closest + normal * radius);
+    return Mul(transform, closest + n * radius);
 }
 
 bool TriangleShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const

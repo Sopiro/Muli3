@@ -216,7 +216,7 @@ Face BoxShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) cons
     int32 face = axis * 2 + (localDir[axis] > 0.0f ? 1 : 0);
 
     Face outFace{};
-    outFace.vertexStart = face * 4;
+    outFace.vertexStart = uint16(face * 4);
     outFace.vertexCount = 4;
     outFace.normal = worldOrientation.Rotate(boxNormals[face]);
     return outFace;

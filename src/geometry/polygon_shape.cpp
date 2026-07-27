@@ -299,7 +299,7 @@ int32 PolygonShape::GetSupport(const Vec3& localDir) const
 Face PolygonShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) const
 {
     Face face{};
-    face.vertexCount = int32(vertices.size());
+    face.vertexCount = uint16(vertices.size());
 
     Vec3 worldNormal = transform.q.Rotate(normal);
     if (Dot(worldNormal, dir) >= 0.0f)
@@ -309,7 +309,7 @@ Face PolygonShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) 
     }
     else
     {
-        face.vertexStart = int32(vertices.size());
+        face.vertexStart = uint16(vertices.size());
         face.normal = -worldNormal;
     }
 
@@ -346,14 +346,14 @@ Vec3 PolygonShape::GetClosestPoint(const Transform& transform, const Vec3& q) co
     Vec3 localQ = MulT(transform, q);
     Vec3 closest = GetClosestPointLocal(localQ);
 
-    Vec3 normal = localQ - closest;
-    float distance = normal.Normalize();
+    Vec3 n = localQ - closest;
+    float distance = n.Normalize();
     if (distance <= radius)
     {
         return q;
     }
 
-    return Mul(transform, closest + normal * radius);
+    return Mul(transform, closest + n * radius);
 }
 
 bool PolygonShape::RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const

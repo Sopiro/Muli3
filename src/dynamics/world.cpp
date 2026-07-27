@@ -214,7 +214,7 @@ Body* World::CreateCylinder(
     int32 apex = segmentCount;
     vertices[apex] = Vec3{ 0.0f, apexY, 0.0f };
 
-    int32 indexCount = 0;
+    uint16 indexCount = 0;
     faces[0].vertexStart = indexCount;
     faces[0].vertexCount = segmentCount;
     if (hasBottom)

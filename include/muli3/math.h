@@ -77,14 +77,14 @@ constexpr inline T Clamp(T v, U l, V r)
 }
 
 template <template <typename> class V, typename T>
-constexpr inline V<T> Normalize(const V<T>& v)
+inline V<T> Normalize(const V<T>& v)
 {
     T inv_length = T(1) / Length(v);
     return v * inv_length;
 }
 
 template <template <typename> class V, typename T>
-constexpr inline V<T> NormalizeSafe(const V<T>& v)
+inline V<T> NormalizeSafe(const V<T>& v)
 {
     T length = Length(v);
     if (length < std::numeric_limits<T>::epsilon())

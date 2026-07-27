@@ -1029,7 +1029,7 @@ void Game::UpdateUI()
                         ImGui::Text("Contacts: %d", world.GetContactCount());
                         ImGui::Text("Joints: %d", world.GetJointCount());
                         ImGui::Text("Awake Islands: %d", world.GetAwakeIslandCount());
-                        ImGui::Text("Steps: %lld", world.GetStepIndex());
+                        ImGui::Text("Steps: %llu", world.GetStepIndex());
 
                         ImGui::Spacing();
                         ImGui::Text("%d Constraints across %d color batches", totalConstraintCount, colorCount);

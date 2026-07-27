@@ -54,31 +54,4 @@ const JointState* Joint::GetJointState() const
     }
 }
 
-void Joint::ComputeBetaAndGamma(
-    float* outBeta, float* outGamma, float frequency, float dampingRatio, float effectiveMass, float dt
-)
-{
-    // The velocity solver uses K = J * M^-1 * J^T and solves
-    // (K + gamma * I) * deltaLambda = -(J * V + beta / dt * C + gamma * accumulatedLambda).
-    // beta and gamma are the implicit spring-damper coefficients obtained by
-    // discretizing m * Cddot + d * Cdot + k * C = 0 over one time step.
-
-    // If the frequency is less than or equal to zero, make this joint rigid
-    if (frequency <= 0.0f || effectiveMass <= 0.0f)
-    {
-        *outBeta = 1.0f;
-        *outGamma = 0.0f;
-    }
-    else
-    {
-        float omega = 2.0f * pi * frequency;
-        float d = 2.0f * effectiveMass * dampingRatio * omega; // Damping coefficient
-        float k = effectiveMass * omega * omega;               // Spring constant
-        float h = dt;
-
-        *outBeta = h * k / (d + h * k);
-        *outGamma = 1.0f / ((d + h * k) * h);
-    }
-}
-
 } // namespace muli3

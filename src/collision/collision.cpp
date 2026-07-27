@@ -759,10 +759,10 @@ bool CapsuleVsCapsule(
 
     // Nearly parallel capsules can support a line contact.
     // Clip capsule B's axis to capsule A's axis range and emit the two surviving endpoints.
-    Vec3 d = Cross(axisA, axisB);
+    Vec3 l = Cross(axisA, axisB);
 
     constexpr float sineThreshold = 0.05233f; // ~ sin 3
-    if (Length2(d) < Sqr(sineThreshold))
+    if (Length2(l) < Sqr(sineThreshold))
     {
         float s0 = Dot(b0 - a0, axisA);
         float s1 = Dot(b1 - a0, axisA);
@@ -1287,16 +1287,16 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
         {
         case 1: // vertex vs. vertex collision
         {
-            Vec3 normal = Normalize(-simplex.vertices[0].point);
+            Vec3 n = Normalize(-simplex.vertices[0].point);
 
             Point supportA = simplex.vertices[0].pointA;
             Point supportB = simplex.vertices[0].pointB;
-            supportA.p += normal * ra;
-            supportB.p -= normal * rb;
+            supportA.p += n * ra;
+            supportB.p -= n * rb;
 
             manifold->contactPoints[0].anchorA = supportA.p;
             manifold->contactPoints[0].anchorB = supportB.p;
-            manifold->normal = normal;
+            manifold->normal = n;
             manifold->contactPoints[0].id = 0;
             manifold->contactCount = 1;
 
@@ -1678,17 +1678,20 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
     float minPenetration = max_float;
     Vec3 normal = normalA;
 
-    float projectionA = Dot(verticesA[0], normalA);
-    float projectionB =
-        extentsB.x * AbsDot(axesB[0], normalA) + extentsB.y * AbsDot(axesB[1], normalA) + extentsB.z * AbsDot(axesB[2], normalA);
-
-    float centerProjectionB = Dot(centerB, normalA);
-    if (!TestAxis(
-            &minPenetration, &normal, normalA, projectionA, projectionA, centerProjectionB - projectionB,
-            centerProjectionB + projectionB, radii
-        ))
+    // Triangle face normal.
     {
-        return false;
+        float projectionA = Dot(verticesA[0], normalA);
+        float projectionB = extentsB.x * AbsDot(axesB[0], normalA) + extentsB.y * AbsDot(axesB[1], normalA) +
+                            extentsB.z * AbsDot(axesB[2], normalA);
+
+        float centerProjectionB = Dot(centerB, normalA);
+        if (!TestAxis(
+                &minPenetration, &normal, normalA, projectionA, projectionA, centerProjectionB - projectionB,
+                centerProjectionB + projectionB, radii
+            ))
+        {
+            return false;
+        }
     }
 
     // Box face normals.

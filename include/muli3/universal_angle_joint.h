@@ -56,10 +56,10 @@ public:
     void SetSpinMaxAngle(float angle);
 
 private:
-    Vec3 localAxisA;     // Steering axis fixed to body A
-    Vec3 localAxisB;     // Spin axis fixed to body B
-    Vec3 localRefAxisA;  // Zero-steering direction fixed to body A
-    Vec3 localRefAxisB;  // Zero-spin direction fixed to body B
+    Vec3 localAxisA;    // Steering axis fixed to body A
+    Vec3 localAxisB;    // Spin axis fixed to body B
+    Vec3 localRefAxisA; // Zero-steering direction fixed to body A
+    Vec3 localRefAxisB; // Zero-spin direction fixed to body B
 
     // Perpendicular constraint removes rotation around cross(axisB, axisA).
     Vec3 perpAxis;
@@ -156,9 +156,9 @@ inline float UniversalAngleJoint::GetTargetSteeringAngle() const
     return targetSteeringAngle;
 }
 
-inline void UniversalAngleJoint::SetTargetSteeringAngle(float angle)
+inline void UniversalAngleJoint::SetTargetSteeringAngle(float newTargetSteeringAngle)
 {
-    targetSteeringAngle = angle;
+    targetSteeringAngle = newTargetSteeringAngle;
 }
 
 inline float UniversalAngleJoint::GetSteeringFrequency() const
@@ -166,9 +166,9 @@ inline float UniversalAngleJoint::GetSteeringFrequency() const
     return steeringFrequency;
 }
 
-inline void UniversalAngleJoint::SetSteeringFrequency(float frequency)
+inline void UniversalAngleJoint::SetSteeringFrequency(float newSteeringFrequency)
 {
-    steeringFrequency = frequency;
+    steeringFrequency = newSteeringFrequency;
 }
 
 inline float UniversalAngleJoint::GetSteeringDampingRatio() const
@@ -176,9 +176,9 @@ inline float UniversalAngleJoint::GetSteeringDampingRatio() const
     return steeringDampingRatio;
 }
 
-inline void UniversalAngleJoint::SetSteeringDampingRatio(float dampingRatio)
+inline void UniversalAngleJoint::SetSteeringDampingRatio(float newSteeringDampingRatio)
 {
-    steeringDampingRatio = Clamp(dampingRatio, 0.0f, 1.0f);
+    steeringDampingRatio = Max(newSteeringDampingRatio, 0.0f);
 }
 
 inline float UniversalAngleJoint::GetMaxSteeringTorque() const

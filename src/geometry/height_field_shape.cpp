@@ -733,12 +733,12 @@ bool HeightFieldShape::RayCast(const Transform& transform, const RayCastInput& i
         float h10 = GetHeight(cell[0] + 1, cell[1]);
         float h01 = GetHeight(cell[0], cell[1] + 1);
         float h11 = GetHeight(cell[0] + 1, cell[1] + 1);
-        float minHeight = offset.y + Min(h00, h10, h01, h11);
-        float maxHeight = offset.y + Max(h00, h10, h01, h11);
+        float hMin = offset.y + Min(h00, h10, h01, h11);
+        float hMax = offset.y + Max(h00, h10, h01, h11);
 
         float rayHeight = localInput.from.y + d.y * bestFraction;
 
-        if (Max(localInput.from.y, rayHeight) >= minHeight && Min(localInput.from.y, rayHeight) <= maxHeight)
+        if (Max(localInput.from.y, rayHeight) >= hMin && Min(localInput.from.y, rayHeight) <= hMax)
         {
             RayCastInput triangleInput = localInput;
 

@@ -88,7 +88,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
     const auto Mul = [](const Mat3& m, float s) { return Mat3(m.ex * s, m.ey * s, m.ez * s); };
     const auto Add = [](Mat3* a, const Mat3& b) { *a = *a + b; };
 
-    float volume = 0.0f;
+    float mass = 0.0f;
     Vec3 first = Vec3::zero;  // \int x dV
     Mat3 second = Mat3::zero; // \int x*x^T dV
 
@@ -143,7 +143,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
             float det = Dot(a, Cross(b, c));
             float tetraVolume = det / 6.0f;
 
-            volume += tetraVolume;
+            mass += tetraVolume;
 
             first += (a + b + c) * (tetraVolume * 0.25f);
 
@@ -168,14 +168,14 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
         }
     }
 
-    if (volume < 0.0f)
+    if (mass < 0.0f)
     {
-        volume = -volume;
+        mass = -mass;
         first = -first;
         second = Mat3{ -second.ex, -second.ey, -second.ez };
     }
 
-    if (volume < epsilon)
+    if (mass < epsilon)
     {
         outMassData->mass = 0.0f;
         outMassData->centerOfMass = Vec3::zero;
@@ -226,7 +226,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
             Vec3 triangleFirst = sum * (area / 3.0f);
             Mat3 triangleSecond = Mul(Outer(a, a) + Outer(b, b) + Outer(c, c) + Outer(sum, sum), area / 12.0f);
 
-            volume += area * r;
+            mass += area * r;
             first += triangleFirst * r + n * (area * r2 * 0.5f);
             Add(&second, Mul(triangleSecond, r));
             Add(&second, Mul(Outer(triangleFirst, n) + Outer(n, triangleFirst), r2 * 0.5f));
@@ -357,7 +357,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
         Mat3 segmentSecond =
             Mul(Outer(p0, p0) + Outer(p1, p1), length / 3.0f) + Mul(Outer(p0, p1) + Outer(p1, p0), length / 6.0f);
 
-        volume += length * sectorArea;
+        mass += length * sectorArea;
         first += segmentFirst * sectorArea + sectorFirst * length;
         Add(&second, Mul(segmentSecond, sectorArea));
         Add(&second, Outer(segmentFirst, sectorFirst) + Outer(sectorFirst, segmentFirst));
@@ -500,7 +500,7 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
         Vec3 relativeFirst = sphereFirst * (r4 / 4.0f);
         Mat3 relativeSecond = Mul(sphereSecond, r5 / 5.0f);
 
-        volume += sectorVolume;
+        mass += sectorVolume;
         first += p * sectorVolume + relativeFirst;
         Add(&second, Mul(Outer(p, p), sectorVolume));
         Add(&second, Outer(p, relativeFirst) + Outer(relativeFirst, p));
@@ -513,8 +513,8 @@ void ConvexShape::ComputeMass(float density, MassData* outMassData) const
         Vec3{ -second.ex.z, -second.ey.z, second.ex.x + second.ey.y },
     };
 
-    outMassData->mass = density * volume;
-    outMassData->centerOfMass = first / volume;
+    outMassData->mass = density * mass;
+    outMassData->centerOfMass = first / mass;
     outMassData->inertia = Mat3(inertia.ex * density, inertia.ey * density, inertia.ez * density);
 }
 
