@@ -51,7 +51,7 @@ public:
 
         auto createCable = [&](Body* bodyA, Body* bodyB, const Vec3& anchorA, const Vec3& anchorB) {
             float length = Dist(anchorA, anchorB) * prestress;
-            world->CreateLimitedDistanceJoint(bodyA, bodyB, anchorA, anchorB, 0.0f, length, cableFrequency, 0.8f);
+            world->CreateDistanceJoint(bodyA, bodyB, anchorA, anchorB, 0.0f, length, cableFrequency, 0.8f);
         };
 
         for (int32 i = 0; i < count; ++i)

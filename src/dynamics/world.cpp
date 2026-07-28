@@ -1913,13 +1913,6 @@ ConeSwingJoint* World::CreateConeSwingJoint(
 }
 
 RevoluteJoint* World::CreateRevoluteJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& axis, float frequency, float dampingRatio
-)
-{
-    return CreateLimitedRevoluteJoint(bodyA, bodyB, anchor, axis, -pi, pi, frequency, dampingRatio);
-}
-
-RevoluteJoint* World::CreateLimitedRevoluteJoint(
     Body* bodyA,
     Body* bodyB,
     const Vec3& anchor,
@@ -1942,13 +1935,6 @@ RevoluteJoint* World::CreateLimitedRevoluteJoint(
 }
 
 RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
-    Body* bodyA, Body* bodyB, const Vec3& axis, float frequency, float dampingRatio
-)
-{
-    return CreateLimitedRevoluteAngleJoint(bodyA, bodyB, axis, -pi, pi, frequency, dampingRatio);
-}
-
-RevoluteAngleJoint* World::CreateLimitedRevoluteAngleJoint(
     Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
 )
 {
@@ -2008,26 +1994,6 @@ BallSocketJoint* World::CreateBallSocketJoint(Body* bodyA, Body* bodyB, const Ve
 }
 
 DistanceJoint* World::CreateDistanceJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchorA, const Vec3& anchorB, float length, float frequency, float dampingRatio
-)
-{
-    if (bodyA->world != this || bodyB->world != this)
-    {
-        return nullptr;
-    }
-
-    DistanceJoint* dj = poolAllocator.New<DistanceJoint>(bodyA, bodyB, anchorA, anchorB, length, length, frequency, dampingRatio);
-
-    AddJoint(dj);
-    return dj;
-}
-
-DistanceJoint* World::CreateDistanceJoint(Body* bodyA, Body* bodyB, float length, float frequency, float dampingRatio)
-{
-    return CreateDistanceJoint(bodyA, bodyB, bodyA->GetPosition(), bodyB->GetPosition(), length, frequency, dampingRatio);
-}
-
-DistanceJoint* World::CreateLimitedDistanceJoint(
     Body* bodyA,
     Body* bodyB,
     const Vec3& anchorA,

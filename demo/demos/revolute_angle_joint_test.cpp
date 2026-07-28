@@ -10,6 +10,7 @@ static float revoluteMinAngle = -60.0f;
 static float revoluteMaxAngle = 60.0f;
 static float revoluteFrequency = 20.0f;
 static float revoluteDampingRatio = 1.0f;
+static bool revoluteLimitEnabled = true;
 
 static bool revoluteMotorEnabled = false;
 static float revoluteMotorSpeed = 90.0f;
@@ -38,9 +39,10 @@ public:
             world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
         }
 
-        joint = world->CreateLimitedRevoluteAngleJoint(
+        joint = world->CreateRevoluteAngleJoint(
             base, arm, z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency, revoluteDampingRatio
         );
+        joint->SetLimitEnabled(revoluteLimitEnabled);
         joint->SetMotorEnabled(revoluteMotorEnabled);
         joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
         joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
@@ -64,6 +66,11 @@ public:
             if (ImGui::Checkbox("Ball socket", &ballSocketEnabled))
             {
                 game.RestartDemo();
+            }
+            if (ImGui::Checkbox("Enable limit", &revoluteLimitEnabled))
+            {
+                joint->SetLimitEnabled(revoluteLimitEnabled);
+                joint->GetBodyB()->Awake();
             }
             if (ImGui::Checkbox("Enable motor", &revoluteMotorEnabled))
             {

@@ -147,9 +147,6 @@ public:
         Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency = -1.0f, float dampingRatio = 1.0f
     );
     RevoluteJoint* CreateRevoluteJoint(
-        Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& axis, float frequency = 10.0f, float dampingRatio = 1.0f
-    );
-    RevoluteJoint* CreateLimitedRevoluteJoint(
         Body* bodyA,
         Body* bodyB,
         const Vec3& anchor,
@@ -160,9 +157,6 @@ public:
         float dampingRatio = 1.0f
     );
     RevoluteAngleJoint* CreateRevoluteAngleJoint(
-        Body* bodyA, Body* bodyB, const Vec3& axis, float frequency = 10.0f, float dampingRatio = 1.0f
-    );
-    RevoluteAngleJoint* CreateLimitedRevoluteAngleJoint(
         Body* bodyA,
         Body* bodyB,
         const Vec3& axis,
@@ -187,18 +181,6 @@ public:
         Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency = 10.0f, float dampingRatio = 1.0f
     );
     DistanceJoint* CreateDistanceJoint(
-        Body* bodyA,
-        Body* bodyB,
-        const Vec3& anchorA,
-        const Vec3& anchorB,
-        float length = -1.0f,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
-    );
-    DistanceJoint* CreateDistanceJoint(
-        Body* bodyA, Body* bodyB, float length = -1.0f, float frequency = 10.0f, float dampingRatio = 1.0f
-    );
-    DistanceJoint* CreateLimitedDistanceJoint(
         Body* bodyA,
         Body* bodyB,
         const Vec3& anchorA,

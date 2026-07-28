@@ -58,6 +58,7 @@ RevoluteJoint::RevoluteJoint(
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
     , currentAngle{ 0.0f }
+    , limitEnabled{ true }
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , linearBeta{ 0.0f }
     , linearGamma{ 0.0f }
@@ -192,16 +193,16 @@ void RevoluteJoint::Prepare(const Timestep& step)
 
     currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
 
-    if (minAngle == maxAngle)
+    if (!limitEnabled || (maxAngle - minAngle) >= two_pi)
+    {
+        limitState = revolute_limit_inactive;
+        angleBias = 0.0f;
+    }
+    else if (minAngle == maxAngle)
     {
         limitState = revolute_limit_equal;
         angleBias = Clamp(NormalizeAngle(currentAngle - minAngle), -max_joint_angular_correction, max_joint_angular_correction) *
                     angleBeta * step.inv_dt;
-    }
-    else if (maxAngle - minAngle >= two_pi)
-    {
-        limitState = revolute_limit_inactive;
-        angleBias = 0.0f;
     }
     else
     {

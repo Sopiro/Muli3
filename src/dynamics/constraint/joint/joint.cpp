@@ -17,7 +17,9 @@ Joint::Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float 
     , flagIsland{ false }
 {
     MuliAssert(bodyA->GetWorld() == bodyB->GetWorld());
-    SetParameters(frequency, dampingRatio);
+
+    SetFrequency(frequency);
+    SetDampingRatio(dampingRatio);
 }
 
 Joint::~Joint()

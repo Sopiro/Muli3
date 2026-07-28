@@ -106,10 +106,8 @@ public:
     float GetDampingRatio() const;
     void SetDampingRatio(float dampingRatio);
 
-    void SetParameters(float frequency, float dampingRatio);
-
-    bool IsSolid() const;
-    Joint::Type GetType() const;
+    bool IsRigid() const;
+    Type GetType() const;
 
     Joint* GetPrev();
     const Joint* GetPrev() const;
@@ -122,7 +120,7 @@ public:
     void* UserData;
 
 protected:
-    Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio);
+    Joint(Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio);
 
     JointState* GetJointState();
     const JointState* GetJointState() const;
@@ -186,7 +184,7 @@ inline float Joint::GetFrequency() const
 
 inline void Joint::SetFrequency(float newJointFrequency)
 {
-    SetParameters(newJointFrequency, dampingRatio);
+    frequency = Max(0.0f, newJointFrequency);
 }
 
 inline float Joint::GetDampingRatio() const
@@ -196,24 +194,10 @@ inline float Joint::GetDampingRatio() const
 
 inline void Joint::SetDampingRatio(float newJointDampingRatio)
 {
-    SetParameters(frequency, newJointDampingRatio);
+    dampingRatio = Max(0.0f, newJointDampingRatio);
 }
 
-inline void Joint::SetParameters(float newFrequency, float newDampingRatio)
-{
-    if (newFrequency > 0.0f)
-    {
-        frequency = newFrequency;
-        dampingRatio = Max(newDampingRatio, 0.0f);
-    }
-    else
-    {
-        frequency = -1.0f;
-        dampingRatio = 0.0f;
-    }
-}
-
-inline bool Joint::IsSolid() const
+inline bool Joint::IsRigid() const
 {
     return frequency <= 0.0f;
 }

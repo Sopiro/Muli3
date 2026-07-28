@@ -3,7 +3,7 @@
 #include "bounding_box.h"
 #include "dynamic_dispatcher.h"
 #include "raycast.h"
-#include "settings.h"
+#include "settings.h" // IWYU pragma: export
 
 namespace muli3
 {

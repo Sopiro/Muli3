@@ -25,6 +25,8 @@ public:
     float GetJointAngle() const;
     void SetJointAngle(float newAngle);
 
+    bool IsLimitEnabled() const;
+    void SetLimitEnabled(bool enabled);
     float GetJointMinAngle() const;
     void SetJointMinAngle(float newMinAngle);
     float GetJointMaxAngle() const;
@@ -47,6 +49,7 @@ private:
     float minAngle;
     float maxAngle;
     float currentAngle;
+    bool limitEnabled;
 
     Vec3 swingAxis1;
     Vec3 swingAxis2;
@@ -98,6 +101,20 @@ inline void RevoluteAngleJoint::SetJointAngle(float newAngle)
 {
     minAngle = newAngle;
     maxAngle = newAngle;
+}
+
+inline bool RevoluteAngleJoint::IsLimitEnabled() const
+{
+    return limitEnabled;
+}
+
+inline void RevoluteAngleJoint::SetLimitEnabled(bool enabled)
+{
+    limitEnabled = enabled;
+    if (!limitEnabled)
+    {
+        angleImpulseSum = 0.0f;
+    }
 }
 
 inline float RevoluteAngleJoint::GetJointMinAngle() const

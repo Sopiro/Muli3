@@ -13,11 +13,11 @@ public:
 
         Body* body = world->CreateBox(0.5f, Transform{ Vec3{ 0.0f, 2.0f, 0.0f } });
         world->CreatePrismaticJoint(ground, body, body->GetPosition(), Vec3::zero);
-        world->CreateLimitedDistanceJoint(ground, body, ground->GetPosition(), body->GetPosition(), 1.0f, 8.0f);
+        world->CreateDistanceJoint(ground, body, ground->GetPosition(), body->GetPosition(), 1.0f, 8.0f);
 
         body = world->CreateBox(0.5f, Transform{ Vec3{ 0.0f, 5.0f, 0.0f } });
         world->CreatePrismaticJoint(ground, body, body->GetPosition(), Vec3{ 1.0f, 0.0f, 0.0f });
-        world->CreateLimitedDistanceJoint(ground, body, ground->GetPosition(), body->GetPosition(), -1.0f, 8.0f);
+        world->CreateDistanceJoint(ground, body, ground->GetPosition(), body->GetPosition(), -1.0f, 8.0f);
 
         camera.SetPosition(Vec3{ 0.0f, 5.0f, 10.0f });
         camera.SetRotation(0.0f, -18.0f);

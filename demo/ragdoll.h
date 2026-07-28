@@ -160,7 +160,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                     upperRightArm, lowerRightArm, Vec3{ headX + armStartX + armLength + armGap, headY - armStartY, headZ },
                     ballSocketFrequency, ballSocketDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
+                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
                     upperRightArm, lowerRightArm, -y_axis, 0, elbowAngle, armAngleFrequency, armAngleDampingRatio
                 );
                 UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
@@ -194,7 +194,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                     upperLeftArm, lowerLeftArm, Vec3{ headX - armStartX - armLength - armGap, headY - armStartY, headZ },
                     ballSocketFrequency, ballSocketDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
+                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
                     upperLeftArm, lowerLeftArm, y_axis, 0, elbowAngle, armAngleFrequency, armAngleDampingRatio
                 );
                 UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
@@ -226,7 +226,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
         float pelvisAngleDampingRatio = 1.0f;
 
         BallSocketJoint* j1 = world->CreateBallSocketJoint(pelvis, chest, pelvisTop, ballSocketFrequency, ballSocketDampingRatio);
-        RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
+        RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
             pelvis, chest, x_axis, -pelvisMinAngle, pelvisMaxAngle, pelvisAngleFrequency, pelvisAngleDampingRatio
         );
         UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
@@ -306,7 +306,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                     upperRightLeg, lowerRightLeg, Vec3{ headX + legStartX, headY - legStartY - legLength - legGap, headZ },
                     ballSocketFrequency, ballSocketDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
+                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
                     upperRightLeg, lowerRightLeg, x_axis, 0, kneeAngle, legAngleFrequency, legAngleDampingRatio
                 );
                 UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
@@ -339,7 +339,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
                     upperLeftLeg, lowerLeftLeg, Vec3{ headX - legStartX, headY - legStartY - legLength - legGap, headZ },
                     ballSocketFrequency, ballSocketDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateLimitedRevoluteAngleJoint(
+                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
                     upperLeftLeg, lowerLeftLeg, x_axis, 0, kneeAngle, legAngleFrequency, legAngleDampingRatio
                 );
                 UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);

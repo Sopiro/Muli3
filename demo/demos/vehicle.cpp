@@ -100,7 +100,7 @@ public:
                 chassis, wheel.body, wheelCenter, wheelCenter, 0.0f, vehicleSuspensionFrequency, vehicleSuspensionDampingRatio
             );
 
-            wheel.suspensionLimit = world->CreateLimitedDistanceJoint(
+            wheel.suspensionLimit = world->CreateDistanceJoint(
                 chassis, wheel.body, wheelCenter, wheelCenter, -vehicleSuspensionRange / 2, vehicleSuspensionRange / 2, -1.0f,
                 1.0f
             );
@@ -189,7 +189,8 @@ public:
 
         for (Wheel& wheel : wheels)
         {
-            wheel.suspension->SetParameters(vehicleSuspensionFrequency, vehicleSuspensionDampingRatio);
+            wheel.suspension->SetFrequency(vehicleSuspensionFrequency);
+            wheel.suspension->SetDampingRatio(vehicleSteeringDampingRatio);
 
             wheel.suspensionLimit->SetJointMinLength(-vehicleSuspensionRange / 2);
             wheel.suspensionLimit->SetJointMaxLength(vehicleSuspensionRange / 2);
@@ -323,6 +324,6 @@ static Demo* CreateVehicleDemo(Game& game)
     return new VehicleDemo(game);
 }
 
-static int32 vehicle = register_demo("Joints", "Vehicle", CreateVehicleDemo, 10);
+static int32 vehicle = register_demo("Vehicle", "Vehicle", CreateVehicleDemo, 10);
 
 } // namespace muli3

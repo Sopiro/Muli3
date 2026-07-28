@@ -9,6 +9,7 @@ static float revoluteFrequency = 20.0f;
 static float revoluteDampingRatio = 1.0f;
 static float revoluteMinAngle = -60.0f;
 static float revoluteMaxAngle = 60.0f;
+static bool revoluteLimitEnabled = true;
 
 static bool revoluteMotorEnabled = false;
 static float revoluteMotorSpeed = 90.0f;
@@ -32,10 +33,11 @@ public:
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
 
-        joint = world->CreateLimitedRevoluteJoint(
+        joint = world->CreateRevoluteJoint(
             base, arm, base->GetPosition(), z_axis, DegToRad(revoluteMinAngle), DegToRad(revoluteMaxAngle), revoluteFrequency,
             revoluteDampingRatio
         );
+        joint->SetLimitEnabled(revoluteLimitEnabled);
         joint->SetMotorEnabled(revoluteMotorEnabled);
         joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
         joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
@@ -53,6 +55,12 @@ public:
             float currentAngle = joint ? RadToDeg(joint->GetJointAngle()) : 0.0f;
             ImGui::Text("Current angle: %.2f deg", currentAngle);
             ImGui::Text("3D hinge joint with twist limit");
+
+            if (ImGui::Checkbox("Enable limit", &revoluteLimitEnabled))
+            {
+                joint->SetLimitEnabled(revoluteLimitEnabled);
+                joint->GetBodyB()->Awake();
+            }
 
             if (ImGui::Checkbox("Enable motor", &revoluteMotorEnabled))
             {

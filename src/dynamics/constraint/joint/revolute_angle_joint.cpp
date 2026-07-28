@@ -50,6 +50,7 @@ RevoluteAngleJoint::RevoluteAngleJoint(
     , minAngle{ minAngle }
     , maxAngle{ maxAngle }
     , currentAngle{ 0.0f }
+    , limitEnabled{ true }
     , swingM{ 0.0f }
     , swingBias{ 0.0f, 0.0f }
     , swingImpulseSum{ 0.0f, 0.0f }
@@ -158,16 +159,16 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     // { refAxisA, binormalA } then gives the signed twist angle.
     currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
 
-    if (minAngle == maxAngle)
+    if (!limitEnabled || (maxAngle - minAngle) >= two_pi)
+    {
+        limitState = revolute_limit_inactive;
+        angleBias = 0.0f;
+    }
+    else if (minAngle == maxAngle)
     {
         limitState = revolute_limit_equal;
         angleBias = Clamp(NormalizeAngle(currentAngle - minAngle), -max_joint_angular_correction, max_joint_angular_correction) *
                     angleBeta * step.inv_dt;
-    }
-    else if (maxAngle - minAngle >= two_pi)
-    {
-        limitState = revolute_limit_inactive;
-        angleBias = 0.0f;
     }
     else
     {

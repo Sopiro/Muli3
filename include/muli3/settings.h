@@ -24,7 +24,7 @@ inline constexpr float restitution_slop = 0.5f;
 
 // Solver tolerances
 inline constexpr float position_correction = 0.2f;
-inline constexpr float max_position_correction = linear_slop * 2;
+inline constexpr float max_position_correction = linear_slop * 2.0f;
 inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 inline constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
 
@@ -35,8 +35,8 @@ inline constexpr float default_friction = 0.5f;
 inline constexpr float default_restitution = 0.0f;
 inline constexpr float default_restitution_threshold = 2.0f;
 inline constexpr Vec2 default_surface_speed = Vec2{ 0.0f };
-inline constexpr float default_linear_damping = 0.05f;
-inline constexpr float default_angular_damping = 0.05f;
+inline constexpr float default_linear_damping = 0.0f;
+inline constexpr float default_angular_damping = 0.0f;
 
 struct Timestep
 {
