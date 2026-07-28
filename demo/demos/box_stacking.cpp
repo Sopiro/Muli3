@@ -14,18 +14,19 @@ public:
     BoxStacking(Game& game)
         : Demo(game)
     {
-        Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
+        Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body, 0.0f);
 
+        float radius = 0.0f;
         float size = 1.0f;
-        float gap = size * 0.05f;
-        float start = (0.5f + default_radius + size) * 0.5f + gap;
+        float gap = radius;
+        float start = (0.5f + size) * 0.5f + gap;
 
         for (int32 i = 0; i < count; ++i)
         {
             float x = std::sin((float)i * 12.9898f) * error;
             float z = std::sin((float)i * 78.2330f) * error;
 
-            Body* b = world->CreateBox(size, Transform{ Vec3{ x, start + i * (size + gap), z } }, Body::dynamic_body);
+            Body* b = world->CreateBox(size, Transform{ Vec3{ x, start + i * (size + gap), z } }, Body::dynamic_body, radius);
         }
 
         float h = Max(12.0f, (float)count * (size + gap));

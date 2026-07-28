@@ -14,7 +14,7 @@ public:
     SphereStacking(Game& game)
         : Demo(game)
     {
-        world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
+        world->CreateBox(28.0f, 0.5f, 28.0f, identity, Body::static_body, 0.0f);
 
         float radius = 0.5f;
         float diameter = radius * 2.0f;

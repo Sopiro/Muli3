@@ -9,7 +9,7 @@ public:
     CapsuleStacking(Game& game)
         : Demo(game)
     {
-        world->CreateBox(28.0f, 0.5f, 18.0f, identity, Body::static_body);
+        world->CreateBox(28.0f, 0.5f, 28.0f, identity, Body::static_body, 0.0f);
 
         int32 verticalCount = 10;
         int32 horizontalCount = 10;
@@ -18,7 +18,7 @@ public:
         float radius = 0.28f;
         float gap = 0.05f;
 
-        float groundTop = 0.3f;
+        float groundTop = 0.25f;
 
         for (int32 i = 0; i < verticalCount; ++i)
         {

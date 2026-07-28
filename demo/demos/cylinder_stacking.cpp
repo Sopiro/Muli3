@@ -16,12 +16,12 @@ public:
     CylinderStacking(Game& game)
         : Demo(game)
     {
-        world->CreateBox(28.0f, 0.5f, 18.0f, identity, Body::static_body);
+        world->CreateBox(28.0f, 0.5f, 28.0f, identity, Body::static_body, 0.0f);
 
         int32 stackCount = 10;
         float gap = 0.05f;
         float convexRadius = default_radius;
-        float groundTop = 0.25f + default_radius;
+        float groundTop = 0.25f;
 
         for (int32 i = 0; i < stackCount; ++i)
         {

@@ -416,17 +416,9 @@ void World::Destroy(Body* body)
 
 void World::Destroy(std::span<Body*> bodies)
 {
-    std::unordered_set<Body*> destroyed;
-
-    for (size_t i = 0; i < bodies.size(); ++i)
+    for (Body* body : bodies)
     {
-        Body* b = bodies[i];
-
-        if (!destroyed.contains(b))
-        {
-            destroyed.insert(b);
-            Destroy(b);
-        }
+        Destroy(body);
     }
 }
 
@@ -448,6 +440,9 @@ void World::Destroy(Joint* joint)
 {
     Body* bodyA = joint->bodyA;
     Body* bodyB = joint->bodyB;
+
+    MuliAssert(bodyA->world == this);
+    MuliAssert(bodyB->world == this);
 
     // Remove from the world
     if (joint->prev) joint->prev->next = joint->next;
@@ -483,17 +478,9 @@ void World::Destroy(Joint* joint)
 
 void World::Destroy(std::span<Joint*> joints)
 {
-    std::unordered_set<Joint*> destroyed;
-
-    for (size_t i = 0; i < joints.size(); ++i)
+    for (Joint* joint : joints)
     {
-        Joint* j = joints[i];
-
-        if (!destroyed.contains(j))
-        {
-            destroyed.insert(j);
-            Destroy(j);
-        }
+        Destroy(joint);
     }
 }
 
@@ -2030,7 +2017,7 @@ WeldJoint* World::CreateWeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, 
 }
 
 LineJoint* World::CreateLineJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& direction, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -2038,7 +2025,7 @@ LineJoint* World::CreateLineJoint(
         return nullptr;
     }
 
-    LineJoint* lj = poolAllocator.New<LineJoint>(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
+    LineJoint* lj = poolAllocator.New<LineJoint>(bodyA, bodyB, anchor, direction, frequency, dampingRatio);
 
     AddJoint(lj);
     return lj;
@@ -2052,7 +2039,7 @@ LineJoint* World::CreateLineJoint(Body* bodyA, Body* bodyB, float frequency, flo
 }
 
 PrismaticJoint* World::CreatePrismaticJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio
+    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& direction, float frequency, float dampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -2060,7 +2047,7 @@ PrismaticJoint* World::CreatePrismaticJoint(
         return nullptr;
     }
 
-    PrismaticJoint* pj = poolAllocator.New<PrismaticJoint>(bodyA, bodyB, anchor, dir, frequency, dampingRatio);
+    PrismaticJoint* pj = poolAllocator.New<PrismaticJoint>(bodyA, bodyB, anchor, direction, frequency, dampingRatio);
 
     AddJoint(pj);
     return pj;

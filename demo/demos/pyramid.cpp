@@ -38,7 +38,7 @@ public:
         }
 
         float h = Max(12.0f, (float)rows * yStep);
-        world->CreateBox(h * 2, 0.5f, h * 2, identity, Body::static_body);
+        world->CreateBox(h * 2, 0.5f, h * 2, identity, Body::static_body, 0.0f);
         camera.SetPosition(Vec3{ 0.0f, h * 0.7f, h * 1.5f });
         camera.SetRotation(0.0f, -18.0f);
     }

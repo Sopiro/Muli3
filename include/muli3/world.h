@@ -31,14 +31,25 @@ public:
     void Destroy(Joint* joint);
     void Destroy(std::span<Joint*> joints);
 
+    // Buffered bodies are destroyed at the end of the step.
+    // Useful when called during a world step.
     void BufferDestroy(Body* body);
     void BufferDestroy(std::span<Body*> bodies);
     void BufferDestroy(Joint* joint);
     void BufferDestroy(std::span<Joint*> joints);
 
-    Body* CreateEmptyBody(const Transform& transform = identity, Body::Type type = Body::dynamic_body);
+    // clang-format off
+
+    // Body factory functions
+    Body* CreateEmptyBody(
+        const Transform& transform = identity,
+        Body::Type type = Body::dynamic_body
+    );
     Body* CreateSphere(
-        float radius, const Transform& transform = identity, Body::Type type = Body::dynamic_body, float density = default_density
+        float radius,
+        const Transform& transform = identity,
+        Body::Type type = Body::dynamic_body,
+        float density = default_density
     );
     Body* CreateCapsule(
         float height,
@@ -51,7 +62,7 @@ public:
         const Vec3& point1,
         const Vec3& point2,
         float radius,
-        const Transform& tf = identity,
+        const Transform& transform = identity,
         Body::Type type = Body::dynamic_body,
         bool resetPosition = false,
         float density = default_density
@@ -137,14 +148,32 @@ public:
         const Vec3& offset = Vec3{ 0.0f },
         int32 blockSize = 4
     );
-    Body* CreateMesh(std::span<const Vec3> vertices, std::span<const int32> indices, const Transform& transform = identity);
-
-    GrabJoint* CreateGrabJoint(
-        Body* body, const Vec3& anchor, const Vec3& target, float frequency = 10.0f, float dampingRatio = 1.0f
+    Body* CreateMesh(
+        std::span<const Vec3> vertices,
+        std::span<const int32> indices,
+        const Transform& transform = identity
     );
-    FixedRotationJoint* CreateFixedRotationJoint(Body* body, float frequency = -1.0f, float dampingRatio = 1.0f);
+
+    // Joint factory functions
+    GrabJoint* CreateGrabJoint(
+        Body* body,
+        const Vec3& anchor,
+        const Vec3& target,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
+    );
+    FixedRotationJoint* CreateFixedRotationJoint(
+        Body* body,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
+    );
     ConeSwingJoint* CreateConeSwingJoint(
-        Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency = -1.0f, float dampingRatio = 1.0f
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& axis,
+        float maxAngle,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
     );
     RevoluteJoint* CreateRevoluteJoint(
         Body* bodyA,
@@ -166,7 +195,12 @@ public:
         float dampingRatio = 1.0f
     );
     UniversalAngleJoint* CreateUniversalAngleJoint(
-        Body* bodyA, Body* bodyB, const Vec3& axisA, const Vec3& axisB, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& axisA,
+        const Vec3& axisB,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
     );
     TwistAngleJoint* CreateTwistAngleJoint(
         Body* bodyA,
@@ -178,7 +212,11 @@ public:
         float dampingRatio = 1.0f
     );
     BallSocketJoint* CreateBallSocketJoint(
-        Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
     );
     DistanceJoint* CreateDistanceJoint(
         Body* bodyA,
@@ -190,15 +228,39 @@ public:
         float frequency = 10.0f,
         float dampingRatio = 1.0f
     );
-    WeldJoint* CreateWeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency = -1.0f, float dampingRatio = 1.0f);
+    WeldJoint* CreateWeldJoint(
+        Body* bodyA, Body* bodyB,
+        const Vec3& anchor,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
+    );
     LineJoint* CreateLineJoint(
-        Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        const Vec3& direction,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
     );
-    LineJoint* CreateLineJoint(Body* bodyA, Body* bodyB, float frequency = 10.0f, float dampingRatio = 1.0f);
+    LineJoint* CreateLineJoint(
+        Body* bodyA,
+        Body* bodyB,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
+    );
     PrismaticJoint* CreatePrismaticJoint(
-        Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency = 10.0f, float dampingRatio = 1.0f
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        const Vec3& direction,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
     );
-    PrismaticJoint* CreatePrismaticJoint(Body* bodyA, Body* bodyB, float frequency = -1.0f, float dampingRatio = 1.0f);
+    PrismaticJoint* CreatePrismaticJoint(Body* bodyA,
+        Body* bodyB,
+        float frequency = 10.0f,
+        float dampingRatio = 1.0f
+    );
     PulleyJoint* CreatePulleyJoint(
         Body* bodyA,
         Body* bodyB,
@@ -220,17 +282,45 @@ public:
         float dampingRatio = 1.0f
     );
 
-    void Query(const Vec3& point, WorldQueryCallback* callback) const;
-    void Query(const AABB& aabb, WorldQueryCallback* callback) const;
-    void RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* callback) const;
-    bool RayCastClosest(const Vec3& from, const Vec3& to, RayCastClosestCallback* callback) const;
-    void ShapeCastAny(const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastAnyCallback* callback) const;
+    void Query(
+        const Vec3& point,
+        WorldQueryCallback* callback
+    ) const;
+    void Query(
+        const AABB& aabb,
+        WorldQueryCallback* callback
+    ) const;
+    void RayCastAny(
+        const Vec3& from,
+        const Vec3& to,
+        RayCastAnyCallback* callback
+    ) const;
+    bool RayCastClosest(
+        const Vec3& from,
+        const Vec3& to,
+        RayCastClosestCallback* callback
+    ) const;
+    void ShapeCastAny(
+        const Shape* shape,
+        const Transform& transform,
+        const Vec3& translation,
+        ShapeCastAnyCallback* callback
+    ) const;
     bool ShapeCastClosest(
-        const Shape* shape, const Transform& tf, const Vec3& translation, ShapeCastClosestCallback* callback
+        const Shape* shape,
+        const Transform& transform,
+        const Vec3& translation,
+        ShapeCastClosestCallback* callback
     ) const;
 
-    void Query(const Vec3& point, std::function<bool(Collider* collider)> callback) const;
-    void Query(const AABB& aabb, std::function<bool(Collider* collider)> callback) const;
+    void Query(
+        const Vec3& point,
+        std::function<bool(Collider* collider)> callback
+    ) const;
+    void Query(
+        const AABB& aabb,
+        std::function<bool(Collider* collider)> callback
+    ) const;
     void RayCastAny(
         const Vec3& from,
         const Vec3& to,
@@ -243,16 +333,17 @@ public:
     ) const;
     void ShapeCastAny(
         const Shape* shape,
-        const Transform& tf,
+        const Transform& transform,
         const Vec3& translation,
         std::function<float(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
     ) const;
     bool ShapeCastClosest(
         const Shape* shape,
-        const Transform& tf,
+        const Transform& transform,
         const Vec3& translation,
         std::function<void(Collider* collider, Vec3 point, Vec3 normal, float t)> callback
     ) const;
+    // clang-format on
 
     Body* GetBodyList() const;
     int32 GetBodyCount() const;
