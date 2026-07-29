@@ -6,8 +6,8 @@
 namespace muli3
 {
 
-static int32 bodyCount = 64;
-static int32 maxVertexCount = 16;
+static int32 bodyCount = 256;
+static int32 maxVertexCount = 32;
 
 class ConvexShapeTest : public Demo
 {
@@ -36,7 +36,7 @@ public:
             world->CreateConvex(vertices, p);
         }
 
-        camera.SetPosition(Vec3{ 0.0f, 6.0f, 20.0f });
+        camera.SetPosition(Vec3{ 0.0f, 6.0f, 30.0f });
         camera.SetRotation(0.0f, -5.0f);
     }
 
@@ -50,7 +50,7 @@ public:
             {
                 game.RestartDemo();
             }
-            if (ImGui::SliderInt("Max vertex count", &maxVertexCount, 4, 64))
+            if (ImGui::SliderInt("Max vertex count", &maxVertexCount, 4, 64, "%d", ImGuiSliderFlags_AlwaysClamp))
             {
                 game.RestartDemo();
             }

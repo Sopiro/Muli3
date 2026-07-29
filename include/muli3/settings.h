@@ -24,7 +24,6 @@ inline constexpr float restitution_slop = 0.5f;
 
 // Solver tolerances
 inline constexpr float position_correction = 0.2f;
-inline constexpr float max_position_correction = linear_slop * 2.0f;
 inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 inline constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
 

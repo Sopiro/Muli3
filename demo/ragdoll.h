@@ -42,7 +42,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
     CollisionFilter filter;
     filter.group = -gruop;
 
-    float linearDamping = 0.0f;
+    float linearDamping = 0.1f;
     float angularDamping = 5.0f;
 
     float headX = headPosition.x;
@@ -65,7 +65,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
 
     ragdoll.bones[Ragdoll::index_chest] = Bone{ Ragdoll::index_pelvis, chest };
 
-    float ballSocketFrequency = 60.0f;
+    float ballSocketFrequency = 30.0f;
     float ballSocketDampingRatio = 1.0f;
 
     // Chest
@@ -127,7 +127,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
             float armFrequency = 20.0f;
             float armDampingRatio = 1.0f;
 
-            float armAngleFrequency = 10.0f;
+            float armAngleFrequency = 8.0f;
             float armAngleDampingRatio = 1.0f;
 
             float armSwingAngle = DegToRad(70.0f);

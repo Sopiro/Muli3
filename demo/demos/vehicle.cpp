@@ -65,7 +65,7 @@ public:
         chassis->SetCollisionFilter(filter);
 
         // Keep the chassis upright while leaving yaw free.
-        Joint* j = world->CreateRevoluteAngleJoint(ground, chassis, y_axis, 0.5f, 1.0f);
+        world->CreateRevoluteAngleJoint(ground, chassis, y_axis, -pi, pi, 0.5f, 1.0f);
 
         Vec3 wheelAnchors[4] = {
             Vec3{ -0.8f, -0.5f, -1.5f },
@@ -97,7 +97,8 @@ public:
 
             // A soft fixed distance supplies the suspension spring and damping.
             wheel.suspension = world->CreateDistanceJoint(
-                chassis, wheel.body, wheelCenter, wheelCenter, 0.0f, vehicleSuspensionFrequency, vehicleSuspensionDampingRatio
+                chassis, wheel.body, wheelCenter, wheelCenter, 0.0f, 0.0f, vehicleSuspensionFrequency,
+                vehicleSuspensionDampingRatio
             );
 
             wheel.suspensionLimit = world->CreateDistanceJoint(
@@ -190,7 +191,7 @@ public:
         for (Wheel& wheel : wheels)
         {
             wheel.suspension->SetFrequency(vehicleSuspensionFrequency);
-            wheel.suspension->SetDampingRatio(vehicleSteeringDampingRatio);
+            wheel.suspension->SetDampingRatio(vehicleSuspensionDampingRatio);
 
             wheel.suspensionLimit->SetJointMinLength(-vehicleSuspensionRange / 2);
             wheel.suspensionLimit->SetJointMaxLength(vehicleSuspensionRange / 2);

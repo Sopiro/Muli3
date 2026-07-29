@@ -17,7 +17,8 @@ public:
         : Demo(game)
     {
         float size = 1.0f;
-        float gap = 0.05f;
+        float radius = 0.0f;
+        float gap = size * 0.01f;
         float xzStep = size + gap;
         float yStep = size + gap;
         float xStart = -(rows - 1.0f) * xzStep * 0.5f;
@@ -39,7 +40,7 @@ public:
                     {
                         world->CreateBox(
                             size, Vec3{ origin.x + xStart + y * xzStep * 0.5f + i * xzStep, yStart + y * yStep, origin.z },
-                            Body::dynamic_body
+                            Body::dynamic_body, radius
                         );
                     }
                 }
@@ -51,7 +52,7 @@ public:
         float h = Max(12.0f, (float)rows * yStep);
         float r = Max(groundHalfX, groundHalfZ);
 
-        world->CreateBox(groundHalfX * 2.0f, 0.5f, groundHalfZ * 2.0f, identity, Body::static_body);
+        world->CreateBox(groundHalfX * 2.0f, 0.5f, groundHalfZ * 2.0f, identity, Body::static_body, 0.0f);
 
         camera.SetPosition(Vec3{ 0.0f, Max(h * 0.9f, r * 0.7f), r * 2.1f });
         camera.SetRotation(0.0f, -18.0f);

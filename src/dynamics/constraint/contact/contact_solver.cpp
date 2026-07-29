@@ -300,7 +300,7 @@ static bool SolvePosition(const PositionConstraint* constraint, const Vec3& loca
 
     // Only correct penetration deeper than linear_slop.
     // separation < -linear_slop -> c < 0 -> positive lambda.
-    float c = Max(position_correction * (separation + linear_slop), -max_position_correction);
+    float c = Min(0.0f, position_correction * (separation + linear_slop));
 
     // Compute normal impulse
     float lambda = k > 0.0f ? -c / k : 0.0f;
