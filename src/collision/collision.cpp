@@ -304,15 +304,13 @@ static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, con
     }
 }
 
-static void AssignContactId(ContactManifold* manifold, const Vec3& origin, const Vec3& tangent1)
+static void AssignContactId(ContactManifold* manifold, const Vec3& origin, const Vec3& tangent1, const Vec3& tangent2)
 {
     if (manifold->contactCount == 1)
     {
         manifold->contactPoints[0].id = 0;
         return;
     }
-
-    Vec3 tangent2 = Cross(manifold->normal, tangent1);
 
     int32 indices[max_contact_point_count];
     float angles[max_contact_point_count];
@@ -378,9 +376,6 @@ static void FindContactPoints(
         clippedA[i] = point + faceA.normal * ra;
     }
     origin /= float(faceA.vertexCount);
-
-    Vec3 mid = (clippedA[faceA.vertexCount - 1] + clippedA[0]) * 0.5f;
-    Vec3 tangent1 = GramSchmidt(mid - origin, n);
 
     // Offset shape B vertices along the face normal by its collision radius.
     for (int32 i = 0; i < faceB.vertexCount; ++i)
@@ -487,6 +482,9 @@ static void FindContactPoints(
         }
     }
 
+    Vec3 tangent1, tangent2;
+    CoordinateSystem(n, &tangent1, &tangent2);
+
     // Keep the complete clipped polygon when it already fits the manifold capacity.
     if (faces[output]->size() <= max_contact_point_count)
     {
@@ -496,7 +494,7 @@ static void FindContactPoints(
         }
 
         manifold->contactCount = faces[output]->size();
-        AssignContactId(manifold, origin, tangent1);
+        AssignContactId(manifold, origin, tangent1, tangent2);
         return;
     }
 
@@ -505,7 +503,7 @@ static void FindContactPoints(
     int32 indices[max_contact_point_count];
     int32 contactCount = 0;
 
-    constexpr float minDepth2 = Sqr(linear_slop);
+    constexpr float distanceTolerance2 = Sqr(linear_slop);
 
     Vec3 centerA = Mul(tfA, a->GetCenter());
 
@@ -519,25 +517,28 @@ static void FindContactPoints(
     {
         Vec3 r = candidates[i].anchorA - centerA;
         projected[i] = GramSchmidt(r, n);
-        depth2[i] = Max(minDepth2, Length2(candidates[i].anchorB - candidates[i].anchorA));
+
+        float separation = Dot(candidates[i].anchorB - candidates[i].anchorA, n);
+        depth2[i] = Sqr(Max(linear_slop, -separation));
     }
 
     // Start with the point that is farthest from the center and deepest
     int32 point1 = 0;
-    float value = Max(minDepth2, Length2(projected[0])) * depth2[0];
-    for (int32 i = 1; i < faces[output]->size(); ++i)
+    float bestScore = -max_float;
+    for (int32 i = 0; i < faces[output]->size(); ++i)
     {
-        float v = Max(minDepth2, Length2(projected[i])) * depth2[i];
-        if (v > value)
+        float tangentDistance2 = Sqr(Dot(tangent1, projected[i]));
+        float score = Max(distanceTolerance2, tangentDistance2) * depth2[i];
+        if (score > bestScore)
         {
             point1 = i;
-            value = v;
+            bestScore = score;
         }
     }
 
-    // Use the farthest weighted point from point1 as the main patch axis
+    // Use the farthest point from point1 as the main patch axis, with penetration as a secondary score.
     int32 point2 = -1;
-    value = -max_float;
+    bestScore = 0.0f;
     for (int32 i = 0; i < faces[output]->size(); ++i)
     {
         if (i == point1)
@@ -545,12 +546,21 @@ static void FindContactPoints(
             continue;
         }
 
-        float v = Max(minDepth2, Dist2(projected[i], projected[point1])) * depth2[i];
-        if (v > value)
+        float distance2 = Dist2(projected[i], projected[point1]);
+        float score = Max(distanceTolerance2, distance2) * depth2[i];
+        if (score > bestScore)
         {
             point2 = i;
-            value = v;
+            bestScore = score;
         }
+    }
+
+    if (bestScore < Sqr(distanceTolerance2))
+    {
+        manifold->contactPoints[0] = candidates[point1];
+        manifold->contactPoints[0].id = 0;
+        manifold->contactCount = 1;
+        return;
     }
 
     int32 point3 = -1;
@@ -598,7 +608,7 @@ static void FindContactPoints(
     }
 
     manifold->contactCount = contactCount;
-    AssignContactId(manifold, origin, tangent1);
+    AssignContactId(manifold, origin, tangent1, tangent2);
 }
 
 bool SphereVsSphere(

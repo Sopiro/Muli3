@@ -117,10 +117,7 @@ void Contact::Update()
         return;
     }
 
-    constexpr float normalMatchThreshold = 0.995f;
-
-    GrowableStack<uint8, 4> usedManifold;
-    usedManifold.resize(oldManifolds.size());
+    const float normalMatchThreshold = 0.9986f; // ~ cos 3
 
     for (int32 i = 0; i < s->manifolds.size(); ++i)
     {
@@ -130,7 +127,7 @@ void Contact::Update()
         float bestSimilarity = normalMatchThreshold;
         for (int32 j = 0; j < oldManifolds.size(); ++j)
         {
-            if (usedManifold[j] != 0 || oldManifolds[j].contactCount == 0 || manifold.id != oldManifolds[j].id)
+            if (manifold.id != oldManifolds[j].id)
             {
                 continue;
             }
@@ -148,19 +145,64 @@ void Contact::Update()
             continue;
         }
 
-        usedManifold[oldIndex] = 1;
-
-        const ContactManifold& oldManifold = oldManifolds[oldIndex];
-        bool usedPoint[max_contact_point_count]{};
-        for (int32 j = 0; j < manifold.contactCount; ++j)
+        ContactManifold& oldManifold = oldManifolds[oldIndex];
+        if (manifold.contactCount == oldManifold.contactCount)
         {
-            for (int32 k = 0; k < oldManifold.contactCount; ++k)
+            for (int32 j = 0; j < manifold.contactCount; ++j)
             {
-                if (!usedPoint[k] && manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
+                for (int32 k = 0; k < oldManifold.contactCount; ++k)
                 {
-                    manifold.contactPoints[j].impulse = oldManifold.contactPoints[k].impulse;
-                    usedPoint[k] = true;
-                    break;
+                    if (manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
+                    {
+                        manifold.contactPoints[j].impulse = oldManifold.contactPoints[k].impulse;
+                        oldManifold.contactPoints[k].id = -1;
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            const float contactMatchDistance2 = Sqr(2.0f * linear_slop);
+
+            Transform oldTransformA;
+            Transform oldTransformB;
+            bodyA->GetBodyState()->motion.GetTransform(0.0f, &oldTransformA);
+            bodyB->GetBodyState()->motion.GetTransform(0.0f, &oldTransformB);
+
+            // Match the closest points whose anchors remain near each other on both bodies.
+            for (int32 j = 0; j < manifold.contactCount; ++j)
+            {
+                const ContactPoint& point = manifold.contactPoints[j];
+                Vec3 localA = MulT(bodyA->transform, point.anchorA);
+                Vec3 localB = MulT(bodyB->transform, point.anchorB);
+
+                int32 bestOld = null_index;
+                float bestDistance2 = max_float;
+
+                for (int32 k = 0; k < oldManifold.contactCount; ++k)
+                {
+                    if (oldManifold.contactPoints[k].id < 0)
+                    {
+                        continue;
+                    }
+
+                    const ContactPoint& oldPoint = oldManifold.contactPoints[k];
+                    float distanceA2 = Dist2(localA, MulT(oldTransformA, oldPoint.anchorA));
+                    float distanceB2 = Dist2(localB, MulT(oldTransformB, oldPoint.anchorB));
+                    float distance2 = distanceA2 + distanceB2;
+
+                    if (distanceA2 <= contactMatchDistance2 && distanceB2 <= contactMatchDistance2 && distance2 < bestDistance2)
+                    {
+                        bestOld = k;
+                        bestDistance2 = distance2;
+                    }
+                }
+
+                if (bestOld != null_index)
+                {
+                    manifold.contactPoints[j].impulse = oldManifold.contactPoints[bestOld].impulse;
+                    oldManifold.contactPoints[bestOld].id = -1;
                 }
             }
         }
@@ -173,6 +215,8 @@ void Contact::Update()
 
         manifold.linearImpulse = tangent1 * Dot(oldLinearImpulse, tangent1) + tangent2 * Dot(oldLinearImpulse, tangent2);
         manifold.angularImpulse = Dot(oldAngularImpulse, manifold.normal);
+
+        oldManifold.id = -1;
     }
 }
 

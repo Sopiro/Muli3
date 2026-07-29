@@ -27,16 +27,7 @@ public:
         {
             float halfHeight = height * 0.5f + convexRadius;
             float y = groundTop + halfHeight + i * (halfHeight * 2.0f + gap);
-            Body* body = world->CreateCylinder(height, topRadius, bottomRadius, segments, Transform{ Vec3{ -4.0f, y, 0.0f } });
-        }
-
-        Quat horizontal{ -pi * 0.5f, z_axis };
-        for (int32 i = 0; i < stackCount; ++i)
-        {
-            float outerRadius = Max(topRadius, bottomRadius) + convexRadius;
-            float y = groundTop + outerRadius + i * (outerRadius * 2.0f + gap);
-            Body* body =
-                world->CreateCylinder(height, topRadius, bottomRadius, segments, Transform{ Vec3{ 4.0f, y, 0.0f }, horizontal });
+            world->CreateCylinder(height, topRadius, bottomRadius, segments, Transform{ Vec3{ 0.0f, y, 0.0f } });
         }
 
         camera.SetPosition(Vec3{ 0.0f, 8.0f, 18.0f });
