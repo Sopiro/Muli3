@@ -7,7 +7,7 @@ namespace muli3
 {
 
 static int32 bodyCount = 256;
-static int32 maxVertexCount = 32;
+static int32 vertexCount = 32;
 
 class ConvexShapeTest : public Demo
 {
@@ -23,7 +23,6 @@ public:
 
         for (int32 i = 0; i < bodyCount; ++i)
         {
-            int32 vertexCount = int32(Rand(4, maxVertexCount));
             std::vector<Vec3> vertices;
             vertices.reserve(vertexCount);
             for (int32 j = 0; j < vertexCount; ++j)
@@ -50,7 +49,7 @@ public:
             {
                 game.RestartDemo();
             }
-            if (ImGui::SliderInt("Max vertex count", &maxVertexCount, 4, 64, "%d", ImGuiSliderFlags_AlwaysClamp))
+            if (ImGui::SliderInt("Vertex count", &vertexCount, 4, 64, "%d", ImGuiSliderFlags_AlwaysClamp))
             {
                 game.RestartDemo();
             }

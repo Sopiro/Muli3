@@ -304,49 +304,6 @@ static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, con
     }
 }
 
-static void AssignContactId(ContactManifold* manifold, const Vec3& origin, const Vec3& tangent1, const Vec3& tangent2)
-{
-    if (manifold->contactCount == 1)
-    {
-        manifold->contactPoints[0].id = 0;
-        return;
-    }
-
-    int32 indices[max_contact_point_count];
-    float angles[max_contact_point_count];
-
-    for (int32 i = 0; i < manifold->contactCount; ++i)
-    {
-        Vec3 point = manifold->contactPoints[i].anchorA;
-        Vec3 delta = point - origin;
-
-        float angle = std::atan2(Dot(delta, tangent2), Dot(delta, tangent1));
-
-        indices[i] = i;
-        angles[i] = angle < 0.0f ? angle + two_pi : angle;
-    }
-
-    // Sort from the positive tangent axis in counter-clockwise order around the contact normal.
-    for (int32 i = 1; i < manifold->contactCount; ++i)
-    {
-        int32 index = indices[i];
-        int32 j = i - 1;
-
-        while (j >= 0 && angles[indices[j]] > angles[index])
-        {
-            indices[j + 1] = indices[j];
-            --j;
-        }
-
-        indices[j + 1] = index;
-    }
-
-    for (int32 i = 0; i < manifold->contactCount; ++i)
-    {
-        manifold->contactPoints[indices[i]].id = i;
-    }
-}
-
 static void FindContactPoints(
     const Vec3& n, const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
 )
@@ -482,21 +439,8 @@ static void FindContactPoints(
         }
     }
 
-    Vec3 tangent1, tangent2;
-    CoordinateSystem(n, &tangent1, &tangent2);
-
-    // Keep the complete clipped polygon when it already fits the manifold capacity.
-    if (faces[output]->size() <= max_contact_point_count)
-    {
-        for (int32 i = 0; i < faces[output]->size(); ++i)
-        {
-            manifold->contactPoints[i] = candidates[i];
-        }
-
-        manifold->contactCount = faces[output]->size();
-        AssignContactId(manifold, origin, tangent1, tangent2);
-        return;
-    }
+    Vec3 tangent1;
+    CoordinateSystem(n, &tangent1);
 
     // Reduce contact points
 
@@ -568,6 +512,10 @@ static void FindContactPoints(
     float minSide = 0.0f;
     float maxSide = 0.0f;
     Vec3 perp = Cross(projected[point2] - projected[point1], n);
+    if (Dot(perp, tangent1) < 0)
+    {
+        perp.Negate();
+    }
 
     // Keep one point on each side of the main axis to maximize patch area
     for (int32 i = 0; i < faces[output]->size(); ++i)
@@ -605,10 +553,10 @@ static void FindContactPoints(
     for (int32 i = 0; i < contactCount; ++i)
     {
         manifold->contactPoints[i] = candidates[indices[i]];
+        manifold->contactPoints[i].id = i;
     }
 
     manifold->contactCount = contactCount;
-    AssignContactId(manifold, origin, tangent1, tangent2);
 }
 
 bool SphereVsSphere(

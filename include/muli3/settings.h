@@ -57,7 +57,7 @@ struct WorldSettings
 
     bool sleeping = true;
     float sleeping_time = 0.5f;
-    float rest_linear_tolerance = Sqr(0.03f);
+    float rest_linear_tolerance = Sqr(0.05f);
     float rest_angular_tolerance = Sqr(1.0f * pi / 180.0f);
 };
 
