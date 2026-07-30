@@ -8,6 +8,7 @@ namespace muli3
 PoolAllocator::PoolAllocator(int32 defaultChunkByteSize)
     : defaultChunkByteSize{ defaultChunkByteSize }
 {
+    MuliAssert(defaultChunkByteSize > 0);
 }
 
 PoolAllocator::~PoolAllocator()
@@ -17,6 +18,12 @@ PoolAllocator::~PoolAllocator()
 
 void PoolAllocator::Clear()
 {
+    for (const Pool& pool : pools)
+    {
+        MuliNotUsed(pool);
+        MuliAssert(pool.allocationCount == 0);
+    }
+
     for (Pool& pool : pools)
     {
         for (PoolChunk& chunk : pool.chunks)
@@ -68,6 +75,8 @@ void* PoolAllocator::AllocateFromPool(PoolId poolId)
         GrowPool(poolId);
     }
 
+    MuliAssert(pool.freeList != nullptr);
+
     Block* block = pool.freeList;
     pool.freeList = block->next;
     ++pool.allocationCount;
@@ -86,6 +95,7 @@ void PoolAllocator::FreeFromPool(PoolId poolId, void* p)
 
     Pool& pool = pools[poolId];
     MuliAssert(pool.allocationCount > 0);
+    MuliAssert(GetIdFromPool(poolId, p) >= 0);
 
     Block* block = (Block*)p;
     block->next = pool.freeList;
@@ -111,6 +121,7 @@ void* PoolAllocator::GetFromPool(PoolId poolId, SlotId id)
 PoolAllocator::SlotId PoolAllocator::GetIdFromPool(PoolId poolId, const void* p)
 {
     MuliAssert(0 <= poolId && poolId < int32(pools.size()));
+    MuliAssert(p != nullptr);
 
     Pool& pool = pools[poolId];
     int8* ptr = (int8*)p;
@@ -164,8 +175,10 @@ void PoolAllocator::GrowPool(PoolId poolId)
     Pool& pool = pools[poolId];
     int32 chunkCapacity = pool.chunkCapacity;
 
+    MuliAssert(chunkCapacity > 0);
+    MuliAssert(pool.stride > 0);
+
     Block* blocks = (Block*)muli3::Alloc(chunkCapacity * pool.stride);
-    memset(blocks, 0, chunkCapacity * pool.stride);
 
     for (int32 i = 0; i < chunkCapacity - 1; ++i)
     {

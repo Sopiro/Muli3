@@ -14,6 +14,9 @@ public:
     PoolAllocator(int32 defaultChunkByteSize = 16 * 1024);
     ~PoolAllocator();
 
+    PoolAllocator(const PoolAllocator&) = delete;
+    PoolAllocator& operator=(const PoolAllocator&) = delete;
+
     void Clear();
 
     template <typename T>
@@ -90,6 +93,8 @@ inline int32 PoolAllocator::GetPoolCount() const
 template <typename T>
 inline PoolAllocator::PoolId PoolAllocator::Register(int32 chunkCapacity)
 {
+    MuliAssert(alignof(T) <= alignof(std::max_align_t));
+
     static int32 typeKey;
     return GetPool(sizeof(T), alignof(T), &typeKey, chunkCapacity);
 }

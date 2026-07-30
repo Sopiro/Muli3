@@ -7,10 +7,13 @@ namespace muli3
 
 inline size_t AlignUp(size_t size, size_t alignment)
 {
+    MuliAssert(alignment > 0);
+    MuliAssert((alignment & (alignment - 1)) == 0);
+    MuliAssert(size <= std::numeric_limits<size_t>::max() - (alignment - 1));
     return (size + alignment - 1) & ~(alignment - 1);
 }
 
-inline void* Alloc(int32 size)
+inline void* Alloc(size_t size)
 {
     return std::malloc(size);
 }

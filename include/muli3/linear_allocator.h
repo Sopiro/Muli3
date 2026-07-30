@@ -11,6 +11,9 @@ public:
     LinearAllocator(int32 initialCapacity = 16 * 1024);
     ~LinearAllocator();
 
+    LinearAllocator(const LinearAllocator&) = delete;
+    LinearAllocator& operator=(const LinearAllocator&) = delete;
+
     void* Allocate(int32 size) override;
     void Free(void* p, int32 size) override;
     void Clear() override;
@@ -59,4 +62,3 @@ inline int32 LinearAllocator::GetMaxAllocation() const
 }
 
 } // namespace muli3
-

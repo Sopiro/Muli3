@@ -5,25 +5,35 @@ namespace muli3
 {
 
 LinearAllocator::LinearAllocator(int32 initialCapacity)
-    : entryCount{ 0 }
+    : entries{ nullptr }
+    , entryCount{ 0 }
     , entryCapacity{ 32 }
+    , mem{ nullptr }
     , capacity{ initialCapacity }
     , index{ 0 }
     , allocation{ 0 }
     , maxAllocation{ 0 }
 {
+    MuliAssert(initialCapacity > 0);
+
     entries = (MemoryEntry*)muli3::Alloc(entryCapacity * sizeof(MemoryEntry));
     mem = (int8*)muli3::Alloc(capacity);
 }
 
 LinearAllocator::~LinearAllocator()
 {
+    MuliAssert(entryCount == 0);
+    MuliAssert(index == 0);
+    MuliAssert(allocation == 0);
+
     muli3::Free(entries);
     muli3::Free(mem);
 }
 
 void* LinearAllocator::Allocate(int32 size)
 {
+    MuliAssert(size >= 0);
+
     if (entryCount == entryCapacity)
     {
         MemoryEntry* old = entries;
@@ -57,6 +67,7 @@ void* LinearAllocator::Allocate(int32 size)
     }
 
     ++entryCount;
+    MuliAssert(allocation <= std::numeric_limits<int32>::max() - entry->allocationSize);
     allocation += entry->allocationSize;
     maxAllocation = Max(maxAllocation, allocation);
 
@@ -65,6 +76,7 @@ void* LinearAllocator::Allocate(int32 size)
 
 void LinearAllocator::Free(void* p, int32 size)
 {
+    MuliAssert(size >= 0);
     MuliAssert(entryCount > 0);
 
     MemoryEntry* entry = entries + entryCount - 1;
@@ -103,6 +115,10 @@ void LinearAllocator::Clear()
 
 bool LinearAllocator::GrowMemory()
 {
+    MuliAssert(entryCount == 0);
+    MuliAssert(index == 0);
+    MuliAssert(allocation == 0);
+
     if (maxAllocation <= capacity)
     {
         maxAllocation = 0;
