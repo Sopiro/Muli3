@@ -5,20 +5,25 @@
 namespace muli3
 {
 
-static constexpr int g_shadowMapSize = 4096;
-static constexpr size_t g_maxShapeBatchCount = 4096;
-static constexpr int32 g_maxVertexCount = 1024 * 4;
-static constexpr int32 g_colorCount = 10;
-static constexpr int32 g_fillPass = 0;
-static constexpr int32 g_outlinePass = 1;
-static constexpr int32 g_sampleCount = 4;
+static constexpr size_t g_max_shape_batch_count = 4096;
+static constexpr int32 g_max_vertex_count = 1024 * 4;
+
+static constexpr int32 g_fill_pass = 0;
+static constexpr int32 g_outline_pass = 1;
+
+static constexpr int32 g_sample_count = 4;
+
 static constexpr float g_metallic = 0.0f;
 static constexpr float g_roughness = 0.55f;
-static constexpr float g_shadowViewDistance = 55.0f;
-static constexpr float g_shadowBoundsPadding = 2.0f;
-static constexpr float g_shadowDepthPadding = 32.0f;
 
-Vec4 g_colors[g_colorCount];
+static constexpr int g_shadow_map_size = 4096;
+static constexpr float g_shadow_view_distance = 55.0f;
+static constexpr float g_shadow_bounds_padding = 2.0f;
+static constexpr float g_shadow_depth_padding = 32.0f;
+
+static constexpr int32 g_color_count = 10;
+
+Vec4 g_colors[g_color_count];
 Vec4 g_colors2[constraint_color_count];
 bool g_colorsInitialized = false;
 
@@ -844,7 +849,7 @@ void main()
 void ComputeCameraFrustumCorners(const Camera& camera, float aspectRatio, Vec3* corners)
 {
     float zNear = 0.1f;
-    float zFar = g_shadowViewDistance;
+    float zFar = g_shadow_view_distance;
     float tanHalfFov = std::tan(DegToRad(camera.fovDegrees) * 0.5f);
 
     float nearY = zNear * tanHalfFov;
@@ -888,7 +893,7 @@ Mat4 ComputeLightViewProjection(const Camera& camera, float aspectRatio, const V
         frustumRadius = Max(frustumRadius, Length(frustumCorners[i] - frustumCenter));
     }
 
-    Vec3 lightPosition = frustumCenter - lightDirection * (frustumRadius + g_shadowDepthPadding);
+    Vec3 lightPosition = frustumCenter - lightDirection * (frustumRadius + g_shadow_depth_padding);
     Vec3 lightUp = AbsDot(lightDirection, y_axis) < 0.99f ? y_axis : z_axis;
     Mat4 lightView = Mat4::LookAt(lightPosition, frustumCenter, lightUp);
 
@@ -901,20 +906,20 @@ Mat4 ComputeLightViewProjection(const Camera& camera, float aspectRatio, const V
         lightMax = Max(lightMax, Vec3{ p.x, p.y, p.z });
     }
 
-    float halfWidth = Max((lightMax.x - lightMin.x) * 0.5f + g_shadowBoundsPadding, 8.0f);
-    float halfHeight = Max((lightMax.y - lightMin.y) * 0.5f + g_shadowBoundsPadding, 8.0f);
+    float halfWidth = Max((lightMax.x - lightMin.x) * 0.5f + g_shadow_bounds_padding, 8.0f);
+    float halfHeight = Max((lightMax.y - lightMin.y) * 0.5f + g_shadow_bounds_padding, 8.0f);
 
     Vec2 center{ (lightMin.x + lightMax.x) * 0.5f, (lightMin.y + lightMax.y) * 0.5f };
 
-    float zNear = Max(-lightMax.z - g_shadowDepthPadding, 0.1f);
-    float zFar = Max(-lightMin.z + g_shadowBoundsPadding, zNear + 1.0f);
+    float zNear = Max(-lightMax.z - g_shadow_depth_padding, 0.1f);
+    float zFar = Max(-lightMin.z + g_shadow_bounds_padding, zNear + 1.0f);
     Mat4 lightProjection =
         Mat4::Orth(center.x - halfWidth, center.x + halfWidth, center.y - halfHeight, center.y + halfHeight, zNear, zFar);
 
     // Snap the final shadow matrix to texel increments so camera movement does not shimmer the map.
     Mat4 lightViewProjection = lightProjection * lightView;
     Vec4 shadowOrigin = lightViewProjection * Vec4{ Vec3::zero, 1.0f };
-    shadowOrigin *= g_shadowMapSize * 0.5f;
+    shadowOrigin *= g_shadow_map_size * 0.5f;
 
     Vec4 roundedOrigin{
         std::floor(shadowOrigin.x + 0.5f),
@@ -922,7 +927,7 @@ Mat4 ComputeLightViewProjection(const Camera& camera, float aspectRatio, const V
         shadowOrigin.z,
         shadowOrigin.w,
     };
-    Vec4 roundOffset = (roundedOrigin - shadowOrigin) * (2.0f / g_shadowMapSize);
+    Vec4 roundOffset = (roundedOrigin - shadowOrigin) * (2.0f / g_shadow_map_size);
     lightProjection.ew.x += roundOffset.x;
     lightProjection.ew.y += roundOffset.y;
 
@@ -943,8 +948,8 @@ void InitializeColors()
         return;
     }
 
-    constexpr float stride = 360.0f / g_colorCount;
-    for (int32 i = 0; i < g_colorCount; ++i)
+    constexpr float stride = 360.0f / g_color_count;
+    for (int32 i = 0; i < g_color_count; ++i)
     {
         Vec3 rgb = color::HSLToRGB({ i * stride / 360.0f, 1.0f, 0.8f });
         g_colors[i] = Vec4{ rgb.x, rgb.y, rgb.z, 0.85f };
@@ -967,7 +972,7 @@ Vec4 GetModeColor(const Renderer::DrawMode& mode)
         return Renderer::default_white;
     }
 
-    return g_colors[mode.colorIndex % g_colorCount];
+    return g_colors[mode.colorIndex % g_color_count];
 }
 
 Renderer::~Renderer()
@@ -982,7 +987,7 @@ bool Renderer::CreateShadowResources()
 
     glBindTexture(GL_TEXTURE_2D, shadowDepthTexture);
     glTexImage2D(
-        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, g_shadowMapSize, g_shadowMapSize, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
+        GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32F, g_shadow_map_size, g_shadow_map_size, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr
     );
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -1023,15 +1028,15 @@ bool Renderer::CreateFrameResources(int32 width, int32 height)
     glGenFramebuffers(1, &geometryFramebuffer);
     glGenTextures(1, &geometryNormalTexture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, geometryNormalTexture);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sampleCount, GL_RGB10_A2, width, height, GL_TRUE);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sample_count, GL_RGB10_A2, width, height, GL_TRUE);
 
     glGenTextures(1, &geometryAlbedoTexture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, geometryAlbedoTexture);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sampleCount, GL_RGBA8, width, height, GL_TRUE);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sample_count, GL_RGBA8, width, height, GL_TRUE);
 
     glGenTextures(1, &geometryDepthTexture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, geometryDepthTexture);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sampleCount, GL_DEPTH_COMPONENT32F, width, height, GL_TRUE);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sample_count, GL_DEPTH_COMPONENT32F, width, height, GL_TRUE);
 
     glBindFramebuffer(GL_FRAMEBUFFER, geometryFramebuffer);
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, geometryNormalTexture, 0);
@@ -1090,11 +1095,11 @@ bool Renderer::CreateFrameResources(int32 width, int32 height)
 
     glGenTextures(1, &sceneColorTexture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, sceneColorTexture);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sampleCount, GL_RGBA16F, width, height, GL_TRUE);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sample_count, GL_RGBA16F, width, height, GL_TRUE);
 
     glGenTextures(1, &debugColorTexture);
     glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, debugColorTexture);
-    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sampleCount, GL_RGBA8, width, height, GL_TRUE);
+    glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, g_sample_count, GL_RGBA8, width, height, GL_TRUE);
 
     glGenFramebuffers(1, &sceneFramebuffer);
     glBindFramebuffer(GL_FRAMEBUFFER, sceneFramebuffer);
@@ -1169,8 +1174,8 @@ bool Renderer::CreatePrimitiveResources()
 
     glBindVertexArray(primVAO);
     glBindBuffer(GL_ARRAY_BUFFER, primVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * g_maxVertexCount, nullptr, GL_STREAM_DRAW);
-    primitiveCapacity = g_maxVertexCount;
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * g_max_vertex_count, nullptr, GL_STREAM_DRAW);
+    primitiveCapacity = g_max_vertex_count;
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, point)));
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, color)));
@@ -1194,7 +1199,7 @@ void Renderer::SetShapeInstanceAttributes()
 
 GLuint Renderer::UploadShapeInstances(const ShapeInstance* instances, size_t count)
 {
-    MuliAssert(count <= g_maxShapeBatchCount);
+    MuliAssert(count <= g_max_shape_batch_count);
 
     glBindBuffer(GL_ARRAY_BUFFER, shapeInstanceVBO);
     if (shapeInstanceOffset + count > shapeInstanceCapacity)
@@ -1488,11 +1493,11 @@ bool Renderer::Initialize()
     };
     for (InstancedMeshBatch* batch : batches)
     {
-        batch->instances[g_fillPass].reserve(g_maxShapeBatchCount);
-        batch->instances[g_outlinePass].reserve(g_maxShapeBatchCount);
+        batch->instances[g_fill_pass].reserve(g_max_shape_batch_count);
+        batch->instances[g_outline_pass].reserve(g_max_shape_batch_count);
     }
-    points.resize(g_maxVertexCount);
-    lines.resize(g_maxVertexCount);
+    points.resize(g_max_vertex_count);
+    lines.resize(g_max_vertex_count);
     return true;
 }
 
@@ -1530,8 +1535,8 @@ void Renderer::ClearMeshCache()
     };
     for (InstancedMeshBatch* batch : batches)
     {
-        batch->instances[g_fillPass].clear();
-        batch->instances[g_outlinePass].clear();
+        batch->instances[g_fill_pass].clear();
+        batch->instances[g_outline_pass].clear();
     }
 
     for (auto& [hash, mesh] : heightFieldMeshes)
@@ -1546,14 +1551,14 @@ void Renderer::ClearMeshCache()
     }
 
     shapeMeshes.clear();
-    shapeMeshInstances[g_fillPass].clear();
-    shapeMeshInstances[g_outlinePass].clear();
-    activeShapeMeshKeys[g_fillPass].clear();
-    activeShapeMeshKeys[g_outlinePass].clear();
-    queuedShapeCount[g_fillPass] = 0;
-    queuedShapeCount[g_outlinePass] = 0;
-    shapeMeshInstanceCount[g_fillPass] = 0;
-    shapeMeshInstanceCount[g_outlinePass] = 0;
+    shapeMeshInstances[g_fill_pass].clear();
+    shapeMeshInstances[g_outline_pass].clear();
+    activeShapeMeshKeys[g_fill_pass].clear();
+    activeShapeMeshKeys[g_outline_pass].clear();
+    queuedShapeCount[g_fill_pass] = 0;
+    queuedShapeCount[g_outline_pass] = 0;
+    shapeMeshInstanceCount[g_fill_pass] = 0;
+    shapeMeshInstanceCount[g_outline_pass] = 0;
     shapeMeshVertices.clear();
     shapeMeshIndices.clear();
     shapeMeshOutlineIndices.clear();
@@ -1625,7 +1630,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
         return;
     }
 
-    int32 pass = wireframe ? g_outlinePass : g_fillPass;
+    int32 pass = wireframe ? g_outline_pass : g_fill_pass;
     if (shape->GetType() == Shape::sphere)
     {
         const SphereShape* sphere = (const SphereShape*)shape;
@@ -1761,7 +1766,7 @@ void Renderer::QueueShape(const Shape* shape, const Transform& transform, const 
     }
 
     ++queuedShapeCount[pass];
-    if (queuedShapeCount[pass] == g_maxShapeBatchCount)
+    if (queuedShapeCount[pass] == g_max_shape_batch_count)
     {
         FlushQueuedShapes(shader, wireframe);
     }
@@ -1969,7 +1974,7 @@ void Renderer::DrawAABB(const AABB& aabb, const Vec4& color)
 
 void Renderer::FlushQueuedShapes(const Shader& shader, bool wireframe)
 {
-    int32 pass = wireframe ? g_outlinePass : g_fillPass;
+    int32 pass = wireframe ? g_outline_pass : g_fill_pass;
     if (queuedShapeCount[pass] == 0)
     {
         return;
@@ -2161,7 +2166,7 @@ void Renderer::EnsurePrimitiveCapacity(std::vector<Vertex>& vertices, int32 requ
 
 Vec4 Renderer::GetColor(int32 colorIndex) const
 {
-    return g_colors[colorIndex % g_colorCount];
+    return g_colors[colorIndex % g_color_count];
 }
 
 void Renderer::BeginFrame(
@@ -2198,7 +2203,7 @@ void Renderer::BeginFrame(
 void Renderer::BeginShadowPass()
 {
     glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer);
-    glViewport(0, 0, g_shadowMapSize, g_shadowMapSize);
+    glViewport(0, 0, g_shadow_map_size, g_shadow_map_size);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);

@@ -8,7 +8,7 @@ namespace muli3
 {
 
 ConvexShape::ConvexShape(std::span<const Vec3> inVertices, float inRadius, const Transform& transform)
-    : Shape{ Shape::convex, inRadius }
+    : Shape(Shape::convex, inRadius)
 {
     ComputeConvexHull(inVertices, &vertices, &indices, &faces);
 

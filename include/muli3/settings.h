@@ -48,7 +48,7 @@ struct WorldSettings
 {
     ThreadPool* thread_pool = nullptr;
 
-    int32 velocity_iterations = 6;
+    int32 velocity_iterations = 8;
     int32 position_iterations = 2;
 
     bool apply_gravity = true;

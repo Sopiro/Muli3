@@ -1,7 +1,6 @@
 #pragma once
 
 #include "body.h"
-#include "common.h"
 #include "dynamic_dispatcher.h"
 
 namespace muli3

@@ -3,13 +3,13 @@
 namespace muli3
 {
 
-constexpr static Vec3 boxNormals[6] = {
+static constexpr Vec3 box_normals[6] = {
     Vec3{ -1.0f, 0.0f, 0.0f }, Vec3{ 1.0f, 0.0f, 0.0f },  Vec3{ 0.0f, -1.0f, 0.0f },
     Vec3{ 0.0f, 1.0f, 0.0f },  Vec3{ 0.0f, 0.0f, -1.0f }, Vec3{ 0.0f, 0.0f, 1.0f },
 };
 
 BoxShape::BoxShape(float width, float height, float depth, float inRadius, const Transform& transform)
-    : Shape{ Shape::box, inRadius }
+    : Shape(Shape::box, inRadius)
     , halfExtents{ width * 0.5f, height * 0.5f, depth * 0.5f }
     , rotation{ transform.q }
 {
@@ -218,7 +218,7 @@ Face BoxShape::GetFeaturedFace(const Transform& transform, const Vec3& dir) cons
     Face outFace{};
     outFace.vertexStart = uint16(face * 4);
     outFace.vertexCount = 4;
-    outFace.normal = worldOrientation.Rotate(boxNormals[face]);
+    outFace.normal = worldOrientation.Rotate(box_normals[face]);
     return outFace;
 }
 

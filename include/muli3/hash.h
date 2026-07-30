@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include "common.h"
-
 #include "floats.h"
 
 namespace muli3

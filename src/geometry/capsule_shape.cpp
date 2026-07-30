@@ -6,7 +6,7 @@ namespace muli3
 {
 
 CapsuleShape::CapsuleShape(float height, float inRadius, const Transform& transform)
-    : Shape{ Shape::capsule, inRadius }
+    : Shape(Shape::capsule, inRadius)
 {
     float halfHeight = height * 0.5f;
 

@@ -3,8 +3,8 @@
 namespace muli3
 {
 
-SphereShape::SphereShape(float radius, const Transform& transform)
-    : Shape{ Shape::sphere, radius }
+SphereShape::SphereShape(float inRadius, const Transform& transform)
+    : Shape(Shape::sphere, inRadius)
 {
     center = transform.p;
     volume = 4.0f / 3.0f * pi * radius * radius * radius;
