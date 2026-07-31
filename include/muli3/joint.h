@@ -25,14 +25,6 @@ using Joints = TypePack<
     class PulleyJoint,
     class MotorJoint>;
 
-struct JointEdge
-{
-    Body* other;
-    Joint* joint;
-    JointEdge* prev;
-    JointEdge* next;
-};
-
 class Joint : public DynamicDispatcher<Joints>
 {
     /*
@@ -108,11 +100,6 @@ public:
     bool IsRigid() const;
     Type GetType() const;
 
-    Joint* GetPrev();
-    const Joint* GetPrev() const;
-    Joint* GetNext();
-    const Joint* GetNext() const;
-
     bool IsEnabled() const;
 
     JointDestroyCallback* OnDestroy;
@@ -136,11 +123,10 @@ private:
     friend class World;
     friend class ConstraintGraph;
 
-    Joint* prev;
-    Joint* next;
+    int32 worldIndex;
 
-    JointEdge nodeA;
-    JointEdge nodeB;
+    int32 bodyIndexA;
+    int32 bodyIndexB;
 
     int32 setIndex;
     int32 colorIndex;
@@ -204,26 +190,6 @@ inline bool Joint::IsRigid() const
 inline Joint::Type Joint::GetType() const
 {
     return Joint::Type(type_index);
-}
-
-inline Joint* Joint::GetPrev()
-{
-    return prev;
-}
-
-inline const Joint* Joint::GetPrev() const
-{
-    return prev;
-}
-
-inline Joint* Joint::GetNext()
-{
-    return next;
-}
-
-inline const Joint* Joint::GetNext() const
-{
-    return next;
 }
 
 inline bool Joint::IsEnabled() const

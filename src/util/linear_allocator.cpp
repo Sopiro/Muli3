@@ -126,7 +126,7 @@ bool LinearAllocator::GrowMemory()
     }
 
     muli3::Free(mem);
-    capacity = maxAllocation;
+    capacity = Max(maxAllocation, capacity + capacity / 2);
     mem = (int8*)muli3::Alloc(capacity);
     maxAllocation = 0;
 

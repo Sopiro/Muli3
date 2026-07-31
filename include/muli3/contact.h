@@ -9,16 +9,6 @@
 namespace muli3
 {
 
-class Contact;
-
-struct ContactEdge
-{
-    Body* other;
-    Contact* contact;
-    ContactEdge* prev;
-    ContactEdge* next;
-};
-
 class Contact
 {
 public:
@@ -30,9 +20,6 @@ public:
 
     Body* GetBodyA() const;
     Body* GetBodyB() const;
-
-    const Contact* GetNext() const;
-    const Contact* GetPrev() const;
 
     bool IsTouching() const;
     bool IsEnabled() const;
@@ -73,13 +60,11 @@ private:
     Collider* colliderA;
     Collider* colliderB;
 
-    Contact* prev;
-    Contact* next;
+    int32 poolIndex;
+    int32 graphIndex;
 
-    ContactEdge nodeA;
-    ContactEdge nodeB;
-
-    int32 id;
+    int32 bodyIndexA;
+    int32 bodyIndexB;
 
     int32 setIndex;
     int32 colorIndex;
@@ -106,16 +91,6 @@ inline Body* Contact::GetBodyA() const
 inline Body* Contact::GetBodyB() const
 {
     return colliderB->GetBody();
-}
-
-inline const Contact* Contact::GetPrev() const
-{
-    return prev;
-}
-
-inline const Contact* Contact::GetNext() const
-{
-    return next;
 }
 
 inline bool Contact::IsTouching() const

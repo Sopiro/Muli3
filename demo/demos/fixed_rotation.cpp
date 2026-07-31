@@ -103,7 +103,7 @@ public:
 private:
     FixedRotationJoint* FindFixedRotationJoint(Body* body) const
     {
-        for (Joint* joint = world->GetJoints(); joint; joint = joint->GetNext())
+        for (Joint* joint : world->GetJoints())
         {
             if (joint->GetType() == Joint::fixed_rotation_joint && joint->GetBodyA() == body)
             {

@@ -2,6 +2,7 @@
 
 #include "broad_phase.h"
 #include "contact.h"
+#include "pool.h"
 
 namespace muli3
 {
@@ -60,10 +61,10 @@ private:
     World* world;
     BroadPhase broadPhase;
 
-    ConstraintBatch batches[constraint_color_count];
+    Pool<Contact> contactPool;
+    std::vector<Contact*> contacts;
 
-    Contact* contactList;
-    int32 contactCount;
+    ConstraintBatch batches[constraint_color_count];
 
     void Destroy(Contact* c);
     void OnNewContact(Collider* colliderA, Collider* colliderB);
@@ -76,7 +77,7 @@ inline void ConstraintGraph::UpdateContactGraph()
 
 inline int32 ConstraintGraph::GetContactCount() const
 {
-    return contactCount;
+    return int32(contacts.size());
 }
 
 } // namespace muli3

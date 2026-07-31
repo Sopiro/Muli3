@@ -12,12 +12,10 @@ Body::Body(const Transform& tf, Type type)
     : OnDestroy{ nullptr }
     , UserData{ nullptr }
     , world{ nullptr }
-    , prev{ nullptr }
-    , next{ nullptr }
-    , colliderList{ nullptr }
-    , colliderCount{ 0 }
-    , contactList{ nullptr }
-    , jointList{ nullptr }
+    , worldIndex{ null_index }
+    , colliders{}
+    , contacts{}
+    , joints{}
     , type{ type }
     , transform{ tf }
     , mass{ 0.0f }
@@ -152,12 +150,11 @@ Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density,
 
     MuliAssert(shape->GetRadius() >= 0.0f);
 
-    Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
+    Collider* collider = world->poolAllocator.New<Collider>();
     collider->Clone(this, shape, tf, density, material);
 
-    collider->next = colliderList;
-    colliderList = collider;
-    ++colliderCount;
+    collider->bodyIndex = int32(colliders.size());
+    colliders.push_back(collider);
 
     world->constraintGraph.AddCollider(collider);
 
@@ -174,26 +171,21 @@ void Body::DestroyCollider(Collider* collider)
     }
 
     MuliAssert(collider->body == this);
-    MuliAssert(colliderCount > 0);
+    MuliAssert(colliders.empty() == false);
 
-    Collider** c = &colliderList;
-    while (*c)
-    {
-        if (*c == collider)
-        {
-            *c = collider->next;
-            break;
-        }
+    int32 index = collider->bodyIndex;
+    MuliAssert(0 <= index && index < int32(colliders.size()));
+    MuliAssert(colliders[index] == collider);
 
-        c = &(*c)->next;
-    }
+    Collider* moved = colliders.back();
+    colliders[index] = moved;
+    moved->bodyIndex = index;
+    colliders.pop_back();
 
     world->constraintGraph.RemoveCollider(collider);
-    collider->~Collider();
-    collider->Destroy(world);
-    world->poolAllocator.Free(collider);
-
-    --colliderCount;
+    Shape* shape = collider->shape;
+    world->poolAllocator.Delete(collider);
+    world->FreeShape(shape);
 
     ResetMassData();
 }
@@ -283,12 +275,11 @@ Collider* Body::CreateHeightFieldCollider(
         sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize, tf
     );
 
-    Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
+    Collider* collider = world->poolAllocator.New<Collider>();
     collider->Create(this, heightField, 0.0f, material);
 
-    collider->next = colliderList;
-    colliderList = collider;
-    ++colliderCount;
+    collider->bodyIndex = int32(colliders.size());
+    colliders.push_back(collider);
 
     world->constraintGraph.AddCollider(collider);
 
@@ -303,12 +294,11 @@ Collider* Body::CreateMeshCollider(
 {
     MeshShape* mesh = world->poolAllocator.New<MeshShape>(vertices, indices, tf);
 
-    Collider* collider = new (world->poolAllocator.Allocate<Collider>()) Collider;
+    Collider* collider = world->poolAllocator.New<Collider>();
     collider->Create(this, mesh, 0.0f, material);
 
-    collider->next = colliderList;
-    colliderList = collider;
-    ++colliderCount;
+    collider->bodyIndex = int32(colliders.size());
+    colliders.push_back(collider);
 
     world->constraintGraph.AddCollider(collider);
 
@@ -319,9 +309,9 @@ Collider* Body::CreateMeshCollider(
 
 bool Body::TestPoint(const Vec3& q) const
 {
-    MuliAssert(colliderCount > 0);
+    MuliAssert(colliders.empty() == false);
 
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         if (collider->TestPoint(q))
         {
@@ -334,9 +324,9 @@ bool Body::TestPoint(const Vec3& q) const
 
 Vec3 Body::GetClosestPoint(const Vec3& q) const
 {
-    MuliAssert(colliderCount > 0);
+    MuliAssert(colliders.empty() == false);
 
-    Vec3 cp0 = colliderList->GetClosestPoint(q);
+    Vec3 cp0 = colliders[0]->GetClosestPoint(q);
     if (cp0 == q)
     {
         return cp0;
@@ -344,8 +334,9 @@ Vec3 Body::GetClosestPoint(const Vec3& q) const
 
     float d0 = Dist2(cp0, q);
 
-    for (Collider* collider = colliderList->next; collider; collider = collider->next)
+    for (size_t i = 1; i < colliders.size(); ++i)
     {
+        Collider* collider = colliders[i];
         Vec3 cp1 = collider->GetClosestPoint(q);
         if (cp1 == q)
         {
@@ -370,7 +361,7 @@ void Body::RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* call
     input.to = to;
     input.maxFraction = 1.0f;
 
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         RayCastOutput output;
 
@@ -431,7 +422,7 @@ void Body::RayCastAny(
     input.to = to;
     input.maxFraction = 1.0f;
 
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         RayCastOutput output;
 
@@ -492,22 +483,18 @@ void Body::SetType(Body::Type newType)
         return;
     }
 
-    ContactEdge* ce = contactList;
-    while (ce)
+    while (contacts.empty() == false)
     {
-        ContactEdge* ce0 = ce;
-        ce = ce->next;
-        world->constraintGraph.Destroy(ce0->contact);
+        world->constraintGraph.Destroy(contacts.back());
     }
-    contactList = nullptr;
 
     bool dynamicTransition = IsDynamic() != (newType == dynamic_body);
     if (dynamicTransition)
     {
         // Recolor joints when the body starts or stops participating in graph coloring.
-        for (JointEdge* je = jointList; je; je = je->next)
+        for (Joint* joint : joints)
         {
-            world->TransferJoint(je->joint, disabled_set);
+            world->TransferJoint(joint, disabled_set);
         }
     }
 
@@ -540,9 +527,8 @@ void Body::SetType(Body::Type newType)
 
     world->TransferBody(this, newIndex);
 
-    for (JointEdge* je = jointList; je; je = je->next)
+    for (Joint* joint : joints)
     {
-        Joint* joint = je->joint;
         Body* bodyA = joint->GetBodyA();
         Body* bodyB = joint->GetBodyB();
 
@@ -565,7 +551,7 @@ void Body::SetType(Body::Type newType)
         world->TransferJoint(joint, targetSet);
     }
 
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         world->constraintGraph.broadPhase.Refresh(collider);
     }
@@ -596,7 +582,7 @@ void Body::SetEnabled(bool enabled)
 
         world->TransferBody(this, newIndex);
 
-        for (Collider* collider = colliderList; collider; collider = collider->next)
+        for (Collider* collider : colliders)
         {
             if (collider->IsEnabled())
             {
@@ -604,9 +590,8 @@ void Body::SetEnabled(bool enabled)
             }
         }
 
-        for (JointEdge* je = jointList; je; je = je->next)
+        for (Joint* joint : joints)
         {
-            Joint* joint = je->joint;
             Body* bodyA = joint->GetBodyA();
             Body* bodyB = joint->GetBodyB();
 
@@ -632,25 +617,21 @@ void Body::SetEnabled(bool enabled)
     {
         flag &= ~flag_enabled;
 
-        ContactEdge* ce = contactList;
-        while (ce)
+        while (contacts.empty() == false)
         {
-            ContactEdge* ce0 = ce;
-            ce = ce->next;
-            world->constraintGraph.Destroy(ce0->contact);
+            world->constraintGraph.Destroy(contacts.back());
         }
-        contactList = nullptr;
 
-        for (Collider* collider = colliderList; collider; collider = collider->next)
+        for (Collider* collider : colliders)
         {
             world->constraintGraph.RemoveCollider(collider);
         }
 
         islandIndex = 0;
 
-        for (JointEdge* je = jointList; je; je = je->next)
+        for (Joint* joint : joints)
         {
-            world->TransferJoint(je->joint, disabled_set);
+            world->TransferJoint(joint, disabled_set);
         }
 
         world->TransferBody(this, disabled_set);
@@ -659,7 +640,7 @@ void Body::SetEnabled(bool enabled)
 
 void Body::SetCollisionFilter(const CollisionFilter& filter) const
 {
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         collider->SetFilter(filter);
     }
@@ -667,7 +648,7 @@ void Body::SetCollisionFilter(const CollisionFilter& filter) const
 
 void Body::SetFriction(float friction) const
 {
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         collider->SetFriction(friction);
     }
@@ -675,7 +656,7 @@ void Body::SetFriction(float friction) const
 
 void Body::SetRestitution(float restitution) const
 {
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         collider->SetRestitution(restitution);
     }
@@ -683,7 +664,7 @@ void Body::SetRestitution(float restitution) const
 
 void Body::SetRestitutionThreshold(float threshold) const
 {
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         collider->SetRestitutionThreshold(threshold);
     }
@@ -691,7 +672,7 @@ void Body::SetRestitutionThreshold(float threshold) const
 
 void Body::SetSurfaceSpeed(const Vec2& surfaceSpeed) const
 {
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         collider->SetSurfaceSpeed(surfaceSpeed);
     }
@@ -775,14 +756,14 @@ void Body::ResetMassData()
         return;
     }
 
-    if (colliderCount <= 0)
+    if (colliders.empty())
     {
         return;
     }
 
     Vec3 localCenter = Vec3::zero;
 
-    for (Collider* collider = colliderList; collider; collider = collider->next)
+    for (Collider* collider : colliders)
     {
         MassData massData = collider->GetMassData();
         mass += massData.mass;
@@ -823,7 +804,7 @@ void Body::SynchronizeColliders()
 
     if (IsSleeping())
     {
-        for (Collider* collider = colliderList; collider; collider = collider->next)
+        for (Collider* collider : colliders)
         {
             if (collider->IsEnabled())
             {
@@ -837,7 +818,7 @@ void Body::SynchronizeColliders()
         Transform transform0;
         s->motion.GetTransform(0.0f, &transform0);
 
-        for (Collider* collider = colliderList; collider; collider = collider->next)
+        for (Collider* collider : colliders)
         {
             if (collider->IsEnabled())
             {

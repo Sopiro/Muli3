@@ -12,9 +12,10 @@ extern CollideFunction2* collide_function_map2[Shape::shape_count - Shape::heigh
 Contact::Contact(Collider* colliderA, Collider* colliderB)
     : colliderA{ colliderA }
     , colliderB{ colliderB }
-    , prev{ nullptr }
-    , next{ nullptr }
-    , id{ null_index }
+    , poolIndex{ null_index }
+    , graphIndex{ null_index }
+    , bodyIndexA{ null_index }
+    , bodyIndexB{ null_index }
     , setIndex{ null_index }
     , colorIndex{ null_index }
     , localIndex{ null_index }

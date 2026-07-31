@@ -9,15 +9,13 @@ extern void InitializeDetectionFunctionMap();
 
 ConstraintGraph::ConstraintGraph(World* world)
     : world{ world }
-    , contactList{ nullptr }
-    , contactCount{ 0 }
 {
     InitializeDetectionFunctionMap();
 }
 
 ConstraintGraph::~ConstraintGraph()
 {
-    MuliAssert(contactList == nullptr);
+    MuliAssert(contacts.empty());
 }
 
 void ConstraintGraph::EvaluateContacts()
@@ -60,7 +58,7 @@ void ConstraintGraph::EvaluateContacts()
     }
 
     int32 workerCount = world->settings.thread_pool ? world->settings.thread_pool->WorkerCount() : 1;
-    int32 contactSlotCount = world->poolAllocator.GetSlotCount<Contact>();
+    int32 contactSlotCount = contactPool.GetCapacity();
     int32 contactWordCount = (contactSlotCount + 63) / 64;
     int32 contactWordStride = (contactWordCount + 7) & ~7;
     int32 contactBitSize = workerCount * contactWordStride * int32(sizeof(uint64));
@@ -101,7 +99,7 @@ void ConstraintGraph::EvaluateContacts()
                 if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
                 {
                     contact->flag |= Contact::flag_disjoint;
-                    SetBit(changedBits, contact->id);
+                    SetBit(changedBits, contact->poolIndex);
                     continue;
                 }
 
@@ -111,7 +109,7 @@ void ConstraintGraph::EvaluateContacts()
                 bool inGraph = contact->colorIndex != null_index;
                 if (graphContact != inGraph)
                 {
-                    SetBit(changedBits, contact->id);
+                    SetBit(changedBits, contact->poolIndex);
                 }
             }
             MuliProfileZoneEnd(narrow_phase_collision);
@@ -151,7 +149,7 @@ void ConstraintGraph::EvaluateContacts()
 
             if (graphContact != inGraph)
             {
-                SetBit(changedBits, contact->id);
+                SetBit(changedBits, contact->poolIndex);
             }
         }
     }
@@ -173,7 +171,7 @@ void ConstraintGraph::EvaluateContacts()
         {
             int32 bit = int32(std::countr_zero(bits));
             int32 contactId = 64 * word + bit;
-            Contact* contact = world->poolAllocator.Get<Contact>(contactId);
+            Contact* contact = contactPool.Get(contactId);
 
             // Destroy disjoint contacts
             if ((contact->flag & Contact::flag_disjoint) != 0)
@@ -264,53 +262,33 @@ void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
         return;
     }
 
-    ContactEdge* e = bodyB->contactList;
-    while (e)
+    for (Contact* contact : bodyB->contacts)
     {
-        if (e->other == bodyA)
+        Body* other = contact->GetBodyA() == bodyB ? contact->GetBodyB() : contact->GetBodyA();
+        if (other == bodyA)
         {
-            Collider* ceA = e->contact->colliderA;
-            Collider* ceB = e->contact->colliderB;
+            Collider* cA = contact->colliderA;
+            Collider* cB = contact->colliderB;
 
-            if ((colliderA == ceA && colliderB == ceB) || (colliderA == ceB && colliderB == ceA))
+            if ((colliderA == cA && colliderB == cB) || (colliderA == cB && colliderB == cA))
             {
                 return;
             }
         }
-
-        e = e->next;
     }
 
-    Contact* c = world->poolAllocator.New<Contact>(colliderA, colliderB);
-    c->id = world->poolAllocator.GetId(c);
+    int32 contactId = contactPool.NewId(colliderA, colliderB);
+    Contact* c = contactPool.Get(contactId);
+    c->poolIndex = contactId;
 
-    c->prev = nullptr;
-    c->next = contactList;
-    if (contactList != nullptr)
-    {
-        contactList->prev = c;
-    }
-    contactList = c;
+    c->graphIndex = int32(contacts.size());
+    contacts.push_back(c);
 
-    c->nodeA.contact = c;
-    c->nodeA.other = bodyB;
-    c->nodeA.prev = nullptr;
-    c->nodeA.next = bodyA->contactList;
-    if (bodyA->contactList != nullptr)
-    {
-        bodyA->contactList->prev = &c->nodeA;
-    }
-    bodyA->contactList = &c->nodeA;
+    c->bodyIndexA = int32(bodyA->contacts.size());
+    bodyA->contacts.push_back(c);
 
-    c->nodeB.contact = c;
-    c->nodeB.other = bodyA;
-    c->nodeB.prev = nullptr;
-    c->nodeB.next = bodyB->contactList;
-    if (bodyB->contactList != nullptr)
-    {
-        bodyB->contactList->prev = &c->nodeB;
-    }
-    bodyB->contactList = &c->nodeB;
+    c->bodyIndexB = int32(bodyB->contacts.size());
+    bodyB->contacts.push_back(c);
 
     SolverSetIndex setIndex;
     if (bodyA->IsEnabled() == false || bodyB->IsEnabled() == false)
@@ -324,7 +302,6 @@ void ConstraintGraph::OnNewContact(Collider* colliderA, Collider* colliderB)
         setIndex = awakeA || awakeB ? awake_set : sleeping_set;
     }
 
-    ++contactCount;
     world->AddContactState(c, setIndex);
 }
 
@@ -333,17 +310,44 @@ void ConstraintGraph::Destroy(Contact* c)
     Body* bodyA = c->GetBodyA();
     Body* bodyB = c->GetBodyB();
 
-    if (c->prev) c->prev->next = c->next;
-    if (c->next) c->next->prev = c->prev;
-    if (c == contactList) contactList = c->next;
+    int32 index = c->graphIndex;
+    MuliAssert(0 <= index && index < int32(contacts.size()));
+    MuliAssert(contacts[index] == c);
 
-    if (c->nodeA.prev) c->nodeA.prev->next = c->nodeA.next;
-    if (c->nodeA.next) c->nodeA.next->prev = c->nodeA.prev;
-    if (&c->nodeA == bodyA->contactList) bodyA->contactList = c->nodeA.next;
+    Contact* moved = contacts.back();
+    contacts[index] = moved;
+    moved->graphIndex = index;
+    contacts.pop_back();
 
-    if (c->nodeB.prev) c->nodeB.prev->next = c->nodeB.next;
-    if (c->nodeB.next) c->nodeB.next->prev = c->nodeB.prev;
-    if (&c->nodeB == bodyB->contactList) bodyB->contactList = c->nodeB.next;
+    index = c->bodyIndexA;
+    MuliAssert(0 <= index && index < int32(bodyA->contacts.size()));
+    MuliAssert(bodyA->contacts[index] == c);
+    moved = bodyA->contacts.back();
+    bodyA->contacts[index] = moved;
+    if (moved->GetBodyA() == bodyA)
+    {
+        moved->bodyIndexA = index;
+    }
+    else
+    {
+        moved->bodyIndexB = index;
+    }
+    bodyA->contacts.pop_back();
+
+    index = c->bodyIndexB;
+    MuliAssert(0 <= index && index < int32(bodyB->contacts.size()));
+    MuliAssert(bodyB->contacts[index] == c);
+    moved = bodyB->contacts.back();
+    bodyB->contacts[index] = moved;
+    if (moved->GetBodyA() == bodyB)
+    {
+        moved->bodyIndexA = index;
+    }
+    else
+    {
+        moved->bodyIndexB = index;
+    }
+    bodyB->contacts.pop_back();
 
     if (c->colorIndex != null_index)
     {
@@ -355,8 +359,8 @@ void ConstraintGraph::Destroy(Contact* c)
         world->RemoveContactState(c);
     }
 
-    world->poolAllocator.Delete(c);
-    --contactCount;
+    MuliAssert(contactPool.Get(c->poolIndex) == c);
+    contactPool.Delete(c->poolIndex);
 }
 
 void ConstraintGraph::AddCollider(Collider* collider)
@@ -370,11 +374,9 @@ void ConstraintGraph::RemoveCollider(Collider* collider)
     collider->node = AABBTree::nullNode;
 
     Body* body = collider->body;
-    ContactEdge* edge = body->contactList;
-    while (edge)
+    for (int32 i = 0; i < int32(body->contacts.size());)
     {
-        Contact* contact = edge->contact;
-        edge = edge->next;
+        Contact* contact = body->contacts[i];
 
         Collider* colliderA = contact->GetColliderA();
         Collider* colliderB = contact->GetColliderB();
@@ -393,7 +395,11 @@ void ConstraintGraph::RemoveCollider(Collider* collider)
                 bodyA->Awake();
                 bodyB->Awake();
             }
+
+            continue;
         }
+
+        ++i;
     }
 }
 

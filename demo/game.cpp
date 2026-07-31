@@ -124,7 +124,7 @@ static Vec3 GetAngularJointAnchor(
     const Body* bodyA = joint->GetBodyA();
     const Body* bodyB = joint->GetBodyB();
 
-    for (const Joint* other = world.GetJoints(); other; other = other->GetNext())
+    for (const Joint* other : world.GetJoints())
     {
         if (other == joint || other->GetType() != Joint::ball_socket_joint)
         {
@@ -299,12 +299,12 @@ void Game::Render(float alpha)
     renderItems.clear();
     if (drawSolid || drawDepth || drawWireframe)
     {
-        for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+        for (Body* body : world.GetBodies())
         {
             Vec4 color = GetBodyColor(renderer, *body, options);
             Transform transform = GetRenderTransform(body, alpha);
 
-            for (const Collider* collider = body->GetColliderList(); collider; collider = collider->GetNext())
+            for (const Collider* collider : body->GetColliders())
             {
                 AABB bounds = collider->GetAABB();
                 Vec3 center = (bounds.min + bounds.max) * 0.5f;
@@ -364,7 +364,7 @@ void Game::Render(float alpha)
 
     if (options.draw_joint)
     {
-        for (const Joint* joint = world.GetJoints(); joint; joint = joint->GetNext())
+        for (const Joint* joint : world.GetJoints())
         {
             if (UserFlag::IsEnabled(joint, UserFlag::hide_joint))
             {
@@ -658,7 +658,7 @@ void Game::Render(float alpha)
     if (options.show_contact_point || options.show_contact_normal)
     {
         const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 0.9f };
-        for (const Contact* contact = world.GetContacts(); contact; contact = contact->GetNext())
+        for (const Contact* contact : world.GetContacts())
         {
             if (contact->IsEnabled() == false || contact->IsTouching() == false)
             {
@@ -971,7 +971,7 @@ void Game::UpdateUI()
                     int32 enabledBodyCount = 0;
                     int32 colliderCount = 0;
 
-                    for (Body* body = world.GetBodyList(); body; body = body->GetNext())
+                    for (Body* body : world.GetBodies())
                     {
                         colliderCount += body->GetColliderCount();
                         enabledBodyCount += body->IsEnabled();

@@ -18,7 +18,6 @@ World::World(const WorldSettings* settings)
 {
     poolAllocator.Register<Body>(512);
     poolAllocator.Register<Collider>(512);
-    poolAllocator.Register<Contact>(1024);
 }
 
 World::~World()
@@ -28,19 +27,14 @@ World::~World()
 
 void World::Reset()
 {
-    while (bodyList)
+    while (bodies.empty() == false)
     {
-        Destroy(bodyList);
+        Destroy(bodies.back());
     }
 
-    MuliAssert(bodyList == nullptr);
-    MuliAssert(bodyListTail == nullptr);
-    MuliAssert(jointList == nullptr);
-    MuliAssert(jointListTail == nullptr);
-    MuliAssert(bodyCount == 0);
-    MuliAssert(jointCount == 0);
-    MuliAssert(constraintGraph.contactList == nullptr);
-    MuliAssert(constraintGraph.contactCount == 0);
+    MuliAssert(bodies.empty());
+    MuliAssert(joints.empty());
+    MuliAssert(constraintGraph.contacts.empty());
 
     destroyBodyBuffer.clear();
     destroyJointBuffer.clear();
@@ -389,26 +383,28 @@ void World::Destroy(Body* body)
     MuliAssert(body->world == this);
 
     // Destroy attached joints
-    JointEdge* je = body->jointList;
-    while (je)
+    while (body->joints.empty() == false)
     {
-        JointEdge* je0 = je;
-        je = je->next;
-        je0->other->Awake();
+        Joint* joint = body->joints.back();
+        Body* other = joint->bodyA == body ? joint->bodyB : joint->bodyA;
+        other->Awake();
 
-        Destroy(je0->joint);
+        Destroy(joint);
     }
 
-    while (body->colliderList)
+    while (body->colliders.empty() == false)
     {
-        body->DestroyCollider(body->colliderList);
+        body->DestroyCollider(body->colliders.back());
     }
 
-    if (body->next) body->next->prev = body->prev;
-    if (body->prev) body->prev->next = body->next;
-    if (body == bodyList) bodyList = body->next;
-    if (body == bodyListTail) bodyListTail = body->prev;
-    --bodyCount;
+    int32 index = body->worldIndex;
+    MuliAssert(0 <= index && index < int32(bodies.size()));
+    MuliAssert(bodies[index] == body);
+
+    Body* moved = bodies.back();
+    bodies[index] = moved;
+    moved->worldIndex = index;
+    bodies.pop_back();
 
     RemoveBodyState(body);
     FreeBody(body);
@@ -444,23 +440,49 @@ void World::Destroy(Joint* joint)
     MuliAssert(bodyA->world == this);
     MuliAssert(bodyB->world == this);
 
-    // Remove from the world
-    if (joint->prev) joint->prev->next = joint->next;
-    if (joint->next) joint->next->prev = joint->prev;
-    if (joint == jointList) jointList = joint->next;
-    if (joint == jointListTail) jointListTail = joint->prev;
+    // Remove from the world.
+    int32 index = joint->worldIndex;
+    MuliAssert(0 <= index && index < int32(joints.size()));
+    MuliAssert(joints[index] == joint);
 
-    // Remove from bodyA
-    if (joint->nodeA.prev) joint->nodeA.prev->next = joint->nodeA.next;
-    if (joint->nodeA.next) joint->nodeA.next->prev = joint->nodeA.prev;
-    if (&joint->nodeA == bodyA->jointList) bodyA->jointList = joint->nodeA.next;
+    Joint* moved = joints.back();
+    joints[index] = moved;
+    moved->worldIndex = index;
+    joints.pop_back();
 
-    // Remove from bodyB
-    if (joint->bodyA != joint->bodyB)
+    // Remove from body A.
+    index = joint->bodyIndexA;
+    MuliAssert(0 <= index && index < int32(bodyA->joints.size()));
+    MuliAssert(bodyA->joints[index] == joint);
+    moved = bodyA->joints.back();
+    bodyA->joints[index] = moved;
+    if (moved->bodyA == bodyA)
     {
-        if (joint->nodeB.prev) joint->nodeB.prev->next = joint->nodeB.next;
-        if (joint->nodeB.next) joint->nodeB.next->prev = joint->nodeB.prev;
-        if (&joint->nodeB == bodyB->jointList) bodyB->jointList = joint->nodeB.next;
+        moved->bodyIndexA = index;
+    }
+    else
+    {
+        moved->bodyIndexB = index;
+    }
+    bodyA->joints.pop_back();
+
+    // A self joint is stored once.
+    if (bodyA != bodyB)
+    {
+        index = joint->bodyIndexB;
+        MuliAssert(0 <= index && index < int32(bodyB->joints.size()));
+        MuliAssert(bodyB->joints[index] == joint);
+        moved = bodyB->joints.back();
+        bodyB->joints[index] = moved;
+        if (moved->bodyA == bodyB)
+        {
+            moved->bodyIndexA = index;
+        }
+        else
+        {
+            moved->bodyIndexB = index;
+        }
+        bodyB->joints.pop_back();
     }
 
     if (joint->colorIndex != null_index)
@@ -473,7 +495,6 @@ void World::Destroy(Joint* joint)
     }
 
     FreeJoint(joint);
-    --jointCount;
 }
 
 void World::Destroy(std::span<Joint*> joints)
@@ -1047,8 +1068,8 @@ void World::Solve()
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
     BodyState** islandBodies = (BodyState**)linearAllocator.Allocate(awakeBodyCount * sizeof(BodyState*));
-    Contact** islandContacts = (Contact**)linearAllocator.Allocate(constraintGraph.contactCount * sizeof(Contact*));
-    Joint** islandJoints = (Joint**)linearAllocator.Allocate(jointCount * sizeof(Joint*));
+    Contact** islandContacts = (Contact**)linearAllocator.Allocate(constraintGraph.contacts.size() * sizeof(Contact*));
+    Joint** islandJoints = (Joint**)linearAllocator.Allocate(joints.size() * sizeof(Joint*));
 
     MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
     ProfileScope profile_build_islands{ &profile.build_islands };
@@ -1076,10 +1097,8 @@ void World::Solve()
             islandBodies[bodyIndex++] = t->GetBodyState();
             t->islandIndex = islandCount;
 
-            for (ContactEdge* ce = t->contactList; ce; ce = ce->next)
+            for (Contact* c : t->contacts)
             {
-                Contact* c = ce->contact;
-
                 if (c->flag & Contact::flag_island)
                 {
                     continue;
@@ -1095,7 +1114,7 @@ void World::Solve()
                     continue;
                 }
 
-                Body* other = ce->other;
+                Body* other = c->GetBodyA() == t ? c->GetBodyB() : c->GetBodyA();
 
                 islandContacts[contactIndex++] = c;
                 c->flag |= Contact::flag_island;
@@ -1115,16 +1134,14 @@ void World::Solve()
                 other->flag |= Body::flag_island;
             }
 
-            for (JointEdge* je = t->jointList; je; je = je->next)
+            for (Joint* j : t->joints)
             {
-                Joint* j = je->joint;
-
                 if (j->flagIsland == true)
                 {
                     continue;
                 }
 
-                Body* other = je->other;
+                Body* other = j->bodyA == t ? j->bodyB : j->bodyA;
 
                 if (other->IsEnabled() == false)
                 {
@@ -1527,7 +1544,7 @@ void World::Solve()
                     }
 
                     int32 syncIndex = colliderStarts[i];
-                    for (Collider* collider = body->colliderList; collider; collider = collider->next)
+                    for (Collider* collider : body->colliders)
                     {
                         ColliderSync* sync = colliderSyncs + syncIndex++;
                         if (collider->IsEnabled() == false)
@@ -1848,8 +1865,8 @@ void World::Solve()
     Validate();
 #endif
 
-    linearAllocator.Free(islandJoints, jointCount * sizeof(Joint*));
-    linearAllocator.Free(islandContacts, constraintGraph.contactCount * sizeof(Contact*));
+    linearAllocator.Free(islandJoints, joints.size() * sizeof(Joint*));
+    linearAllocator.Free(islandContacts, constraintGraph.contacts.size() * sizeof(Contact*));
     linearAllocator.Free(islandBodies, awakeBodyCount * sizeof(BodyState*));
     linearAllocator.Free(islands, awakeBodyCount * sizeof(Island));
     linearAllocator.Free(stack, awakeBodyCount * sizeof(Body*));
@@ -2103,29 +2120,17 @@ MotorJoint* World::CreateMotorJoint(
 void World::AddBody(Body* body)
 {
     body->world = this;
-    body->prev = bodyListTail;
-    body->next = nullptr;
-    body->colliderList = nullptr;
-    body->colliderCount = 0;
-    body->contactList = nullptr;
-    body->jointList = nullptr;
+    body->worldIndex = int32(bodies.size());
+    body->colliders.clear();
+    body->contacts.clear();
+    body->joints.clear();
     body->flag &= ~Body::flag_island;
     body->flag |= Body::flag_enabled;
 
-    // Connect to tail
-    if (bodyListTail)
-    {
-        bodyListTail->next = body;
-    }
-    else
-    {
-        bodyList = body;
-    }
-    bodyListTail = body;
+    bodies.push_back(body);
 
     SolverSetIndex setIndex = body->type == Body::static_body ? static_set : awake_set;
     AddBodyState(body, setIndex);
-    ++bodyCount;
 }
 
 void World::FreeBody(Body* body)
@@ -2135,46 +2140,21 @@ void World::FreeBody(Body* body)
 
 void World::AddJoint(Joint* joint)
 {
-    // Insert into the world
-    joint->prev = jointListTail;
-    joint->next = nullptr;
-    if (jointListTail != nullptr)
-    {
-        jointListTail->next = joint;
-    }
-    else
-    {
-        jointList = joint;
-    }
-    jointListTail = joint;
+    // Insert into the world.
+    joint->worldIndex = int32(joints.size());
+    joints.push_back(joint);
 
     // Connect to island graph
 
-    // Connect joint edge to body A
-    joint->nodeA.joint = joint;
-    joint->nodeA.other = joint->bodyB;
+    // Connect joint to body A.
+    joint->bodyIndexA = int32(joint->bodyA->joints.size());
+    joint->bodyA->joints.push_back(joint);
 
-    joint->nodeA.prev = nullptr;
-    joint->nodeA.next = joint->bodyA->jointList;
-    if (joint->bodyA->jointList != nullptr)
-    {
-        joint->bodyA->jointList->prev = &joint->nodeA;
-    }
-    joint->bodyA->jointList = &joint->nodeA;
-
-    // Connect joint edge to body B
+    // Connect joint to body B.
     if (joint->bodyA != joint->bodyB)
     {
-        joint->nodeB.joint = joint;
-        joint->nodeB.other = joint->bodyA;
-
-        joint->nodeB.prev = nullptr;
-        joint->nodeB.next = joint->bodyB->jointList;
-        if (joint->bodyB->jointList != nullptr)
-        {
-            joint->bodyB->jointList->prev = &joint->nodeB;
-        }
-        joint->bodyB->jointList = &joint->nodeB;
+        joint->bodyIndexB = int32(joint->bodyB->joints.size());
+        joint->bodyB->joints.push_back(joint);
     }
 
     SolverSetIndex setIndex;
@@ -2222,8 +2202,6 @@ void World::AddJoint(Joint* joint)
             WakeIsland(joint->bodyB);
         }
     }
-
-    ++jointCount;
 }
 
 void World::FreeJoint(Joint* joint)
@@ -2621,10 +2599,9 @@ void World::WakeBody(Body* body)
 
     TransferBody(body, awake_set);
 
-    for (ContactEdge* ce = body->contactList; ce; ce = ce->next)
+    for (Contact* contact : body->contacts)
     {
-        Contact* contact = ce->contact;
-        Body* other = ce->other;
+        Body* other = contact->GetBodyA() == body ? contact->GetBodyB() : contact->GetBodyA();
 
         if (other->IsEnabled() == false)
         {
@@ -2634,10 +2611,9 @@ void World::WakeBody(Body* body)
         TransferContact(contact, awake_set);
     }
 
-    for (JointEdge* je = body->jointList; je; je = je->next)
+    for (Joint* joint : body->joints)
     {
-        Joint* joint = je->joint;
-        Body* other = je->other;
+        Body* other = joint->bodyA == body ? joint->bodyB : joint->bodyA;
 
         if (other->IsEnabled() == false)
         {
@@ -2697,10 +2673,9 @@ void World::WakeIsland(Body* body)
         b->GetBodyState()->resting = 0.0f;
         TransferBody(b, awake_set);
 
-        for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
+        for (Contact* contact : b->contacts)
         {
-            Contact* contact = ce->contact;
-            Body* other = ce->other;
+            Body* other = contact->GetBodyA() == b ? contact->GetBodyB() : contact->GetBodyA();
 
             if (other->IsEnabled() == false)
             {
@@ -2720,10 +2695,9 @@ void World::WakeIsland(Body* body)
             }
         }
 
-        for (JointEdge* je = b->jointList; je; je = je->next)
+        for (Joint* joint : b->joints)
         {
-            Joint* joint = je->joint;
-            Body* other = je->other;
+            Body* other = joint->bodyA == b ? joint->bodyB : joint->bodyA;
 
             if (other->IsEnabled() == false)
             {
@@ -2764,10 +2738,9 @@ void World::SleepIsland(Body* body)
         stack.pop_back();
         bodies.push_back(b);
 
-        for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
+        for (Contact* contact : b->contacts)
         {
-            Contact* contact = ce->contact;
-            Body* other = ce->other;
+            Body* other = contact->GetBodyA() == b ? contact->GetBodyB() : contact->GetBodyA();
 
             if ((contact->flag & Contact::flag_touching) == 0 || (contact->flag & Contact::flag_enabled) == 0)
             {
@@ -2783,9 +2756,9 @@ void World::SleepIsland(Body* body)
             stack.push_back(other);
         }
 
-        for (JointEdge* je = b->jointList; je; je = je->next)
+        for (Joint* joint : b->joints)
         {
-            Body* other = je->other;
+            Body* other = joint->bodyA == b ? joint->bodyB : joint->bodyA;
 
             if (other->IsStatic() || other->IsEnabled() == false || (other->flag & Body::flag_island))
             {
@@ -2811,9 +2784,8 @@ void World::SleepIsland(Body* body)
 
     for (Body* b : bodies)
     {
-        for (ContactEdge* ce = b->contactList; ce; ce = ce->next)
+        for (Contact* contact : b->contacts)
         {
-            Contact* contact = ce->contact;
             Body* bodyA = contact->GetBodyA();
             Body* bodyB = contact->GetBodyB();
 
@@ -2832,9 +2804,8 @@ void World::SleepIsland(Body* body)
             TransferContact(contact, targetSet);
         }
 
-        for (JointEdge* je = b->jointList; je; je = je->next)
+        for (Joint* joint : b->joints)
         {
-            Joint* joint = je->joint;
             Body* bodyA = joint->GetBodyA();
             Body* bodyB = joint->GetBodyB();
 
@@ -3048,26 +3019,27 @@ void World::Validate() const
     }
 
     int32 numContacts = 0;
-    for (Contact* contact = constraintGraph.contactList; contact; contact = contact->next)
+    for (Contact* contact : constraintGraph.contacts)
     {
         MuliAssert(seenContacts.contains(contact));
+        MuliNotUsed(contact);
         ++numContacts;
     }
     MuliAssert(numContacts == int32(seenContacts.size()));
-    MuliAssert(numContacts == constraintGraph.contactCount);
     MuliNotUsed(numContacts);
 
     int32 numJoints = 0;
-    for (Joint* joint = jointList; joint; joint = joint->next)
+    for (Joint* joint : joints)
     {
         MuliAssert(seenJoints.contains(joint));
+        MuliNotUsed(joint);
         ++numJoints;
     }
     MuliAssert(numJoints == int32(seenJoints.size()));
-    MuliAssert(numJoints == this->jointCount);
+    MuliAssert(numJoints == int32(joints.size()));
     MuliNotUsed(numJoints);
 
-    for (Body* body = bodyList; body; body = body->next)
+    for (Body* body : bodies)
     {
         if (body->IsDynamic() == false)
         {

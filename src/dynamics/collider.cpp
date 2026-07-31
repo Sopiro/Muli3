@@ -12,7 +12,7 @@ Collider::Collider()
     , ContactListener{ nullptr }
     , UserData{ nullptr }
     , body{ nullptr }
-    , next{ nullptr }
+    , bodyIndex{ null_index }
     , shape{ nullptr }
     , density{ default_density }
     , material{ default_material }
@@ -30,7 +30,7 @@ Collider::~Collider()
     }
 
     body = nullptr;
-    next = nullptr;
+    bodyIndex = null_index;
 }
 
 void Collider::Clone(Body* inBody, Shape* inShape, const Transform& transform, float inDensity, const Material& inMaterial)
@@ -44,12 +44,6 @@ void Collider::Create(Body* inBody, Shape* inShape, float inDensity, const Mater
     shape = inShape;
     density = inDensity;
     material = inMaterial;
-}
-
-void Collider::Destroy(World* world)
-{
-    world->FreeShape(shape);
-    shape = nullptr;
 }
 
 void Collider::SetEnabled(bool newEnabled)
@@ -89,14 +83,13 @@ void Collider::SetFilter(const CollisionFilter& newFilter)
     }
 
     ConstraintGraph& graph = body->world->constraintGraph;
-    ContactEdge* edge = body->contactList;
-    while (edge)
+    for (int32 i = 0; i < int32(body->contacts.size());)
     {
-        Contact* contact = edge->contact;
-        edge = edge->next;
+        Contact* contact = body->contacts[i];
 
         if (contact->GetColliderA() != this && contact->GetColliderB() != this)
         {
+            ++i;
             continue;
         }
 

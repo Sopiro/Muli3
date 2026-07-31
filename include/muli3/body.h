@@ -14,8 +14,6 @@ class Collider;
 class Shape;
 class Contact;
 class Joint;
-struct ContactEdge;
-struct JointEdge;
 
 class BodyDestroyCallback;
 class RayCastAnyCallback;
@@ -104,10 +102,6 @@ public:
 
     int32 GetIslandIndex() const;
 
-    Body* GetPrev();
-    const Body* GetPrev() const;
-    Body* GetNext();
-    const Body* GetNext() const;
     World* GetWorld();
     const World* GetWorld() const;
 
@@ -142,8 +136,7 @@ public:
     void DestroyCollider(Collider* collider);
 
     int32 GetColliderCount() const;
-    Collider* GetColliderList();
-    const Collider* GetColliderList() const;
+    std::span<Collider* const> GetColliders() const;
 
     Collider* CreateSphereCollider(
         float radius,
@@ -283,15 +276,11 @@ private:
     void SynchronizeColliders();
 
     World* world;
+    int32 worldIndex;
 
-    Body* prev;
-    Body* next;
-
-    Collider* colliderList;
-    int32 colliderCount;
-
-    ContactEdge* contactList;
-    JointEdge* jointList;
+    std::vector<Collider*> colliders;
+    std::vector<Contact*> contacts;
+    std::vector<Joint*> joints;
 
     Type type;
     Transform transform;
@@ -550,26 +539,6 @@ inline int32 Body::GetIslandIndex() const
     return islandIndex;
 }
 
-inline Body* Body::GetPrev()
-{
-    return prev;
-}
-
-inline const Body* Body::GetPrev() const
-{
-    return prev;
-}
-
-inline Body* Body::GetNext()
-{
-    return next;
-}
-
-inline const Body* Body::GetNext() const
-{
-    return next;
-}
-
 inline World* Body::GetWorld()
 {
     return world;
@@ -585,19 +554,14 @@ inline bool Body::IsSleeping() const
     return (flag & flag_sleeping) == flag_sleeping;
 }
 
-inline Collider* Body::GetColliderList()
+inline std::span<Collider* const> Body::GetColliders() const
 {
-    return colliderList;
-}
-
-inline const Collider* Body::GetColliderList() const
-{
-    return colliderList;
+    return colliders;
 }
 
 inline int32 Body::GetColliderCount() const
 {
-    return colliderCount;
+    return int32(colliders.size());
 }
 
 inline void Body::SynchronizeTransform()

@@ -20,9 +20,6 @@ public:
     Body* GetBody();
     const Body* GetBody() const;
 
-    Collider* GetNext();
-    const Collider* GetNext() const;
-
     Shape::Type GetType() const;
 
     Shape* GetShape();
@@ -69,16 +66,17 @@ private:
     friend class ConstraintGraph;
     friend class Body;
     friend class World;
+    friend class PoolAllocator;
 
     Collider();
     ~Collider();
 
     void Clone(Body* body, Shape* shape, const Transform& transform, float density, const Material& material);
     void Create(Body* body, Shape* shape, float density, const Material& material);
-    void Destroy(World* world);
 
     Body* body;
-    Collider* next;
+    int32 bodyIndex;
+
     Shape* shape;
 
     float density;
@@ -97,16 +95,6 @@ inline Body* Collider::GetBody()
 inline const Body* Collider::GetBody() const
 {
     return body;
-}
-
-inline Collider* Collider::GetNext()
-{
-    return next;
-}
-
-inline const Collider* Collider::GetNext() const
-{
-    return next;
 }
 
 inline Shape::Type Collider::GetType() const

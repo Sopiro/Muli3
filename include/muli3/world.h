@@ -5,11 +5,10 @@
 #include "constraint_graph.h"
 #include "contact.h"
 #include "joints.h"
-#include "profile.h"
-#include "settings.h"
-
 #include "linear_allocator.h"
 #include "pool_allocator.h"
+#include "profile.h"
+#include "settings.h"
 
 namespace muli3
 {
@@ -345,13 +344,13 @@ public:
     ) const;
     // clang-format on
 
-    Body* GetBodyList() const;
+    std::span<Body* const> GetBodies() const;
     int32 GetBodyCount() const;
 
-    Joint* GetJoints() const;
+    std::span<Joint* const> GetJoints() const;
     int32 GetJointCount() const;
 
-    const Contact* GetContacts() const;
+    std::span<Contact* const> GetContacts() const;
     int32 GetContactCount() const;
 
     int32 GetSleepingBodyCount() const;
@@ -411,13 +410,8 @@ private:
     WorldProfile profile;
     Timestep step;
 
-    Body* bodyList = nullptr;
-    Body* bodyListTail = nullptr;
-    int32 bodyCount = 0;
-
-    Joint* jointList = nullptr;
-    Joint* jointListTail = nullptr;
-    int32 jointCount = 0;
+    std::vector<Body*> bodies;
+    std::vector<Joint*> joints;
 
     ConstraintGraph constraintGraph;
     SolverSet solverSets[solver_set_count];
@@ -432,34 +426,34 @@ private:
     PoolAllocator poolAllocator;
 };
 
-inline Body* World::GetBodyList() const
+inline std::span<Body* const> World::GetBodies() const
 {
-    return bodyList;
+    return bodies;
 }
 
 inline int32 World::GetBodyCount() const
 {
-    return bodyCount;
+    return int32(bodies.size());
 }
 
-inline Joint* World::GetJoints() const
+inline std::span<Joint* const> World::GetJoints() const
 {
-    return jointList;
+    return joints;
 }
 
 inline int32 World::GetJointCount() const
 {
-    return jointCount;
+    return int32(joints.size());
 }
 
-inline const Contact* World::GetContacts() const
+inline std::span<Contact* const> World::GetContacts() const
 {
-    return constraintGraph.contactList;
+    return constraintGraph.contacts;
 }
 
 inline int32 World::GetContactCount() const
 {
-    return constraintGraph.contactCount;
+    return constraintGraph.GetContactCount();
 }
 
 inline int32 World::GetSleepingBodyCount() const
@@ -501,7 +495,7 @@ inline uint64 World::GetStepIndex() const
 
 inline void World::Awake()
 {
-    for (Body* b = bodyList; b; b = b->next)
+    for (Body* b : bodies)
     {
         b->Awake();
     }

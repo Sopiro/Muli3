@@ -11,6 +11,9 @@ Joint::Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float 
     , UserData{ nullptr }
     , bodyA{ bodyA }
     , bodyB{ bodyB }
+    , worldIndex{ null_index }
+    , bodyIndexA{ null_index }
+    , bodyIndexB{ null_index }
     , setIndex{ null_index }
     , colorIndex{ null_index }
     , localIndex{ null_index }
