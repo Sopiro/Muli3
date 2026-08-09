@@ -5,11 +5,7 @@
 #include "asserts.h"
 #include "types.h"
 
-#ifdef MULI3_DOUBLE_PRECISION
-typedef double Float;
-#else
 typedef float Float;
-#endif
 
 namespace muli3
 {

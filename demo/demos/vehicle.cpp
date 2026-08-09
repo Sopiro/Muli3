@@ -118,9 +118,6 @@ public:
                 wheel.angular->SetSteeringMotorEnabled(true);
                 wheel.angular->SetSteeringMinAngle(DegToRad(-vehicleMaxSteeringAngle));
                 wheel.angular->SetSteeringMaxAngle(DegToRad(vehicleMaxSteeringAngle));
-                wheel.angular->SetSteeringFrequency(vehicleSteeringFrequency);
-                wheel.angular->SetSteeringDampingRatio(vehicleSteeringDampingRatio);
-                wheel.angular->SetMaxSteeringTorque(vehicleMaxSteeringTorque);
             }
             else
             {
@@ -129,6 +126,9 @@ public:
                 wheel.angular->SetSteeringMaxAngle(0.0f);
             }
 
+            wheel.angular->SetSteeringFrequency(vehicleSteeringFrequency);
+            wheel.angular->SetSteeringDampingRatio(vehicleSteeringDampingRatio);
+            wheel.angular->SetMaxSteeringTorque(vehicleMaxSteeringTorque);
             wheel.angular->SetSpinMotorEnabled(wheel.driven);
             wheel.angular->SetMaxSpinTorque(vehicleDriveTorque);
         }
