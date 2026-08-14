@@ -140,14 +140,7 @@ public:
 
     void resize(int32 newCount)
     {
-        if (newCount <= count)
-        {
-            count = newCount;
-            return;
-        }
-
         reserve(newCount);
-        memset(array + count, 0, (newCount - count) * sizeof(T));
         count = newCount;
     }
 

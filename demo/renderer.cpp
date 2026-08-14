@@ -223,6 +223,8 @@ vec3 Shade(vec3 albedo, vec3 N, vec3 V, vec3 L, float shadow, float ao)
     vec2 environmentBRDF = EnvironmentBRDF(NoV, roughness);
     vec3 environmentSpecular = f0 * environmentBRDF.x + environmentBRDF.y;
 
+    // AO attenuates environment lighting.
+    // Direct light is handled separately by the shadow map, while rough surfaces receive stronger specular AO.
     float specularOcclusion = mix(1.0, ao, roughness);
     vec3 ambient = uSkyColor * (environmentDiffuse * ao + environmentSpecular * specularOcclusion);
 
@@ -420,6 +422,7 @@ void main()
     ivec2 pixel = ivec2(gl_FragCoord.xy);
     int sampleCount = textureSamples(uDepth);
 
+    // Keep single MSAA sample instead of averaging across geometry edges.
     float avgDepth = 0.0;
     for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
     {
@@ -459,6 +462,7 @@ uniform sampler2D uNormal;
 uniform sampler2D uSpatialNoise;
 uniform mat4 uProjection;
 
+// It's actually a visibility.
 out float Occlusion;
 
 const float pi = 3.14159265358979323846;
@@ -472,12 +476,14 @@ vec2 SpatialNoise()
 
 float ViewDepth(float depth)
 {
+    // The hardware depth is non-linear. Recover the view-space z value first.
     float ndcDepth = depth * 2.0 - 1.0;
     return -uProjection[3][2] / (ndcDepth + uProjection[2][2]);
 }
 
 vec3 ReconstructViewPosition(vec2 uv, float depth)
 {
+    // Rebuild the view-space position needed to measure real sample distances.
     float z = ViewDepth(depth);
     vec2 ndc = uv * 2.0 - 1.0 + vec2(uProjection[2][0], uProjection[2][1]);
     vec2 xy = -z * ndc / vec2(uProjection[0][0], uProjection[1][1]);
@@ -500,14 +506,18 @@ void main()
     vec2 depthSize = vec2(textureSize(uDepth, 0));
     vec2 texelSize = 1.0 / depthSize;
 
+    // The trace radius is in view/world units and is converted to pixels below.
     const float effectRadius = 0.75;
     const float falloffRange = effectRadius * 0.5;
     const float falloffFrom = effectRadius - falloffRange;
     const float falloffMul = -1.0 / falloffRange;
     const float falloffAdd = falloffFrom / falloffRange + 1.0;
-    const int sliceCount = 4;
+
+    const int sliceCount = 8;
     const int stepsPerSlice = 4;
 
+    // Keep the radius view-independent: the same world-space radius covers
+    // fewer pixels on distant surfaces and more pixels on nearby surfaces.
     float pixelViewSize = 2.0 * -position.z / (uProjection[0][0] * depthSize.x);
     float screenRadius = clamp(effectRadius / max(pixelViewSize, 0.0001), 1.0, 128.0);
     float minStep = 1.3 / screenRadius;
@@ -515,11 +525,16 @@ void main()
 
     for (int slice = 0; slice < sliceCount; ++slice)
     {
+        // A slice covers one screen direction and its opposite. Using [0, pi)
+        // here therefore covers the full circle without duplicating planes.
         float sliceK = (float(slice) + noise.x) / float(sliceCount);
         float phi = sliceK * pi;
 
         vec2 screenDirection = vec2(cos(phi), sin(phi));
         vec3 direction = vec3(screenDirection, 0.0);
+
+        // The slice plane contains viewDirection and the screen direction projected perpendicular to it.
+        // The surface normal is not generally in this plane, so it is projected into the plane below.
         vec3 orthoDirection = direction - dot(direction, viewDirection) * viewDirection;
         vec3 axis = normalize(cross(orthoDirection, viewDirection));
         vec3 projectedNormal = N - axis * dot(N, axis);
@@ -529,6 +544,8 @@ void main()
         float cosNormal = clamp(dot(projectedNormal, viewDirection) / projectedNormalLength, 0.0, 1.0);
         float normalAngle = signNormal * acos(cosNormal);
 
+        // Horizons are kept as cosines while sampling.
+        // This avoids an acos per sample; only the two final bounds need to be converted to angles.
         float lowHorizon0 = cos(normalAngle + halfPi);
         float lowHorizon1 = cos(normalAngle - halfPi);
         float horizon0 = lowHorizon0;
@@ -538,6 +555,9 @@ void main()
         {
             float sequence = (float(slice) + float(stepIndex * stepsPerSlice)) * 0.61803398875;
             float stepNoise = fract(noise.y + sequence);
+
+            // Squaring concentrates samples near the center.
+            // minStep keeps the first sample away from the current pixel to reduce self-occlusion.
             float stepScale = (float(stepIndex) + stepNoise) / float(stepsPerSlice);
             stepScale = stepScale * stepScale + minStep;
 
@@ -549,11 +569,13 @@ void main()
             {
                 vec3 samplePosition = ReconstructViewPosition(sampleUv0, texture(uDepth, sampleUv0).r);
                 vec3 sampleDelta = samplePosition - position;
-
                 float sampleDistance = length(sampleDelta);
+
+                // Fade the horizon contribution to the unoccluded baseline at the outer part of the effect radius.
                 float weight = clamp(sampleDistance * falloffMul + falloffAdd, 0.0, 1.0);
                 float horizon = dot(sampleDelta / max(sampleDistance, 0.0001), viewDirection);
 
+                // Keep the highest horizon on this side of the slice.
                 horizon0 = max(horizon0, mix(lowHorizon0, horizon, weight));
             }
 
@@ -570,17 +592,23 @@ void main()
             }
         }
 
+        // Correct the projected normal length slightly to avoid unstable dark
+        // slices when the normal is nearly perpendicular to the slice plane.
         projectedNormalLength = mix(projectedNormalLength, 1.0, 0.05);
 
         float horizonAngle0 = -acos(clamp(horizon1, -1.0, 1.0));
         float horizonAngle1 = acos(clamp(horizon0, -1.0, 1.0));
 
+        // Analytically integrate the cosine-weighted visible arc between the two horizon angles.
+        // Samples only determine these arc boundaries.
         float arc0 = (cosNormal + 2.0 * horizonAngle0 * sin(normalAngle) - cos(2.0 * horizonAngle0 - normalAngle)) * 0.25;
         float arc1 = (cosNormal + 2.0 * horizonAngle1 * sin(normalAngle) - cos(2.0 * horizonAngle1 - normalAngle)) * 0.25;
 
         visibility += projectedNormalLength * max(arc0 + arc1, 0.0);
     }
 
+    // This texture stores visibility: 1 means unoccluded. The power and floor
+    // are artistic stabilization to preserve readable contact shading.
     visibility = pow(clamp(visibility / float(sliceCount), 0.0, 1.0), 1.45);
     Occlusion = max(visibility, 0.08);
 }
@@ -620,6 +648,8 @@ void main()
     float sum = 0.0;
     float weightSum = 0.0;
 
+    // A small cross-bilateral filter removes deterministic trace noise without
+    // blurring across depth or normal discontinuities.
     for (int y = -1; y <= 1; ++y)
     {
         for (int x = -1; x <= 1; ++x)
@@ -1124,6 +1154,7 @@ bool Renderer::CreateFrameResources(int32 width, int32 height)
     complete &= glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
 
     std::array<uint8, 64 * 64 * 2> spatialNoise;
+    // A tiled low-discrepancy pattern rotates slices and jitters radial steps.
     for (uint32 y = 0; y < 64; ++y)
     {
         for (uint32 x = 0; x < 64; ++x)

@@ -241,8 +241,7 @@ void EPA(const Shape* a, const Transform& tfA, const Shape* b, const Transform& 
     result->penetrationDepth = best.distance;
 }
 
-static constexpr int32 default_clipped_vertex_count = 64;
-
+static constexpr int32 default_clipped_vertex_count = 32;
 using ClippedFace = GrowableStack<Vec3, default_clipped_vertex_count>;
 
 static Vec3 IntersectPlaneEdge(const Vec3& a, const Vec3& b, float da, float db)
@@ -304,8 +303,9 @@ static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, con
     }
 }
 
+template <typename ShapeA, typename ShapeB>
 static void FindContactPoints(
-    const Vec3& n, const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold
+    const Vec3& n, const ShapeA* a, const Transform& tfA, const ShapeB* b, const Transform& tfB, ContactManifold* manifold
 )
 {
     manifold->normal = n;
@@ -322,17 +322,13 @@ static void FindContactPoints(
     float ra = a->GetRadius();
     float rb = b->GetRadius();
 
-    Vec3 origin(0);
-
     // Offset shape A vertices along the face normal by its collision radius.
     for (int32 i = 0; i < faceA.vertexCount; ++i)
     {
         int32 vertexIndex = a->GetVertexIndex(faceA.vertexStart + i);
         Vec3 point = Mul(tfA, a->GetVertex(vertexIndex));
-        origin += point;
         clippedA[i] = point + faceA.normal * ra;
     }
-    origin /= float(faceA.vertexCount);
 
     // Offset shape B vertices along the face normal by its collision radius.
     for (int32 i = 0; i < faceB.vertexCount; ++i)
@@ -437,6 +433,8 @@ static void FindContactPoints(
             candidates[i].anchorA = point - planeNormal * separation;
             candidates[i].anchorB = point;
         }
+
+        candidates[i].impulse = 0.0f;
     }
 
     Vec3 tangent1;
@@ -1022,7 +1020,7 @@ bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     // Found overlap
 
     normal = tfBox.q.Rotate(normal);
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    FindContactPoints(normal, boxA, tfA, capsuleB, tfB, manifold);
 
     return manifold->contactCount > 0;
 }
@@ -1117,7 +1115,7 @@ bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transf
     }
 
     // Found overlap
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    FindContactPoints(normal, boxA, tfA, boxB, tfB, manifold);
 
     return manifold->contactCount > 0;
 }
@@ -1603,7 +1601,7 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
         }
     }
 
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    FindContactPoints(normal, triangle, tfA, capsule, tfB, manifold);
     return manifold->contactCount > 0;
 }
 
@@ -1706,7 +1704,7 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
         }
     }
 
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    FindContactPoints(normal, triangle, tfA, box, tfB, manifold);
     return manifold->contactCount > 0;
 }
 
@@ -1794,7 +1792,7 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
         }
     }
 
-    FindContactPoints(normal, a, tfA, b, tfB, manifold);
+    FindContactPoints(normal, triangleA, tfA, triangleB, tfB, manifold);
     return manifold->contactCount > 0;
 }
 
