@@ -444,7 +444,7 @@ void SolveContactVelocityBlock(BlockContactArray* contacts, int32 block)
     ScatterVelocity(contacts, block, false, bodyB);
 }
 
-uint32 SolveContactPositionBlock(BlockContactArray* contacts, int32 block)
+void SolveContactPositionBlock(BlockContactArray* contacts, int32 block)
 {
     BlockContactState& state = contacts->state;
     BlockContactConstraint& constraint = contacts->constraint;
@@ -466,8 +466,6 @@ uint32 SolveContactPositionBlock(BlockContactArray* contacts, int32 block)
 
     FloatW dynamicA = GreaterThanW(invMassA, zero);
     FloatW dynamicB = GreaterThanW(invMassB, zero);
-    FloatW unsolved = zero;
-
     for (int32 i = 0; i < max_contact_point_count; ++i)
     {
         FloatW pointMask = GreaterThanW(pointCount, SplatW(Float(i)));
@@ -475,8 +473,6 @@ uint32 SolveContactPositionBlock(BlockContactArray* contacts, int32 block)
         Vec3W rb = Rotate(bodyB.rotation, LoadW(constraint.localPointB[i][block]));
         Vec3W normal = Rotate(bodyA.rotation, localNormal);
         FloatW separation = Dot((bodyB.center - bodyA.center) + rb - ra, normal);
-        FloatW failed = LessThanW(separation, SplatW(-position_solver_threshold));
-        unsolved = OrW(unsolved, AndW(failed, pointMask));
         FloatW penetration = AndW(LessThanW(separation, SplatW(-linear_slop)), pointMask);
         if (MoveMaskW(penetration) == 0)
         {
@@ -512,7 +508,6 @@ uint32 SolveContactPositionBlock(BlockContactArray* contacts, int32 block)
 
     ScatterPosition(contacts, block, true, bodyA);
     ScatterPosition(contacts, block, false, bodyB);
-    return uint32(MoveMaskW(unsolved));
 }
 
 } // namespace muli3

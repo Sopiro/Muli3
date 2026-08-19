@@ -24,7 +24,6 @@ inline constexpr float restitution_slop = 0.5f;
 
 // Solver tolerances
 inline constexpr float position_correction = 0.2f;
-inline constexpr float position_solver_threshold = linear_slop * 3.0f;
 inline constexpr float max_joint_angular_correction = 10.0f * pi / 180.0f;
 
 // Defaults
@@ -58,7 +57,7 @@ struct WorldSettings
     bool sleeping = true;
     float sleeping_time = 0.5f;
     float rest_linear_tolerance = Sqr(0.05f);
-    float rest_angular_tolerance = Sqr(1.0f * pi / 180.0f);
+    float rest_angular_tolerance = Sqr(3.0f * pi / 180.0f);
 };
 
 } // namespace muli3

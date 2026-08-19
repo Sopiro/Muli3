@@ -56,7 +56,7 @@ using ContactConstraintSet = GrowableStack<ContactConstraint, 1>;
 void PrepareContact(ContactState* state, ScalarContactConstraint* constraint);
 void WarmStartContact(ContactState* state, ScalarContactConstraint* constraint);
 void SolveContactVelocityConstraints(ContactState* state, ScalarContactConstraint* constraint);
-bool SolveContactPositionConstraints(ContactState* state, ScalarContactConstraint* constraint);
+void SolveContactPositionConstraints(ContactState* state, ScalarContactConstraint* constraint);
 
 void PrepareJoint(JointState* joint, const Timestep& step);
 void WarmStartJoint(JointState* joint);

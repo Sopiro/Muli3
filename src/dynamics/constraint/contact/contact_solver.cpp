@@ -265,7 +265,7 @@ static void PreparePosition(
     constraint->localPointB = bodyB->motion.q.RotateInv(manifold->contactPoints[index].anchorB - bodyB->motion.c);
 }
 
-static bool SolvePosition(const PositionConstraint* constraint, const Vec3& localNormal, BodyState* bodyA, BodyState* bodyB)
+static void SolvePosition(const PositionConstraint* constraint, const Vec3& localNormal, BodyState* bodyA, BodyState* bodyB)
 {
     // Contact arms and normal follow the current poses during each nonlinear iteration.
     Vec3 ra = bodyA->motion.q.Rotate(constraint->localPointA);
@@ -274,7 +274,7 @@ static bool SolvePosition(const PositionConstraint* constraint, const Vec3& loca
     float separation = Dot((bodyB->motion.c - bodyA->motion.c) + rb - ra, normal);
     if (separation >= -linear_slop)
     {
-        return true;
+        return;
     }
 
     Vec3 ran = Cross(ra, normal);
@@ -337,7 +337,6 @@ static bool SolvePosition(const PositionConstraint* constraint, const Vec3& loca
         bodyB->motion.q = Normalize(bodyB->motion.q + (w * bodyB->motion.q) * 0.5f);
     }
 
-    return -separation <= position_solver_threshold;
 }
 
 void PrepareContact(ContactState* state, ScalarContactConstraint* solver)
@@ -406,10 +405,8 @@ void SolveContactVelocityConstraints(ContactState* state, ScalarContactConstrain
     }
 }
 
-bool SolveContactPositionConstraints(ContactState* state, ScalarContactConstraint* solver)
+void SolveContactPositionConstraints(ContactState* state, ScalarContactConstraint* solver)
 {
-    bool solved = true;
-
     BodyState* bodyA = solver->bodyA;
     BodyState* bodyB = solver->bodyB;
     for (int32 m = 0; m < state->manifolds.size(); ++m)
@@ -419,11 +416,9 @@ bool SolveContactPositionConstraints(ContactState* state, ScalarContactConstrain
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            solved &= SolvePosition(constraint->positionContact + i, constraint->localNormal, bodyA, bodyB);
+            SolvePosition(constraint->positionContact + i, constraint->localNormal, bodyA, bodyB);
         }
     }
-
-    return solved;
 }
 
 void PrepareJoint(JointState* j, const Timestep& step)

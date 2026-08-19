@@ -1196,6 +1196,10 @@ void World::Solve()
     const int32 minBodyRange = 64;
     const int32 minConstraintRange = 32;
 
+    float dt2 = Sqr(step.dt);
+    float linearTolerance2 = settings.rest_linear_tolerance * dt2;
+    float angularTolerance2 = 0.125f * settings.rest_angular_tolerance * dt2;
+
     // Integrate velocities for all awake bodies
     MuliProfileZoneNC(integrate_velocities, "Integrate Velocities", color::integrate_velocities, true);
     {
@@ -1209,18 +1213,18 @@ void World::Solve()
                 {
                     BodyState* s = islandBodies[i];
                     Body* b = s->body;
-                    s->motion.c0 = s->motion.c;
-                    s->motion.q0 = s->motion.q;
-                    s->motion.alpha0 = 0.0f;
-
                     b->flag &= ~Body::flag_sleeping;
 
-                    if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
-                        Length2(s->linearVelocity) > settings.rest_linear_tolerance || Length2(s->torque) > 0.0f ||
+                    if (Length2(s->motion.c - s->motion.c0) > linearTolerance2 ||
+                        1.0f - Abs(Dot(s->motion.q0, s->motion.q)) > angularTolerance2 || Length2(s->torque) > 0.0f ||
                         Length2(s->force) > 0.0f)
                     {
                         s->resting = 0.0f;
                     }
+
+                    s->motion.c0 = s->motion.c;
+                    s->motion.q0 = s->motion.q;
+                    s->motion.alpha0 = 0.0f;
 
                     if (b->GetType() == Body::dynamic_body)
                     {
@@ -1469,19 +1473,7 @@ void World::Solve()
             {
                 ContactState& state = overflow.scalarContacts.states[j];
                 ScalarContactConstraint& constraint = overflow.scalarContacts.constraints[j];
-                if (SolveContactPositionConstraints(&state, &constraint) == false)
-                {
-                    BodyState* bodyA = constraint.bodyA;
-                    BodyState* bodyB = constraint.bodyB;
-                    if (bodyA->invMass > 0.0f)
-                    {
-                        bodyA->resting = 0.0f;
-                    }
-                    if (bodyB->invMass > 0.0f)
-                    {
-                        bodyB->resting = 0.0f;
-                    }
-                }
+                SolveContactPositionConstraints(&state, &constraint);
             }
             MuliProfileZoneEnd(solve_position_contact);
 
@@ -1501,44 +1493,13 @@ void World::Solve()
                             if (i < blockCount)
                             {
                                 BlockContactArray& contacts = batch.blockContacts;
-                                uint32 failedLanes = SolveContactPositionBlock(&contacts, i);
-                                int32 laneCount = Min(simd_width, contacts.Count() - i * simd_width);
-                                for (int32 lane = 0; lane < laneCount; ++lane)
-                                {
-                                    if ((failedLanes & (1u << lane)) == 0)
-                                    {
-                                        continue;
-                                    }
-
-                                    BodyState& bodyA = *contacts.constraint.bodyA[i].lane[lane];
-                                    BodyState& bodyB = *contacts.constraint.bodyB[i].lane[lane];
-                                    if (bodyA.invMass > 0.0f)
-                                    {
-                                        bodyA.resting = 0.0f;
-                                    }
-                                    if (bodyB.invMass > 0.0f)
-                                    {
-                                        bodyB.resting = 0.0f;
-                                    }
-                                }
+                                SolveContactPositionBlock(&contacts, i);
                             }
                             else
                             {
                                 ScalarContactConstraint& constraint = batch.scalarContacts.constraints[i - blockCount];
                                 ContactState& state = batch.scalarContacts.states[i - blockCount];
-                                if (SolveContactPositionConstraints(&state, &constraint) == false)
-                                {
-                                    BodyState* bodyA = constraint.bodyA;
-                                    BodyState* bodyB = constraint.bodyB;
-                                    if (bodyA->invMass > 0.0f)
-                                    {
-                                        bodyA->resting = 0.0f;
-                                    }
-                                    if (bodyB->invMass > 0.0f)
-                                    {
-                                        bodyB->resting = 0.0f;
-                                    }
-                                }
+                                SolveContactPositionConstraints(&state, &constraint);
                             }
                         }
                         MuliProfileZoneEnd(solve_position_contact);
