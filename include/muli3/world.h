@@ -388,6 +388,7 @@ private:
     BodyState* AddBodyState(Body* body, SolverSetIndex setIndex);
     void RemoveBodyState(Body* body);
     void TransferBody(Body* body, SolverSetIndex targetSet);
+    void UpdateContactBodyIndices(Body* body);
 
     ContactState* AddContactState(Contact* contact, SolverSetIndex setIndex);
     void RemoveContactState(Contact* contact);
@@ -470,7 +471,7 @@ inline int32 World::GetConstraintCount(int32 colorIndex) const
 {
     MuliAssert(0 <= colorIndex && colorIndex < constraint_color_count);
     const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
-    return int32(batch.contactStates.size() + batch.jointStates.size());
+    return int32(batch.blockContacts.Count() + batch.scalarContacts.Count() + batch.jointStates.size());
 }
 
 inline const AABBTree& World::GetDynamicTree() const

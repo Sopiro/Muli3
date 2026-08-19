@@ -24,11 +24,17 @@ Contact::Contact(Collider* colliderA, Collider* colliderB)
     MuliAssert(colliderA->GetType() >= colliderB->GetType());
 }
 
+bool Contact::IsSimpleContact() const
+{
+    return (flag & flag_simple) != 0;
+}
+
 ContactState* Contact::GetContactState()
 {
     if (colorIndex != null_index)
     {
-        return &colliderA->body->world->constraintGraph.batches[colorIndex].contactStates[localIndex];
+        MuliAssert(IsSimpleContact() == false);
+        return &colliderA->body->world->constraintGraph.batches[colorIndex].scalarContacts.states[localIndex];
     }
     else
     {
@@ -41,7 +47,8 @@ const ContactState* Contact::GetContactState() const
 {
     if (colorIndex != null_index)
     {
-        return &colliderA->body->world->constraintGraph.batches[colorIndex].contactStates[localIndex];
+        MuliAssert(IsSimpleContact() == false);
+        return &colliderA->body->world->constraintGraph.batches[colorIndex].scalarContacts.states[localIndex];
     }
     else
     {
@@ -50,174 +57,345 @@ const ContactState* Contact::GetContactState() const
     }
 }
 
-void Contact::Update()
+static ContactManifold ReadBlockManifold(const BlockContactState& state, int32 block, int32 lane)
 {
-    ContactState* s = GetContactState();
+    ContactManifold manifold;
+    manifold.id = state.manifoldId[block].lane[lane];
+    manifold.contactCount = int32(state.pointCount[block].lane[lane]);
+    manifold.normal = {
+        state.normal[block].x.lane[lane],
+        state.normal[block].y.lane[lane],
+        state.normal[block].z.lane[lane],
+    };
+    manifold.linearImpulse = {
+        state.linearImpulse[block].x.lane[lane],
+        state.linearImpulse[block].y.lane[lane],
+        state.linearImpulse[block].z.lane[lane],
+    };
+    manifold.angularImpulse = state.angularImpulse[block].lane[lane];
 
-    s->friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
-    s->restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
-    s->restitutionThreshold = MixRestitutionThreshold(colliderA->GetRestitutionThreshold(), colliderB->GetRestitutionThreshold());
-    s->surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
-
-    // The parallel-safe pure mathematical part of updating a contact's manifold and solver warm-starting.
-    // Writes are strictly isolated to this contact instance, and read accesses to rigidbody transforms are read-only.
-    flag |= Contact::flag_enabled;
-
-    GrowableStack<ContactManifold, 4> oldManifolds;
-
-    int32 oldManifoldCount = s->manifolds.size();
-    if (oldManifoldCount > 0)
+    for (int32 i = 0; i < manifold.contactCount; ++i)
     {
-        oldManifolds.resize(oldManifoldCount);
-        memcpy(oldManifolds.data(), s->manifolds.data(), oldManifoldCount * sizeof(ContactManifold));
+        ContactPoint& point = manifold.contactPoints[i];
+        point.id = state.pointId[i][block].lane[lane];
+        point.anchorA = {
+            state.anchorA[i][block].x.lane[lane],
+            state.anchorA[i][block].y.lane[lane],
+            state.anchorA[i][block].z.lane[lane],
+        };
+        point.anchorB = {
+            state.anchorB[i][block].x.lane[lane],
+            state.anchorB[i][block].y.lane[lane],
+            state.anchorB[i][block].z.lane[lane],
+        };
+        point.impulse = state.normalImpulse[i][block].lane[lane];
     }
 
-    s->manifolds.clear();
+    return manifold;
+}
 
-    bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
-    if (wasTouching)
+static void WriteBlockManifold(BlockContactState* state, int32 block, int32 lane, const ContactManifold& manifold)
+{
+    state->manifoldId[block].lane[lane] = manifold.id;
+    state->pointCount[block].lane[lane] = Float(manifold.contactCount);
+    state->normal[block].x.lane[lane] = manifold.normal.x;
+    state->normal[block].y.lane[lane] = manifold.normal.y;
+    state->normal[block].z.lane[lane] = manifold.normal.z;
+    state->linearImpulse[block].x.lane[lane] = manifold.linearImpulse.x;
+    state->linearImpulse[block].y.lane[lane] = manifold.linearImpulse.y;
+    state->linearImpulse[block].z.lane[lane] = manifold.linearImpulse.z;
+    state->angularImpulse[block].lane[lane] = manifold.angularImpulse;
+
+    for (int32 i = 0; i < max_contact_point_count; ++i)
     {
-        flag |= Contact::flag_was_touching;
+        if (i < manifold.contactCount)
+        {
+            const ContactPoint& point = manifold.contactPoints[i];
+            state->pointId[i][block].lane[lane] = point.id;
+            state->anchorA[i][block].x.lane[lane] = point.anchorA.x;
+            state->anchorA[i][block].y.lane[lane] = point.anchorA.y;
+            state->anchorA[i][block].z.lane[lane] = point.anchorA.z;
+            state->anchorB[i][block].x.lane[lane] = point.anchorB.x;
+            state->anchorB[i][block].y.lane[lane] = point.anchorB.y;
+            state->anchorB[i][block].z.lane[lane] = point.anchorB.z;
+            state->normalImpulse[i][block].lane[lane] = point.impulse;
+        }
+        else
+        {
+            state->pointId[i][block].lane[lane] = 0;
+            state->anchorA[i][block].x.lane[lane] = 0.0f;
+            state->anchorA[i][block].y.lane[lane] = 0.0f;
+            state->anchorA[i][block].z.lane[lane] = 0.0f;
+            state->anchorB[i][block].x.lane[lane] = 0.0f;
+            state->anchorB[i][block].y.lane[lane] = 0.0f;
+            state->anchorB[i][block].z.lane[lane] = 0.0f;
+            state->normalImpulse[i][block].lane[lane] = 0.0f;
+        }
+    }
+}
+
+int32 Contact::GetManifoldCount() const
+{
+    return IsSimpleContact() ? 1 : GetContactState()->manifolds.size();
+}
+
+ContactManifold Contact::GetContactManifold(int32 index) const
+{
+    if (IsSimpleContact())
+    {
+        MuliAssert(index == 0);
+        const BlockContactState& state = colliderA->body->world->constraintGraph.batches[colorIndex].blockContacts.state;
+        return ReadBlockManifold(state, localIndex / simd_width, localIndex % simd_width);
     }
     else
     {
-        flag &= ~Contact::flag_was_touching;
+        const ContactState* state = GetContactState();
+        MuliAssert(0 <= index && index < state->manifolds.size());
+        return state->manifolds[index];
     }
+}
 
+float Contact::GetFriction() const
+{
+    if (IsSimpleContact())
+    {
+        const BlockContactState& state = colliderA->body->world->constraintGraph.batches[colorIndex].blockContacts.state;
+        return state.friction[localIndex / simd_width].lane[localIndex % simd_width];
+    }
+    else
+    {
+        return GetContactState()->friction;
+    }
+}
+
+float Contact::GetRestitution() const
+{
+    if (IsSimpleContact())
+    {
+        const BlockContactState& state = colliderA->body->world->constraintGraph.batches[colorIndex].blockContacts.state;
+        return state.restitution[localIndex / simd_width].lane[localIndex % simd_width];
+    }
+    else
+    {
+        return GetContactState()->restitution;
+    }
+}
+
+float Contact::GetRestitutionThreshold() const
+{
+    if (IsSimpleContact())
+    {
+        const BlockContactState& state = colliderA->body->world->constraintGraph.batches[colorIndex].blockContacts.state;
+        return state.restitutionThreshold[localIndex / simd_width].lane[localIndex % simd_width];
+    }
+    else
+    {
+        return GetContactState()->restitutionThreshold;
+    }
+}
+
+Vec2 Contact::GetSurfaceSpeed() const
+{
+    if (IsSimpleContact())
+    {
+        const BlockContactState& state = colliderA->body->world->constraintGraph.batches[colorIndex].blockContacts.state;
+        int32 block = localIndex / simd_width;
+        int32 lane = localIndex % simd_width;
+        return { state.surfaceSpeed[block].x.lane[lane], state.surfaceSpeed[block].y.lane[lane] };
+    }
+    else
+    {
+        return GetContactState()->surfaceSpeed;
+    }
+}
+
+void Contact::ProjectManifold(ContactManifold* manifold, ContactManifold* oldManifolds, int32 oldManifoldCount)
+{
     Body* bodyA = colliderA->GetBody();
     Body* bodyB = colliderB->GetBody();
 
-    bool touching = false;
-
-    if (colliderA->GetType() < Shape::height_field)
-    {
-        ContactManifold& manifold = s->manifolds.emplace_back();
-
-        touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
-            colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
-        );
-    }
-    else
-    {
-        touching = collide_function_map2[colliderA->GetType() - Shape::height_field](
-            colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &s->manifolds
-        );
-    }
-
-    if (touching)
-    {
-        flag |= Contact::flag_touching;
-    }
-    else
-    {
-        flag &= ~Contact::flag_touching;
-    }
-
-    if (touching == false)
-    {
-        return;
-    }
-
     const float normalMatchThreshold = 0.9986f; // ~ cos 3
 
-    for (int32 i = 0; i < s->manifolds.size(); ++i)
+    int32 oldIndex = null_index;
+    float bestSimilarity = normalMatchThreshold;
+    for (int32 i = 0; i < oldManifoldCount; ++i)
     {
-        ContactManifold& manifold = s->manifolds[i];
-
-        int32 oldIndex = null_index;
-        float bestSimilarity = normalMatchThreshold;
-        for (int32 j = 0; j < oldManifolds.size(); ++j)
-        {
-            if (manifold.id != oldManifolds[j].id)
-            {
-                continue;
-            }
-
-            float similarity = Dot(manifold.normal, oldManifolds[j].normal);
-            if (similarity > bestSimilarity)
-            {
-                oldIndex = j;
-                bestSimilarity = similarity;
-            }
-        }
-
-        if (oldIndex == null_index)
+        if (manifold->id != oldManifolds[i].id)
         {
             continue;
         }
 
-        ContactManifold& oldManifold = oldManifolds[oldIndex];
-        if (manifold.contactCount == oldManifold.contactCount)
+        float similarity = Dot(manifold->normal, oldManifolds[i].normal);
+        if (similarity > bestSimilarity)
         {
-            for (int32 j = 0; j < manifold.contactCount; ++j)
+            oldIndex = i;
+            bestSimilarity = similarity;
+        }
+    }
+
+    if (oldIndex == null_index)
+    {
+        return;
+    }
+
+    ContactManifold& oldManifold = oldManifolds[oldIndex];
+    if (manifold->contactCount == oldManifold.contactCount)
+    {
+        for (int32 i = 0; i < manifold->contactCount; ++i)
+        {
+            for (int32 j = 0; j < oldManifold.contactCount; ++j)
             {
-                for (int32 k = 0; k < oldManifold.contactCount; ++k)
+                if (manifold->contactPoints[i].id == oldManifold.contactPoints[j].id)
                 {
-                    if (manifold.contactPoints[j].id == oldManifold.contactPoints[k].id)
-                    {
-                        manifold.contactPoints[j].impulse = oldManifold.contactPoints[k].impulse;
-                        oldManifold.contactPoints[k].id = -1;
-                        break;
-                    }
+                    manifold->contactPoints[i].impulse = oldManifold.contactPoints[j].impulse;
+                    oldManifold.contactPoints[j].id = -1;
+                    break;
                 }
             }
+        }
+    }
+    else
+    {
+        const float contactMatchDistance2 = Sqr(2.0f * linear_slop);
+
+        Transform oldTransformA;
+        Transform oldTransformB;
+        bodyA->GetBodyState()->motion.GetTransform(0.0f, &oldTransformA);
+        bodyB->GetBodyState()->motion.GetTransform(0.0f, &oldTransformB);
+
+        // Match the closest points whose anchors remain near each other on both bodies.
+        for (int32 i = 0; i < manifold->contactCount; ++i)
+        {
+            const ContactPoint& point = manifold->contactPoints[i];
+            Vec3 localA = MulT(bodyA->transform, point.anchorA);
+            Vec3 localB = MulT(bodyB->transform, point.anchorB);
+
+            int32 bestOld = null_index;
+            float bestDistance2 = max_float;
+
+            for (int32 j = 0; j < oldManifold.contactCount; ++j)
+            {
+                if (oldManifold.contactPoints[j].id < 0)
+                {
+                    continue;
+                }
+
+                const ContactPoint& oldPoint = oldManifold.contactPoints[j];
+                float distanceA2 = Dist2(localA, MulT(oldTransformA, oldPoint.anchorA));
+                float distanceB2 = Dist2(localB, MulT(oldTransformB, oldPoint.anchorB));
+                float distance2 = distanceA2 + distanceB2;
+
+                if (distanceA2 <= contactMatchDistance2 && distanceB2 <= contactMatchDistance2 && distance2 < bestDistance2)
+                {
+                    bestOld = j;
+                    bestDistance2 = distance2;
+                }
+            }
+
+            if (bestOld != null_index)
+            {
+                manifold->contactPoints[i].impulse = oldManifold.contactPoints[bestOld].impulse;
+                oldManifold.contactPoints[bestOld].id = -1;
+            }
+        }
+    }
+
+    Vec3 oldLinearImpulse = oldManifold.linearImpulse;
+    Vec3 oldAngularImpulse = oldManifold.normal * oldManifold.angularImpulse;
+
+    Vec3 tangent1, tangent2;
+    CoordinateSystem(manifold->normal, &tangent1, &tangent2);
+
+    manifold->linearImpulse = tangent1 * Dot(oldLinearImpulse, tangent1) + tangent2 * Dot(oldLinearImpulse, tangent2);
+    manifold->angularImpulse = Dot(oldAngularImpulse, manifold->normal);
+    oldManifold.id = -1;
+}
+
+void Contact::Update()
+{
+    flag |= Contact::flag_enabled;
+    bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
+    flag = wasTouching ? flag | Contact::flag_was_touching : flag & ~Contact::flag_was_touching;
+
+    float friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
+    float restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
+    float restitutionThreshold =
+        MixRestitutionThreshold(colliderA->GetRestitutionThreshold(), colliderB->GetRestitutionThreshold());
+    Vec2 surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
+
+    Body* bodyA = colliderA->GetBody();
+    Body* bodyB = colliderB->GetBody();
+
+    if (IsSimpleContact())
+    {
+        BlockContactState& state = bodyA->world->constraintGraph.batches[colorIndex].blockContacts.state;
+
+        int32 block = localIndex / simd_width;
+        int32 lane = localIndex % simd_width;
+
+        state.friction[block].lane[lane] = friction;
+        state.restitution[block].lane[lane] = restitution;
+        state.restitutionThreshold[block].lane[lane] = restitutionThreshold;
+        state.surfaceSpeed[block].x.lane[lane] = surfaceSpeed.x;
+        state.surfaceSpeed[block].y.lane[lane] = surfaceSpeed.y;
+
+        ContactManifold oldManifold = ReadBlockManifold(state, block, lane);
+        ContactManifold manifold{};
+
+        bool touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
+            colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
+        );
+
+        flag = touching ? flag | Contact::flag_touching : flag & ~Contact::flag_touching;
+        if (touching)
+        {
+            ProjectManifold(&manifold, &oldManifold, 1);
+        }
+
+        WriteBlockManifold(&state, block, lane, manifold);
+    }
+    else
+    {
+        ContactState& state = *GetContactState();
+        state.friction = friction;
+        state.restitution = restitution;
+        state.restitutionThreshold = restitutionThreshold;
+        state.surfaceSpeed = surfaceSpeed;
+
+        GrowableStack<ContactManifold, 4> oldManifolds;
+        int32 oldManifoldCount = state.manifolds.size();
+        if (oldManifoldCount > 0)
+        {
+            oldManifolds.resize(oldManifoldCount);
+            memcpy(oldManifolds.data(), state.manifolds.data(), oldManifoldCount * sizeof(ContactManifold));
+        }
+        state.manifolds.clear();
+
+        bool touching;
+        if (colliderA->GetType() < Shape::height_field)
+        {
+            ContactManifold& manifold = state.manifolds.emplace_back();
+            touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
+                colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
+            );
         }
         else
         {
-            const float contactMatchDistance2 = Sqr(2.0f * linear_slop);
-
-            Transform oldTransformA;
-            Transform oldTransformB;
-            bodyA->GetBodyState()->motion.GetTransform(0.0f, &oldTransformA);
-            bodyB->GetBodyState()->motion.GetTransform(0.0f, &oldTransformB);
-
-            // Match the closest points whose anchors remain near each other on both bodies.
-            for (int32 j = 0; j < manifold.contactCount; ++j)
-            {
-                const ContactPoint& point = manifold.contactPoints[j];
-                Vec3 localA = MulT(bodyA->transform, point.anchorA);
-                Vec3 localB = MulT(bodyB->transform, point.anchorB);
-
-                int32 bestOld = null_index;
-                float bestDistance2 = max_float;
-
-                for (int32 k = 0; k < oldManifold.contactCount; ++k)
-                {
-                    if (oldManifold.contactPoints[k].id < 0)
-                    {
-                        continue;
-                    }
-
-                    const ContactPoint& oldPoint = oldManifold.contactPoints[k];
-                    float distanceA2 = Dist2(localA, MulT(oldTransformA, oldPoint.anchorA));
-                    float distanceB2 = Dist2(localB, MulT(oldTransformB, oldPoint.anchorB));
-                    float distance2 = distanceA2 + distanceB2;
-
-                    if (distanceA2 <= contactMatchDistance2 && distanceB2 <= contactMatchDistance2 && distance2 < bestDistance2)
-                    {
-                        bestOld = k;
-                        bestDistance2 = distance2;
-                    }
-                }
-
-                if (bestOld != null_index)
-                {
-                    manifold.contactPoints[j].impulse = oldManifold.contactPoints[bestOld].impulse;
-                    oldManifold.contactPoints[bestOld].id = -1;
-                }
-            }
+            touching = collide_function_map2[colliderA->GetType() - Shape::height_field](
+                colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &state.manifolds
+            );
         }
 
-        Vec3 oldLinearImpulse = oldManifold.linearImpulse;
-        Vec3 oldAngularImpulse = oldManifold.normal * oldManifold.angularImpulse;
+        flag = touching ? flag | Contact::flag_touching : flag & ~Contact::flag_touching;
+        if (touching == false)
+        {
+            return;
+        }
 
-        Vec3 tangent1, tangent2;
-        CoordinateSystem(manifold.normal, &tangent1, &tangent2);
-
-        manifold.linearImpulse = tangent1 * Dot(oldLinearImpulse, tangent1) + tangent2 * Dot(oldLinearImpulse, tangent2);
-        manifold.angularImpulse = Dot(oldAngularImpulse, manifold.normal);
-
-        oldManifold.id = -1;
+        for (int32 i = 0; i < state.manifolds.size(); ++i)
+        {
+            ProjectManifold(&state.manifolds[i], oldManifolds.data(), oldManifoldCount);
+        }
     }
 }
 

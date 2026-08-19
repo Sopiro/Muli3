@@ -6,6 +6,8 @@ namespace muli3
 {
 
 class Contact;
+struct BodyState;
+struct ScalarContactConstraint;
 struct ContactState;
 struct JointState;
 struct Timestep;
@@ -22,17 +24,17 @@ struct NormalConstraint
 
 struct FrictionConstraint
 {
-    Vec3 t1, t2;                       // Tangent frame
-    Vec3 ra, rb;                       // Centered contact arms
+    Vec3 t1, t2;                             // Tangent frame
+    Vec3 ra, rb;                             // Centered contact arms
 
-    Vec3 wa1, wa2;                     // Cross(ra, tangent)
-    Vec3 wb1, wb2;                     // Cross(rb, tangent)
+    Vec3 wa1, wa2;                           // Cross(ra, tangent)
+    Vec3 wb1, wb2;                           // Cross(rb, tangent)
 
-    Mat2 linearMass;                   // Linear effective mass
-    Vec2 bias;                         // Linear bias
-    float angularMass;                 // Angular effective mass
+    Mat2 linearMass;                         // Linear effective mass
+    Vec2 bias;                               // Linear bias
+    float angularMass;                       // Angular effective mass
 
-    float da[max_contact_point_count]; // Friction lever arms
+    float leverArm[max_contact_point_count]; // Friction lever arms
 };
 
 struct PositionConstraint
@@ -51,10 +53,10 @@ struct ContactConstraint
 
 using ContactConstraintSet = GrowableStack<ContactConstraint, 1>;
 
-void PrepareContact(ContactState* contact);
-void WarmStartContact(ContactState* contact);
-void SolveContactVelocityConstraints(ContactState* contact);
-bool SolveContactPositionConstraints(ContactState* contact);
+void PrepareContact(ContactState* state, ScalarContactConstraint* constraint);
+void WarmStartContact(ContactState* state, ScalarContactConstraint* constraint);
+void SolveContactVelocityConstraints(ContactState* state, ScalarContactConstraint* constraint);
+bool SolveContactPositionConstraints(ContactState* state, ScalarContactConstraint* constraint);
 
 void PrepareJoint(JointState* joint, const Timestep& step);
 void WarmStartJoint(JointState* joint);

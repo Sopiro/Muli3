@@ -20,6 +20,16 @@ set_target_properties(muli3 PROPERTIES
     CXX_EXTENSIONS NO
 )
 
+if(MULI3_DISABLE_SIMD)
+    target_compile_definitions(muli3 PUBLIC MULI3_DISABLE_SIMD)
+elseif(MULI3_USE_AVX2 AND CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
+    if(MSVC)
+        target_compile_options(muli3 PUBLIC /arch:AVX2)
+    else()
+        target_compile_options(muli3 PUBLIC -mavx2)
+    endif()
+endif()
+
 if(MULI3_PROFILE)
     include(FetchContent)
 

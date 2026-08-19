@@ -6,6 +6,7 @@
 #include "muli3/parallel_for.h"
 #include "muli3/raycast.h"
 #include "muli3/shapes.h"
+#include "muli3/wide_contact_solver.h"
 
 // #define VALIDATE_WORLD
 
@@ -48,7 +49,8 @@ void World::Reset()
 
     for (int32 i = 0; i < constraint_color_count; ++i)
     {
-        MuliAssert(constraintGraph.batches[i].contactStates.empty());
+        MuliAssert(constraintGraph.batches[i].blockContacts.Empty());
+        MuliAssert(constraintGraph.batches[i].scalarContacts.Empty());
         MuliAssert(constraintGraph.batches[i].jointStates.empty());
     }
 
@@ -1074,7 +1076,7 @@ void World::Solve()
     MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
     ProfileScope profile_build_islands{ &profile.build_islands };
 
-    for (size_t i = 0; i < awakeSet.bodyStates.size(); ++i)
+    for (int32 i = 0; i < int32(awakeSet.bodyStates.size()); ++i)
     {
         Body* b = awakeSet.bodyStates[i].body;
         if (b->flag & Body::flag_island)
@@ -1243,27 +1245,62 @@ void World::Solve()
     }
     MuliProfileZoneEnd(integrate_velocities);
 
+#ifdef VALIDATE_WORLD
+    int32 storedContactCount = 0;
+    for (int32 color = 0; color < constraint_color_count; ++color)
+    {
+        ConstraintBatch& batch = constraintGraph.batches[color];
+        storedContactCount += batch.blockContacts.Count() + batch.scalarContacts.Count();
+    }
+    MuliAssert(storedContactCount == contactIndex);
+    MuliNotUsed(storedContactCount);
+#endif
+
     // Prepare all constraints
     MuliProfileZoneNC(prepare_constraints, "Prepare Constraints", color::prepare_constraints, true);
     {
         ProfileScope profile_prepare{ &profile.prepare_constraints };
-        int32 constraintCount = contactIndex + jointIndex;
+
+        for (int32 color = 0; color < constraint_color_count; ++color)
+        {
+            ConstraintBatch& batch = constraintGraph.batches[color];
+            int32 blockCount = batch.blockContacts.BlockCount();
+            int32 scalarCount = batch.scalarContacts.Count();
+            int32 contactCount = blockCount + scalarCount;
+
+            ParallelFor(
+                0, contactCount, minConstraintRange,
+                [&](int32 i0, int32 i1) {
+                    MuliProfileZoneN(prepare_contact, "Prepare Contact", true);
+                    for (int32 i = i0; i < i1; ++i)
+                    {
+                        if (i < blockCount)
+                        {
+                            PrepareContactBlock(&batch.blockContacts, solverSets, i);
+                        }
+                        else
+                        {
+                            int32 scalarIndex = i - blockCount;
+                            PrepareContact(
+                                &batch.scalarContacts.states[scalarIndex], &batch.scalarContacts.constraints[scalarIndex]
+                            );
+                        }
+                    }
+                    MuliProfileZoneEnd(prepare_contact);
+                },
+                settings.thread_pool
+            );
+        }
+
         ParallelFor(
-            0, constraintCount, minConstraintRange,
+            0, jointIndex, minConstraintRange,
             [&](int32 i0, int32 i1) {
-                MuliProfileZoneN(prepare_constraint, "Prepare Constraint", true);
+                MuliProfileZoneN(prepare_joint, "Prepare Joint", true);
                 for (int32 i = i0; i < i1; ++i)
                 {
-                    if (i < contactIndex)
-                    {
-                        PrepareContact(islandContacts[i]->GetContactState());
-                    }
-                    else
-                    {
-                        PrepareJoint(islandJoints[i - contactIndex]->GetJointState(), step);
-                    }
+                    PrepareJoint(islandJoints[i]->GetJointState(), step);
                 }
-                MuliProfileZoneEnd(prepare_constraint);
+                MuliProfileZoneEnd(prepare_joint);
             },
             settings.thread_pool
         );
@@ -1275,11 +1312,10 @@ void World::Solve()
         ProfileScope profile_warm_start{ &profile.warm_start };
 
         ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
-
         MuliProfileZoneN(warm_start_contacts, "Warm Start Contacts Overflow", true);
-        for (ContactState& state : overflow.contactStates)
+        for (int32 i = 0; i < overflow.scalarContacts.Count(); ++i)
         {
-            WarmStartContact(&state);
+            WarmStartContact(&overflow.scalarContacts.states[i], &overflow.scalarContacts.constraints[i]);
         }
         MuliProfileZoneEnd(warm_start_contacts);
 
@@ -1293,7 +1329,9 @@ void World::Solve()
         for (int32 color = 0; color < constraint_overflow_index; ++color)
         {
             ConstraintBatch& batch = constraintGraph.batches[color];
-            int32 contactCount = int32(batch.contactStates.size());
+            int32 blockCount = batch.blockContacts.BlockCount();
+            int32 scalarCount = batch.scalarContacts.Count();
+            int32 contactCount = blockCount + scalarCount;
             int32 constraintCount = contactCount + int32(batch.jointStates.size());
             ParallelFor(
                 0, constraintCount, minConstraintRange,
@@ -1301,9 +1339,16 @@ void World::Solve()
                     MuliProfileZoneN(warm_start_constraint, "Warm Start Constraint", true);
                     for (int32 i = i0; i < i1; ++i)
                     {
-                        if (i < contactCount)
+                        if (i < blockCount)
                         {
-                            WarmStartContact(&batch.contactStates[i]);
+                            WarmStartContactBlock(&batch.blockContacts, i);
+                        }
+                        else if (i < contactCount)
+                        {
+                            int32 scalarIndex = i - blockCount;
+                            WarmStartContact(
+                                &batch.scalarContacts.states[scalarIndex], &batch.scalarContacts.constraints[scalarIndex]
+                            );
                         }
                         else
                         {
@@ -1325,11 +1370,10 @@ void World::Solve()
         for (int32 i = 0; i < settings.velocity_iterations; ++i)
         {
             ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
-
             MuliProfileZoneN(solve_velocity_contacts, "Solve Velocity Contact Overflow", true);
-            for (ContactState& state : overflow.contactStates)
+            for (int32 j = 0; j < overflow.scalarContacts.Count(); ++j)
             {
-                SolveContactVelocityConstraints(&state);
+                SolveContactVelocityConstraints(&overflow.scalarContacts.states[j], &overflow.scalarContacts.constraints[j]);
             }
             MuliProfileZoneEnd(solve_velocity_contacts);
 
@@ -1344,7 +1388,9 @@ void World::Solve()
             for (int32 color = 0; color < constraint_overflow_index; ++color)
             {
                 ConstraintBatch& batch = constraintGraph.batches[color];
-                int32 contactCount = int32(batch.contactStates.size());
+                int32 blockCount = batch.blockContacts.BlockCount();
+                int32 scalarCount = batch.scalarContacts.Count();
+                int32 contactCount = blockCount + scalarCount;
                 int32 constraintCount = contactCount + int32(batch.jointStates.size());
 
                 ParallelFor(
@@ -1353,9 +1399,16 @@ void World::Solve()
                         MuliProfileZoneN(solve_velocity_constraint, "Solve Velocity Constraint", true);
                         for (int32 i = i0; i < i1; ++i)
                         {
-                            if (i < contactCount)
+                            if (i < blockCount)
                             {
-                                SolveContactVelocityConstraints(&batch.contactStates[i]);
+                                SolveContactVelocityBlock(&batch.blockContacts, i);
+                            }
+                            else if (i < contactCount)
+                            {
+                                int32 scalarIndex = i - blockCount;
+                                SolveContactVelocityConstraints(
+                                    &batch.scalarContacts.states[scalarIndex], &batch.scalarContacts.constraints[scalarIndex]
+                                );
                             }
                             else
                             {
@@ -1412,17 +1465,21 @@ void World::Solve()
             ConstraintBatch& overflow = constraintGraph.batches[constraint_overflow_index];
 
             MuliProfileZoneN(solve_position_contact, "Solve Position Contacts Overflow", true);
-            for (ContactState& state : overflow.contactStates)
+            for (int32 j = 0; j < overflow.scalarContacts.Count(); ++j)
             {
-                if (SolveContactPositionConstraints(&state) == false)
+                ContactState& state = overflow.scalarContacts.states[j];
+                ScalarContactConstraint& constraint = overflow.scalarContacts.constraints[j];
+                if (SolveContactPositionConstraints(&state, &constraint) == false)
                 {
-                    if (state.bodyA->invMass > 0.0f)
+                    BodyState* bodyA = constraint.bodyA;
+                    BodyState* bodyB = constraint.bodyB;
+                    if (bodyA->invMass > 0.0f)
                     {
-                        state.bodyA->resting = 0.0f;
+                        bodyA->resting = 0.0f;
                     }
-                    if (state.bodyB->invMass > 0.0f)
+                    if (bodyB->invMass > 0.0f)
                     {
-                        state.bodyB->resting = 0.0f;
+                        bodyB->resting = 0.0f;
                     }
                 }
             }
@@ -1431,23 +1488,56 @@ void World::Solve()
             for (int32 color = 0; color < constraint_overflow_index; ++color)
             {
                 ConstraintBatch& batch = constraintGraph.batches[color];
+                int32 blockCount = batch.blockContacts.BlockCount();
+                int32 scalarCount = batch.scalarContacts.Count();
+                int32 constraintCount = blockCount + scalarCount;
 
                 ParallelFor(
-                    0, int32(batch.contactStates.size()), minConstraintRange,
+                    0, constraintCount, minConstraintRange,
                     [&](int32 i0, int32 i1) {
                         MuliProfileZoneN(solve_position_contact, "Solve Position Contact", true);
                         for (int32 i = i0; i < i1; ++i)
                         {
-                            ContactState* state = &batch.contactStates[i];
-                            if (SolveContactPositionConstraints(state) == false)
+                            if (i < blockCount)
                             {
-                                if (state->bodyA->invMass > 0.0f)
+                                BlockContactArray& contacts = batch.blockContacts;
+                                uint32 failedLanes = SolveContactPositionBlock(&contacts, i);
+                                int32 laneCount = Min(simd_width, contacts.Count() - i * simd_width);
+                                for (int32 lane = 0; lane < laneCount; ++lane)
                                 {
-                                    state->bodyA->resting = 0.0f;
+                                    if ((failedLanes & (1u << lane)) == 0)
+                                    {
+                                        continue;
+                                    }
+
+                                    BodyState& bodyA = *contacts.constraint.bodyA[i].lane[lane];
+                                    BodyState& bodyB = *contacts.constraint.bodyB[i].lane[lane];
+                                    if (bodyA.invMass > 0.0f)
+                                    {
+                                        bodyA.resting = 0.0f;
+                                    }
+                                    if (bodyB.invMass > 0.0f)
+                                    {
+                                        bodyB.resting = 0.0f;
+                                    }
                                 }
-                                if (state->bodyB->invMass > 0.0f)
+                            }
+                            else
+                            {
+                                ScalarContactConstraint& constraint = batch.scalarContacts.constraints[i - blockCount];
+                                ContactState& state = batch.scalarContacts.states[i - blockCount];
+                                if (SolveContactPositionConstraints(&state, &constraint) == false)
                                 {
-                                    state->bodyB->resting = 0.0f;
+                                    BodyState* bodyA = constraint.bodyA;
+                                    BodyState* bodyB = constraint.bodyB;
+                                    if (bodyA->invMass > 0.0f)
+                                    {
+                                        bodyA->resting = 0.0f;
+                                    }
+                                    if (bodyB->invMass > 0.0f)
+                                    {
+                                        bodyB->resting = 0.0f;
+                                    }
                                 }
                             }
                         }
@@ -1697,8 +1787,7 @@ void World::Solve()
         {
             MuliAssert(contact->colorIndex != null_index);
 
-            ContactState state = std::move(constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex]);
-            constraintGraph.RemoveContactFromGraph(contact);
+            ContactState state = constraintGraph.RemoveContactFromGraph(contact);
 
             SolverSet& target = solverSets[targetSet];
             contact->setIndex = targetSet;
@@ -1782,13 +1871,12 @@ void World::Solve()
         {
             MuliAssert(joint->colorIndex != null_index);
 
-            JointState state = constraintGraph.batches[joint->colorIndex].jointStates[joint->localIndex];
-            constraintGraph.RemoveJointFromGraph(joint);
+            JointState state = constraintGraph.RemoveJointFromGraph(joint);
 
             SolverSet& target = solverSets[targetSet];
             joint->setIndex = targetSet;
             joint->localIndex = int32(target.jointStates.size());
-            target.jointStates.push_back(state);
+            target.jointStates.push_back(std::move(state));
             target.jointStates.back().joint = joint;
         }
     }
@@ -1841,8 +1929,7 @@ void World::Solve()
         }
     }
 
-    // Transfer bodies last. BodyState pointers into awakeSet can be invalidated by swap-remove,
-    // so iterate the set itself backward and use flag_island to find bodies solved this step.
+    // Transfer bodies last so contact body lane indices remain valid for the whole solve.
     for (int32 i = int32(awakeSet.bodyStates.size()) - 1; i >= 0; --i)
     {
         Body* body = awakeSet.bodyStates[i].body;
@@ -2181,14 +2268,14 @@ void World::AddJoint(Joint* joint)
     joint->setIndex = setIndex;
     if (setIndex == awake_set)
     {
-        constraintGraph.AddJointToGraph(joint, state);
+        constraintGraph.AddJointToGraph(joint, std::move(state));
     }
     else
     {
         SolverSet& set = solverSets[setIndex];
         joint->localIndex = int32(set.jointStates.size());
 
-        set.jointStates.push_back(state);
+        set.jointStates.push_back(std::move(state));
     }
 
     if (setIndex == awake_set)
@@ -2367,14 +2454,16 @@ void World::RemoveBodyState(Body* body)
     SolverSet& set = solverSets[body->setIndex];
     int32 index = body->localIndex;
     int32 last = int32(set.bodyStates.size() - 1);
-
     if (index != last)
     {
         set.bodyStates[index] = set.bodyStates[last];
-        set.bodyStates[index].body->localIndex = index;
+        Body* movedBody = set.bodyStates[index].body;
+        movedBody->localIndex = index;
+        UpdateContactBodyIndices(movedBody);
     }
 
     set.bodyStates.pop_back();
+
     body->setIndex = null_index;
     body->localIndex = null_index;
 }
@@ -2391,19 +2480,49 @@ void World::TransferBody(Body* body, SolverSetIndex targetSet)
 
     int32 sourceIndex = body->localIndex;
     int32 targetIndex = int32(target.bodyStates.size());
-    target.bodyStates.push_back(source.bodyStates[sourceIndex]);
-    target.bodyStates.back().body = body;
+
+    BodyState state = source.bodyStates[sourceIndex];
 
     int32 last = int32(source.bodyStates.size() - 1);
     if (sourceIndex != last)
     {
         source.bodyStates[sourceIndex] = source.bodyStates[last];
-        source.bodyStates[sourceIndex].body->localIndex = sourceIndex;
+        Body* movedBody = source.bodyStates[sourceIndex].body;
+        movedBody->localIndex = sourceIndex;
+        UpdateContactBodyIndices(movedBody);
     }
     source.bodyStates.pop_back();
 
+    target.bodyStates.push_back(state);
+
     body->setIndex = targetSet;
     body->localIndex = targetIndex;
+    UpdateContactBodyIndices(body);
+}
+
+void World::UpdateContactBodyIndices(Body* body)
+{
+    for (Contact* contact : body->contacts)
+    {
+        if (contact->IsSimpleContact() == false)
+        {
+            continue;
+        }
+
+        BlockContactState& state = constraintGraph.batches[contact->colorIndex].blockContacts.state;
+        int32 block = contact->localIndex / simd_width;
+        int32 lane = contact->localIndex % simd_width;
+        if (contact->GetBodyA() == body)
+        {
+            state.bodySetA[block].lane[lane] = body->setIndex;
+            state.bodyIndexA[block].lane[lane] = body->localIndex;
+        }
+        else
+        {
+            state.bodySetB[block].lane[lane] = body->setIndex;
+            state.bodyIndexB[block].lane[lane] = body->localIndex;
+        }
+    }
 }
 
 ContactState* World::AddContactState(Contact* contact, SolverSetIndex setIndex)
@@ -2449,8 +2568,7 @@ void World::TransferContact(Contact* contact, SolverSetIndex targetSet)
             return;
         }
 
-        ContactState state = std::move(constraintGraph.batches[contact->colorIndex].contactStates[contact->localIndex]);
-        constraintGraph.RemoveContactFromGraph(contact);
+        ContactState state = constraintGraph.RemoveContactFromGraph(contact);
 
         SolverSet& target = solverSets[targetSet];
         contact->setIndex = targetSet;
@@ -2538,13 +2656,12 @@ void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
             return;
         }
 
-        JointState state = constraintGraph.batches[joint->colorIndex].jointStates[joint->localIndex];
-        constraintGraph.RemoveJointFromGraph(joint);
+        JointState state = constraintGraph.RemoveJointFromGraph(joint);
 
         SolverSet& target = solverSets[targetSet];
         joint->setIndex = targetSet;
         joint->localIndex = int32(target.jointStates.size());
-        target.jointStates.push_back(state);
+        target.jointStates.push_back(std::move(state));
         target.jointStates.back().joint = joint;
         return;
     }
@@ -2571,13 +2688,13 @@ void World::TransferJoint(Joint* joint, SolverSetIndex targetSet)
     if (targetSet == awake_set)
     {
         joint->setIndex = awake_set;
-        constraintGraph.AddJointToGraph(joint, state);
+        constraintGraph.AddJointToGraph(joint, std::move(state));
     }
     else
     {
         joint->setIndex = targetSet;
         joint->localIndex = int32(target.jointStates.size());
-        target.jointStates.push_back(state);
+        target.jointStates.push_back(std::move(state));
         target.jointStates.back().joint = joint;
     }
 }
@@ -2944,9 +3061,51 @@ void World::Validate() const
         uint32 colorBit = colorIndex == constraint_overflow_index ? 0 : 1u << colorIndex;
         MuliNotUsed(colorBit);
 
-        for (int32 i = 0; i < int32(batch.contactStates.size()); ++i)
+        for (int32 i = 0; i < batch.blockContacts.Count(); ++i)
         {
-            Contact* contact = batch.contactStates[i].contact;
+            Contact* contact = batch.blockContacts.GetContact(i);
+            MuliAssert(seenContacts.insert(contact).second);
+            MuliAssert(contact->setIndex == awake_set);
+            MuliAssert(contact->colorIndex == colorIndex);
+            MuliAssert(contact->localIndex == i);
+            MuliAssert(contact->IsEnabled());
+            MuliAssert(contact->IsTouching());
+
+            Body* bodyA = contact->GetBodyA();
+            Body* bodyB = contact->GetBodyB();
+            MuliAssert(bodyA->IsEnabled());
+            MuliAssert(bodyB->IsEnabled());
+            MuliAssert(colorIndex != constraint_overflow_index);
+
+            int32 block = i / simd_width;
+            int32 lane = i % simd_width;
+            const BlockContactState& state = batch.blockContacts.state;
+            MuliAssert(state.bodySetA[block].lane[lane] == bodyA->setIndex);
+            MuliAssert(state.bodyIndexA[block].lane[lane] == bodyA->localIndex);
+            MuliAssert(state.bodySetB[block].lane[lane] == bodyB->setIndex);
+            MuliAssert(state.bodyIndexB[block].lane[lane] == bodyB->localIndex);
+            MuliNotUsed(state);
+            MuliNotUsed(block);
+            MuliNotUsed(lane);
+
+            if (bodyA->IsDynamic())
+            {
+                MuliAssert(bodyA->IsSleeping() == false);
+                MuliAssert((bodyA->usedColors & colorBit) != 0);
+                MuliAssert(colorBodies.insert(bodyA).second);
+            }
+            if (bodyA != bodyB && bodyB->IsDynamic())
+            {
+                MuliAssert(bodyB->IsSleeping() == false);
+                MuliAssert((bodyB->usedColors & colorBit) != 0);
+                MuliAssert(colorBodies.insert(bodyB).second);
+            }
+        }
+
+        MuliAssert(batch.scalarContacts.states.size() == batch.scalarContacts.constraints.size());
+        for (int32 i = 0; i < batch.scalarContacts.Count(); ++i)
+        {
+            Contact* contact = batch.scalarContacts.GetContact(i);
             MuliAssert(seenContacts.insert(contact).second);
             MuliAssert(contact->setIndex == awake_set);
             MuliAssert(contact->colorIndex == colorIndex);
@@ -3052,7 +3211,16 @@ void World::Validate() const
             const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
             uint32 colorBit = 1u << colorIndex;
 
-            for (const ContactState& state : batch.contactStates)
+            for (int32 i = 0; i < batch.blockContacts.Count(); ++i)
+            {
+                Contact* contact = batch.blockContacts.GetContact(i);
+                if (contact->GetBodyA() == body || contact->GetBodyB() == body)
+                {
+                    usedColors |= colorBit;
+                }
+            }
+
+            for (const ContactState& state : batch.scalarContacts.states)
             {
                 Contact* contact = state.contact;
                 if (contact->GetBodyA() == body || contact->GetBodyB() == body)

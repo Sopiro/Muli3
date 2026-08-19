@@ -8,11 +8,16 @@
 namespace muli3
 {
 
-static void PrepareNormal(NormalConstraint* constraint, ContactState* contact, const ContactManifold* manifold, int32 index)
+static void PrepareNormal(
+    NormalConstraint* constraint,
+    ContactState* state,
+    ScalarContactConstraint* solver,
+    BodyState* bodyA,
+    BodyState* bodyB,
+    const ContactManifold* manifold,
+    int32 index
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     // Compute Jacobian J and effective mass W
     // J = [-n, -ra x n, n, rb x n]
     // W = (J * M^-1 * J^t)^-1
@@ -33,21 +38,20 @@ static void PrepareNormal(NormalConstraint* constraint, ContactState* contact, c
 
     // Normal velocity == velocity constraint: Jv
     float normalVelocity = Dot(normal, relativeVelocity);
-    if (-normalVelocity > contact->restitutionThreshold)
+    if (-normalVelocity > state->restitutionThreshold)
     {
-        constraint->bias = contact->restitution * normalVelocity;
+        constraint->bias = state->restitution * normalVelocity;
     }
 
-    float k = bodyA->invMass + Dot(constraint->wa, contact->invIA * constraint->wa) + bodyB->invMass +
-              Dot(constraint->wb, contact->invIB * constraint->wb);
+    float k = bodyA->invMass + Dot(constraint->wa, solver->invIA * constraint->wa) + bodyB->invMass +
+              Dot(constraint->wb, solver->invIB * constraint->wb);
     constraint->m = k > 0.0f ? 1.0f / k : 0.0f;
 }
 
-static void SolveNormal(ContactPoint* point, NormalConstraint* constraint, ContactState* contact)
+static void SolveNormal(
+    ContactPoint* point, NormalConstraint* constraint, ScalarContactConstraint* solver, BodyState* bodyA, BodyState* bodyB
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     // Compute corrective impulse: Pc
     // Pc = J^t * lambda (lambda: lagrangian multiplier)
     // lambda = (J * M^-1 * J^t)^-1 * -(Jv + b)
@@ -69,20 +73,24 @@ static void SolveNormal(ContactPoint* point, NormalConstraint* constraint, Conta
     if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= constraint->n * (bodyA->invMass * lambda);
-        bodyA->angularVelocity -= contact->invIA * constraint->wa * lambda;
+        bodyA->angularVelocity -= solver->invIA * constraint->wa * lambda;
     }
     if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += constraint->n * (bodyB->invMass * lambda);
-        bodyB->angularVelocity += contact->invIB * constraint->wb * lambda;
+        bodyB->angularVelocity += solver->invIB * constraint->wb * lambda;
     }
 }
 
-static void PrepareFriction(FrictionConstraint* constraint, ContactState* contact, const ContactManifold* manifold)
+static void PrepareFriction(
+    FrictionConstraint* constraint,
+    ContactState* state,
+    ScalarContactConstraint* solver,
+    BodyState* bodyA,
+    BodyState* bodyB,
+    const ContactManifold* manifold
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     Vec3 tangent1, tangent2;
     CoordinateSystem(manifold->normal, &tangent1, &tangent2);
 
@@ -108,7 +116,7 @@ static void PrepareFriction(FrictionConstraint* constraint, ContactState* contac
 
     for (int32 i = 0; i < manifold->contactCount; ++i)
     {
-        constraint->da[i] = Dist(manifold->contactPoints[i].anchorA - bodyA->motion.c, ra);
+        constraint->leverArm[i] = Dist(manifold->contactPoints[i].anchorA - bodyA->motion.c, ra);
     }
 
     constraint->wa1 = Cross(ra, tangent1);
@@ -116,27 +124,31 @@ static void PrepareFriction(FrictionConstraint* constraint, ContactState* contac
     constraint->wa2 = Cross(ra, tangent2);
     constraint->wb2 = Cross(rb, tangent2);
 
-    constraint->bias = -contact->surfaceSpeed;
+    constraint->bias = -state->surfaceSpeed;
 
     // K = J * M^-1 * J^T
-    float k11 = bodyA->invMass + Dot(constraint->wa1, contact->invIA * constraint->wa1) + bodyB->invMass +
-                Dot(constraint->wb1, contact->invIB * constraint->wb1);
-    float k12 = Dot(constraint->wa1, contact->invIA * constraint->wa2) + Dot(constraint->wb1, contact->invIB * constraint->wb2);
-    float k22 = bodyA->invMass + Dot(constraint->wa2, contact->invIA * constraint->wa2) + bodyB->invMass +
-                Dot(constraint->wb2, contact->invIB * constraint->wb2);
+    float k11 = bodyA->invMass + Dot(constraint->wa1, solver->invIA * constraint->wa1) + bodyB->invMass +
+                Dot(constraint->wb1, solver->invIB * constraint->wb1);
+    float k12 = Dot(constraint->wa1, solver->invIA * constraint->wa2) + Dot(constraint->wb1, solver->invIB * constraint->wb2);
+    float k22 = bodyA->invMass + Dot(constraint->wa2, solver->invIA * constraint->wa2) + bodyB->invMass +
+                Dot(constraint->wb2, solver->invIB * constraint->wb2);
     Mat2 k = Mat2(Vec2(k11, k12), Vec2(k12, k22));
 
     constraint->linearMass = k.GetInverse();
 
-    float twistK = Dot(manifold->normal, (contact->invIA + contact->invIB) * manifold->normal);
+    float twistK = Dot(manifold->normal, (solver->invIA + solver->invIB) * manifold->normal);
     constraint->angularMass = twistK > 0.0f ? 1.0f / twistK : 0.0f;
 }
 
-static void SolveFriction(FrictionConstraint* constraint, ContactState* contact, ContactManifold* manifold)
+static void SolveFriction(
+    FrictionConstraint* constraint,
+    ContactState* state,
+    ScalarContactConstraint* solver,
+    BodyState* bodyA,
+    BodyState* bodyB,
+    ContactManifold* manifold
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     float totalNormalImpulse = 0.0f;
     float totalTwistLimit = 0.0f;
     for (int32 i = 0; i < manifold->contactCount; ++i)
@@ -144,12 +156,12 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
         float impulse = manifold->contactPoints[i].impulse;
 
         totalNormalImpulse += impulse;
-        totalTwistLimit += constraint->da[i] * impulse;
+        totalTwistLimit += constraint->leverArm[i] * impulse;
     }
 
     // Twist friction limits angular motion around the contact normal.
     float twistSpeed = Dot(manifold->normal, bodyB->angularVelocity - bodyA->angularVelocity);
-    float maxTwistFriction = contact->friction * totalTwistLimit;
+    float maxTwistFriction = state->friction * totalTwistLimit;
     float twistLambda = -constraint->angularMass * twistSpeed;
     float oldAngularImpulse = manifold->angularImpulse;
     manifold->angularImpulse = Clamp(manifold->angularImpulse + twistLambda, -maxTwistFriction, maxTwistFriction);
@@ -157,11 +169,11 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
 
     if (bodyA->invMass > 0.0f)
     {
-        bodyA->angularVelocity -= contact->invIA * manifold->normal * twistLambda;
+        bodyA->angularVelocity -= solver->invIA * manifold->normal * twistLambda;
     }
     if (bodyB->invMass > 0.0f)
     {
-        bodyB->angularVelocity += contact->invIB * manifold->normal * twistLambda;
+        bodyB->angularVelocity += solver->invIB * manifold->normal * twistLambda;
     }
 
     // Solve both tangent axes as single 2D constraint at the manifold center.
@@ -178,7 +190,7 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
     // Coulomb friction limits the accumulated 2D tangent impulse lambda_t by |lambda_t| <= mu * lambda_n.
     // A larger normal impulse lets the contact provide more friction.
     // maxFriction = mu * lambda_n
-    float maxFriction = contact->friction * totalNormalImpulse;
+    float maxFriction = state->friction * totalNormalImpulse;
 
     // impulse is the lambda_t needed to make the tangent velocity zero.
     // Test |lambda_t|^2 > (mu * lambda_n)^2 to avoid a square root.
@@ -196,67 +208,65 @@ static void SolveFriction(FrictionConstraint* constraint, ContactState* contact,
     if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= (constraint->t1 * deltaLambda.x + constraint->t2 * deltaLambda.y) * bodyA->invMass;
-        bodyA->angularVelocity -= contact->invIA * (constraint->wa1 * deltaLambda.x + constraint->wa2 * deltaLambda.y);
+        bodyA->angularVelocity -= solver->invIA * (constraint->wa1 * deltaLambda.x + constraint->wa2 * deltaLambda.y);
     }
     if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += (constraint->t1 * deltaLambda.x + constraint->t2 * deltaLambda.y) * bodyB->invMass;
-        bodyB->angularVelocity += contact->invIB * (constraint->wb1 * deltaLambda.x + constraint->wb2 * deltaLambda.y);
+        bodyB->angularVelocity += solver->invIB * (constraint->wb1 * deltaLambda.x + constraint->wb2 * deltaLambda.y);
     }
 }
 
-static void WarmStartNormal(ContactPoint* point, NormalConstraint* constraint, ContactState* contact)
+static void WarmStartNormal(
+    ContactPoint* point, NormalConstraint* constraint, ScalarContactConstraint* solver, BodyState* bodyA, BodyState* bodyB
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= constraint->n * (bodyA->invMass * point->impulse);
-        bodyA->angularVelocity -= contact->invIA * (constraint->wa * point->impulse);
+        bodyA->angularVelocity -= solver->invIA * (constraint->wa * point->impulse);
     }
     if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += constraint->n * (bodyB->invMass * point->impulse);
-        bodyB->angularVelocity += contact->invIB * (constraint->wb * point->impulse);
+        bodyB->angularVelocity += solver->invIB * (constraint->wb * point->impulse);
     }
 }
 
-static void WarmStartFriction(const ContactManifold* manifold, const FrictionConstraint* constraint, ContactState* contact)
+static void WarmStartFriction(
+    const ContactManifold* manifold,
+    const FrictionConstraint* constraint,
+    ScalarContactConstraint* solver,
+    BodyState* bodyA,
+    BodyState* bodyB
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     Vec2 impulse{ Dot(manifold->linearImpulse, constraint->t1), Dot(manifold->linearImpulse, constraint->t2) };
 
     if (bodyA->invMass > 0.0f)
     {
         bodyA->linearVelocity -= manifold->linearImpulse * bodyA->invMass;
-        bodyA->angularVelocity -= contact->invIA * (constraint->wa1 * impulse.x + constraint->wa2 * impulse.y +
-                                                    manifold->normal * manifold->angularImpulse);
+        bodyA->angularVelocity -= solver->invIA * (constraint->wa1 * impulse.x + constraint->wa2 * impulse.y +
+                                                   manifold->normal * manifold->angularImpulse);
     }
     if (bodyB->invMass > 0.0f)
     {
         bodyB->linearVelocity += manifold->linearImpulse * bodyB->invMass;
-        bodyB->angularVelocity += contact->invIB * (constraint->wb1 * impulse.x + constraint->wb2 * impulse.y +
-                                                    manifold->normal * manifold->angularImpulse);
+        bodyB->angularVelocity += solver->invIB * (constraint->wb1 * impulse.x + constraint->wb2 * impulse.y +
+                                                   manifold->normal * manifold->angularImpulse);
     }
 }
 
-static void PreparePosition(PositionConstraint* constraint, ContactState* contact, const ContactManifold* manifold, int32 index)
+static void PreparePosition(
+    PositionConstraint* constraint, BodyState* bodyA, BodyState* bodyB, const ContactManifold* manifold, int32 index
+)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     constraint->localPointA = bodyA->motion.q.RotateInv(manifold->contactPoints[index].anchorA - bodyA->motion.c);
     constraint->localPointB = bodyB->motion.q.RotateInv(manifold->contactPoints[index].anchorB - bodyB->motion.c);
 }
 
-static bool SolvePosition(const PositionConstraint* constraint, const Vec3& localNormal, ContactState* contact)
+static bool SolvePosition(const PositionConstraint* constraint, const Vec3& localNormal, BodyState* bodyA, BodyState* bodyB)
 {
-    BodyState* bodyA = contact->bodyA;
-    BodyState* bodyB = contact->bodyB;
-
     // Contact arms and normal follow the current poses during each nonlinear iteration.
     Vec3 ra = bodyA->motion.q.Rotate(constraint->localPointA);
     Vec3 rb = bodyB->motion.q.Rotate(constraint->localPointB);
@@ -330,79 +340,86 @@ static bool SolvePosition(const PositionConstraint* constraint, const Vec3& loca
     return -separation <= position_solver_threshold;
 }
 
-void PrepareContact(ContactState* contact)
+void PrepareContact(ContactState* state, ScalarContactConstraint* solver)
 {
-    Body* bodyA = contact->contact->GetBodyA();
-    Body* bodyB = contact->contact->GetBodyB();
+    Body* bodyA = state->contact->GetBodyA();
+    Body* bodyB = state->contact->GetBodyB();
 
-    contact->bodyA = bodyA->GetBodyState();
-    contact->bodyB = bodyB->GetBodyState();
+    solver->bodyA = bodyA->GetBodyState();
+    solver->bodyB = bodyB->GetBodyState();
 
-    contact->invIA = bodyA->GetWorldInverseInertiaTensor();
-    contact->invIB = bodyB->GetWorldInverseInertiaTensor();
+    solver->invIA = bodyA->GetWorldInverseInertiaTensor();
+    solver->invIB = bodyB->GetWorldInverseInertiaTensor();
+    solver->constraints.resize(state->manifolds.size());
 
-    contact->contactConstraints.resize(contact->manifolds.size());
-
-    for (int32 m = 0; m < contact->manifolds.size(); ++m)
+    for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = contact->manifolds.data() + m;
-        ContactConstraint* constraint = contact->contactConstraints.data() + m;
+        ContactManifold* manifold = state->manifolds.data() + m;
+        ContactConstraint* constraint = solver->constraints.data() + m;
 
-        PrepareFriction(&constraint->frictionContact, contact, manifold);
-        constraint->localNormal = contact->bodyA->motion.q.RotateInv(manifold->normal);
+        PrepareFriction(&constraint->frictionContact, state, solver, solver->bodyA, solver->bodyB, manifold);
+        constraint->localNormal = solver->bodyA->motion.q.RotateInv(manifold->normal);
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            PrepareNormal(constraint->normalContact + i, contact, manifold, i);
-            PreparePosition(constraint->positionContact + i, contact, manifold, i);
+            PrepareNormal(constraint->normalContact + i, state, solver, solver->bodyA, solver->bodyB, manifold, i);
+            PreparePosition(constraint->positionContact + i, solver->bodyA, solver->bodyB, manifold, i);
         }
     }
 }
 
-void WarmStartContact(ContactState* contact)
+void WarmStartContact(ContactState* state, ScalarContactConstraint* solver)
 {
-    for (int32 m = 0; m < contact->manifolds.size(); ++m)
+    BodyState* bodyA = solver->bodyA;
+    BodyState* bodyB = solver->bodyB;
+
+    for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = contact->manifolds.data() + m;
-        ContactConstraint* constraint = contact->contactConstraints.data() + m;
+        ContactManifold* manifold = state->manifolds.data() + m;
+        ContactConstraint* constraint = solver->constraints.data() + m;
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            WarmStartNormal(manifold->contactPoints + i, constraint->normalContact + i, contact);
+            WarmStartNormal(manifold->contactPoints + i, constraint->normalContact + i, solver, bodyA, bodyB);
         }
 
-        WarmStartFriction(manifold, &constraint->frictionContact, contact);
+        WarmStartFriction(manifold, &constraint->frictionContact, solver, bodyA, bodyB);
     }
 }
 
-void SolveContactVelocityConstraints(ContactState* contact)
+void SolveContactVelocityConstraints(ContactState* state, ScalarContactConstraint* solver)
 {
-    for (int32 m = 0; m < contact->manifolds.size(); ++m)
+    BodyState* bodyA = solver->bodyA;
+    BodyState* bodyB = solver->bodyB;
+
+    for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = contact->manifolds.data() + m;
-        ContactConstraint* constraint = contact->contactConstraints.data() + m;
+        ContactManifold* manifold = state->manifolds.data() + m;
+        ContactConstraint* constraint = solver->constraints.data() + m;
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            SolveNormal(manifold->contactPoints + i, constraint->normalContact + i, contact);
+            SolveNormal(manifold->contactPoints + i, constraint->normalContact + i, solver, bodyA, bodyB);
         }
 
-        SolveFriction(&constraint->frictionContact, contact, manifold);
+        SolveFriction(&constraint->frictionContact, state, solver, bodyA, bodyB, manifold);
     }
 }
 
-bool SolveContactPositionConstraints(ContactState* contact)
+bool SolveContactPositionConstraints(ContactState* state, ScalarContactConstraint* solver)
 {
     bool solved = true;
 
-    for (int32 m = 0; m < contact->manifolds.size(); ++m)
+    BodyState* bodyA = solver->bodyA;
+    BodyState* bodyB = solver->bodyB;
+    for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = contact->manifolds.data() + m;
-        ContactConstraint* constraint = contact->contactConstraints.data() + m;
+        ContactManifold* manifold = state->manifolds.data() + m;
+        ContactConstraint* constraint = solver->constraints.data() + m;
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {
-            solved &= SolvePosition(constraint->positionContact + i, constraint->localNormal, contact);
+            solved &= SolvePosition(constraint->positionContact + i, constraint->localNormal, bodyA, bodyB);
         }
     }
 

@@ -4,6 +4,8 @@ project(muli3 LANGUAGES C CXX VERSION 0.1.0)
 
 option(MULI3_BUILD_DEMO "Build the demo project" ON)
 option(MULI3_PROFILE "Enable profiling with Tracy" OFF)
+option(MULI3_DISABLE_SIMD "Disable SIMD optimizations" OFF)
+option(MULI3_USE_AVX2 "Enable AVX2 for solver backend" ON)
 
 include(GNUInstallDirs)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/bin)

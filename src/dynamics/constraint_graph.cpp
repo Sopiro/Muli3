@@ -23,39 +23,49 @@ void ConstraintGraph::EvaluateContacts()
     MuliProfileZoneNR(gather_contacts, "Gather Contacts", true);
     SolverSet& awakeSet = world->solverSets[awake_set];
 
-    struct ContactSpan
-    {
-        ContactState* states;
-        int32 count;
-        int32 start;
-    };
-
-    int32 spanCount = 0;
     int32 activeCount = 0;
-    ContactSpan spans[constraint_color_count + 1];
 
     for (int32 i = 0; i < constraint_color_count; ++i)
     {
-        int32 count = int32(batches[i].contactStates.size());
-        if (count > 0)
-        {
-            spans[spanCount++] = { batches[i].contactStates.data(), count, activeCount };
-            activeCount += count;
-        }
+        activeCount += batches[i].blockContacts.Count();
+        activeCount += batches[i].scalarContacts.Count();
     }
 
     int32 awakeContactCount = int32(awakeSet.contactStates.size());
-    if (awakeContactCount > 0)
-    {
-        spans[spanCount++] = { awakeSet.contactStates.data(), awakeContactCount, activeCount };
-        activeCount += awakeContactCount;
-    }
+    activeCount += awakeContactCount;
 
     if (activeCount == 0)
     {
         MuliProfileZoneEnd(gather_contacts);
         return;
     }
+
+    int32 activeContactSize = activeCount * sizeof(Contact*);
+    Contact** activeContacts = (Contact**)world->linearAllocator.Allocate(activeContactSize);
+    int32 activeIndex = 0;
+
+    for (int32 i = 0; i < constraint_color_count; ++i)
+    {
+        BlockContactArray& blockContacts = batches[i].blockContacts;
+        int32 blockContactCount = blockContacts.Count();
+        if (blockContactCount > 0)
+        {
+            memcpy(activeContacts + activeIndex, blockContacts.state.contacts.data(), blockContactCount * sizeof(Contact*));
+            activeIndex += blockContactCount;
+        }
+
+        ScalarContactArray& scalarContacts = batches[i].scalarContacts;
+        for (ContactState& state : scalarContacts.states)
+        {
+            activeContacts[activeIndex++] = state.contact;
+        }
+    }
+
+    for (ContactState& state : awakeSet.contactStates)
+    {
+        activeContacts[activeIndex++] = state.contact;
+    }
+    MuliAssert(activeIndex == activeCount);
 
     int32 workerCount = world->settings.thread_pool ? world->settings.thread_pool->WorkerCount() : 1;
     int32 contactSlotCount = contactPool.GetCapacity();
@@ -79,21 +89,10 @@ void ConstraintGraph::EvaluateContacts()
             MuliAssert(workerIndex < workerCount);
             uint64* changedBits = contactBits + workerIndex * contactWordStride;
 
-            int32 spanIndex = 0;
-            while (spanIndex + 1 < spanCount && spans[spanIndex + 1].start <= begin)
-            {
-                ++spanIndex;
-            }
-
             MuliProfileZoneNR(narrow_phase_collision, "Collide", true);
             for (int32 i = begin; i < end; ++i)
             {
-                while (spanIndex + 1 < spanCount && spans[spanIndex + 1].start <= i)
-                {
-                    ++spanIndex;
-                }
-
-                Contact* contact = spans[spanIndex].states[i - spans[spanIndex].start].contact;
+                Contact* contact = activeContacts[i];
 
                 // Perform broad phase overlap test.
                 if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
@@ -123,34 +122,30 @@ void ConstraintGraph::EvaluateContacts()
     // Sequential execution on the main thread guarantees deterministic order of events.
     uint64* changedBits = contactBits;
 
-    for (int32 s = 0; s < spanCount; ++s)
+    for (int32 i = 0; i < activeCount; ++i)
     {
-        ContactSpan& span = spans[s];
-        for (int32 i = 0; i < span.count; ++i)
+        Contact* contact = activeContacts[i];
+
+        if ((contact->flag & Contact::flag_disjoint) != 0)
         {
-            Contact* contact = span.states[i].contact;
-
-            if ((contact->flag & Contact::flag_disjoint) != 0)
+            if (contact->flag & Contact::flag_touching)
             {
-                if (contact->flag & Contact::flag_touching)
-                {
-                    contact->flag &= ~Contact::flag_touching;
-                    contact->flag |= Contact::flag_was_touching;
-                    contact->TriggerCallbacks();
-                }
-                continue;
+                contact->flag &= ~Contact::flag_touching;
+                contact->flag |= Contact::flag_was_touching;
+                contact->TriggerCallbacks();
             }
+            continue;
+        }
 
-            // Trigger contact begin/end/touching listener callbacks sequentially.
-            contact->TriggerCallbacks();
+        // Trigger contact begin/end/touching listener callbacks sequentially.
+        contact->TriggerCallbacks();
 
-            bool graphContact = contact->IsTouching() && contact->IsEnabled();
-            bool inGraph = contact->colorIndex != null_index;
+        bool graphContact = contact->IsTouching() && contact->IsEnabled();
+        bool inGraph = contact->colorIndex != null_index;
 
-            if (graphContact != inGraph)
-            {
-                SetBit(changedBits, contact->poolIndex);
-            }
+        if (graphContact != inGraph)
+        {
+            SetBit(changedBits, contact->poolIndex);
         }
     }
 
@@ -226,8 +221,7 @@ void ConstraintGraph::EvaluateContacts()
             {
                 // The contact is still awake, but no longer contributes constraints.
                 // Keep it in awakeSet so the narrow phase can continue testing it.
-                ContactState state = std::move(batches[contact->colorIndex].contactStates[contact->localIndex]);
-                RemoveContactFromGraph(contact);
+                ContactState state = RemoveContactFromGraph(contact);
 
                 int32 newIndex = int32(awakeSet.contactStates.size());
                 awakeSet.contactStates.push_back(std::move(state));
@@ -241,6 +235,7 @@ void ConstraintGraph::EvaluateContacts()
     }
 
     world->linearAllocator.Free(contactBits, contactBitSize);
+    world->linearAllocator.Free(activeContacts, activeContactSize);
     MuliProfileZoneEnd(post_narrow_phase);
 }
 
@@ -426,26 +421,6 @@ void ConstraintGraph::UpdateCollider(Collider* collider, const Transform& transf
     broadPhase.Update(collider, AABB::Union(aabb0, aabb1), prediction, rested);
 }
 
-ContactState* ConstraintGraph::GetContactState(Contact* contact)
-{
-    return &batches[contact->colorIndex].contactStates[contact->localIndex];
-}
-
-const ContactState* ConstraintGraph::GetContactState(const Contact* contact) const
-{
-    return &batches[contact->colorIndex].contactStates[contact->localIndex];
-}
-
-JointState* ConstraintGraph::GetJointState(Joint* joint)
-{
-    return &batches[joint->colorIndex].jointStates[joint->localIndex];
-}
-
-const JointState* ConstraintGraph::GetJointState(const Joint* joint) const
-{
-    return &batches[joint->colorIndex].jointStates[joint->localIndex];
-}
-
 int32 ConstraintGraph::AssignColor(Body* bodyA, Body* bodyB)
 {
     MuliAssert(constraint_overflow_index < 32);
@@ -508,26 +483,36 @@ void ConstraintGraph::RemoveColor(Body* bodyA, Body* bodyB, int32 colorIndex)
     bodyB->usedColors &= mask;
 }
 
-ContactState* ConstraintGraph::AddContactToGraph(Contact* contact, ContactState&& source)
+void ConstraintGraph::AddContactToGraph(Contact* contact, ContactState&& source)
 {
     int32 colorIndex = AssignColor(contact->GetBodyA(), contact->GetBodyB());
     AddColor(contact->GetBodyA(), contact->GetBodyB(), colorIndex);
 
     ConstraintBatch& batch = batches[colorIndex];
-    int32 index = int32(batch.contactStates.size());
+    int32 index;
 
-    batch.contactStates.push_back(std::move(source));
-    ContactState* state = &batch.contactStates.back();
-    state->contact = contact;
+    bool blockContact = colorIndex != constraint_overflow_index && contact->GetColliderA()->GetType() < Shape::height_field;
+    if (blockContact)
+    {
+        contact->flag |= Contact::flag_simple;
+        Body* bodyA = contact->GetBodyA();
+        Body* bodyB = contact->GetBodyB();
+        index = batch.blockContacts.Add(
+            contact, bodyA->setIndex, bodyA->localIndex, bodyB->setIndex, bodyB->localIndex, std::move(source)
+        );
+    }
+    else
+    {
+        contact->flag &= ~Contact::flag_simple;
+        index = batch.scalarContacts.Add(contact, std::move(source));
+    }
 
     contact->setIndex = awake_set;
     contact->colorIndex = colorIndex;
     contact->localIndex = index;
-
-    return state;
 }
 
-void ConstraintGraph::RemoveContactFromGraph(Contact* contact)
+ContactState ConstraintGraph::RemoveContactFromGraph(Contact* contact)
 {
     int32 colorIndex = contact->colorIndex;
     int32 localIndex = contact->localIndex;
@@ -536,21 +521,32 @@ void ConstraintGraph::RemoveContactFromGraph(Contact* contact)
 
     RemoveColor(contact->GetBodyA(), contact->GetBodyB(), colorIndex);
 
-    // Swap remove
-    std::vector<ContactState>& states = batches[colorIndex].contactStates;
-    int32 last = int32(states.size() - 1);
-    if (localIndex != last)
+    ConstraintBatch& batch = batches[colorIndex];
+    ContactState state;
+
+    Contact* movedContact;
+    if (contact->IsSimpleContact())
     {
-        states[localIndex] = std::move(states[last]);
-        states[localIndex].contact->localIndex = localIndex;
+        movedContact = batch.blockContacts.Remove(localIndex, &state);
     }
-    states.pop_back();
+    else
+    {
+        movedContact = batch.scalarContacts.Remove(localIndex, &state);
+    }
+
+    if (movedContact)
+    {
+        movedContact->localIndex = localIndex;
+    }
 
     contact->colorIndex = null_index;
     contact->localIndex = null_index;
+    contact->flag &= ~Contact::flag_simple;
+
+    return state;
 }
 
-JointState* ConstraintGraph::AddJointToGraph(Joint* joint, const JointState& source)
+void ConstraintGraph::AddJointToGraph(Joint* joint, JointState&& source)
 {
     MuliAssert(joint->setIndex == awake_set);
 
@@ -560,17 +556,14 @@ JointState* ConstraintGraph::AddJointToGraph(Joint* joint, const JointState& sou
     ConstraintBatch& batch = batches[colorIndex];
     int32 index = int32(batch.jointStates.size());
 
-    batch.jointStates.push_back(source);
-    JointState* state = &batch.jointStates.back();
-    state->joint = joint;
+    batch.jointStates.push_back(std::move(source));
+    batch.jointStates.back().joint = joint;
 
     joint->colorIndex = colorIndex;
     joint->localIndex = index;
-
-    return state;
 }
 
-void ConstraintGraph::RemoveJointFromGraph(Joint* joint)
+JointState ConstraintGraph::RemoveJointFromGraph(Joint* joint)
 {
     int32 colorIndex = joint->colorIndex;
     int32 localIndex = joint->localIndex;
@@ -581,16 +574,20 @@ void ConstraintGraph::RemoveJointFromGraph(Joint* joint)
 
     // Swap remove
     std::vector<JointState>& states = batches[colorIndex].jointStates;
+    JointState state = std::move(states[localIndex]);
+
     int32 last = int32(states.size() - 1);
     if (localIndex != last)
     {
-        states[localIndex] = states[last];
+        states[localIndex] = std::move(states[last]);
         states[localIndex].joint->localIndex = localIndex;
     }
     states.pop_back();
 
     joint->colorIndex = null_index;
     joint->localIndex = null_index;
+
+    return state;
 }
 
 } // namespace muli3

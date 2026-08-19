@@ -16,7 +16,8 @@ inline constexpr int32 constraint_overflow_index = constraint_color_count - 1;
 // Constraints in a batch do not share bodies and can be solved in parallel.
 struct ConstraintBatch
 {
-    std::vector<ContactState> contactStates;
+    BlockContactArray blockContacts;
+    ScalarContactArray scalarContacts;
     std::vector<JointState> jointStates;
 };
 
@@ -30,11 +31,6 @@ public:
     void EvaluateContacts();
 
     int32 GetContactCount() const;
-
-    ContactState* GetContactState(Contact* contact);
-    const ContactState* GetContactState(const Contact* contact) const;
-    JointState* GetJointState(Joint* joint);
-    const JointState* GetJointState(const Joint* joint) const;
 
 private:
     friend class World;
@@ -53,10 +49,10 @@ private:
     void AddColor(Body* bodyA, Body* bodyB, int32 colorIndex);
     void RemoveColor(Body* bodyA, Body* bodyB, int32 colorIndex);
 
-    ContactState* AddContactToGraph(Contact* contact, ContactState&& source);
-    void RemoveContactFromGraph(Contact* contact);
-    JointState* AddJointToGraph(Joint* joint, const JointState& source);
-    void RemoveJointFromGraph(Joint* joint);
+    void AddContactToGraph(Contact* contact, ContactState&& source);
+    ContactState RemoveContactFromGraph(Contact* contact);
+    void AddJointToGraph(Joint* joint, JointState&& source);
+    JointState RemoveJointFromGraph(Joint* joint);
 
     World* world;
     BroadPhase broadPhase;

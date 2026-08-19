@@ -26,8 +26,12 @@ public:
     void SetEnabled(bool enabled);
     int32 GetColorIndex() const;
 
+    // A simple contact is a convex contact between non-height-field and non-mesh shapes,
+    // with one manifold stored in a SIMD block constraint.
+    bool IsSimpleContact() const;
+
     int32 GetManifoldCount() const;
-    const ContactManifold& GetContactManifold(int32 index) const;
+    ContactManifold GetContactManifold(int32 index) const; // It's SLOW
 
     float GetFriction() const;
     float GetRestitution() const;
@@ -38,10 +42,6 @@ private:
     friend class World;
     friend class ConstraintGraph;
     friend class BroadPhase;
-    friend class ContactSolverNormal;
-    friend class ContactSolverTangent;
-    friend class PositionSolver;
-    friend struct ContactState;
 
     enum
     {
@@ -50,10 +50,14 @@ private:
         flag_was_touching = 1 << 2,
         flag_island = 1 << 3,
         flag_disjoint = 1 << 4,
+        flag_simple = 1 << 5,
     };
+
+    void ProjectManifold(ContactManifold* manifold, ContactManifold* oldManifolds, int32 oldManifoldCount);
 
     void Update();
     void TriggerCallbacks();
+
     ContactState* GetContactState();
     const ContactState* GetContactState() const;
 
@@ -118,38 +122,6 @@ inline void Contact::SetEnabled(bool enabled)
 inline int32 Contact::GetColorIndex() const
 {
     return colorIndex;
-}
-
-inline int32 Contact::GetManifoldCount() const
-{
-    return GetContactState()->manifolds.size();
-}
-
-inline const ContactManifold& Contact::GetContactManifold(int32 index) const
-{
-    const ContactState* state = GetContactState();
-    MuliAssert(0 <= index && index < state->manifolds.size());
-    return state->manifolds[index];
-}
-
-inline float Contact::GetFriction() const
-{
-    return GetContactState()->friction;
-}
-
-inline float Contact::GetRestitution() const
-{
-    return GetContactState()->restitution;
-}
-
-inline float Contact::GetRestitutionThreshold() const
-{
-    return GetContactState()->restitutionThreshold;
-}
-
-inline Vec2 Contact::GetSurfaceSpeed() const
-{
-    return GetContactState()->surfaceSpeed;
 }
 
 } // namespace muli3

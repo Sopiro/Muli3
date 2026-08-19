@@ -106,12 +106,14 @@ static void MainLoop()
 
         frameTime = Min(frameTime - targetFrameTime, targetFrameTime);
 
+        // MuliProfileZoneNR(render, "Render", true);
         window->BeginFrame();
         {
             game->Update(deltaTime);
             game->Render(updateTime / targetUpdateTime);
         }
         window->EndFrame();
+        // MuliProfileZoneEnd(render);
     }
     else
     {
