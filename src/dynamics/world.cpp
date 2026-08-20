@@ -2,11 +2,10 @@
 #include "muli3/callbacks.h"
 #include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
-#include "muli3/contact_solver.h"
+#include "muli3/constraint.h"
 #include "muli3/parallel_for.h"
 #include "muli3/raycast.h"
 #include "muli3/shapes.h"
-#include "muli3/wide_contact_solver.h"
 
 // #define VALIDATE_WORLD
 
@@ -1377,14 +1376,14 @@ void World::Solve()
             MuliProfileZoneN(solve_velocity_contacts, "Solve Velocity Contact Overflow", true);
             for (int32 j = 0; j < overflow.scalarContacts.Count(); ++j)
             {
-                SolveContactVelocityConstraints(&overflow.scalarContacts.states[j], &overflow.scalarContacts.constraints[j]);
+                SolveContactVelocityScalar(&overflow.scalarContacts.states[j], &overflow.scalarContacts.constraints[j]);
             }
             MuliProfileZoneEnd(solve_velocity_contacts);
 
             MuliProfileZoneN(solve_velocity_joints, "Solve Velocity Joint Overflow", true);
             for (JointState& state : overflow.jointStates)
             {
-                SolveJointVelocityConstraints(&state, step);
+                SolveJointVelocity(&state, step);
             }
             MuliProfileZoneEnd(solve_velocity_joints);
 
@@ -1410,13 +1409,13 @@ void World::Solve()
                             else if (i < contactCount)
                             {
                                 int32 scalarIndex = i - blockCount;
-                                SolveContactVelocityConstraints(
+                                SolveContactVelocityScalar(
                                     &batch.scalarContacts.states[scalarIndex], &batch.scalarContacts.constraints[scalarIndex]
                                 );
                             }
                             else
                             {
-                                SolveJointVelocityConstraints(&batch.jointStates[i - contactCount], step);
+                                SolveJointVelocity(&batch.jointStates[i - contactCount], step);
                             }
                         }
                         MuliProfileZoneEnd(solve_velocity_constraint);
@@ -1473,7 +1472,7 @@ void World::Solve()
             {
                 ContactState& state = overflow.scalarContacts.states[j];
                 ScalarContactConstraint& constraint = overflow.scalarContacts.constraints[j];
-                SolveContactPositionConstraints(&state, &constraint);
+                SolveContactPositionScalar(&state, &constraint);
             }
             MuliProfileZoneEnd(solve_position_contact);
 
@@ -1499,7 +1498,7 @@ void World::Solve()
                             {
                                 ScalarContactConstraint& constraint = batch.scalarContacts.constraints[i - blockCount];
                                 ContactState& state = batch.scalarContacts.states[i - blockCount];
-                                SolveContactPositionConstraints(&state, &constraint);
+                                SolveContactPositionScalar(&state, &constraint);
                             }
                         }
                         MuliProfileZoneEnd(solve_position_contact);

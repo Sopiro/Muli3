@@ -1,4 +1,4 @@
-#include "muli3/wide_contact_solver.h"
+#include "muli3/constraint.h"
 #include "muli3/settings.h"
 #include "muli3/wide_math.h"
 

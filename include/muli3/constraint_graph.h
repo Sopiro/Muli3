@@ -1,6 +1,7 @@
 #pragma once
 
 #include "broad_phase.h"
+#include "constraint.h"
 #include "contact.h"
 #include "pool.h"
 
