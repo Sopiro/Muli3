@@ -1,10 +1,11 @@
 #include "muli3/collision.h"
 #include "muli3/distance.h"
 #include "muli3/frame.h"
-#include "muli3/ghost.h"
 #include "muli3/growable_stack.h"
 #include "muli3/settings.h"
 #include "muli3/shapes.h"
+
+#include "ghost.h"
 
 namespace muli3
 {

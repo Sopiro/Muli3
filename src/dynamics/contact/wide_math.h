@@ -1,6 +1,6 @@
 #pragma once
 
-#include "simd.h"
+#include "muli3/simd.h"
 
 #if defined(MULI3_SIMD_AVX2)
     #include <immintrin.h>

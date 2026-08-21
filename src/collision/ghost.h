@@ -1,6 +1,6 @@
 #pragma once
 
-#include "math.h"
+#include "muli3/math.h"
 
 namespace muli3
 {

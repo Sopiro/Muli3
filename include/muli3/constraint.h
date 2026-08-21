@@ -180,18 +180,4 @@ struct BlockContactArray
     BlockContactConstraint constraint;
 };
 
-void PrepareContactBlock(BlockContactArray* contacts, SolverSet* solverSets, int32 block);
-void WarmStartContactBlock(BlockContactArray* contacts, int32 block);
-void SolveContactVelocityBlock(BlockContactArray* contacts, int32 block);
-void SolveContactPositionBlock(BlockContactArray* contacts, int32 block);
-
-void PrepareContact(ContactState* state, ScalarContactConstraint* constraint);
-void WarmStartContact(ContactState* state, ScalarContactConstraint* constraint);
-void SolveContactVelocityScalar(ContactState* state, ScalarContactConstraint* constraint);
-void SolveContactPositionScalar(ContactState* state, ScalarContactConstraint* constraint);
-
-void PrepareJoint(JointState* joint, const Timestep& step);
-void WarmStartJoint(JointState* joint);
-void SolveJointVelocity(JointState* joint, const Timestep& step);
-
 } // namespace muli3

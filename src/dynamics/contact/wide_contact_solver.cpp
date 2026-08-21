@@ -1,6 +1,7 @@
 #include "muli3/constraint.h"
 #include "muli3/settings.h"
-#include "muli3/wide_math.h"
+
+#include "wide_math.h"
 
 namespace muli3
 {

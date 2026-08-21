@@ -7,6 +7,8 @@
 #include "muli3/raycast.h"
 #include "muli3/shapes.h"
 
+#include "dynamics/contact/contact_solver.h"
+
 // #define VALIDATE_WORLD
 
 namespace muli3

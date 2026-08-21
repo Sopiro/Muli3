@@ -1,5 +1,6 @@
-#include "muli3/ghost.h"
 #include "muli3/triangle_shape.h"
+
+#include "ghost.h"
 
 namespace muli3
 {
