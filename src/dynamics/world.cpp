@@ -1071,13 +1071,16 @@ void World::Solve()
     int32 contactIndex0 = 0, bodyIndex0 = 0, jointIndex0 = 0;
     int32 contactIndex = 0, bodyIndex = 0, jointIndex = 0;
     BodyState** islandBodies = (BodyState**)linearAllocator.Allocate(awakeBodyCount * sizeof(BodyState*));
-    Contact** islandContacts = (Contact**)linearAllocator.Allocate(constraintGraph.contacts.size() * sizeof(Contact*));
-    Joint** islandJoints = (Joint**)linearAllocator.Allocate(joints.size() * sizeof(Joint*));
+
+    int32 totalContactCount = int32(constraintGraph.contacts.size());
+    int32 totalJointCount = int32(joints.size());
+    Contact** islandContacts = (Contact**)linearAllocator.Allocate(totalContactCount * sizeof(Contact*));
+    Joint** islandJoints = (Joint**)linearAllocator.Allocate(totalJointCount * sizeof(Joint*));
 
     MuliProfileZoneNC(build_islands, "Build Islands", color::build_islands, true);
     ProfileScope profile_build_islands{ &profile.build_islands };
 
-    for (int32 i = 0; i < int32(awakeSet.bodyStates.size()); ++i)
+    for (int32 i = 0; i < awakeBodyCount; ++i)
     {
         Body* b = awakeSet.bodyStates[i].body;
         if (b->flag & Body::flag_island)
@@ -1914,8 +1917,8 @@ void World::Solve()
     Validate();
 #endif
 
-    linearAllocator.Free(islandJoints, joints.size() * sizeof(Joint*));
-    linearAllocator.Free(islandContacts, constraintGraph.contacts.size() * sizeof(Contact*));
+    linearAllocator.Free(islandJoints, totalJointCount * sizeof(Joint*));
+    linearAllocator.Free(islandContacts, totalContactCount * sizeof(Contact*));
     linearAllocator.Free(islandBodies, awakeBodyCount * sizeof(BodyState*));
     linearAllocator.Free(islands, awakeBodyCount * sizeof(Island));
     linearAllocator.Free(stack, awakeBodyCount * sizeof(Body*));
@@ -2806,7 +2809,7 @@ void World::SleepIsland(Body* body)
     }
 
     GrowableStack<Body*, 64> stack;
-    GrowableStack<Body*, 64> bodies;
+    GrowableStack<Body*, 64> island;
 
     stack.push_back(body);
     body->flag |= Body::flag_island;
@@ -2815,7 +2818,7 @@ void World::SleepIsland(Body* body)
     {
         Body* b = stack.back();
         stack.pop_back();
-        bodies.push_back(b);
+        island.push_back(b);
 
         for (Contact* contact : b->contacts)
         {
@@ -2849,7 +2852,7 @@ void World::SleepIsland(Body* body)
         }
     }
 
-    for (Body* b : bodies)
+    for (Body* b : island)
     {
         BodyState* state = b->GetBodyState();
         state->resting = max_float;
@@ -2861,7 +2864,7 @@ void World::SleepIsland(Body* body)
         b->flag |= Body::flag_sleeping;
     }
 
-    for (Body* b : bodies)
+    for (Body* b : island)
     {
         for (Contact* contact : b->contacts)
         {
@@ -2908,7 +2911,7 @@ void World::SleepIsland(Body* body)
         }
     }
 
-    for (Body* b : bodies)
+    for (Body* b : island)
     {
         b->flag &= ~Body::flag_island;
         TransferBody(b, sleeping_set);

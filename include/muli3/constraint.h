@@ -37,15 +37,13 @@ struct ContactConstraint
     Vec3 localPointB[max_contact_point_count];
 };
 
-using ContactConstraintSet = GrowableStack<ContactConstraint, 1>;
-
 // Scalar solver data is rebuilt from ContactState before each solve.
 struct ScalarContactConstraint
 {
     BodyState* bodyA;
     BodyState* bodyB;
 
-    ContactConstraintSet constraints;
+    GrowableStack<ContactConstraint, 1> constraints;
 
     Mat3 invIA;
     Mat3 invIB;
@@ -57,21 +55,9 @@ struct ScalarContactArray
 {
     int32 Add(Contact* contact, ContactState&& state);
     Contact* Remove(int32 index, ContactState* movedContact);
-
-    Contact* GetContact(int32 index) const
-    {
-        return states[index].contact;
-    }
-
-    int32 Count() const
-    {
-        return int32(states.size());
-    }
-
-    bool Empty() const
-    {
-        return states.empty();
-    }
+    Contact* GetContact(int32 index) const;
+    int32 Count() const;
+    bool Empty() const;
 
     std::vector<ContactState> states;
     std::vector<ScalarContactConstraint> constraints;
@@ -153,31 +139,50 @@ struct BlockContactArray
 {
     int32 Add(Contact* contact, int32 setA, int32 indexA, int32 setB, int32 indexB, ContactState&& state);
     Contact* Remove(int32 index, ContactState* removed);
-
-    Contact* GetContact(int32 index) const
-    {
-        return state.contacts[index / simd_width].lane[index % simd_width];
-    }
-
-    int32 Count() const
-    {
-        return count;
-    }
-
-    int32 BlockCount() const
-    {
-        return (count + simd_width - 1) / simd_width;
-    }
-
-    bool Empty() const
-    {
-        return count == 0;
-    }
+    Contact* GetContact(int32 index) const;
+    int32 Count() const;
+    int32 BlockCount() const;
+    bool Empty() const;
 
     int32 count = 0;
     int32 blockCapacity = 0;
     BlockContactState state;
     BlockContactConstraint constraint;
 };
+
+inline Contact* ScalarContactArray::GetContact(int32 index) const
+{
+    return states[index].contact;
+}
+
+inline int32 ScalarContactArray::Count() const
+{
+    return int32(states.size());
+}
+
+inline bool ScalarContactArray::Empty() const
+{
+    return states.empty();
+}
+
+inline Contact* BlockContactArray::GetContact(int32 index) const
+{
+    return state.contacts[index / simd_width].lane[index % simd_width];
+}
+
+inline int32 BlockContactArray::Count() const
+{
+    return count;
+}
+
+inline int32 BlockContactArray::BlockCount() const
+{
+    return (count + simd_width - 1) / simd_width;
+}
+
+inline bool BlockContactArray::Empty() const
+{
+    return count == 0;
+}
 
 } // namespace muli3
