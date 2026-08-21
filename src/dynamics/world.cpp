@@ -411,9 +411,9 @@ void World::Destroy(Body* body)
     FreeBody(body);
 }
 
-void World::Destroy(std::span<Body*> bodies)
+void World::Destroy(std::span<Body*> inBodies)
 {
-    for (Body* body : bodies)
+    for (Body* body : inBodies)
     {
         Destroy(body);
     }
@@ -425,9 +425,9 @@ void World::BufferDestroy(Body* body)
     destroyBodyBuffer.push_back(body);
 }
 
-void World::BufferDestroy(std::span<Body*> bodies)
+void World::BufferDestroy(std::span<Body*> inBodies)
 {
-    for (Body* body : bodies)
+    for (Body* body : inBodies)
     {
         BufferDestroy(body);
     }
@@ -498,9 +498,9 @@ void World::Destroy(Joint* joint)
     FreeJoint(joint);
 }
 
-void World::Destroy(std::span<Joint*> joints)
+void World::Destroy(std::span<Joint*> inJoints)
 {
-    for (Joint* joint : joints)
+    for (Joint* joint : inJoints)
     {
         Destroy(joint);
     }
@@ -511,11 +511,11 @@ void World::BufferDestroy(Joint* joint)
     destroyJointBuffer.push_back(joint);
 }
 
-void World::BufferDestroy(std::span<Joint*> joints)
+void World::BufferDestroy(std::span<Joint*> inJoints)
 {
-    for (size_t i = 0; i < joints.size(); ++i)
+    for (Joint* joint : inJoints)
     {
-        BufferDestroy(joints[i]);
+        BufferDestroy(joint);
     }
 }
 
