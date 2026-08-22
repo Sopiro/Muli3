@@ -25,11 +25,6 @@ public:
     bool RayCast(const Transform& transform, const RayCastInput& input, RayCastOutput* output) const;
 };
 
-inline SphereShape::SphereShape(const SphereShape& other, const Transform& transform)
-    : SphereShape(other.radius, Transform{ Mul(transform, other.center) })
-{
-}
-
 inline int32 SphereShape::GetVertexCount() const
 {
     return 1;

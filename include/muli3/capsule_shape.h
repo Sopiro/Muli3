@@ -33,11 +33,6 @@ private:
     Vec3 va, vb;
 };
 
-inline CapsuleShape::CapsuleShape(const CapsuleShape& other, const Transform& transform)
-    : CapsuleShape(other.va, other.vb, other.radius, transform)
-{
-}
-
 inline int32 CapsuleShape::GetVertexCount() const
 {
     return 2;

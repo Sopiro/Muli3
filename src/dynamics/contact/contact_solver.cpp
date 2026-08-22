@@ -2,7 +2,7 @@
 #include "muli3/constraint.h"
 #include "muli3/contact.h"
 #include "muli3/frame.h"
-#include "muli3/joints.h" // IWYU pragma: keep
+#include "muli3/joints.h"
 #include "muli3/solver_states.h"
 
 namespace muli3

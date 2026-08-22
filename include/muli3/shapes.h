@@ -1,3 +1,6 @@
+// IWYU pragma: always_keep
+#pragma once
+
 #include "shape.h"
 
 #include "box_shape.h"          // IWYU pragma: export

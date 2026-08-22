@@ -12,7 +12,11 @@ using NodeIndex = int32;
 
 inline float SurfaceArea(const AABB& aabb)
 {
+#if 1
     return aabb.GetSurfaceArea();
+#else
+    return aabb.GetVolume();
+#endif
 }
 
 class AABBTree

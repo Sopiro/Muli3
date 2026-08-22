@@ -9,6 +9,7 @@ extern void InitializeDetectionFunctionMap();
 
 ConstraintGraph::ConstraintGraph(World* world)
     : world{ world }
+    , batches{ constraint_color_count }
 {
     InitializeDetectionFunctionMap();
 }

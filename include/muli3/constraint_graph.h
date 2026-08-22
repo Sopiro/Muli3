@@ -61,7 +61,7 @@ private:
     Pool<Contact> contactPool;
     std::vector<Contact*> contacts;
 
-    ConstraintBatch batches[constraint_color_count];
+    std::vector<ConstraintBatch> batches;
 
     void Destroy(Contact* c);
     void OnNewContact(Collider* colliderA, Collider* colliderB);

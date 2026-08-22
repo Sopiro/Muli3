@@ -22,6 +22,11 @@ BoxShape::BoxShape(float width, float height, float depth, float inRadius, const
              4.0f / 3.0f * pi * radius * radius * radius;
 }
 
+BoxShape::BoxShape(const Vec3& size, float radius, const Transform& transform)
+    : BoxShape(size.x, size.y, size.z, radius, transform)
+{
+}
+
 BoxShape::BoxShape(const BoxShape& other, const Transform& transform)
     : Shape{ Shape::box, other.radius }
     , halfExtents{ other.halfExtents }
@@ -34,6 +39,11 @@ BoxShape::BoxShape(const BoxShape& other, const Transform& transform)
     float z = halfExtents.z * 2.0f;
     volume = x * y * z + 2.0f * (x * y + y * z + z * x) * radius + pi * (x + y + z) * radius * radius +
              4.0f / 3.0f * pi * radius * radius * radius;
+}
+
+BoxShape::BoxShape(float size, float radius, const Transform& transform)
+    : BoxShape(size, size, size, radius, transform)
+{
 }
 
 void BoxShape::ComputeMass(float density, MassData* outMassData) const

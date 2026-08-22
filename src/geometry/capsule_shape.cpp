@@ -36,6 +36,11 @@ CapsuleShape::CapsuleShape(const Vec3& p1, const Vec3& p2, float inRadius, const
     volume = pi * radius * radius * length + 4.0f / 3.0f * pi * radius * radius * radius;
 }
 
+CapsuleShape::CapsuleShape(const CapsuleShape& other, const Transform& transform)
+    : CapsuleShape(other.va, other.vb, other.radius, transform)
+{
+}
+
 void CapsuleShape::ComputeMass(float density, MassData* outMassData) const
 {
     MuliAssert(outMassData != nullptr);

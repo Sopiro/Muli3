@@ -10,6 +10,11 @@ SphereShape::SphereShape(float inRadius, const Transform& transform)
     volume = 4.0f / 3.0f * pi * radius * radius * radius;
 }
 
+SphereShape::SphereShape(const SphereShape& other, const Transform& transform)
+    : SphereShape(other.radius, Transform{ Mul(transform, other.center) })
+{
+}
+
 void SphereShape::ComputeMass(float density, MassData* outMassData) const
 {
     MuliAssert(outMassData != nullptr);

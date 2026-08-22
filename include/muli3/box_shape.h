@@ -34,16 +34,6 @@ private:
     Quat rotation;
 };
 
-inline BoxShape::BoxShape(const Vec3& size, float radius, const Transform& transform)
-    : BoxShape(size.x, size.y, size.z, radius, transform)
-{
-}
-
-inline BoxShape::BoxShape(float size, float radius, const Transform& transform)
-    : BoxShape(size, size, size, radius, transform)
-{
-}
-
 inline int32 BoxShape::GetVertexCount() const
 {
     return 8;
