@@ -1200,10 +1200,6 @@ void World::Solve()
     const int32 minBodyRange = 64;
     const int32 minConstraintRange = 32;
 
-    float dt2 = Sqr(step.dt);
-    float linearTolerance2 = settings.rest_linear_tolerance * dt2;
-    float angularTolerance2 = 0.125f * settings.rest_angular_tolerance * dt2;
-
     // Integrate velocities for all awake bodies
     MuliProfileZoneNC(integrate_velocities, "Integrate Velocities", color::integrate_velocities, true);
     {
@@ -1219,9 +1215,7 @@ void World::Solve()
                     Body* b = s->body;
                     b->flag &= ~Body::flag_sleeping;
 
-                    if (Length2(s->motion.c - s->motion.c0) > linearTolerance2 ||
-                        1.0f - Abs(Dot(s->motion.q0, s->motion.q)) > angularTolerance2 || Length2(s->torque) > 0.0f ||
-                        Length2(s->force) > 0.0f)
+                    if (Length2(s->torque) > 0.0f || Length2(s->force) > 0.0f)
                     {
                         s->resting = 0.0f;
                     }
@@ -1521,6 +1515,10 @@ void World::Solve()
     {
         ProfileScope profile_sleep_and_sync{ &profile.sleep_and_sync };
 
+        float dt2 = Sqr(step.dt);
+        float linearTolerance2 = settings.rest_linear_tolerance * dt2;
+        float angularTolerance2 = 0.125f * settings.rest_angular_tolerance * dt2;
+
         // Collider updates are computed in parallel and committed to the tree in order.
         struct ColliderSync
         {
@@ -1534,9 +1532,8 @@ void World::Solve()
         int32 colliderSyncCount = 0;
         for (int32 i = 0; i < bodyIndex; ++i)
         {
-            Body* body = islandBodies[i]->body;
             colliderStarts[i] = colliderSyncCount;
-            colliderSyncCount += body->GetColliderCount();
+            colliderSyncCount += islandBodies[i]->body->GetColliderCount();
         }
         colliderStarts[bodyIndex] = colliderSyncCount;
 
@@ -1550,13 +1547,13 @@ void World::Solve()
         int32 islandWordStride = (islandWordCount + 7) & ~7;
         int32 bodyWordStride = (bodyWordCount + 7) & ~7;
 
-        int32 awakeIslandBitSize = workerCount * islandWordStride * sizeof(uint64);
+        int32 activeIslandBitSize = workerCount * islandWordStride * sizeof(uint64);
         int32 destroyBodyBitSize = workerCount * bodyWordStride * sizeof(uint64);
 
         // Worker-local bits avoid atomics while collecting body results.
-        uint64* awakeIslandBits = (uint64*)linearAllocator.Allocate(awakeIslandBitSize);
+        uint64* activeIslandBits = (uint64*)linearAllocator.Allocate(activeIslandBitSize);
         uint64* destroyBodyBits = (uint64*)linearAllocator.Allocate(destroyBodyBitSize);
-        std::memset(awakeIslandBits, 0, awakeIslandBitSize);
+        std::memset(activeIslandBits, 0, activeIslandBitSize);
         std::memset(destroyBodyBits, 0, destroyBodyBitSize);
 
         const auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
@@ -1570,7 +1567,7 @@ void World::Solve()
                 MuliProfileZoneN(sync_bodies, "Sync Bodies", true);
                 MuliAssert(workerIndex < workerCount);
 
-                uint64* awakeBits = awakeIslandBits + workerIndex * islandWordStride;
+                uint64* activeBits = activeIslandBits + workerIndex * islandWordStride;
                 uint64* destroyBits = destroyBodyBits + workerIndex * bodyWordStride;
 
                 for (int32 i = i0; i < i1; ++i)
@@ -1579,12 +1576,12 @@ void World::Solve()
                     Body* body = s->body;
                     MuliAssert(body->IsStatic() == false);
 
-                    if (Length2(s->angularVelocity) > settings.rest_angular_tolerance ||
-                        Length2(s->linearVelocity) > settings.rest_linear_tolerance)
+                    if (Length2(s->motion.c - s->motion.c0) > linearTolerance2 ||
+                        1.0f - Abs(Dot(s->motion.q0, s->motion.q)) > angularTolerance2)
                     {
-                        if (GetBit(awakeBits, body->islandIndex) == false)
+                        if (GetBit(activeBits, body->islandIndex) == false)
                         {
-                            SetBit(awakeBits, body->islandIndex);
+                            SetBit(activeBits, body->islandIndex);
                         }
                     }
 
@@ -1639,14 +1636,14 @@ void World::Solve()
         spinScope.Close();
 
         // Merge worker-local results into worker 0 storage.
-        uint64* awakeBits = awakeIslandBits;
+        uint64* activeBits = activeIslandBits;
         uint64* destroyBits = destroyBodyBits;
         for (int32 worker = 1; worker < workerCount; ++worker)
         {
-            uint64* otherAwakeBits = awakeIslandBits + worker * islandWordStride;
+            uint64* otherActiveBits = activeIslandBits + worker * islandWordStride;
             for (int32 i = 0; i < islandWordCount; ++i)
             {
-                awakeBits[i] |= otherAwakeBits[i];
+                activeBits[i] |= otherActiveBits[i];
             }
 
             uint64* otherDestroyBits = destroyBodyBits + worker * bodyWordStride;
@@ -1661,8 +1658,8 @@ void World::Solve()
         for (int32 i = 0; i < islandCount; ++i)
         {
             Island* island = islands + i;
-            bool awakeIsland = GetBit(awakeBits, i);
-            bool sleeping = settings.sleeping && awakeIsland == false;
+            bool activeIsland = GetBit(activeBits, i);
+            bool sleeping = settings.sleeping && (activeIsland == false);
 
             for (int32 j = 0; j < island->bodyCount; ++j)
             {
@@ -1686,7 +1683,7 @@ void World::Solve()
                     }
                 }
 
-                if (awakeIsland)
+                if (activeIsland)
                 {
                     s->resting = 0.0f;
                 }
@@ -1717,7 +1714,7 @@ void World::Solve()
         MuliProfileZoneEnd(sync_colliders);
 
         linearAllocator.Free(destroyBodyBits, destroyBodyBitSize);
-        linearAllocator.Free(awakeIslandBits, awakeIslandBitSize);
+        linearAllocator.Free(activeIslandBits, activeIslandBitSize);
         linearAllocator.Free(colliderSyncs, colliderSyncCount * sizeof(ColliderSync));
         linearAllocator.Free(colliderStarts, (bodyIndex + 1) * sizeof(int32));
     }
