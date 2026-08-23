@@ -157,6 +157,35 @@ Contact* ScalarContactArray::Remove(int32 index, ContactState* removed)
     return movedContact;
 }
 
+int32 ScalarJointArray::Add(Joint* joint, JointState&& state)
+{
+    int32 index = int32(states.size());
+    state.joint = joint;
+    states.push_back(std::move(state));
+    return index;
+}
+
+Joint* ScalarJointArray::Remove(int32 index, JointState* removed)
+{
+    MuliAssert(0 <= index && index < int32(states.size()));
+    *removed = std::move(states[index]);
+    int32 last = int32(states.size() - 1);
+
+    Joint* movedJoint;
+    if (index != last)
+    {
+        states[index] = std::move(states[last]);
+        movedJoint = states[index].joint;
+    }
+    else
+    {
+        movedJoint = nullptr;
+    }
+
+    states.pop_back();
+    return movedJoint;
+}
+
 int32 BlockContactArray::Add(Contact* contact, int32 setA, int32 indexA, int32 setB, int32 indexB, ContactState&& inState)
 {
     MuliAssert(inState.manifolds.size() == 1);

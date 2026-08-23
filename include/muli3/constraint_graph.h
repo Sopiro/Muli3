@@ -19,7 +19,7 @@ struct ConstraintBatch
 {
     BlockContactArray blockContacts;
     ScalarContactArray scalarContacts;
-    std::vector<JointState> jointStates;
+    ScalarJointArray scalarJoints;
 };
 
 class ConstraintGraph

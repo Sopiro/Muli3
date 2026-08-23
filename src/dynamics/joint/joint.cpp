@@ -37,7 +37,7 @@ JointState* Joint::GetJointState()
 {
     if (colorIndex != null_index)
     {
-        return &bodyA->world->constraintGraph.batches[colorIndex].jointStates[localIndex];
+        return &bodyA->world->constraintGraph.batches[colorIndex].scalarJoints.states[localIndex];
     }
     else
     {
@@ -50,7 +50,7 @@ const JointState* Joint::GetJointState() const
 {
     if (colorIndex != null_index)
     {
-        return &bodyA->world->constraintGraph.batches[colorIndex].jointStates[localIndex];
+        return &bodyA->world->constraintGraph.batches[colorIndex].scalarJoints.states[localIndex];
     }
     else
     {

@@ -8,6 +8,7 @@ namespace muli3
 {
 
 class Contact;
+class Joint;
 struct BodyState;
 struct JointState;
 struct Timestep;
@@ -150,6 +151,17 @@ struct BlockContactArray
     BlockContactConstraint constraint;
 };
 
+struct ScalarJointArray
+{
+    int32 Add(Joint* joint, JointState&& state);
+    Joint* Remove(int32 index, JointState* removed);
+    Joint* GetJoint(int32 index) const;
+    int32 Count() const;
+    bool Empty() const;
+
+    std::vector<JointState> states;
+};
+
 inline Contact* ScalarContactArray::GetContact(int32 index) const
 {
     return states[index].contact;
@@ -183,6 +195,21 @@ inline int32 BlockContactArray::BlockCount() const
 inline bool BlockContactArray::Empty() const
 {
     return count == 0;
+}
+
+inline Joint* ScalarJointArray::GetJoint(int32 index) const
+{
+    return states[index].joint;
+}
+
+inline int32 ScalarJointArray::Count() const
+{
+    return int32(states.size());
+}
+
+inline bool ScalarJointArray::Empty() const
+{
+    return states.empty();
 }
 
 } // namespace muli3

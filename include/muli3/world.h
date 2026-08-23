@@ -471,7 +471,7 @@ inline int32 World::GetConstraintCount(int32 colorIndex) const
 {
     MuliAssert(0 <= colorIndex && colorIndex < constraint_color_count);
     const ConstraintBatch& batch = constraintGraph.batches[colorIndex];
-    return int32(batch.blockContacts.Count() + batch.scalarContacts.Count() + batch.jointStates.size());
+    return batch.blockContacts.Count() + batch.scalarContacts.Count() + batch.scalarJoints.Count();
 }
 
 inline const AABBTree& World::GetDynamicTree() const

@@ -52,7 +52,7 @@ void World::Reset()
     {
         MuliAssert(constraintGraph.batches[i].blockContacts.Empty());
         MuliAssert(constraintGraph.batches[i].scalarContacts.Empty());
-        MuliAssert(constraintGraph.batches[i].jointStates.empty());
+        MuliAssert(constraintGraph.batches[i].scalarJoints.Empty());
     }
 
     step.index = 0;
@@ -1322,7 +1322,7 @@ void World::Solve()
         MuliProfileZoneEnd(warm_start_contacts);
 
         MuliProfileZoneN(warm_start_joints, "Warm Start Joints Overflow", true);
-        for (JointState& state : overflow.jointStates)
+        for (JointState& state : overflow.scalarJoints.states)
         {
             WarmStartJoint(&state);
         }
@@ -1334,7 +1334,7 @@ void World::Solve()
             int32 blockCount = batch.blockContacts.BlockCount();
             int32 scalarCount = batch.scalarContacts.Count();
             int32 contactCount = blockCount + scalarCount;
-            int32 constraintCount = contactCount + int32(batch.jointStates.size());
+            int32 constraintCount = contactCount + batch.scalarJoints.Count();
             ParallelFor(
                 0, constraintCount, minConstraintRange,
                 [&](int32 i0, int32 i1) {
@@ -1354,7 +1354,7 @@ void World::Solve()
                         }
                         else
                         {
-                            WarmStartJoint(&batch.jointStates[i - contactCount]);
+                            WarmStartJoint(&batch.scalarJoints.states[i - contactCount]);
                         }
                     }
                     MuliProfileZoneEnd(warm_start_constraint);
@@ -1380,7 +1380,7 @@ void World::Solve()
             MuliProfileZoneEnd(solve_velocity_contacts);
 
             MuliProfileZoneN(solve_velocity_joints, "Solve Velocity Joint Overflow", true);
-            for (JointState& state : overflow.jointStates)
+            for (JointState& state : overflow.scalarJoints.states)
             {
                 SolveJointVelocity(&state, step);
             }
@@ -1393,7 +1393,7 @@ void World::Solve()
                 int32 blockCount = batch.blockContacts.BlockCount();
                 int32 scalarCount = batch.scalarContacts.Count();
                 int32 contactCount = blockCount + scalarCount;
-                int32 constraintCount = contactCount + int32(batch.jointStates.size());
+                int32 constraintCount = contactCount + batch.scalarJoints.Count();
 
                 ParallelFor(
                     0, constraintCount, minConstraintRange,
@@ -1414,7 +1414,7 @@ void World::Solve()
                             }
                             else
                             {
-                                SolveJointVelocity(&batch.jointStates[i - contactCount], step);
+                                SolveJointVelocity(&batch.scalarJoints.states[i - contactCount], step);
                             }
                         }
                         MuliProfileZoneEnd(solve_velocity_constraint);
@@ -3102,9 +3102,9 @@ void World::Validate() const
             }
         }
 
-        for (int32 i = 0; i < int32(batch.jointStates.size()); ++i)
+        for (int32 i = 0; i < batch.scalarJoints.Count(); ++i)
         {
-            Joint* joint = batch.jointStates[i].joint;
+            Joint* joint = batch.scalarJoints.GetJoint(i);
             MuliAssert(seenJoints.insert(joint).second);
             MuliAssert(joint->setIndex == awake_set);
             MuliAssert(joint->colorIndex == colorIndex);
@@ -3191,7 +3191,7 @@ void World::Validate() const
                 }
             }
 
-            for (const JointState& state : batch.jointStates)
+            for (const JointState& state : batch.scalarJoints.states)
             {
                 Joint* joint = state.joint;
                 if (joint->GetBodyA() == body || joint->GetBodyB() == body)

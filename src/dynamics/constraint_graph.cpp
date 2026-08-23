@@ -555,10 +555,7 @@ void ConstraintGraph::AddJointToGraph(Joint* joint, JointState&& source)
     AddColor(joint->GetBodyA(), joint->GetBodyB(), colorIndex);
 
     ConstraintBatch& batch = batches[colorIndex];
-    int32 index = int32(batch.jointStates.size());
-
-    batch.jointStates.push_back(std::move(source));
-    batch.jointStates.back().joint = joint;
+    int32 index = batch.scalarJoints.Add(joint, std::move(source));
 
     joint->colorIndex = colorIndex;
     joint->localIndex = index;
@@ -573,17 +570,12 @@ JointState ConstraintGraph::RemoveJointFromGraph(Joint* joint)
 
     RemoveColor(joint->GetBodyA(), joint->GetBodyB(), colorIndex);
 
-    // Swap remove
-    std::vector<JointState>& states = batches[colorIndex].jointStates;
-    JointState state = std::move(states[localIndex]);
-
-    int32 last = int32(states.size() - 1);
-    if (localIndex != last)
+    JointState state;
+    Joint* movedJoint = batches[colorIndex].scalarJoints.Remove(localIndex, &state);
+    if (movedJoint)
     {
-        states[localIndex] = std::move(states[last]);
-        states[localIndex].joint->localIndex = localIndex;
+        movedJoint->localIndex = localIndex;
     }
-    states.pop_back();
 
     joint->colorIndex = null_index;
     joint->localIndex = null_index;
