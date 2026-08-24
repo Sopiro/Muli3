@@ -1283,7 +1283,7 @@ void World::Solve()
                         else
                         {
                             int32 scalarIndex = i - blockCount;
-                            PrepareContact(
+                            PrepareContactScalar(
                                 &batch.scalarContacts.states[scalarIndex], &batch.scalarContacts.constraints[scalarIndex]
                             );
                         }
@@ -1317,7 +1317,7 @@ void World::Solve()
         MuliProfileZoneN(warm_start_contacts, "Warm Start Contacts Overflow", true);
         for (int32 i = 0; i < overflow.scalarContacts.Count(); ++i)
         {
-            WarmStartContact(&overflow.scalarContacts.states[i], &overflow.scalarContacts.constraints[i]);
+            WarmStartContactScalar(&overflow.scalarContacts.states[i], &overflow.scalarContacts.constraints[i]);
         }
         MuliProfileZoneEnd(warm_start_contacts);
 
@@ -1348,7 +1348,7 @@ void World::Solve()
                         else if (i < contactCount)
                         {
                             int32 scalarIndex = i - blockCount;
-                            WarmStartContact(
+                            WarmStartContactScalar(
                                 &batch.scalarContacts.states[scalarIndex], &batch.scalarContacts.constraints[scalarIndex]
                             );
                         }
@@ -1515,9 +1515,8 @@ void World::Solve()
     {
         ProfileScope profile_sleep_and_sync{ &profile.sleep_and_sync };
 
-        float dt2 = Sqr(step.dt);
-        float linearTolerance2 = settings.rest_linear_tolerance * dt2;
-        float angularTolerance2 = 0.125f * settings.rest_angular_tolerance * dt2;
+        const float linearTolerance2 = settings.rest_linear_tolerance * Sqr(step.dt);
+        const float angularTolerance2 = 0.125f * settings.rest_angular_tolerance * Sqr(step.dt);
 
         // Collider updates are computed in parallel and committed to the tree in order.
         struct ColliderSync

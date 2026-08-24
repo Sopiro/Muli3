@@ -8,7 +8,7 @@
 namespace muli3
 {
 
-void PrepareContact(ContactState* state, ScalarContactConstraint* solver)
+void PrepareContactScalar(ContactState* state, ScalarContactConstraint* solver)
 {
     // Prepare normal, friction, and position terms for one scalar contact.
     Body* bodyA = state->contact->GetBodyA();
@@ -102,7 +102,7 @@ void PrepareContact(ContactState* state, ScalarContactConstraint* solver)
     }
 }
 
-void WarmStartContact(ContactState* state, ScalarContactConstraint* solver)
+void WarmStartContactScalar(ContactState* state, ScalarContactConstraint* solver)
 {
     // Apply the impulses accumulated in the previous step before iteration.
     BodyState* bodyA = solver->bodyA;

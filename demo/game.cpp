@@ -747,7 +747,7 @@ void Game::UpdateUI()
                 ImGui::EndDisabled();
 
                 ImGui::SameLine();
-                if (ImGui::Button("Restart")) InitDemo(demoIndex);
+                if (ImGui::Button("Restart")) RestartDemo();
 
                 static int32 fps = GetFrameRate();
                 static int32 ups = GetUpdateRate();

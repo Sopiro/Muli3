@@ -17,8 +17,8 @@ void WarmStartContactBlock(BlockContactArray* contacts, int32 block);
 void SolveContactVelocityBlock(BlockContactArray* contacts, int32 block);
 void SolveContactPositionBlock(BlockContactArray* contacts, int32 block);
 
-void PrepareContact(ContactState* state, ScalarContactConstraint* constraint);
-void WarmStartContact(ContactState* state, ScalarContactConstraint* constraint);
+void PrepareContactScalar(ContactState* state, ScalarContactConstraint* constraint);
+void WarmStartContactScalar(ContactState* state, ScalarContactConstraint* constraint);
 void SolveContactVelocityScalar(ContactState* state, ScalarContactConstraint* constraint);
 void SolveContactPositionScalar(ContactState* state, ScalarContactConstraint* constraint);
 
