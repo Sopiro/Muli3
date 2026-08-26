@@ -287,6 +287,7 @@ private:
 
     float mass;
     Mat3 inertia;
+    Vec3 halfExtent;
 
     int32 setIndex;
     int32 localIndex;

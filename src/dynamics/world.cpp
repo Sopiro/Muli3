@@ -1515,9 +1515,6 @@ void World::Solve()
     {
         ProfileScope profile_sleep_and_sync{ &profile.sleep_and_sync };
 
-        const float linearTolerance2 = settings.rest_linear_tolerance * Sqr(step.dt);
-        const float angularTolerance2 = 0.125f * settings.rest_angular_tolerance * Sqr(step.dt);
-
         // Collider updates are computed in parallel and committed to the tree in order.
         struct ColliderSync
         {
@@ -1575,8 +1572,29 @@ void World::Solve()
                     Body* body = s->body;
                     MuliAssert(body->IsStatic() == false);
 
-                    if (Length2(s->motion.c - s->motion.c0) > linearTolerance2 ||
-                        1.0f - Abs(Dot(s->motion.q0, s->motion.q)) > angularTolerance2)
+                    Quat q0 = s->motion.q0;
+                    Quat q = s->motion.q;
+
+                    // q and -q represent the same orientation. Pick the sign that gives the shortest delta.
+                    if (Dot(q0, q) < 0.0f)
+                    {
+                        q = -q;
+                    }
+
+                    // Convert displacement of COM to the average linear velocity for this step.
+                    Vec3 deltaPosition = s->motion.c - s->motion.c0;
+                    Vec3 deltaLinearVelocity = deltaPosition * step.inv_dt;
+
+                    // q0 and q bracket the whole step. A rotation quaternion is (axis * sin(theta / 2), cos(theta / 2)).
+                    // For small theta, sin(theta / 2) ~= theta / 2, so 2 * imaginary / dt approximates angular velocity.
+                    Quat deltaRotation = q * q0.GetConjugate();
+                    Vec3 deltaAngularVelocity = Abs(q0.RotateInv(deltaRotation.GetImaginaryPart())) * (2.0f * step.inv_dt);
+
+                    // Bound the angular velocity at the farthest point of the body.
+                    Vec3 pointVelocity = AbsCross(deltaAngularVelocity, body->halfExtent);
+                    float sleepVelocity = Length(deltaLinearVelocity) + Length(pointVelocity);
+
+                    if (sleepVelocity > settings.sleep_velocity_threshold)
                     {
                         if (GetBit(activeBits, body->islandIndex) == false)
                         {

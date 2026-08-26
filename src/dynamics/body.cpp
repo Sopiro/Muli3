@@ -20,6 +20,7 @@ Body::Body(const Transform& tf, Type type)
     , transform{ tf }
     , mass{ 0.0f }
     , inertia{ 0.0f }
+    , halfExtent{ 0.0f }
     , setIndex{ null_index }
     , localIndex{ null_index }
     , islandIndex{ null_index }
@@ -748,13 +749,9 @@ void Body::ResetMassData()
 
     mass = 0.0f;
     inertia = Mat3::zero;
+    halfExtent = Vec3::zero;
     s->invMass = 0.0f;
     s->invInertia = Mat3::zero;
-
-    if (type != dynamic_body)
-    {
-        return;
-    }
 
     if (colliders.empty())
     {
@@ -762,6 +759,21 @@ void Body::ResetMassData()
     }
 
     Vec3 localCenter = Vec3::zero;
+
+    AABB localBounds;
+    for (Collider* collider : colliders)
+    {
+        AABB bounds;
+        collider->shape->ComputeAABB(identity, &bounds);
+        localBounds = AABB::Union(localBounds, bounds);
+    }
+
+    halfExtent = Max(Abs(localBounds.min - localCenter), Abs(localBounds.max - localCenter));
+
+    if (type != dynamic_body)
+    {
+        return;
+    }
 
     for (Collider* collider : colliders)
     {

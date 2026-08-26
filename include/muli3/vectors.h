@@ -213,6 +213,12 @@ const inline Vector4<T> Vector4<T>::zero = { T(0), T(0), T(0), T(0) };
 // Vector2 inline functions begin
 
 template <typename T>
+constexpr inline Vector2<T> Abs(const Vector2<T>& v)
+{
+    return Vector2<T>(std::abs(v.x), std::abs(v.y));
+}
+
+template <typename T>
 constexpr inline Vector2<T> Min(const Vector2<T>& a, const Vector2<T>& b)
 {
     return Vector2<T>(std::min(a.x, b.x), std::min(a.y, b.y));
@@ -349,6 +355,12 @@ inline T Dist(const Vector2<T>& a, const Vector2<T>& b)
 // Vector3 inline functions begin
 
 template <typename T>
+constexpr inline Vector3<T> Abs(const Vector3<T>& v)
+{
+    return Vector3<T>(std::abs(v.x), std::abs(v.y), std::abs(v.z));
+}
+
+template <typename T>
 constexpr inline Vector3<T> Min(const Vector3<T>& a, const Vector3<T>& b)
 {
     return Vector3<T>(std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z));
@@ -376,6 +388,12 @@ template <typename T>
 constexpr inline Vector3<T> Cross(const Vector3<T>& a, const Vector3<T>& b)
 {
     return Vector3<T>(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+}
+
+template <typename T>
+constexpr inline Vector3<T> AbsCross(const Vector3<T>& a, const Vector3<T>& b)
+{
+    return Vector3<T>(a.y * b.z + a.z * b.y, a.z * b.x + a.x * b.z, a.x * b.y + a.y * b.x);
 }
 
 template <typename T>
@@ -477,6 +495,12 @@ inline T Dist(const Vector3<T>& a, const Vector3<T>& b)
 // Vector3 inline functions end
 
 // Vector4 inline functions begin
+
+template <typename T>
+constexpr inline Vector4<T> Abs(const Vector4<T>& v)
+{
+    return Vector4<T>(std::abs(v.x), std::abs(v.y), std::abs(v.z), std::abs(v.w));
+}
 
 template <typename T>
 constexpr inline Vector4<T> Min(const Vector4<T>& a, const Vector4<T>& b)
