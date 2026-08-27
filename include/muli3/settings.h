@@ -13,7 +13,7 @@ inline constexpr float aabb_multiplier = 4.0f;
 
 // Narrow phase
 inline constexpr int32 gjk_max_iteration = 20;
-inline constexpr float gjk_tolerance = epsilon;
+inline constexpr float gjk_tolerance = 1e-4f;
 inline constexpr int32 epa_max_iteration = 20;
 inline constexpr float epa_tolerance = epsilon;
 

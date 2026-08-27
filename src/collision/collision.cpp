@@ -1261,21 +1261,33 @@ bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const 
         }
         case 2: // vertex vs. edge collision
         {
-            Vec3 edge = Normalize(simplex.vertices[1].point - simplex.vertices[0].point);
-            normal = Normalize(GramSchmidt(-simplex.vertices[0].point, edge));
+            Vec3 witnessA, witnessB;
+            simplex.GetWitnessPoint(&witnessA, &witnessB);
+            normal = witnessB - witnessA;
+            if (normal.Normalize() == 0.0f)
+            {
+                Vec3 edge = Normalize(simplex.vertices[1].point - simplex.vertices[0].point);
+                normal = Normalize(GramSchmidt(-simplex.vertices[0].point, edge));
+            }
 
             break;
         }
         case 3: // vertex vs. face collision
         {
-            Vec3 edgeA = simplex.vertices[1].point - simplex.vertices[0].point;
-            Vec3 edgeB = simplex.vertices[2].point - simplex.vertices[0].point;
-            normal = Normalize(Cross(edgeA, edgeB));
-
-            Vec3 k = -simplex.vertices[0].point;
-            if (Dot(normal, k) < 0)
+            Vec3 witnessA, witnessB;
+            simplex.GetWitnessPoint(&witnessA, &witnessB);
+            normal = witnessB - witnessA;
+            if (normal.Normalize() == 0.0f)
             {
-                normal = -normal;
+                Vec3 edgeA = simplex.vertices[1].point - simplex.vertices[0].point;
+                Vec3 edgeB = simplex.vertices[2].point - simplex.vertices[0].point;
+                normal = Normalize(Cross(edgeA, edgeB));
+
+                Vec3 k = -simplex.vertices[0].point;
+                if (Dot(normal, k) < 0)
+                {
+                    normal = -normal;
+                }
             }
 
             break;
