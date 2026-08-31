@@ -414,7 +414,7 @@ private:
     std::vector<Joint*> joints;
 
     ConstraintGraph constraintGraph;
-    SolverSet solverSets[solver_set_count];
+    std::vector<SolverSet> solverSets;
 
     int32 islandCount = 0;
     int32 sleepingBodyCount = 0;

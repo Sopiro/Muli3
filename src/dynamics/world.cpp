@@ -17,6 +17,7 @@ namespace muli3
 World::World(const WorldSettings* settings)
     : settings{ *settings }
     , constraintGraph{ this }
+    , solverSets{ solver_set_count }
 {
     poolAllocator.Register<Body>(512);
     poolAllocator.Register<Collider>(512);
@@ -1278,7 +1279,7 @@ void World::Solve()
                     {
                         if (i < blockCount)
                         {
-                            PrepareContactBlock(&batch.blockContacts, solverSets, i);
+                            PrepareContactBlock(&batch.blockContacts, solverSets.data(), i);
                         }
                         else
                         {

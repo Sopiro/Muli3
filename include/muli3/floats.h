@@ -2,9 +2,6 @@
 
 #include "common.h"
 
-#include "asserts.h"
-#include "types.h"
-
 typedef float Float;
 
 namespace muli3
