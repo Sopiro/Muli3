@@ -1,4 +1,4 @@
-#include "muli3/ball_socket_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -94,6 +94,16 @@ void BallSocketJoint::ApplyImpulse(const Vec3& lambda)
         sB->linearVelocity += lambda * sB->invMass;
         sB->angularVelocity += s->invIB * Cross(rb, lambda);
     }
+}
+
+const Vec3& BallSocketJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& BallSocketJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
 }
 
 } // namespace muli3

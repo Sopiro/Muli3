@@ -1,4 +1,4 @@
-#include "muli3/distance_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -182,6 +182,49 @@ void DistanceJoint::ApplyImpulse(float lambda)
         sB->linearVelocity += p * sB->invMass;
         sB->angularVelocity += s->invIB * Cross(rb, p);
     }
+}
+
+const Vec3& DistanceJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& DistanceJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+float DistanceJoint::GetJointLength() const
+{
+    return minLength;
+}
+
+void DistanceJoint::SetJointLength(float newLength)
+{
+    minLength = Max(newLength, 0.0f);
+    maxLength = minLength;
+}
+
+float DistanceJoint::GetJointMinLength() const
+{
+    return minLength;
+}
+
+void DistanceJoint::SetJointMinLength(float newMinLength)
+{
+    minLength = Max(newMinLength, 0.0f);
+    maxLength = Max(minLength, maxLength);
+}
+
+float DistanceJoint::GetJointMaxLength() const
+{
+    return maxLength;
+}
+
+void DistanceJoint::SetJointMaxLength(float newMaxLength)
+{
+    maxLength = Max(newMaxLength, 0.0f);
+    minLength = Min(minLength, maxLength);
 }
 
 } // namespace muli3

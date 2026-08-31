@@ -1,5 +1,5 @@
-#include "muli3/universal_angle_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -390,6 +390,196 @@ void UniversalAngleJoint::ApplyAngularImpulse(const Vec3& axis, float lambda)
     {
         sB->angularVelocity += s->invIB * impulse;
     }
+}
+
+const Vec3& UniversalAngleJoint::GetLocalAxisA() const
+{
+    return localAxisA;
+}
+
+const Vec3& UniversalAngleJoint::GetLocalAxisB() const
+{
+    return localAxisB;
+}
+
+const Vec3& UniversalAngleJoint::GetLocalReferenceAxisA() const
+{
+    return localRefAxisA;
+}
+
+const Vec3& UniversalAngleJoint::GetLocalReferenceAxisB() const
+{
+    return localRefAxisB;
+}
+
+float UniversalAngleJoint::GetSteeringAngle() const
+{
+    return steeringAngle;
+}
+
+bool UniversalAngleJoint::IsSteeringMotorEnabled() const
+{
+    return steeringMotorEnabled;
+}
+
+void UniversalAngleJoint::SetSteeringMotorEnabled(bool enabled)
+{
+    steeringMotorEnabled = enabled;
+    if (!steeringMotorEnabled)
+    {
+        steeringImpulseSum = 0.0f;
+    }
+}
+
+float UniversalAngleJoint::GetTargetSteeringAngle() const
+{
+    return targetSteeringAngle;
+}
+
+void UniversalAngleJoint::SetTargetSteeringAngle(float newTargetSteeringAngle)
+{
+    targetSteeringAngle = newTargetSteeringAngle;
+}
+
+float UniversalAngleJoint::GetSteeringFrequency() const
+{
+    return steeringFrequency;
+}
+
+void UniversalAngleJoint::SetSteeringFrequency(float newSteeringFrequency)
+{
+    steeringFrequency = newSteeringFrequency;
+}
+
+float UniversalAngleJoint::GetSteeringDampingRatio() const
+{
+    return steeringDampingRatio;
+}
+
+void UniversalAngleJoint::SetSteeringDampingRatio(float newSteeringDampingRatio)
+{
+    steeringDampingRatio = Max(newSteeringDampingRatio, 0.0f);
+}
+
+float UniversalAngleJoint::GetMaxSteeringTorque() const
+{
+    return maxSteeringTorque;
+}
+
+void UniversalAngleJoint::SetMaxSteeringTorque(float torque)
+{
+    maxSteeringTorque = torque < 0.0f ? max_float : torque;
+}
+
+bool UniversalAngleJoint::IsSteeringLimitEnabled() const
+{
+    return steeringLimitEnabled;
+}
+
+void UniversalAngleJoint::SetSteeringLimitEnabled(bool enabled)
+{
+    steeringLimitEnabled = enabled;
+    if (!steeringLimitEnabled)
+    {
+        steeringLimitImpulseSum = 0.0f;
+    }
+}
+
+float UniversalAngleJoint::GetSteeringMinAngle() const
+{
+    return steeringMinAngle;
+}
+
+void UniversalAngleJoint::SetSteeringMinAngle(float angle)
+{
+    steeringMinAngle = angle;
+    steeringMaxAngle = Max(steeringMinAngle, steeringMaxAngle);
+}
+
+float UniversalAngleJoint::GetSteeringMaxAngle() const
+{
+    return steeringMaxAngle;
+}
+
+void UniversalAngleJoint::SetSteeringMaxAngle(float angle)
+{
+    steeringMaxAngle = angle;
+    steeringMinAngle = Min(steeringMinAngle, steeringMaxAngle);
+}
+
+bool UniversalAngleJoint::IsSpinMotorEnabled() const
+{
+    return spinMotorEnabled;
+}
+
+void UniversalAngleJoint::SetSpinMotorEnabled(bool enabled)
+{
+    spinMotorEnabled = enabled;
+    if (!spinMotorEnabled)
+    {
+        spinImpulseSum = 0.0f;
+    }
+}
+
+float UniversalAngleJoint::GetSpinAngle() const
+{
+    return spinAngle;
+}
+
+float UniversalAngleJoint::GetSpinSpeed() const
+{
+    return spinSpeed;
+}
+
+void UniversalAngleJoint::SetSpinSpeed(float speed)
+{
+    spinSpeed = speed;
+}
+
+float UniversalAngleJoint::GetMaxSpinTorque() const
+{
+    return maxSpinTorque;
+}
+
+void UniversalAngleJoint::SetMaxSpinTorque(float torque)
+{
+    maxSpinTorque = torque < 0.0f ? max_float : torque;
+}
+
+bool UniversalAngleJoint::IsSpinLimitEnabled() const
+{
+    return spinLimitEnabled;
+}
+
+void UniversalAngleJoint::SetSpinLimitEnabled(bool enabled)
+{
+    spinLimitEnabled = enabled;
+    if (!spinLimitEnabled)
+    {
+        spinLimitImpulseSum = 0.0f;
+    }
+}
+
+float UniversalAngleJoint::GetSpinMinAngle() const
+{
+    return spinMinAngle;
+}
+
+void UniversalAngleJoint::SetSpinMinAngle(float angle)
+{
+    spinMinAngle = angle;
+    spinMaxAngle = Max(spinMinAngle, spinMaxAngle);
+}
+
+float UniversalAngleJoint::GetSpinMaxAngle() const
+{
+    return spinMaxAngle;
+}
+
+void UniversalAngleJoint::SetSpinMaxAngle(float angle)
+{
+    spinMaxAngle = angle;
+    spinMinAngle = Min(spinMinAngle, spinMaxAngle);
 }
 
 } // namespace muli3

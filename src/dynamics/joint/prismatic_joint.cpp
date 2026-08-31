@@ -1,5 +1,6 @@
-#include "muli3/prismatic_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
+
 
 namespace muli3
 {
@@ -138,6 +139,21 @@ void PrismaticJoint::ApplyImpulse(const Vec2& linearLambda, const Vec3& angularL
         sB->linearVelocity += p * sB->invMass;
         sB->angularVelocity += s->invIB * (sb1 * linearLambda.x + sb2 * linearLambda.y + angularLambda);
     }
+}
+
+const Vec3& PrismaticJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& PrismaticJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+const Quat& PrismaticJoint::GetOrientationOffset() const
+{
+    return orientationOffset;
 }
 
 } // namespace muli3

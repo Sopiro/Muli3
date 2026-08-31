@@ -1,4 +1,4 @@
-#include "muli3/weld_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -128,6 +128,21 @@ void WeldJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambda
         sB->linearVelocity += linearLambda * sB->invMass;
         sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);
     }
+}
+
+const Vec3& WeldJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& WeldJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+const Quat& WeldJoint::GetOrientationOffset() const
+{
+    return orientationOffset;
 }
 
 } // namespace muli3

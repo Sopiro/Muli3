@@ -1,5 +1,5 @@
-#include "muli3/revolute_angle_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -314,6 +314,102 @@ void RevoluteAngleJoint::ApplyTwistImpulse(float lambda)
     {
         sB->angularVelocity += s->invIB * p;
     }
+}
+
+const Vec3& RevoluteAngleJoint::GetLocalAxisA() const
+{
+    return localAxisA;
+}
+
+const Vec3& RevoluteAngleJoint::GetLocalAxisB() const
+{
+    return localAxisB;
+}
+
+float RevoluteAngleJoint::GetJointAngleOffset() const
+{
+    return angleOffset;
+}
+
+float RevoluteAngleJoint::GetJointAngle() const
+{
+    return currentAngle;
+}
+
+void RevoluteAngleJoint::SetJointAngle(float newAngle)
+{
+    minAngle = newAngle;
+    maxAngle = newAngle;
+}
+
+bool RevoluteAngleJoint::IsLimitEnabled() const
+{
+    return limitEnabled;
+}
+
+void RevoluteAngleJoint::SetLimitEnabled(bool enabled)
+{
+    limitEnabled = enabled;
+    if (!limitEnabled)
+    {
+        angleImpulseSum = 0.0f;
+    }
+}
+
+float RevoluteAngleJoint::GetJointMinAngle() const
+{
+    return minAngle;
+}
+
+void RevoluteAngleJoint::SetJointMinAngle(float newMinAngle)
+{
+    minAngle = newMinAngle;
+    maxAngle = Max(minAngle, maxAngle);
+}
+
+float RevoluteAngleJoint::GetJointMaxAngle() const
+{
+    return maxAngle;
+}
+
+void RevoluteAngleJoint::SetJointMaxAngle(float newMaxAngle)
+{
+    maxAngle = newMaxAngle;
+    minAngle = Min(minAngle, maxAngle);
+}
+
+bool RevoluteAngleJoint::IsMotorEnabled() const
+{
+    return motorEnabled;
+}
+
+void RevoluteAngleJoint::SetMotorEnabled(bool enabled)
+{
+    motorEnabled = enabled;
+    if (!motorEnabled)
+    {
+        motorImpulseSum = 0.0f;
+    }
+}
+
+float RevoluteAngleJoint::GetMotorSpeed() const
+{
+    return motorSpeed;
+}
+
+void RevoluteAngleJoint::SetMotorSpeed(float speed)
+{
+    motorSpeed = speed;
+}
+
+float RevoluteAngleJoint::GetMaxMotorTorque() const
+{
+    return maxMotorTorque;
+}
+
+void RevoluteAngleJoint::SetMaxMotorTorque(float torque)
+{
+    maxMotorTorque = torque < 0.0f ? max_float : torque;
 }
 
 } // namespace muli3

@@ -1,4 +1,4 @@
-#include "muli3/pulley_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -128,6 +128,36 @@ void PulleyJoint::ApplyImpulse(float lambda)
         sB->linearVelocity += pb * sB->invMass;
         sB->angularVelocity += s->invIB * Cross(rb, pb);
     }
+}
+
+const Vec3& PulleyJoint::GetGroundAnchorA() const
+{
+    return groundAnchorA;
+}
+
+const Vec3& PulleyJoint::GetGroundAnchorB() const
+{
+    return groundAnchorB;
+}
+
+const Vec3& PulleyJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& PulleyJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+float PulleyJoint::GetPulleyLength() const
+{
+    return length;
+}
+
+void PulleyJoint::SetPulleyLength(float newLength)
+{
+    length = Max(newLength, 0.0f);
 }
 
 } // namespace muli3

@@ -1,4 +1,4 @@
-#include "muli3/fixed_rotation_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -66,6 +66,16 @@ void FixedRotationJoint::ApplyImpulse(const Vec3& lambda)
     {
         sA->angularVelocity += s->invIA * lambda;
     }
+}
+
+const Quat& FixedRotationJoint::GetTargetOrientation() const
+{
+    return targetOrientation;
+}
+
+void FixedRotationJoint::SetTargetOrientation(const Quat& newTargetOrientation)
+{
+    targetOrientation = newTargetOrientation;
 }
 
 } // namespace muli3

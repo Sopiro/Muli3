@@ -1,5 +1,5 @@
-#include "muli3/twist_angle_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -229,6 +229,54 @@ void TwistAngleJoint::ApplyAngleImpulse(float lambda)
     {
         sB->angularVelocity += s->invIB * p;
     }
+}
+
+const Vec3& TwistAngleJoint::GetLocalAxisA() const
+{
+    return localAxisA;
+}
+
+const Vec3& TwistAngleJoint::GetLocalAxisB() const
+{
+    return localAxisB;
+}
+
+float TwistAngleJoint::GetJointAngleOffset() const
+{
+    return angleOffset;
+}
+
+float TwistAngleJoint::GetJointAngle() const
+{
+    return currentAngle;
+}
+
+void TwistAngleJoint::SetJointAngle(float newAngle)
+{
+    minAngle = newAngle;
+    maxAngle = newAngle;
+}
+
+float TwistAngleJoint::GetJointMinAngle() const
+{
+    return minAngle;
+}
+
+void TwistAngleJoint::SetJointMinAngle(float newMinAngle)
+{
+    minAngle = newMinAngle;
+    maxAngle = Max(minAngle, maxAngle);
+}
+
+float TwistAngleJoint::GetJointMaxAngle() const
+{
+    return maxAngle;
+}
+
+void TwistAngleJoint::SetJointMaxAngle(float newMaxAngle)
+{
+    maxAngle = newMaxAngle;
+    minAngle = Min(minAngle, maxAngle);
 }
 
 } // namespace muli3

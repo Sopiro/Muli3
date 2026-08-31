@@ -1,4 +1,4 @@
-#include "muli3/motor_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -149,6 +149,56 @@ void MotorJoint::ApplyImpulse(const Vec3& linearLambda, const Vec3& angularLambd
         sB->linearVelocity += sB->invMass * linearLambda;
         sB->angularVelocity += s->invIB * (Cross(rb, linearLambda) + angularLambda);
     }
+}
+
+const Vec3& MotorJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& MotorJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+float MotorJoint::GetMaxForce() const
+{
+    return maxForce;
+}
+
+void MotorJoint::SetMaxForce(float newMaxForce)
+{
+    maxForce = newMaxForce < 0.0f ? max_float : newMaxForce;
+}
+
+float MotorJoint::GetMaxTorque() const
+{
+    return maxTorque;
+}
+
+void MotorJoint::SetMaxTorque(float newMaxTorque)
+{
+    maxTorque = newMaxTorque < 0.0f ? max_float : newMaxTorque;
+}
+
+const Vec3& MotorJoint::GetLinearOffset() const
+{
+    return linearOffset;
+}
+
+void MotorJoint::SetLinearOffset(const Vec3& newLinearOffset)
+{
+    linearOffset = newLinearOffset;
+}
+
+const Vec3& MotorJoint::GetAngularOffset() const
+{
+    return angularOffset;
+}
+
+void MotorJoint::SetAngularOffset(const Vec3& newAngularOffset)
+{
+    angularOffset = newAngularOffset;
 }
 
 } // namespace muli3

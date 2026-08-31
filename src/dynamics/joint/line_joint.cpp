@@ -1,5 +1,5 @@
-#include "muli3/line_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -110,6 +110,16 @@ void LineJoint::ApplyImpulse(const Vec2& lambda)
         sB->linearVelocity += p * sB->invMass;
         sB->angularVelocity += s->invIB * (sb1 * lambda.x + sb2 * lambda.y);
     }
+}
+
+const Vec3& LineJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& LineJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
 }
 
 } // namespace muli3

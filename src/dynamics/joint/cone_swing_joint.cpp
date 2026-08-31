@@ -1,5 +1,5 @@
-#include "muli3/cone_swing_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -143,6 +143,31 @@ void ConeSwingJoint::ApplyImpulse(float lambda)
     {
         sB->angularVelocity += s->invIB * p;
     }
+}
+
+const Vec3& ConeSwingJoint::GetLocalAxisA() const
+{
+    return localAxisA;
+}
+
+const Vec3& ConeSwingJoint::GetLocalAxisB() const
+{
+    return localAxisB;
+}
+
+float ConeSwingJoint::GetJointAngle() const
+{
+    return currentAngle;
+}
+
+float ConeSwingJoint::GetJointMaxAngle() const
+{
+    return maxAngle;
+}
+
+void ConeSwingJoint::SetJointMaxAngle(float newMaxAngle)
+{
+    maxAngle = std::clamp(newMaxAngle, 0.0f, pi);
 }
 
 } // namespace muli3

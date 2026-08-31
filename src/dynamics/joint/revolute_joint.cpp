@@ -1,5 +1,5 @@
-#include "muli3/revolute_joint.h"
 #include "muli3/frame.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -362,6 +362,122 @@ void RevoluteJoint::ApplyTwistImpulse(float lambda)
     {
         sB->angularVelocity += s->invIB * p;
     }
+}
+
+const Vec3& RevoluteJoint::GetLocalAnchorA() const
+{
+    return localAnchorA;
+}
+
+const Vec3& RevoluteJoint::GetLocalAnchorB() const
+{
+    return localAnchorB;
+}
+
+const Vec3& RevoluteJoint::GetLocalAxisA() const
+{
+    return localAxisA;
+}
+
+const Vec3& RevoluteJoint::GetLocalAxisB() const
+{
+    return localAxisB;
+}
+
+const Vec3& RevoluteJoint::GetLocalNormalAxisA() const
+{
+    return localNormalAxisA;
+}
+
+const Vec3& RevoluteJoint::GetLocalNormalAxisB() const
+{
+    return localNormalAxisB;
+}
+
+float RevoluteJoint::GetJointAngleOffset() const
+{
+    return angleOffset;
+}
+
+float RevoluteJoint::GetJointAngle() const
+{
+    return currentAngle;
+}
+
+void RevoluteJoint::SetJointAngle(float newAngle)
+{
+    minAngle = newAngle;
+    maxAngle = newAngle;
+}
+
+bool RevoluteJoint::IsLimitEnabled() const
+{
+    return limitEnabled;
+}
+
+void RevoluteJoint::SetLimitEnabled(bool enabled)
+{
+    limitEnabled = enabled;
+    if (!limitEnabled)
+    {
+        angleImpulseSum = 0.0f;
+    }
+}
+
+float RevoluteJoint::GetJointMinAngle() const
+{
+    return minAngle;
+}
+
+void RevoluteJoint::SetJointMinAngle(float newMinAngle)
+{
+    minAngle = newMinAngle;
+    maxAngle = Max(minAngle, maxAngle);
+}
+
+float RevoluteJoint::GetJointMaxAngle() const
+{
+    return maxAngle;
+}
+
+void RevoluteJoint::SetJointMaxAngle(float newMaxAngle)
+{
+    maxAngle = newMaxAngle;
+    minAngle = Min(minAngle, maxAngle);
+}
+
+bool RevoluteJoint::IsMotorEnabled() const
+{
+    return motorEnabled;
+}
+
+void RevoluteJoint::SetMotorEnabled(bool enabled)
+{
+    motorEnabled = enabled;
+    if (!motorEnabled)
+    {
+        motorImpulseSum = 0.0f;
+    }
+}
+
+float RevoluteJoint::GetMotorSpeed() const
+{
+    return motorSpeed;
+}
+
+void RevoluteJoint::SetMotorSpeed(float speed)
+{
+    motorSpeed = speed;
+}
+
+float RevoluteJoint::GetMaxMotorTorque() const
+{
+    return maxMotorTorque;
+}
+
+void RevoluteJoint::SetMaxMotorTorque(float torque)
+{
+    maxMotorTorque = torque < 0.0f ? max_float : torque;
 }
 
 } // namespace muli3

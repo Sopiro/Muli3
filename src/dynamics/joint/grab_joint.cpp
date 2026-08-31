@@ -1,4 +1,4 @@
-#include "muli3/grab_joint.h"
+#include "muli3/joints.h"
 
 namespace muli3
 {
@@ -70,6 +70,21 @@ void GrabJoint::ApplyImpulse(const Vec3& lambda)
         sA->linearVelocity += lambda * sA->invMass;
         sA->angularVelocity += s->invIA * Cross(r, lambda);
     }
+}
+
+const Vec3& GrabJoint::GetLocalAnchor() const
+{
+    return localAnchor;
+}
+
+const Vec3& GrabJoint::GetTarget() const
+{
+    return target;
+}
+
+void GrabJoint::SetTarget(const Vec3& newTarget)
+{
+    target = newTarget;
 }
 
 } // namespace muli3
