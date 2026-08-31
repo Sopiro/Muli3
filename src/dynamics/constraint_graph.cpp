@@ -1,3 +1,4 @@
+#include "muli3/bitset.h"
 #include "muli3/parallel_for.h"
 #include "muli3/shapes.h"
 #include "muli3/world.h"
@@ -69,15 +70,7 @@ void ConstraintGraph::EvaluateContacts()
     MuliAssert(activeIndex == activeCount);
 
     int32 workerCount = world->settings.thread_pool ? world->settings.thread_pool->WorkerCount() : 1;
-    int32 contactSlotCount = contactPool.GetCapacity();
-    int32 contactWordCount = (contactSlotCount + 63) / 64;
-    int32 contactWordStride = (contactWordCount + 7) & ~7;
-    int32 contactBitSize = workerCount * contactWordStride * int32(sizeof(uint64));
-
-    uint64* contactBits = (uint64*)world->linearAllocator.Allocate(contactBitSize);
-    memset(contactBits, 0, contactBitSize);
-
-    const auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
+    Bitset contactBits = AllocateBitset(contactPool.GetCapacity(), workerCount, &world->linearAllocator);
 
     MuliProfileZoneEnd(gather_contacts);
 
@@ -88,7 +81,6 @@ void ConstraintGraph::EvaluateContacts()
         0, activeCount, 64,
         [&](int32 begin, int32 end, int32 workerIndex) {
             MuliAssert(workerIndex < workerCount);
-            uint64* changedBits = contactBits + workerIndex * contactWordStride;
 
             MuliProfileZoneNR(narrow_phase_collision, "Collide", true);
             for (int32 i = begin; i < end; ++i)
@@ -99,7 +91,7 @@ void ConstraintGraph::EvaluateContacts()
                 if (broadPhase.TestOverlap(contact->colliderA, contact->colliderB) == false)
                 {
                     contact->flag |= Contact::flag_disjoint;
-                    SetBit(changedBits, contact->poolIndex);
+                    SetBit(&contactBits, workerIndex, contact->poolIndex);
                     continue;
                 }
 
@@ -109,7 +101,7 @@ void ConstraintGraph::EvaluateContacts()
                 bool inGraph = contact->colorIndex != null_index;
                 if (graphContact != inGraph)
                 {
-                    SetBit(changedBits, contact->poolIndex);
+                    SetBit(&contactBits, workerIndex, contact->poolIndex);
                 }
             }
             MuliProfileZoneEnd(narrow_phase_collision);
@@ -121,8 +113,6 @@ void ConstraintGraph::EvaluateContacts()
 
     // 2. Serial Stage: Integrate states, execute user callbacks, and destroy disjoint contacts.
     // Sequential execution on the main thread guarantees deterministic order of events.
-    uint64* changedBits = contactBits;
-
     for (int32 i = 0; i < activeCount; ++i)
     {
         Contact* contact = activeContacts[i];
@@ -146,23 +136,16 @@ void ConstraintGraph::EvaluateContacts()
 
         if (graphContact != inGraph)
         {
-            SetBit(changedBits, contact->poolIndex);
+            SetBit(&contactBits, 0, contact->poolIndex);
         }
     }
 
     // Merge worker-local contact state changes into worker 0 storage.
-    for (int32 worker = 1; worker < workerCount; ++worker)
-    {
-        uint64* otherBits = contactBits + worker * contactWordStride;
-        for (int32 i = 0; i < contactWordCount; ++i)
-        {
-            changedBits[i] |= otherBits[i];
-        }
-    }
+    MergeBitset(&contactBits);
 
-    for (int32 word = 0; word < contactWordCount; ++word)
+    for (int32 word = 0; word < contactBits.wordCount; ++word)
     {
-        uint64 bits = changedBits[word];
+        uint64 bits = contactBits.bits[word];
         while (bits != 0)
         {
             int32 bit = int32(std::countr_zero(bits));
@@ -235,7 +218,7 @@ void ConstraintGraph::EvaluateContacts()
         }
     }
 
-    world->linearAllocator.Free(contactBits, contactBitSize);
+    FreeBitset(&contactBits, &world->linearAllocator);
     world->linearAllocator.Free(activeContacts, activeContactSize);
     MuliProfileZoneEnd(post_narrow_phase);
 }

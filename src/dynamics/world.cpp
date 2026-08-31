@@ -1,4 +1,5 @@
 #include "muli3/world.h"
+#include "muli3/bitset.h"
 #include "muli3/callbacks.h"
 #include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
@@ -1536,24 +1537,10 @@ void World::Solve()
         ColliderSync* colliderSyncs = (ColliderSync*)linearAllocator.Allocate(colliderSyncCount * sizeof(ColliderSync));
 
         int32 workerCount = settings.thread_pool ? settings.thread_pool->WorkerCount() : 1;
-        int32 islandWordCount = (islandCount + 63) / 64;
-        int32 bodyWordCount = (bodyIndex + 63) / 64;
-
-        // Cache-line separated worker strides avoid false sharing
-        int32 islandWordStride = (islandWordCount + 7) & ~7;
-        int32 bodyWordStride = (bodyWordCount + 7) & ~7;
-
-        int32 activeIslandBitSize = workerCount * islandWordStride * sizeof(uint64);
-        int32 destroyBodyBitSize = workerCount * bodyWordStride * sizeof(uint64);
 
         // Worker-local bits avoid atomics while collecting body results.
-        uint64* activeIslandBits = (uint64*)linearAllocator.Allocate(activeIslandBitSize);
-        uint64* destroyBodyBits = (uint64*)linearAllocator.Allocate(destroyBodyBitSize);
-        std::memset(activeIslandBits, 0, activeIslandBitSize);
-        std::memset(destroyBodyBits, 0, destroyBodyBitSize);
-
-        const auto SetBit = [](uint64* bits, int32 bit) { bits[bit >> 6] |= uint64(1) << (bit & 63); };
-        const auto GetBit = [](const uint64* bits, int32 bit) { return (bits[bit >> 6] & (uint64(1) << (bit & 63))) != 0; };
+        Bitset activeIslandBits = AllocateBitset(islandCount, workerCount, &linearAllocator);
+        Bitset destroyBodyBits = AllocateBitset(bodyIndex, workerCount, &linearAllocator);
 
         // Compute body transforms and collider bounds in parallel.
         // The broad phase tree is updated below in order.
@@ -1562,9 +1549,6 @@ void World::Solve()
             [&](int32 i0, int32 i1, int32 workerIndex) {
                 MuliProfileZoneN(sync_bodies, "Sync Bodies", true);
                 MuliAssert(workerIndex < workerCount);
-
-                uint64* activeBits = activeIslandBits + workerIndex * islandWordStride;
-                uint64* destroyBits = destroyBodyBits + workerIndex * bodyWordStride;
 
                 for (int32 i = i0; i < i1; ++i)
                 {
@@ -1596,9 +1580,9 @@ void World::Solve()
 
                     if (sleepVelocity > settings.sleep_velocity_threshold)
                     {
-                        if (GetBit(activeBits, body->islandIndex) == false)
+                        if (GetBit(&activeIslandBits, workerIndex, body->islandIndex) == false)
                         {
-                            SetBit(activeBits, body->islandIndex);
+                            SetBit(&activeIslandBits, workerIndex, body->islandIndex);
                         }
                     }
 
@@ -1608,7 +1592,7 @@ void World::Solve()
 
                     if (settings.world_bounds.TestPoint(body->transform.p) == false)
                     {
-                        SetBit(destroyBits, i);
+                        SetBit(&destroyBodyBits, workerIndex, i);
                         continue;
                     }
 
@@ -1653,29 +1637,15 @@ void World::Solve()
         spinScope.Close();
 
         // Merge worker-local results into worker 0 storage.
-        uint64* activeBits = activeIslandBits;
-        uint64* destroyBits = destroyBodyBits;
-        for (int32 worker = 1; worker < workerCount; ++worker)
-        {
-            uint64* otherActiveBits = activeIslandBits + worker * islandWordStride;
-            for (int32 i = 0; i < islandWordCount; ++i)
-            {
-                activeBits[i] |= otherActiveBits[i];
-            }
-
-            uint64* otherDestroyBits = destroyBodyBits + worker * bodyWordStride;
-            for (int32 i = 0; i < bodyWordCount; ++i)
-            {
-                destroyBits[i] |= otherDestroyBits[i];
-            }
-        }
+        MergeBitset(&activeIslandBits);
+        MergeBitset(&destroyBodyBits);
 
         // The broad phase tree and move buffer are not thread-safe, so commit serially.
         MuliProfileZoneNR(sync_colliders, "Sync Colliders", true);
         for (int32 i = 0; i < islandCount; ++i)
         {
             Island* island = islands + i;
-            bool activeIsland = GetBit(activeBits, i);
+            bool activeIsland = GetBit(&activeIslandBits, 0, i);
             bool sleeping = settings.sleeping && (activeIsland == false);
 
             for (int32 j = 0; j < island->bodyCount; ++j)
@@ -1684,7 +1654,7 @@ void World::Solve()
                 BodyState* s = islandBodies[b];
                 Body* body = s->body;
 
-                if (GetBit(destroyBits, b))
+                if (GetBit(&destroyBodyBits, 0, b))
                 {
                     BufferDestroy(body);
                 }
@@ -1730,8 +1700,8 @@ void World::Solve()
         }
         MuliProfileZoneEnd(sync_colliders);
 
-        linearAllocator.Free(destroyBodyBits, destroyBodyBitSize);
-        linearAllocator.Free(activeIslandBits, activeIslandBitSize);
+        FreeBitset(&destroyBodyBits, &linearAllocator);
+        FreeBitset(&activeIslandBits, &linearAllocator);
         linearAllocator.Free(colliderSyncs, colliderSyncCount * sizeof(ColliderSync));
         linearAllocator.Free(colliderStarts, (bodyIndex + 1) * sizeof(int32));
     }
