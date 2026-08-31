@@ -1,4 +1,5 @@
-#include "muli3/capsule_shape.h"
+#include "muli3/shapes.h"
+
 #include "muli3/distance.h"
 #include "muli3/frame.h"
 

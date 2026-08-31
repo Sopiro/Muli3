@@ -1,4 +1,5 @@
-#include "muli3/polygon_shape.h"
+#include "muli3/shapes.h"
+
 #include "muli3/distance.h"
 #include "muli3/hash.h"
 #include "muli3/settings.h"

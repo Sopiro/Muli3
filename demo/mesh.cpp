@@ -1,9 +1,6 @@
 #include "mesh.h"
-#include "muli3/convex_shape.h"
 #include "muli3/frame.h"
-#include "muli3/height_field_shape.h"
-#include "muli3/mesh_shape.h"
-#include "muli3/polygon_shape.h"
+#include "muli3/shapes.h"
 
 namespace muli3
 {

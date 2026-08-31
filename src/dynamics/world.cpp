@@ -1,7 +1,6 @@
 #include "muli3/world.h"
 #include "muli3/bitset.h"
 #include "muli3/callbacks.h"
-#include "muli3/capsule_shape.h"
 #include "muli3/collider.h"
 #include "muli3/constraint.h"
 #include "muli3/parallel_for.h"

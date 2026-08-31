@@ -1,5 +1,5 @@
 #include "muli3/geometry.h"
-#include "muli3/shape.h"
+#include "muli3/shapes.h"
 
 namespace muli3
 {

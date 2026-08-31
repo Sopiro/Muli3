@@ -1,4 +1,4 @@
-#include "muli3/sphere_shape.h"
+#include "muli3/shapes.h"
 
 namespace muli3
 {
