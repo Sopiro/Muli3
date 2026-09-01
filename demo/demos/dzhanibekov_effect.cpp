@@ -67,6 +67,6 @@ static Demo* CreateDzhanibekovEffect(Game& game)
     return new DzhanibekovEffect(game);
 }
 
-static int32 dzhanibekov_effect = register_demo("Dynamics", "Dzhanibekov Effect", CreateDzhanibekovEffect, 3);
+static int32 dzhanibekov_effect = register_demo("Dynamics", "Dzhanibekov effect", CreateDzhanibekovEffect, 3);
 
 } // namespace muli3

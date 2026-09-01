@@ -26,6 +26,7 @@ struct BodyState
 
     float linearDamping;
     float angularDamping;
+    float gravityScale;
 
     Vec3 force;
     Vec3 torque;

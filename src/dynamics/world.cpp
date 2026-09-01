@@ -1229,7 +1229,7 @@ void World::Solve()
                     {
                         if (settings.apply_gravity)
                         {
-                            s->linearVelocity += settings.gravity * step.dt;
+                            s->linearVelocity += settings.gravity * s->gravityScale * step.dt;
                         }
 
                         s->linearVelocity += s->force * s->invMass * step.dt;
@@ -2386,6 +2386,7 @@ BodyState* World::AddBodyState(Body* body, SolverSetIndex setIndex)
     state.motion = Motion{ body->transform };
     state.linearVelocity = Vec3::zero;
     state.angularVelocity = Vec3::zero;
+    state.gravityScale = 1.0f;
     state.invMass = 0.0f;
     state.invInertia = Mat3::zero;
     state.linearDamping = default_linear_damping;

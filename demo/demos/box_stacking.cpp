@@ -18,7 +18,7 @@ public:
 
         float radius = 0.0f;
         float size = 1.0f;
-        float gap = radius;
+        float gap = radius + 0.02f;
         float start = (0.5f + size) * 0.5f + gap;
 
         for (int32 i = 0; i < count; ++i)

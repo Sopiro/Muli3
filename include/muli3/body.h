@@ -57,6 +57,8 @@ public:
     void SetLinearDamping(float linearDamping);
     float GetAngularDamping() const;
     void SetAngularDamping(float angularDamping);
+    float GetGravityScale() const;
+    void SetGravityScale(float gravityScale);
 
     const Vec3& GetForce() const;
     void SetForce(const Vec3& force);
@@ -368,6 +370,16 @@ inline float Body::GetAngularDamping() const
 inline void Body::SetAngularDamping(float newAngularDamping)
 {
     GetBodyState()->angularDamping = newAngularDamping;
+}
+
+inline float Body::GetGravityScale() const
+{
+    return GetBodyState()->gravityScale;
+}
+
+inline void Body::SetGravityScale(float newGravityScale)
+{
+    GetBodyState()->gravityScale = newGravityScale;
 }
 
 inline const Vec3& Body::GetForce() const
