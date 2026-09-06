@@ -1,12 +1,24 @@
 #include "muli3/frame.h"
 #include "muli3/joints.h"
 
-
 namespace muli3
 {
 
-PrismaticJoint::PrismaticJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
-    : Joint(prismatic_joint, bodyA, bodyB, frequency, dampingRatio)
+PrismaticJoint::PrismaticJoint(
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    const Vec3& dir,
+    float linearFrequency,
+    float linearDampingRatio,
+    float angularFrequency,
+    float angularDampingRatio
+)
+    : Joint(prismatic_joint, bodyA, bodyB)
+    , linearFrequency{ Max(linearFrequency, 0.0f) }
+    , linearDampingRatio{ Max(linearDampingRatio, 0.0f) }
+    , angularFrequency{ Max(angularFrequency, 0.0f) }
+    , angularDampingRatio{ Max(angularDampingRatio, 0.0f) }
     , linearImpulseSum{ 0.0f }
     , linearBeta{ 0.0f }
     , linearGamma{ 0.0f }
@@ -62,7 +74,7 @@ void PrismaticJoint::Prepare(const Timestep& step)
     lk[0][1] = Dot(sa1, s->invIA * sa2) + Dot(sb1, s->invIB * sb2);
     lk[1][0] = lk[0][1];
 
-    ComputeBetaAndGamma(&linearBeta, &linearGamma, frequency, dampingRatio, lk.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, linearFrequency, linearDampingRatio, lk.TraceInverse() / 2.0f, step.dt);
 
     lk[0][0] += linearGamma;
     lk[1][1] += linearGamma;
@@ -72,7 +84,7 @@ void PrismaticJoint::Prepare(const Timestep& step)
     // Relative orientation is fixed: Cdot = wb - wa and
     // Ja = [0, -I, 0, I]. This removes all three rotational DOFs.
     Mat3 ak = s->invIA + s->invIB;
-    ComputeBetaAndGamma(&angularBeta, &angularGamma, frequency, dampingRatio, ak.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&angularBeta, &angularGamma, angularFrequency, angularDampingRatio, ak.TraceInverse() / 3.0f, step.dt);
     ak.ex.x += angularGamma;
     ak.ey.y += angularGamma;
     ak.ez.z += angularGamma;
@@ -154,6 +166,46 @@ const Vec3& PrismaticJoint::GetLocalAnchorB() const
 const Quat& PrismaticJoint::GetOrientationOffset() const
 {
     return orientationOffset;
+}
+
+float PrismaticJoint::GetLinearFrequency() const
+{
+    return linearFrequency;
+}
+
+void PrismaticJoint::SetLinearFrequency(float newFrequency)
+{
+    linearFrequency = Max(newFrequency, 0.0f);
+}
+
+float PrismaticJoint::GetLinearDampingRatio() const
+{
+    return linearDampingRatio;
+}
+
+void PrismaticJoint::SetLinearDampingRatio(float newDampingRatio)
+{
+    linearDampingRatio = Max(newDampingRatio, 0.0f);
+}
+
+float PrismaticJoint::GetAngularFrequency() const
+{
+    return angularFrequency;
+}
+
+void PrismaticJoint::SetAngularFrequency(float newFrequency)
+{
+    angularFrequency = Max(newFrequency, 0.0f);
+}
+
+float PrismaticJoint::GetAngularDampingRatio() const
+{
+    return angularDampingRatio;
+}
+
+void PrismaticJoint::SetAngularDampingRatio(float newDampingRatio)
+{
+    angularDampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

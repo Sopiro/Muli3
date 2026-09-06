@@ -4,7 +4,9 @@ namespace muli3
 {
 
 FixedRotationJoint::FixedRotationJoint(Body* body, float frequency, float dampingRatio)
-    : Joint(fixed_rotation_joint, body, body, frequency, dampingRatio)
+    : Joint(fixed_rotation_joint, body, body)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , targetOrientation{ body->GetRotation() }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
     , beta{ 0.0f }
@@ -76,6 +78,26 @@ const Quat& FixedRotationJoint::GetTargetOrientation() const
 void FixedRotationJoint::SetTargetOrientation(const Quat& newTargetOrientation)
 {
     targetOrientation = newTargetOrientation;
+}
+
+float FixedRotationJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void FixedRotationJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float FixedRotationJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void FixedRotationJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

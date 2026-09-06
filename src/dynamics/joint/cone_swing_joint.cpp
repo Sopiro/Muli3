@@ -24,7 +24,9 @@ static float ClampImpulse(float impulse, int32 limitState)
 ConeSwingJoint::ConeSwingJoint(
     Body* bodyA, Body* bodyB, const Vec3& worldAxis, float jointMaxAngle, float frequency, float dampingRatio
 )
-    : Joint(cone_swing_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(cone_swing_joint, bodyA, bodyB)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , maxAngle{ Clamp(jointMaxAngle, 0.0f, pi) }
     , currentAngle{ 0.0f }
     , m{ 0.0f }
@@ -168,6 +170,26 @@ float ConeSwingJoint::GetJointMaxAngle() const
 void ConeSwingJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = std::clamp(newMaxAngle, 0.0f, pi);
+}
+
+float ConeSwingJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void ConeSwingJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float ConeSwingJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void ConeSwingJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

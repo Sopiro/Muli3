@@ -1959,8 +1959,12 @@ RevoluteJoint* World::CreateRevoluteJoint(
     const Vec3& axis,
     float minAngle,
     float maxAngle,
-    float frequency,
-    float dampingRatio
+    float linearFrequency,
+    float linearDampingRatio,
+    float swingFrequency,
+    float swingDampingRatio,
+    float angleFrequency,
+    float angleDampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1968,14 +1972,25 @@ RevoluteJoint* World::CreateRevoluteJoint(
         return nullptr;
     }
 
-    RevoluteJoint* rj = poolAllocator.New<RevoluteJoint>(bodyA, bodyB, anchor, axis, minAngle, maxAngle, frequency, dampingRatio);
+    RevoluteJoint* rj = poolAllocator.New<RevoluteJoint>(
+        bodyA, bodyB, anchor, axis, minAngle, maxAngle, linearFrequency, linearDampingRatio, swingFrequency, swingDampingRatio,
+        angleFrequency, angleDampingRatio
+    );
 
     AddJoint(rj);
     return rj;
 }
 
 RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
-    Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& axis,
+    float minAngle,
+    float maxAngle,
+    float swingFrequency,
+    float swingDampingRatio,
+    float angleFrequency,
+    float angleDampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1983,15 +1998,25 @@ RevoluteAngleJoint* World::CreateRevoluteAngleJoint(
         return nullptr;
     }
 
-    RevoluteAngleJoint* raj =
-        poolAllocator.New<RevoluteAngleJoint>(bodyA, bodyB, axis, minAngle, maxAngle, frequency, dampingRatio);
+    RevoluteAngleJoint* raj = poolAllocator.New<RevoluteAngleJoint>(
+        bodyA, bodyB, axis, minAngle, maxAngle, swingFrequency, swingDampingRatio, angleFrequency, angleDampingRatio
+    );
 
     AddJoint(raj);
     return raj;
 }
 
 UniversalAngleJoint* World::CreateUniversalAngleJoint(
-    Body* bodyA, Body* bodyB, const Vec3& axisA, const Vec3& axisB, float frequency, float dampingRatio
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& axisA,
+    const Vec3& axisB,
+    float perpendicularFrequency,
+    float perpendicularDampingRatio,
+    float steeringFrequency,
+    float steeringDampingRatio,
+    float spinFrequency,
+    float spinDampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -1999,7 +2024,10 @@ UniversalAngleJoint* World::CreateUniversalAngleJoint(
         return nullptr;
     }
 
-    UniversalAngleJoint* uaj = poolAllocator.New<UniversalAngleJoint>(bodyA, bodyB, axisA, axisB, frequency, dampingRatio);
+    UniversalAngleJoint* uaj = poolAllocator.New<UniversalAngleJoint>(
+        bodyA, bodyB, axisA, axisB, perpendicularFrequency, perpendicularDampingRatio, steeringFrequency, steeringDampingRatio,
+        spinFrequency, spinDampingRatio
+    );
 
     AddJoint(uaj);
     return uaj;
@@ -2056,14 +2084,24 @@ DistanceJoint* World::CreateDistanceJoint(
     return dj;
 }
 
-WeldJoint* World::CreateWeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
+WeldJoint* World::CreateWeldJoint(
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    float linearFrequency,
+    float linearDampingRatio,
+    float angularFrequency,
+    float angularDampingRatio
+)
 {
     if (bodyA->world != this || bodyB->world != this)
     {
         return nullptr;
     }
 
-    WeldJoint* wj = poolAllocator.New<WeldJoint>(bodyA, bodyB, anchor, frequency, dampingRatio);
+    WeldJoint* wj = poolAllocator.New<WeldJoint>(
+        bodyA, bodyB, anchor, linearFrequency, linearDampingRatio, angularFrequency, angularDampingRatio
+    );
 
     AddJoint(wj);
     return wj;
@@ -2092,7 +2130,14 @@ LineJoint* World::CreateLineJoint(Body* bodyA, Body* bodyB, float frequency, flo
 }
 
 PrismaticJoint* World::CreatePrismaticJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& direction, float frequency, float dampingRatio
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    const Vec3& direction,
+    float linearFrequency,
+    float linearDampingRatio,
+    float angularFrequency,
+    float angularDampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -2100,16 +2145,21 @@ PrismaticJoint* World::CreatePrismaticJoint(
         return nullptr;
     }
 
-    PrismaticJoint* pj = poolAllocator.New<PrismaticJoint>(bodyA, bodyB, anchor, direction, frequency, dampingRatio);
+    PrismaticJoint* pj = poolAllocator.New<PrismaticJoint>(
+        bodyA, bodyB, anchor, direction, linearFrequency, linearDampingRatio, angularFrequency, angularDampingRatio
+    );
 
     AddJoint(pj);
     return pj;
 }
 
-PrismaticJoint* World::CreatePrismaticJoint(Body* bodyA, Body* bodyB, float frequency, float dampingRatio)
+PrismaticJoint* World::CreatePrismaticJoint(
+    Body* bodyA, Body* bodyB, float linearFrequency, float linearDampingRatio, float angularFrequency, float angularDampingRatio
+)
 {
     return CreatePrismaticJoint(
-        bodyA, bodyB, bodyB->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), frequency, dampingRatio
+        bodyA, bodyB, bodyB->GetPosition(), Normalize(bodyB->GetPosition() - bodyA->GetPosition()), linearFrequency,
+        linearDampingRatio, angularFrequency, angularDampingRatio
     );
 }
 
@@ -2139,7 +2189,15 @@ PulleyJoint* World::CreatePulleyJoint(
 }
 
 MotorJoint* World::CreateMotorJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchor, float maxForce, float maxTorque, float frequency, float dampingRatio
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    float maxForce,
+    float maxTorque,
+    float linearFrequency,
+    float linearDampingRatio,
+    float angularFrequency,
+    float angularDampingRatio
 )
 {
     if (bodyA->world != this || bodyB->world != this)
@@ -2147,7 +2205,9 @@ MotorJoint* World::CreateMotorJoint(
         return nullptr;
     }
 
-    MotorJoint* mj = poolAllocator.New<MotorJoint>(bodyA, bodyB, anchor, maxForce, maxTorque, frequency, dampingRatio);
+    MotorJoint* mj = poolAllocator.New<MotorJoint>(
+        bodyA, bodyB, anchor, maxForce, maxTorque, linearFrequency, linearDampingRatio, angularFrequency, angularDampingRatio
+    );
 
     AddJoint(mj);
     return mj;

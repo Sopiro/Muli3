@@ -14,7 +14,9 @@ PulleyJoint::PulleyJoint(
     float frequency,
     float dampingRatio
 )
-    : Joint(pulley_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(pulley_joint, bodyA, bodyB)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , m{ 0.0f }
     , impulseSum{ 0.0f }
     , beta{ 0.0f }
@@ -158,6 +160,26 @@ float PulleyJoint::GetPulleyLength() const
 void PulleyJoint::SetPulleyLength(float newLength)
 {
     length = Max(newLength, 0.0f);
+}
+
+float PulleyJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void PulleyJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float PulleyJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void PulleyJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

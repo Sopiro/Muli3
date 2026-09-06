@@ -17,12 +17,20 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetLocalAnchor() const;
 
     const Vec3& GetTarget() const;
     void SetTarget(const Vec3& newTarget);
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 localAnchor;
     Vec3 target;
 
@@ -48,10 +56,18 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Quat& GetTargetOrientation() const;
     void SetTargetOrientation(const Quat& newTargetOrientation);
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Quat targetOrientation;
 
     Mat3 m;
@@ -74,10 +90,18 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
 
@@ -104,6 +128,11 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetLocalAxisA() const;
     const Vec3& GetLocalAxisB() const;
 
@@ -112,6 +141,9 @@ public:
     void SetJointMaxAngle(float newMaxAngle);
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 localAxisA;
     Vec3 localAxisB;
     float maxAngle;
@@ -148,6 +180,11 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
 
@@ -160,6 +197,9 @@ public:
     void SetJointMaxLength(float newMaxLength);
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
     float minLength, maxLength;
@@ -189,10 +229,18 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
     Vec3 localAxis;
@@ -216,17 +264,40 @@ private:
 class PrismaticJoint : public Joint
 {
 public:
-    PrismaticJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio);
+    PrismaticJoint(
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        const Vec3& dir,
+        float linearFrequency,
+        float linearDampingRatio,
+        float angularFrequency,
+        float angularDampingRatio
+    );
 
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
+
+    float GetLinearFrequency() const;
+    void SetLinearFrequency(float newFrequency);
+    float GetLinearDampingRatio() const;
+    void SetLinearDampingRatio(float newDampingRatio);
+    float GetAngularFrequency() const;
+    void SetAngularFrequency(float newFrequency);
+    float GetAngularDampingRatio() const;
+    void SetAngularDampingRatio(float newDampingRatio);
 
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
     const Quat& GetOrientationOffset() const;
 
 private:
+    float linearFrequency;
+    float linearDampingRatio;
+    float angularFrequency;
+    float angularDampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
     Vec3 localAxis;
@@ -257,11 +328,28 @@ private:
 class WeldJoint : public Joint
 {
 public:
-    WeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio);
+    WeldJoint(
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        float linearFrequency,
+        float linearDampingRatio,
+        float angularFrequency,
+        float angularDampingRatio
+    );
 
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
+
+    float GetLinearFrequency() const;
+    void SetLinearFrequency(float newFrequency);
+    float GetLinearDampingRatio() const;
+    void SetLinearDampingRatio(float newDampingRatio);
+    float GetAngularFrequency() const;
+    void SetAngularFrequency(float newFrequency);
+    float GetAngularDampingRatio() const;
+    void SetAngularDampingRatio(float newDampingRatio);
 
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
@@ -269,6 +357,11 @@ public:
     const Quat& GetOrientationOffset() const;
 
 private:
+    float linearFrequency;
+    float linearDampingRatio;
+    float angularFrequency;
+    float angularDampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
 
@@ -300,12 +393,29 @@ class RevoluteAngleJoint : public Joint
 {
 public:
     RevoluteAngleJoint(
-        Body* bodyA, Body* bodyB, const Vec3& axis, float minAngle, float maxAngle, float frequency, float dampingRatio
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& axis,
+        float minAngle,
+        float maxAngle,
+        float swingFrequency,
+        float swingDampingRatio,
+        float angleFrequency,
+        float angleDampingRatio
     );
 
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
+
+    float GetSwingFrequency() const;
+    void SetSwingFrequency(float newFrequency);
+    float GetSwingDampingRatio() const;
+    void SetSwingDampingRatio(float newDampingRatio);
+    float GetAngleFrequency() const;
+    void SetAngleFrequency(float newFrequency);
+    float GetAngleDampingRatio() const;
+    void SetAngleDampingRatio(float newDampingRatio);
 
     const Vec3& GetLocalAxisA() const;
     const Vec3& GetLocalAxisB() const;
@@ -329,6 +439,11 @@ public:
     void SetMaxMotorTorque(float torque);
 
 private:
+    float swingFrequency;
+    float swingDampingRatio;
+    float angleFrequency;
+    float angleDampingRatio;
+
     Vec3 localAxisA;
     Vec3 localAxisB;
     Vec3 localNormalAxisA;
@@ -379,6 +494,11 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetLocalAxisA() const;
     const Vec3& GetLocalAxisB() const;
 
@@ -392,6 +512,9 @@ public:
     void SetJointMaxAngle(float newMaxAngle);
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 localAxisA;
     Vec3 localAxisB;
     Vec3 localNormalAxisA;
@@ -425,13 +548,30 @@ public:
         const Vec3& axis,
         float minAngle,
         float maxAngle,
-        float frequency,
-        float dampingRatio
+        float linearFrequency,
+        float linearDampingRatio,
+        float swingFrequency,
+        float swingDampingRatio,
+        float angleFrequency,
+        float angleDampingRatio
     );
 
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
+
+    float GetLinearFrequency() const;
+    void SetLinearFrequency(float newFrequency);
+    float GetLinearDampingRatio() const;
+    void SetLinearDampingRatio(float newDampingRatio);
+    float GetSwingFrequency() const;
+    void SetSwingFrequency(float newFrequency);
+    float GetSwingDampingRatio() const;
+    void SetSwingDampingRatio(float newDampingRatio);
+    float GetAngleFrequency() const;
+    void SetAngleFrequency(float newFrequency);
+    float GetAngleDampingRatio() const;
+    void SetAngleDampingRatio(float newDampingRatio);
 
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
@@ -459,6 +599,13 @@ public:
     void SetMaxMotorTorque(float torque);
 
 private:
+    float linearFrequency;
+    float linearDampingRatio;
+    float swingFrequency;
+    float swingDampingRatio;
+    float angleFrequency;
+    float angleDampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
     Vec3 localAxisA;
@@ -512,11 +659,37 @@ private:
 class UniversalAngleJoint : public Joint
 {
 public:
-    UniversalAngleJoint(Body* bodyA, Body* bodyB, const Vec3& axisA, const Vec3& axisB, float frequency, float dampingRatio);
+    UniversalAngleJoint(
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& axisA,
+        const Vec3& axisB,
+        float perpFrequency,
+        float perpDampingRatio,
+        float steerFrequency,
+        float steerDampingRatio,
+        float spinFrequency,
+        float spinDampingRatio
+    );
 
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
+
+    float GetPerpendicularFrequency() const;
+    void SetPerpendicularFrequency(float newFrequency);
+    float GetPerpendicularDampingRatio() const;
+    void SetPerpendicularDampingRatio(float newDampingRatio);
+
+    float GetSteeringFrequency() const;
+    void SetSteeringFrequency(float frequency);
+    float GetSteeringDampingRatio() const;
+    void SetSteeringDampingRatio(float dampingRatio);
+
+    float GetSpinFrequency() const;
+    void SetSpinFrequency(float newFrequency);
+    float GetSpinDampingRatio() const;
+    void SetSpinDampingRatio(float newDampingRatio);
 
     const Vec3& GetLocalAxisA() const;
     const Vec3& GetLocalAxisB() const;
@@ -528,10 +701,6 @@ public:
     void SetSteeringMotorEnabled(bool enabled);
     float GetTargetSteeringAngle() const;
     void SetTargetSteeringAngle(float angle);
-    float GetSteeringFrequency() const;
-    void SetSteeringFrequency(float frequency);
-    float GetSteeringDampingRatio() const;
-    void SetSteeringDampingRatio(float dampingRatio);
     float GetMaxSteeringTorque() const;
     void SetMaxSteeringTorque(float torque);
 
@@ -558,6 +727,13 @@ public:
     void SetSpinMaxAngle(float angle);
 
 private:
+    float perpFrequency;
+    float perpDampingRatio;
+    float steerFrequency;
+    float steerDampingRatio;
+    float spinFrequency;
+    float spinDampingRatio;
+
     Vec3 localAxisA;    // Steering axis fixed to body A
     Vec3 localAxisB;    // Spin axis fixed to body B
     Vec3 localRefAxisA; // Zero-steering direction fixed to body A
@@ -576,8 +752,6 @@ private:
     float steeringAngle;
     bool steeringMotorEnabled;
     float targetSteeringAngle;
-    float steeringFrequency;
-    float steeringDampingRatio;
     float maxSteeringTorque;
     float steeringM;
     float steeringBias;
@@ -625,13 +799,24 @@ public:
         const Vec3& anchor,
         float maxJointForce,
         float maxJointTorque,
-        float frequency,
-        float dampingRatio
+        float linearFrequency,
+        float linearDampingRatio,
+        float angularFrequency,
+        float angularDampingRatio
     );
 
     void Prepare(const Timestep& step);
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
+
+    float GetLinearFrequency() const;
+    void SetLinearFrequency(float newFrequency);
+    float GetLinearDampingRatio() const;
+    void SetLinearDampingRatio(float newDampingRatio);
+    float GetAngularFrequency() const;
+    void SetAngularFrequency(float newFrequency);
+    float GetAngularDampingRatio() const;
+    void SetAngularDampingRatio(float newDampingRatio);
 
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
@@ -645,6 +830,11 @@ public:
     void SetAngularOffset(const Vec3& angularOffset);
 
 private:
+    float linearFrequency;
+    float linearDampingRatio;
+    float angularFrequency;
+    float angularDampingRatio;
+
     Vec3 localAnchorA;
     Vec3 localAnchorB;
     Quat orientationOffset;
@@ -694,6 +884,11 @@ public:
     void WarmStart();
     void SolveVelocityConstraints(const Timestep& step);
 
+    float GetFrequency() const;
+    void SetFrequency(float newFrequency);
+    float GetDampingRatio() const;
+    void SetDampingRatio(float newDampingRatio);
+
     const Vec3& GetGroundAnchorA() const;
     const Vec3& GetGroundAnchorB() const;
     const Vec3& GetLocalAnchorA() const;
@@ -702,6 +897,9 @@ public:
     void SetPulleyLength(float newLength);
 
 private:
+    float frequency;
+    float dampingRatio;
+
     Vec3 groundAnchorA;
     Vec3 groundAnchorB;
     Vec3 localAnchorA;

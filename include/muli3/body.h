@@ -250,22 +250,6 @@ private:
     friend class ConstraintGraph;
     friend class Contact;
 
-    friend class Joint;
-    friend class FixedRotationJoint;
-    friend class ConeSwingJoint;
-    friend class RevoluteJoint;
-    friend class RevoluteAngleJoint;
-    friend class UniversalAngleJoint;
-    friend class TwistAngleJoint;
-    friend class BallSocketJoint;
-    friend class DistanceJoint;
-    friend class GrabJoint;
-    friend class WeldJoint;
-    friend class LineJoint;
-    friend class PrismaticJoint;
-    friend class PulleyJoint;
-    friend class MotorJoint;
-
     enum
     {
         flag_enabled = 1 << 0,

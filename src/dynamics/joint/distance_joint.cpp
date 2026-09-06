@@ -36,7 +36,9 @@ DistanceJoint::DistanceJoint(
     float frequency,
     float dampingRatio
 )
-    : Joint(distance_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(distance_joint, bodyA, bodyB)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
     , beta{ 0.0f }
@@ -225,6 +227,26 @@ void DistanceJoint::SetJointMaxLength(float newMaxLength)
 {
     maxLength = Max(newMaxLength, 0.0f);
     minLength = Min(minLength, maxLength);
+}
+
+float DistanceJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void DistanceJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float DistanceJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void DistanceJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

@@ -4,7 +4,9 @@ namespace muli3
 {
 
 GrabJoint::GrabJoint(Body* body, const Vec3& anchor, const Vec3& targetPosition, float frequency, float dampingRatio)
-    : Joint(grab_joint, body, body, frequency, dampingRatio)
+    : Joint(grab_joint, body, body)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
     , beta{ 0.0f }
     , gamma{ 0.0f }
@@ -85,6 +87,26 @@ const Vec3& GrabJoint::GetTarget() const
 void GrabJoint::SetTarget(const Vec3& newTarget)
 {
     target = newTarget;
+}
+
+float GrabJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void GrabJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float GrabJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void GrabJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

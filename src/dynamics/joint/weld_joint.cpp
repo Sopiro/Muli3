@@ -5,8 +5,20 @@ namespace muli3
 
 // BallSocketJoint + orientation constraint
 
-WeldJoint::WeldJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
-    : Joint(weld_joint, bodyA, bodyB, frequency, dampingRatio)
+WeldJoint::WeldJoint(
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    float linearFrequency,
+    float linearDampingRatio,
+    float angularFrequency,
+    float angularDampingRatio
+)
+    : Joint(weld_joint, bodyA, bodyB)
+    , linearFrequency{ Max(linearFrequency, 0.0f) }
+    , linearDampingRatio{ Max(linearDampingRatio, 0.0f) }
+    , angularFrequency{ Max(angularFrequency, 0.0f) }
+    , angularDampingRatio{ Max(angularDampingRatio, 0.0f) }
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
     , linearBeta{ 0.0f }
@@ -48,7 +60,7 @@ void WeldJoint::Prepare(const Timestep& step)
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    ComputeBetaAndGamma(&linearBeta, &linearGamma, frequency, dampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, linearFrequency, linearDampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += linearGamma;
     linearK.ey.y += linearGamma;
@@ -58,7 +70,9 @@ void WeldJoint::Prepare(const Timestep& step)
 
     // Ka = Ja * M^-1 * Ja^T = invIA + invIB.
     Mat3 angularK = s->invIA + s->invIB;
-    ComputeBetaAndGamma(&angularBeta, &angularGamma, frequency, dampingRatio, angularK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(
+        &angularBeta, &angularGamma, angularFrequency, angularDampingRatio, angularK.TraceInverse() / 3.0f, step.dt
+    );
 
     angularK.ex.x += angularGamma;
     angularK.ey.y += angularGamma;
@@ -143,6 +157,46 @@ const Vec3& WeldJoint::GetLocalAnchorB() const
 const Quat& WeldJoint::GetOrientationOffset() const
 {
     return orientationOffset;
+}
+
+float WeldJoint::GetLinearFrequency() const
+{
+    return linearFrequency;
+}
+
+void WeldJoint::SetLinearFrequency(float newFrequency)
+{
+    linearFrequency = Max(newFrequency, 0.0f);
+}
+
+float WeldJoint::GetLinearDampingRatio() const
+{
+    return linearDampingRatio;
+}
+
+void WeldJoint::SetLinearDampingRatio(float newDampingRatio)
+{
+    linearDampingRatio = Max(newDampingRatio, 0.0f);
+}
+
+float WeldJoint::GetAngularFrequency() const
+{
+    return angularFrequency;
+}
+
+void WeldJoint::SetAngularFrequency(float newFrequency)
+{
+    angularFrequency = Max(newFrequency, 0.0f);
+}
+
+float WeldJoint::GetAngularDampingRatio() const
+{
+    return angularDampingRatio;
+}
+
+void WeldJoint::SetAngularDampingRatio(float newDampingRatio)
+{
+    angularDampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

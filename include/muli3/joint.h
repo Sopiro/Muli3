@@ -92,12 +92,6 @@ public:
     Body* GetBodyA() const;
     Body* GetBodyB() const;
 
-    float GetFrequency() const;
-    void SetFrequency(float frequency);
-    float GetDampingRatio() const;
-    void SetDampingRatio(float dampingRatio);
-
-    bool IsRigid() const;
     Type GetType() const;
 
     bool IsEnabled() const;
@@ -106,18 +100,13 @@ public:
     void* UserData;
 
 protected:
-    Joint(Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio);
+    Joint(Type type, Body* bodyA, Body* bodyB);
 
     JointState* GetJointState();
     const JointState* GetJointState() const;
 
     Body* bodyA;
     Body* bodyB;
-
-    // Following parameters are used to soften the joint
-    // Frequency values less than or equal to zero make joints rigid
-    float frequency;    // 0 < Frequency
-    float dampingRatio; // 0 <= Damping Ratio
 
 private:
     friend class World;
@@ -160,31 +149,6 @@ inline void ComputeBetaAndGamma(
         *outBeta = h * k / (d + h * k);
         *outGamma = 1.0f / ((d + h * k) * h);
     }
-}
-
-inline float Joint::GetFrequency() const
-{
-    return frequency;
-}
-
-inline void Joint::SetFrequency(float newJointFrequency)
-{
-    frequency = Max(0.0f, newJointFrequency);
-}
-
-inline float Joint::GetDampingRatio() const
-{
-    return dampingRatio;
-}
-
-inline void Joint::SetDampingRatio(float newJointDampingRatio)
-{
-    dampingRatio = Max(0.0f, newJointDampingRatio);
-}
-
-inline bool Joint::IsRigid() const
-{
-    return frequency <= 0.0f;
 }
 
 inline Joint::Type Joint::GetType() const

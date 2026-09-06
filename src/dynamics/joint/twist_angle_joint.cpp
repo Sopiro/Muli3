@@ -68,7 +68,9 @@ static float GetTwistAngle(const Vec3& frameX, const Vec3& frameY, const Vec3& f
 TwistAngleJoint::TwistAngleJoint(
     Body* bodyA, Body* bodyB, const Vec3& worldAxis, float jointMinAngle, float jointMaxAngle, float frequency, float dampingRatio
 )
-    : Joint(twist_angle_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(twist_angle_joint, bodyA, bodyB)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , angleOffset{ 0.0f }
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
@@ -277,6 +279,26 @@ void TwistAngleJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = newMaxAngle;
     minAngle = Min(minAngle, maxAngle);
+}
+
+float TwistAngleJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void TwistAngleJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float TwistAngleJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void TwistAngleJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

@@ -50,10 +50,20 @@ RevoluteJoint::RevoluteJoint(
     const Vec3& axis,
     float jointMinAngle,
     float jointMaxAngle,
-    float frequency,
-    float dampingRatio
+    float linearFrequency,
+    float linearDampingRatio,
+    float swingFrequency,
+    float swingDampingRatio,
+    float angleFrequency,
+    float angleDampingRatio
 )
-    : Joint(revolute_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(revolute_joint, bodyA, bodyB)
+    , linearFrequency{ Max(linearFrequency, 0.0f) }
+    , linearDampingRatio{ Max(linearDampingRatio, 0.0f) }
+    , swingFrequency{ Max(swingFrequency, 0.0f) }
+    , swingDampingRatio{ Max(swingDampingRatio, 0.0f) }
+    , angleFrequency{ Max(angleFrequency, 0.0f) }
+    , angleDampingRatio{ Max(angleDampingRatio, 0.0f) }
     , angleOffset{ 0.0f }
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
@@ -117,7 +127,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    ComputeBetaAndGamma(&linearBeta, &linearGamma, frequency, dampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, linearFrequency, linearDampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += linearGamma;
     linearK.ey.y += linearGamma;
@@ -159,7 +169,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
     swingK[0][1] = Dot(swingAxis1, invInertiaSum * swingAxis2);
     swingK[1][0] = swingK[0][1];
 
-    ComputeBetaAndGamma(&swingBeta, &swingGamma, frequency, dampingRatio, swingK.TraceInverse() / 2.0f, step.dt);
+    ComputeBetaAndGamma(&swingBeta, &swingGamma, swingFrequency, swingDampingRatio, swingK.TraceInverse() / 2.0f, step.dt);
     swingK[0][0] += swingGamma;
     swingK[1][1] += swingGamma;
     swingM = swingK.GetInverse();
@@ -187,7 +197,9 @@ void RevoluteJoint::Prepare(const Timestep& step)
     // Effective mass without soft constraint
     motorM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
-    ComputeBetaAndGamma(&angleBeta, &angleGamma, frequency, dampingRatio, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
+    ComputeBetaAndGamma(
+        &angleBeta, &angleGamma, angleFrequency, angleDampingRatio, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt
+    );
     angleK += angleGamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
@@ -478,6 +490,66 @@ float RevoluteJoint::GetMaxMotorTorque() const
 void RevoluteJoint::SetMaxMotorTorque(float torque)
 {
     maxMotorTorque = torque < 0.0f ? max_float : torque;
+}
+
+float RevoluteJoint::GetLinearFrequency() const
+{
+    return linearFrequency;
+}
+
+void RevoluteJoint::SetLinearFrequency(float newFrequency)
+{
+    linearFrequency = Max(newFrequency, 0.0f);
+}
+
+float RevoluteJoint::GetLinearDampingRatio() const
+{
+    return linearDampingRatio;
+}
+
+void RevoluteJoint::SetLinearDampingRatio(float newDampingRatio)
+{
+    linearDampingRatio = Max(newDampingRatio, 0.0f);
+}
+
+float RevoluteJoint::GetSwingFrequency() const
+{
+    return swingFrequency;
+}
+
+void RevoluteJoint::SetSwingFrequency(float newFrequency)
+{
+    swingFrequency = Max(newFrequency, 0.0f);
+}
+
+float RevoluteJoint::GetSwingDampingRatio() const
+{
+    return swingDampingRatio;
+}
+
+void RevoluteJoint::SetSwingDampingRatio(float newDampingRatio)
+{
+    swingDampingRatio = Max(newDampingRatio, 0.0f);
+}
+
+float RevoluteJoint::GetAngleFrequency() const
+{
+    return angleFrequency;
+}
+
+void RevoluteJoint::SetAngleFrequency(float newFrequency)
+{
+    angleFrequency = Max(newFrequency, 0.0f);
+}
+
+float RevoluteJoint::GetAngleDampingRatio() const
+{
+    return angleDampingRatio;
+}
+
+void RevoluteJoint::SetAngleDampingRatio(float newDampingRatio)
+{
+    angleDampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

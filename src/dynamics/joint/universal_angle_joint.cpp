@@ -28,9 +28,24 @@ static float ClampLimitImpulse(float impulse, int32 limitState)
 }
 
 UniversalAngleJoint::UniversalAngleJoint(
-    Body* bodyA, Body* bodyB, const Vec3& worldAxisA, const Vec3& worldAxisB, float frequency, float dampingRatio
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& worldAxisA,
+    const Vec3& worldAxisB,
+    float perpFrequency,
+    float perpDampingRatio,
+    float steerFrequency,
+    float steerDampingRatio,
+    float spinFrequency,
+    float spinDampingRatio
 )
-    : Joint(universal_angle_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(universal_angle_joint, bodyA, bodyB)
+    , perpFrequency{ Max(perpFrequency, 0.0f) }
+    , perpDampingRatio{ Max(perpDampingRatio, 0.0f) }
+    , steerFrequency{ Max(steerFrequency, 0.0f) }
+    , steerDampingRatio{ Max(steerDampingRatio, 0.0f) }
+    , spinFrequency{ Max(spinFrequency, 0.0f) }
+    , spinDampingRatio{ Max(spinDampingRatio, 0.0f) }
     , perpM{ 0.0f }
     , perpBias{ 0.0f }
     , perpImpulseSum{ 0.0f }
@@ -39,8 +54,6 @@ UniversalAngleJoint::UniversalAngleJoint(
     , steeringAngle{ 0.0f }
     , steeringMotorEnabled{ false }
     , targetSteeringAngle{ 0.0f }
-    , steeringFrequency{ 5.0f }
-    , steeringDampingRatio{ 1.0f }
     , maxSteeringTorque{ 0.0f }
     , steeringM{ 0.0f }
     , steeringBias{ 0.0f }
@@ -108,7 +121,7 @@ void UniversalAngleJoint::Prepare(const Timestep& step)
     perpAxis = Cross(axisB, axisA);
     float perpK = Dot(perpAxis, invInertiaSum * perpAxis);
 
-    ComputeBetaAndGamma(&perpBeta, &perpGamma, frequency, dampingRatio, perpK > 0.0f ? 1.0f / perpK : 0.0f, step.dt);
+    ComputeBetaAndGamma(&perpBeta, &perpGamma, perpFrequency, perpDampingRatio, perpK > 0.0f ? 1.0f / perpK : 0.0f, step.dt);
 
     perpK += perpGamma;
     perpM = perpK != 0.0f ? 1.0f / perpK : 0.0f;
@@ -137,7 +150,7 @@ void UniversalAngleJoint::Prepare(const Timestep& step)
 
     float steeringK = Dot(steeringAxis, invInertiaSum * steeringAxis);
     float steeringEffectiveMass = steeringK > 0.0f ? 1.0f / steeringK : 0.0f;
-    ComputeBetaAndGamma(&steeringBeta, &steeringGamma, steeringFrequency, steeringDampingRatio, steeringEffectiveMass, step.dt);
+    ComputeBetaAndGamma(&steeringBeta, &steeringGamma, steerFrequency, steerDampingRatio, steeringEffectiveMass, step.dt);
 
     steeringK += steeringGamma;
     steeringM = steeringK != 0.0f ? 1.0f / steeringK : 0.0f;
@@ -225,7 +238,7 @@ void UniversalAngleJoint::Prepare(const Timestep& step)
         spinImpulseSum = 0.0f;
     }
 
-    ComputeBetaAndGamma(&spinBeta, &spinGamma, frequency, dampingRatio, spinM, step.dt);
+    ComputeBetaAndGamma(&spinBeta, &spinGamma, spinFrequency, spinDampingRatio, spinM, step.dt);
     float spinLimitK = spinK + spinGamma;
     spinLimitM = spinLimitK != 0.0f ? 1.0f / spinLimitK : 0.0f;
 
@@ -441,24 +454,44 @@ void UniversalAngleJoint::SetTargetSteeringAngle(float newTargetSteeringAngle)
     targetSteeringAngle = newTargetSteeringAngle;
 }
 
+float UniversalAngleJoint::GetPerpendicularFrequency() const
+{
+    return perpFrequency;
+}
+
+void UniversalAngleJoint::SetPerpendicularFrequency(float newFrequency)
+{
+    perpFrequency = Max(newFrequency, 0.0f);
+}
+
+float UniversalAngleJoint::GetPerpendicularDampingRatio() const
+{
+    return perpDampingRatio;
+}
+
+void UniversalAngleJoint::SetPerpendicularDampingRatio(float newDampingRatio)
+{
+    perpDampingRatio = Max(newDampingRatio, 0.0f);
+}
+
 float UniversalAngleJoint::GetSteeringFrequency() const
 {
-    return steeringFrequency;
+    return steerFrequency;
 }
 
 void UniversalAngleJoint::SetSteeringFrequency(float newSteeringFrequency)
 {
-    steeringFrequency = newSteeringFrequency;
+    steerFrequency = Max(newSteeringFrequency, 0.0f);
 }
 
 float UniversalAngleJoint::GetSteeringDampingRatio() const
 {
-    return steeringDampingRatio;
+    return steerDampingRatio;
 }
 
 void UniversalAngleJoint::SetSteeringDampingRatio(float newSteeringDampingRatio)
 {
-    steeringDampingRatio = Max(newSteeringDampingRatio, 0.0f);
+    steerDampingRatio = Max(newSteeringDampingRatio, 0.0f);
 }
 
 float UniversalAngleJoint::GetMaxSteeringTorque() const
@@ -544,6 +577,26 @@ float UniversalAngleJoint::GetMaxSpinTorque() const
 void UniversalAngleJoint::SetMaxSpinTorque(float torque)
 {
     maxSpinTorque = torque < 0.0f ? max_float : torque;
+}
+
+float UniversalAngleJoint::GetSpinFrequency() const
+{
+    return spinFrequency;
+}
+
+void UniversalAngleJoint::SetSpinFrequency(float newFrequency)
+{
+    spinFrequency = Max(newFrequency, 0.0f);
+}
+
+float UniversalAngleJoint::GetSpinDampingRatio() const
+{
+    return spinDampingRatio;
+}
+
+void UniversalAngleJoint::SetSpinDampingRatio(float newDampingRatio)
+{
+    spinDampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 bool UniversalAngleJoint::IsSpinLimitEnabled() const

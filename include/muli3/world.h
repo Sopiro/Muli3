@@ -143,7 +143,7 @@ public:
         float cellSizeX = 1.0f,
         float cellSizeZ = 1.0f,
         const Transform& transform = identity,
-        const Vec3& offset = Vec3{ 0.0f },
+        const Vec3& offset = Vec3::zero,
         int32 blockSize = 4
     );
     Body* CreateMesh(
@@ -180,8 +180,12 @@ public:
         const Vec3& axis,
         float minAngle,
         float maxAngle,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float linearFrequency = 10.0f,
+        float linearDampingRatio = 1.0f,
+        float swingFrequency = 10.0f,
+        float swingDampingRatio = 1.0f,
+        float angleFrequency = 10.0f,
+        float angleDampingRatio = 1.0f
     );
     RevoluteAngleJoint* CreateRevoluteAngleJoint(
         Body* bodyA,
@@ -189,16 +193,22 @@ public:
         const Vec3& axis,
         float minAngle,
         float maxAngle,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float swingFrequency = 10.0f,
+        float swingDampingRatio = 1.0f,
+        float angleFrequency = 10.0f,
+        float angleDampingRatio = 1.0f
     );
     UniversalAngleJoint* CreateUniversalAngleJoint(
         Body* bodyA,
         Body* bodyB,
         const Vec3& axisA,
         const Vec3& axisB,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float perprequency = 10.0f,
+        float perpDampingRatio = 1.0f,
+        float steeringFrequency = 10.0f,
+        float steeringDampingRatio = 1.0f,
+        float spinFrequency = 10.0f,
+        float spinDampingRatio = 1.0f
     );
     TwistAngleJoint* CreateTwistAngleJoint(
         Body* bodyA,
@@ -227,10 +237,13 @@ public:
         float dampingRatio = 1.0f
     );
     WeldJoint* CreateWeldJoint(
-        Body* bodyA, Body* bodyB,
+        Body* bodyA,
+        Body* bodyB,
         const Vec3& anchor,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float linearFrequency = 10.0f,
+        float linearDampingRatio = 1.0f,
+        float angularFrequency = 10.0f,
+        float angularDampingRatio = 1.0f
     );
     LineJoint* CreateLineJoint(
         Body* bodyA,
@@ -251,13 +264,18 @@ public:
         Body* bodyB,
         const Vec3& anchor,
         const Vec3& direction,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float linearFrequency = 10.0f,
+        float linearDampingRatio = 1.0f,
+        float angularFrequency = 10.0f,
+        float angularDampingRatio = 1.0f
     );
-    PrismaticJoint* CreatePrismaticJoint(Body* bodyA,
+    PrismaticJoint* CreatePrismaticJoint(
+        Body* bodyA,
         Body* bodyB,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float linearFrequency = 10.0f,
+        float linearDampingRatio = 1.0f,
+        float angularFrequency = 10.0f,
+        float angularDampingRatio = 1.0f
     );
     PulleyJoint* CreatePulleyJoint(
         Body* bodyA,
@@ -276,8 +294,10 @@ public:
         const Vec3& anchor,
         float maxForce = 1000.0f,
         float maxTorque = 1000.0f,
-        float frequency = 10.0f,
-        float dampingRatio = 1.0f
+        float linearFrequency = 10.0f,
+        float linearDampingRatio = 1.0f,
+        float angularFrequency = 1.0f,
+        float angularDampingRatio = 1.0f
     );
 
     void Query(

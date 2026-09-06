@@ -4,7 +4,9 @@ namespace muli3
 {
 
 BallSocketJoint::BallSocketJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, float frequency, float dampingRatio)
-    : Joint(ball_socket_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(ball_socket_joint, bodyA, bodyB)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
     , beta{ 0.0f }
     , gamma{ 0.0f }
@@ -104,6 +106,26 @@ const Vec3& BallSocketJoint::GetLocalAnchorA() const
 const Vec3& BallSocketJoint::GetLocalAnchorB() const
 {
     return localAnchorB;
+}
+
+float BallSocketJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void BallSocketJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float BallSocketJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void BallSocketJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

@@ -5,7 +5,7 @@
 namespace muli3
 {
 
-Joint::Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float dampingRatio)
+Joint::Joint(Joint::Type type, Body* bodyA, Body* bodyB)
     : DynamicDispatcher(int32(type))
     , OnDestroy{ nullptr }
     , UserData{ nullptr }
@@ -20,9 +20,6 @@ Joint::Joint(Joint::Type type, Body* bodyA, Body* bodyB, float frequency, float 
     , flagIsland{ false }
 {
     MuliAssert(bodyA->GetWorld() == bodyB->GetWorld());
-
-    SetFrequency(frequency);
-    SetDampingRatio(dampingRatio);
 }
 
 Joint::~Joint()
@@ -35,27 +32,31 @@ Joint::~Joint()
 
 JointState* Joint::GetJointState()
 {
+    World* world = bodyA->GetWorld();
+
     if (colorIndex != null_index)
     {
-        return &bodyA->world->constraintGraph.batches[colorIndex].scalarJoints.states[localIndex];
+        return &world->constraintGraph.batches[colorIndex].scalarJoints.states[localIndex];
     }
     else
     {
         MuliAssert(setIndex != null_index);
-        return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+        return &world->solverSets[setIndex].jointStates[localIndex];
     }
 }
 
 const JointState* Joint::GetJointState() const
 {
+    World* world = bodyA->GetWorld();
+
     if (colorIndex != null_index)
     {
-        return &bodyA->world->constraintGraph.batches[colorIndex].scalarJoints.states[localIndex];
+        return &world->constraintGraph.batches[colorIndex].scalarJoints.states[localIndex];
     }
     else
     {
         MuliAssert(setIndex != null_index);
-        return &bodyA->world->solverSets[setIndex].jointStates[localIndex];
+        return &world->solverSets[setIndex].jointStates[localIndex];
     }
 }
 

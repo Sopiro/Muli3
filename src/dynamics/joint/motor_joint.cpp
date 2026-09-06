@@ -4,9 +4,21 @@ namespace muli3
 {
 
 MotorJoint::MotorJoint(
-    Body* bodyA, Body* bodyB, const Vec3& anchor, float maxJointForce, float maxJointTorque, float frequency, float dampingRatio
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    float maxJointForce,
+    float maxJointTorque,
+    float linearFrequency,
+    float linearDampingRatio,
+    float angularFrequency,
+    float angularDampingRatio
 )
-    : Joint(motor_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(motor_joint, bodyA, bodyB)
+    , linearFrequency{ Max(linearFrequency, 0.0f) }
+    , linearDampingRatio{ Max(linearDampingRatio, 0.0f) }
+    , angularFrequency{ Max(angularFrequency, 0.0f) }
+    , angularDampingRatio{ Max(angularDampingRatio, 0.0f) }
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , angularImpulseSum{ 0.0f, 0.0f, 0.0f }
     , linearBeta{ 0.0f }
@@ -50,7 +62,7 @@ void MotorJoint::Prepare(const Timestep& step)
                  + skewRB.GetTranspose() * s->invIB * skewRB;
     // clang-format on
 
-    ComputeBetaAndGamma(&linearBeta, &linearGamma, frequency, dampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(&linearBeta, &linearGamma, linearFrequency, linearDampingRatio, linearK.TraceInverse() / 3.0f, step.dt);
 
     linearK.ex.x += linearGamma;
     linearK.ey.y += linearGamma;
@@ -62,7 +74,9 @@ void MotorJoint::Prepare(const Timestep& step)
     // orientation to qB. Its small-angle derivative is wb - wa, hence
     // Ja = [0, -I, 0, I].
     Mat3 angularK = s->invIA + s->invIB;
-    ComputeBetaAndGamma(&angularBeta, &angularGamma, frequency, dampingRatio, angularK.TraceInverse() / 3.0f, step.dt);
+    ComputeBetaAndGamma(
+        &angularBeta, &angularGamma, angularFrequency, angularDampingRatio, angularK.TraceInverse() / 3.0f, step.dt
+    );
     angularK.ex.x += angularGamma;
     angularK.ey.y += angularGamma;
     angularK.ez.z += angularGamma;
@@ -199,6 +213,46 @@ const Vec3& MotorJoint::GetAngularOffset() const
 void MotorJoint::SetAngularOffset(const Vec3& newAngularOffset)
 {
     angularOffset = newAngularOffset;
+}
+
+float MotorJoint::GetLinearFrequency() const
+{
+    return linearFrequency;
+}
+
+void MotorJoint::SetLinearFrequency(float newFrequency)
+{
+    linearFrequency = Max(newFrequency, 0.0f);
+}
+
+float MotorJoint::GetLinearDampingRatio() const
+{
+    return linearDampingRatio;
+}
+
+void MotorJoint::SetLinearDampingRatio(float newDampingRatio)
+{
+    linearDampingRatio = Max(newDampingRatio, 0.0f);
+}
+
+float MotorJoint::GetAngularFrequency() const
+{
+    return angularFrequency;
+}
+
+void MotorJoint::SetAngularFrequency(float newFrequency)
+{
+    angularFrequency = Max(newFrequency, 0.0f);
+}
+
+float MotorJoint::GetAngularDampingRatio() const
+{
+    return angularDampingRatio;
+}
+
+void MotorJoint::SetAngularDampingRatio(float newDampingRatio)
+{
+    angularDampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3

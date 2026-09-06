@@ -5,7 +5,9 @@ namespace muli3
 {
 
 LineJoint::LineJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& dir, float frequency, float dampingRatio)
-    : Joint(line_joint, bodyA, bodyB, frequency, dampingRatio)
+    : Joint(line_joint, bodyA, bodyB)
+    , frequency{ Max(frequency, 0.0f) }
+    , dampingRatio{ Max(dampingRatio, 0.0f) }
     , impulseSum{ 0.0f }
     , beta{ 0.0f }
     , gamma{ 0.0f }
@@ -120,6 +122,26 @@ const Vec3& LineJoint::GetLocalAnchorA() const
 const Vec3& LineJoint::GetLocalAnchorB() const
 {
     return localAnchorB;
+}
+
+float LineJoint::GetFrequency() const
+{
+    return frequency;
+}
+
+void LineJoint::SetFrequency(float newFrequency)
+{
+    frequency = Max(newFrequency, 0.0f);
+}
+
+float LineJoint::GetDampingRatio() const
+{
+    return dampingRatio;
+}
+
+void LineJoint::SetDampingRatio(float newDampingRatio)
+{
+    dampingRatio = Max(newDampingRatio, 0.0f);
 }
 
 } // namespace muli3
