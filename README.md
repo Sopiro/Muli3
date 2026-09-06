@@ -11,28 +11,27 @@
 Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded to 3D and multi-threading support.
 
 ### Collision
-  - Shapes: sphere, capsule, box, polygon, polyhedron, height field, and triangle mesh
+  - Shapes: sphere, capsule, box, polygon, convex, height field, and triangle mesh
   - Support for rounded shapes
   - Multiple colliders attached to a single body
   - Dynamic, static, and kinematic bodies
   - Collision filtering
   - Dynamic AABB tree broad phase
-  - One-shot contact manifold generation
-  - Raycast, shapecast, and area queries
+  - Ray cast, shape cast, and area queries
 
  ### Physics Simulation
   - PGS solver with a separate position correction (PGS NGS)
   - Persistent constraint graph
   - Graph coloring based solver with multi-threading
+  - SIMD optimized solver backend
   - Constraint islanding and sleeping
   - Deterministic simulation
   - Contact callbacks: begin, touching, end, pre-solve, post-solve, and destroy
-  - Physics material: friction, restitution, and surface speed
-  - Joints with limits and motors
+  - Physics material: friction, restitution, and surface velocity
+  - Various joints with limits and motors
 
 ### Others
   - Cross platform library (C++20)
-  - Intuitive API design
   - 30+ Demos
 
 ## Example
