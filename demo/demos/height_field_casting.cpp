@@ -1,4 +1,5 @@
 #include "demo.h"
+#include "game.h"
 
 #include "muli3/noise.h"
 #include "muli3/random.h"
@@ -206,7 +207,7 @@ public:
 
         if (rotate)
         {
-            rotateTime += dt;
+            rotateTime += game.GetDeltaTime();
             rot.x = 45.0f * std::sin(rotateTime * 1.1f) + 18.0f * std::cos(rotateTime * 2.3f);
             rot.y = 80.0f * std::cos(rotateTime * 0.8f) + 35.0f * std::sin(rotateTime * 1.6f);
             rot.z = 55.0f * std::sin(rotateTime * 1.4f + 0.7f) + 20.0f * std::cos(rotateTime * 2.1f);

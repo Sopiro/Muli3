@@ -1,5 +1,6 @@
 #include "game.h"
 #include "input.h"
+#include "ragdoll.h"
 #include "window.h"
 
 namespace muli3
@@ -114,21 +115,15 @@ void Demo::EnableBodyCreate()
     }
 
     bool repeatCreate = Input::IsKeyDown(GLFW_KEY_LEFT_SHIFT);
-    auto isCreateKey = [repeatCreate](int key, int keypad) {
-        if (repeatCreate)
-        {
-            return Input::IsKeyDown(key) || Input::IsKeyDown(keypad);
-        }
+    auto isCreateKey = [repeatCreate](int key) { return repeatCreate ? Input::IsKeyDown(key) : Input::IsKeyPressed(key); };
 
-        return Input::IsKeyPressed(key) || Input::IsKeyPressed(keypad);
-    };
+    bool createSphere = isCreateKey(GLFW_KEY_1);
+    bool createCapsule = isCreateKey(GLFW_KEY_2);
+    bool createBox = isCreateKey(GLFW_KEY_3);
+    bool createCylinder = isCreateKey(GLFW_KEY_4);
+    bool createRagdoll = isCreateKey(GLFW_KEY_5);
 
-    bool createSphere = isCreateKey(GLFW_KEY_1, GLFW_KEY_KP_1);
-    bool createCapsule = isCreateKey(GLFW_KEY_2, GLFW_KEY_KP_2);
-    bool createBox = isCreateKey(GLFW_KEY_3, GLFW_KEY_KP_3);
-    bool createCylinder = isCreateKey(GLFW_KEY_4, GLFW_KEY_KP_4);
-
-    if (!createSphere && !createCapsule && !createBox && !createCylinder)
+    if (!createSphere && !createCapsule && !createBox && !createCylinder && !createRagdoll)
     {
         throwCooldown = 0.0f;
         return;
@@ -136,7 +131,7 @@ void Demo::EnableBodyCreate()
 
     if (repeatCreate)
     {
-        throwCooldown -= dt;
+        throwCooldown -= game.GetDeltaTime();
         if (throwCooldown > 0.0f)
         {
             return;
@@ -148,7 +143,9 @@ void Demo::EnableBodyCreate()
     Vec3 velocity = forward * 18.0f;
     Body* body = nullptr;
 
-    if (createSphere || createCapsule || createBox || createCylinder)
+    static int32 ragdollGroup = 2;
+
+    if (createSphere || createCapsule || createBox || createCylinder || createRagdoll)
     {
         Transform transform{ position, Quat::FromEuler(camera.rotation) };
         if (createSphere)
@@ -163,15 +160,27 @@ void Demo::EnableBodyCreate()
         {
             body = world->CreateBox(0.45f, transform);
         }
-        else
+        else if (createCylinder)
         {
             body = world->CreateCylinder(0.45f, 0.25f, 0.25f, 16, transform);
         }
+        else
+        {
+            Ragdoll ragdoll = CreateRagdoll(world, transform, 1.0f, (ragdollGroup++));
+            for (int32 i = 0; i < Ragdoll::bone_count; ++i)
+            {
+                Body* body = ragdoll.bones[i].body;
+                body->SetLinearVelocity(velocity);
+            }
+        }
 
-        body->SetLinearVelocity(velocity);
+        if (body)
+        {
+            body->SetLinearVelocity(velocity);
+        }
     }
 
-    throwCooldown = 0.03f;
+    throwCooldown += 0.05f;
 }
 
 bool Demo::EnableBodyGrab()

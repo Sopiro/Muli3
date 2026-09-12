@@ -34,7 +34,7 @@ struct Ragdoll
 
 static bool hideJoint = true;
 
-inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32 gruop, float density = default_density)
+inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int32 gruop, float density = default_density)
 {
     Ragdoll ragdoll;
     ragdoll.scale = scale;
@@ -45,16 +45,15 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
     float linearDamping = 0.1f;
     float angularDamping = 5.0f;
 
-    float headX = headPosition.x;
-    float headY = headPosition.y;
-    float headZ = headPosition.z;
+    float headX = 0.0f;
+    float headY = 0.0f;
+    float headZ = 0.0f;
 
     float headSize = 0.15f * scale;
     float headRadius = 0.2f * scale;
 
     // Head
     Body* head = world->CreateCapsule(headSize, headRadius, identity, Body::dynamic_body, density);
-    head->SetPosition(headPosition);
 
     float bodyWidth = 0.5f * scale;
     float bodyHeight = 0.85f * scale;
@@ -65,7 +64,7 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
 
     ragdoll.bones[Ragdoll::index_chest] = Bone{ Ragdoll::index_pelvis, chest };
 
-    float ballSocketFrequency = 30.0f;
+    float ballSocketFrequency = 60.0f;
     float ballSocketDampingRatio = 1.0f;
 
     // Chest
@@ -220,10 +219,10 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
     {
         float pelvisFrequency = 20.0f;
         float pelvisDampingRatio = 1.0f;
-        float pelvisMinAngle = DegToRad(45.0f);
-        float pelvisMaxAngle = DegToRad(60.0f);
-        float pelvisAngleFrequency = 30.0f;
-        float pelvisAngleDampingRatio = 1.0f;
+        float pelvisMinAngle = DegToRad(15.0f);
+        float pelvisMaxAngle = DegToRad(30.0f);
+        float pelvisAngleFrequency = -1.0f;
+        float pelvisAngleDampingRatio = 0.8f;
 
         BallSocketJoint* j1 = world->CreateBallSocketJoint(pelvis, chest, pelvisTop, ballSocketFrequency, ballSocketDampingRatio);
         RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
@@ -354,6 +353,8 @@ inline Ragdoll CreateRagdoll(World* world, Vec3 headPosition, float scale, int32
     {
         Body* body = ragdoll.bones[i].body;
         body->SetCollisionFilter(filter);
+        body->SetPosition(tf.p + tf.q.Rotate(body->GetPosition()));
+        body->SetRotation(tf.q);
         body->SetLinearDamping(linearDamping);
         body->SetAngularDamping(angularDamping);
     }
