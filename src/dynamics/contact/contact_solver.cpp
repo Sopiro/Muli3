@@ -23,7 +23,7 @@ void PrepareContactScalar(ContactState* state, ScalarContactConstraint* solver)
 
     for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = state->manifolds.data() + m;
+        Manifold* manifold = state->manifolds.data() + m;
         ContactConstraint* constraint = solver->constraints.data() + m;
 
         Vec3 tangent1, tangent2;
@@ -110,7 +110,7 @@ void WarmStartContactScalar(ContactState* state, ScalarContactConstraint* solver
 
     for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = state->manifolds.data() + m;
+        Manifold* manifold = state->manifolds.data() + m;
         ContactConstraint* constraint = solver->constraints.data() + m;
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
@@ -157,7 +157,7 @@ void SolveContactVelocityScalar(ContactState* state, ScalarContactConstraint* so
 
     for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = state->manifolds.data() + m;
+        Manifold* manifold = state->manifolds.data() + m;
         ContactConstraint* constraint = solver->constraints.data() + m;
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
@@ -267,7 +267,7 @@ void SolveContactPositionScalar(ContactState* state, ScalarContactConstraint* so
 
     for (int32 m = 0; m < state->manifolds.size(); ++m)
     {
-        ContactManifold* manifold = state->manifolds.data() + m;
+        Manifold* manifold = state->manifolds.data() + m;
         ContactConstraint* constraint = solver->constraints.data() + m;
 
         for (int32 i = 0; i < manifold->contactCount; ++i)

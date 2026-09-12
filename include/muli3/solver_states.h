@@ -47,7 +47,7 @@ struct ContactState
 {
     Contact* contact;
 
-    ManifoldSet manifolds;
+    ManifoldArray manifolds;
 
     Float friction;
     Float restitution;

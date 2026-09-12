@@ -57,9 +57,9 @@ const ContactState* Contact::GetContactState() const
     }
 }
 
-static ContactManifold ReadBlockManifold(const BlockContactState& state, int32 block, int32 lane)
+static Manifold ReadBlockManifold(const BlockContactState& state, int32 block, int32 lane)
 {
-    ContactManifold manifold;
+    Manifold manifold;
     manifold.id = state.manifoldId[block].lane[lane];
     manifold.contactCount = int32(state.pointCount[block].lane[lane]);
     manifold.normal = {
@@ -94,7 +94,7 @@ static ContactManifold ReadBlockManifold(const BlockContactState& state, int32 b
     return manifold;
 }
 
-static void WriteBlockManifold(BlockContactState* state, int32 block, int32 lane, const ContactManifold& manifold)
+static void WriteBlockManifold(BlockContactState* state, int32 block, int32 lane, const Manifold& manifold)
 {
     state->manifoldId[block].lane[lane] = manifold.id;
     state->pointCount[block].lane[lane] = Float(manifold.contactCount);
@@ -139,7 +139,7 @@ int32 Contact::GetManifoldCount() const
     return IsSimpleContact() ? 1 : GetContactState()->manifolds.size();
 }
 
-ContactManifold Contact::GetContactManifold(int32 index) const
+Manifold Contact::GetContactManifold(int32 index) const
 {
     if (IsSimpleContact())
     {
@@ -209,7 +209,7 @@ Vec2 Contact::GetSurfaceSpeed() const
     }
 }
 
-void Contact::ProjectManifold(ContactManifold* manifold, ContactManifold* oldManifolds, int32 oldManifoldCount)
+void Contact::ProjectManifold(Manifold* manifold, Manifold* oldManifolds, int32 oldManifoldCount)
 {
     Body* bodyA = colliderA->GetBody();
     Body* bodyB = colliderB->GetBody();
@@ -238,7 +238,7 @@ void Contact::ProjectManifold(ContactManifold* manifold, ContactManifold* oldMan
         return;
     }
 
-    ContactManifold& oldManifold = oldManifolds[oldIndex];
+    Manifold& oldManifold = oldManifolds[oldIndex];
     if (manifold->contactCount == oldManifold.contactCount)
     {
         for (int32 i = 0; i < manifold->contactCount; ++i)
@@ -339,8 +339,8 @@ void Contact::Update()
         state.surfaceSpeed[block].x.lane[lane] = surfaceSpeed.x;
         state.surfaceSpeed[block].y.lane[lane] = surfaceSpeed.y;
 
-        ContactManifold oldManifold = ReadBlockManifold(state, block, lane);
-        ContactManifold manifold{};
+        Manifold oldManifold = ReadBlockManifold(state, block, lane);
+        Manifold manifold{};
 
         bool touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
             colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
@@ -362,19 +362,19 @@ void Contact::Update()
         state.restitutionThreshold = restitutionThreshold;
         state.surfaceSpeed = surfaceSpeed;
 
-        GrowableStack<ContactManifold, 4> oldManifolds;
+        GrowableStack<Manifold, 4> oldManifolds;
         int32 oldManifoldCount = state.manifolds.size();
         if (oldManifoldCount > 0)
         {
             oldManifolds.resize(oldManifoldCount);
-            memcpy(oldManifolds.data(), state.manifolds.data(), oldManifoldCount * sizeof(ContactManifold));
+            memcpy(oldManifolds.data(), state.manifolds.data(), oldManifoldCount * sizeof(Manifold));
         }
         state.manifolds.clear();
 
         bool touching;
         if (colliderA->GetType() < Shape::height_field)
         {
-            ContactManifold& manifold = state.manifolds.emplace_back();
+            Manifold& manifold = state.manifolds.emplace_back();
             touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
                 colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
             );

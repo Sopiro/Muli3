@@ -306,7 +306,7 @@ static void ClipFace(ClippedFace* out, const ClippedFace& in, const Vec3& p, con
 
 template <typename ShapeA, typename ShapeB>
 static void FindContactPoints(
-    const Vec3& n, const ShapeA* a, const Transform& tfA, const ShapeB* b, const Transform& tfB, ContactManifold* manifold
+    const Vec3& n, const ShapeA* a, const Transform& tfA, const ShapeB* b, const Transform& tfB, Manifold* manifold
 )
 {
     manifold->normal = n;
@@ -558,9 +558,7 @@ static void FindContactPoints(
     manifold->contactCount = contactCount;
 }
 
-bool SphereVsSphere(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
+bool SphereVsSphere(const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, Manifold* manifold)
 {
     Vec3 pa = Mul(transformA, a->GetCenter());
     Vec3 pb = Mul(transformB, b->GetCenter());
@@ -592,9 +590,7 @@ bool SphereVsSphere(
     return true;
 }
 
-bool CapsuleVsSphere(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
+bool CapsuleVsSphere(const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, Manifold* manifold)
 {
     const CapsuleShape* capsule = (const CapsuleShape*)a;
 
@@ -657,7 +653,7 @@ bool CapsuleVsSphere(
 extern Vec2 ClosestSegmentVsSegment(const Vec3& a0, const Vec3& a1, const Vec3& b0, const Vec3& b1);
 
 bool CapsuleVsCapsule(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
+    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, Manifold* manifold
 )
 {
     const CapsuleShape* capsuleA = (const CapsuleShape*)a;
@@ -800,9 +796,7 @@ bool CapsuleVsCapsule(
     return true;
 }
 
-bool BoxVsSphere(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
+bool BoxVsSphere(const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, Manifold* manifold)
 {
     const BoxShape* box = (const BoxShape*)a;
 
@@ -909,7 +903,7 @@ bool BoxVsSphere(
     return true;
 }
 
-bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const BoxShape* boxA = (const BoxShape*)a;
     const CapsuleShape* capsuleB = (const CapsuleShape*)b;
@@ -1026,7 +1020,7 @@ bool BoxVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Tr
     return manifold->contactCount > 0;
 }
 
-bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const BoxShape* boxA = (const BoxShape*)a;
     const BoxShape* boxB = (const BoxShape*)b;
@@ -1121,9 +1115,7 @@ bool BoxVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transf
     return manifold->contactCount > 0;
 }
 
-bool ConvexVsSphere(
-    const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, ContactManifold* manifold
-)
+bool ConvexVsSphere(const Shape* a, const Transform& transformA, const Shape* b, const Transform& transformB, Manifold* manifold)
 {
     const ConvexShape* convex = (const ConvexShape*)a;
 
@@ -1218,7 +1210,7 @@ bool ConvexVsSphere(
     return true;
 }
 
-bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool ConvexVsConvex(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     GJKResult gjkResult;
     bool collide = GJK(a, tfA, b, tfB, &gjkResult);
@@ -1481,7 +1473,7 @@ static bool TestAxis(
     return TestAxis(minPenetration, normal, axis, minA, maxA, minB, maxB, radii);
 }
 
-bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const TriangleShape* triangle = (const TriangleShape*)a;
 
@@ -1519,7 +1511,7 @@ bool TriangleVsSphere(const Shape* a, const Transform& tfA, const Shape* b, cons
     return true;
 }
 
-bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const TriangleShape* triangle = (const TriangleShape*)a;
     const CapsuleShape* capsule = (const CapsuleShape*)b;
@@ -1618,7 +1610,7 @@ bool TriangleVsCapsule(const Shape* a, const Transform& tfA, const Shape* b, con
     return manifold->contactCount > 0;
 }
 
-bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const TriangleShape* triangle = (const TriangleShape*)a;
     const BoxShape* box = (const BoxShape*)b;
@@ -1721,7 +1713,7 @@ bool TriangleVsBox(const Shape* a, const Transform& tfA, const Shape* b, const T
     return manifold->contactCount > 0;
 }
 
-bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const TriangleShape* triangleA = (const TriangleShape*)a;
     const TriangleShape* triangleB = (const TriangleShape*)b;
@@ -1809,7 +1801,7 @@ bool TriangleVsTriangle(const Shape* a, const Transform& tfA, const Shape* b, co
     return manifold->contactCount > 0;
 }
 
-bool PolygonVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold)
+bool PolygonVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold)
 {
     const PolygonShape* polygon = (const PolygonShape*)a;
 
@@ -1847,7 +1839,7 @@ bool PolygonVsSphere(const Shape* a, const Transform& tfA, const Shape* b, const
     return true;
 }
 
-bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldSet* manifolds)
+bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldArray* manifolds)
 {
     const HeightFieldShape* heightField = (const HeightFieldShape*)a;
 
@@ -1858,7 +1850,7 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
     heightField->Query(localAABB, [&](int32 x, int32 z, int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };
 
-        ContactManifold manifold{};
+        Manifold manifold{};
         bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
         if (touching == false)
         {
@@ -1884,7 +1876,7 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
     return manifolds->size() > 0;
 }
 
-bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldSet* manifolds)
+bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldArray* manifolds)
 {
     const MeshShape* mesh = (const MeshShape*)a;
 
@@ -1894,7 +1886,7 @@ bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Tra
 
     mesh->Query(localAABB, [&](int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };
-        ContactManifold manifold{};
+        Manifold manifold{};
         bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
         if (touching == false)
         {
@@ -1958,9 +1950,7 @@ void InitializeDetectionFunctionMap()
     detection_function_initialized = true;
 }
 
-bool Collide(
-    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ContactManifold* manifold, bool* featureFlipped
-)
+bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold, bool* featureFlipped)
 {
     MuliAssert(a != nullptr);
     MuliAssert(b != nullptr);
@@ -1970,12 +1960,12 @@ bool Collide(
         InitializeDetectionFunctionMap();
     }
 
-    ContactManifold defaultManifold;
+    Manifold defaultManifold;
     if (manifold == nullptr)
     {
         manifold = &defaultManifold;
     }
-    *manifold = ContactManifold{};
+    *manifold = Manifold{};
 
     Shape::Type shapeA = a->GetType();
     Shape::Type shapeB = b->GetType();
@@ -2001,6 +1991,52 @@ bool Collide(
             *featureFlipped = false;
         }
         return collide_function_map[shapeA][shapeB](a, tfA, b, tfB, manifold);
+    }
+}
+
+bool Collide2(
+    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldArray* manifolds, bool* featureFlipped
+)
+{
+    MuliAssert(a != nullptr);
+    MuliAssert(b != nullptr);
+
+    if (!detection_function_initialized)
+    {
+        InitializeDetectionFunctionMap();
+    }
+
+    ManifoldArray defaultManifolds;
+    if (manifolds == nullptr)
+    {
+        manifolds = &defaultManifolds;
+    }
+    manifolds->clear();
+
+    Shape::Type shapeA = a->GetType();
+    Shape::Type shapeB = b->GetType();
+
+    if (!(shapeA > Shape::triangle || shapeB > Shape::triangle))
+    {
+        MuliAssert(false);
+        return false;
+    }
+
+    if (shapeB > shapeA)
+    {
+        if (featureFlipped)
+        {
+            *featureFlipped = true;
+        }
+        return collide_function_map2[shapeB - Shape::height_field](b, tfB, a, tfA, manifolds);
+    }
+    else
+    {
+        if (featureFlipped)
+        {
+            *featureFlipped = false;
+        }
+        return collide_function_map2[shapeA - Shape::height_field](a, tfA, b, tfB, manifolds);
     }
 }
 

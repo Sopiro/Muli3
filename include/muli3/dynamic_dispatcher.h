@@ -101,8 +101,6 @@ template <typename... Types>
 class DynamicDispatcher<TypePack<Types...>>
 {
 public:
-    const int32 type_index;
-
     template <typename T>
     bool Is() const
     {
@@ -164,6 +162,8 @@ public:
     }
 
 protected:
+    const int32 type_index;
+
     DynamicDispatcher(int32 type_index)
         : type_index{ type_index }
     {

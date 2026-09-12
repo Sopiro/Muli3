@@ -203,7 +203,7 @@ int32 BlockContactArray::Add(Contact* contact, int32 setA, int32 indexA, int32 s
         blockCapacity = newCapacity;
     }
 
-    const ContactManifold& manifold = inState.manifolds[0];
+    const Manifold& manifold = inState.manifolds[0];
     state.contacts[block].lane[lane] = contact;
     state.bodySetA[block].lane[lane] = setA;
     state.bodyIndexA[block].lane[lane] = indexA;
@@ -255,7 +255,7 @@ Contact* BlockContactArray::Remove(int32 index, ContactState* removed)
     removed->restitutionThreshold = GetLane(state.restitutionThreshold[block], lane);
     removed->surfaceSpeed = GetLane(state.surfaceSpeed[block], lane);
 
-    ContactManifold& manifold = removed->manifolds.emplace_back();
+    Manifold& manifold = removed->manifolds.emplace_back();
     manifold.id = GetLane(state.manifoldId[block], lane);
     manifold.contactCount = int32(GetLane(state.pointCount[block], lane));
     manifold.normal = GetLane(state.normal[block], lane);

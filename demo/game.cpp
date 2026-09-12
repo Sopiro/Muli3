@@ -669,7 +669,7 @@ void Game::Render(float alpha)
 
             for (int32 m = 0; m < contact->GetManifoldCount(); ++m)
             {
-                const ContactManifold& manifold = contact->GetContactManifold(m);
+                const Manifold& manifold = contact->GetContactManifold(m);
 
                 for (int32 i = 0; i < manifold.contactCount; ++i)
                 {

@@ -274,7 +274,7 @@ private:
     float convexRadius1 = default_radius;
     float convexRadius2 = default_radius;
     bool collide = false;
-    ContactManifold manifold;
+    Manifold manifold;
 };
 
 static Demo* CreateCollisionDetection(Game& game)

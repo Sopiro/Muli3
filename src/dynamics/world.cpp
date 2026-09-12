@@ -579,9 +579,19 @@ void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
                 return true;
             }
 
-            if (Collide(collider->shape, collider->body->transform, &region, transform))
+            if (collider->shape->GetType() > Shape::triangle)
             {
-                return callback->OnQuery(collider);
+                if (Collide2(collider->shape, collider->body->transform, &region, transform))
+                {
+                    return callback->OnQuery(collider);
+                }
+            }
+            else
+            {
+                if (Collide(collider->shape, collider->body->transform, &region, transform))
+                {
+                    return callback->OnQuery(collider);
+                }
             }
 
             return true;

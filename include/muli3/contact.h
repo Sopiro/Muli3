@@ -30,7 +30,7 @@ public:
     bool IsSimpleContact() const;
 
     int32 GetManifoldCount() const;
-    ContactManifold GetContactManifold(int32 index) const; // It's SLOW
+    Manifold GetContactManifold(int32 index) const; // It's slow because it transposes the manifold data from SoA to AoS.
 
     float GetFriction() const;
     float GetRestitution() const;
@@ -52,7 +52,7 @@ private:
         flag_simple = 1 << 5,
     };
 
-    void ProjectManifold(ContactManifold* manifold, ContactManifold* oldManifolds, int32 oldManifoldCount);
+    void ProjectManifold(Manifold* manifold, Manifold* oldManifolds, int32 oldManifoldCount);
 
     void Update();
     void TriggerCallbacks();

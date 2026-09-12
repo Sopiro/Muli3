@@ -20,7 +20,7 @@ struct ContactPoint
     float impulse;
 };
 
-struct ContactManifold
+struct Manifold
 {
     int32 id;
 
@@ -32,15 +32,24 @@ struct ContactManifold
     float angularImpulse;
 };
 
-using ManifoldSet = GrowableStack<ContactManifold, 1>;
-using CollideFunction = bool(const Shape*, const Transform&, const Shape*, const Transform&, ContactManifold*);
-using CollideFunction2 = bool(const Shape*, const Transform&, const Shape*, const Transform&, ManifoldSet*);
+using ManifoldArray = GrowableStack<Manifold, 1>;
+using CollideFunction = bool(const Shape*, const Transform&, const Shape*, const Transform&, Manifold*);
+using CollideFunction2 = bool(const Shape*, const Transform&, const Shape*, const Transform&, ManifoldArray*);
 
 // clang-format off
-bool Collide(const Shape* a, const Transform& transformA,
-             const Shape* b, const Transform& transformB,
-             ContactManifold* manifold = nullptr,
-             bool* featureFlipped = nullptr);
+bool Collide(
+    const Shape* a, const Transform& transformA,
+    const Shape* b, const Transform& transformB,
+    Manifold* manifold = nullptr,
+    bool* featureFlipped = nullptr
+);
+
+bool Collide2(
+    const Shape* a, const Transform& transformA,
+    const Shape* b, const Transform& transformB,
+    ManifoldArray* manifolds = nullptr,
+    bool* featureFlipped = nullptr
+);
 
 struct GJKResult
 {
@@ -49,9 +58,11 @@ struct GJKResult
     float distance;
 };
 
-bool GJK(const Shape* a, const Transform& transformA,
-         const Shape* b, const Transform& transformB,
-         GJKResult* result);
+bool GJK(
+    const Shape* a, const Transform& transformA,
+    const Shape* b, const Transform& transformB,
+    GJKResult* result
+);
 
 struct EPAResult
 {
@@ -59,10 +70,12 @@ struct EPAResult
     float penetrationDepth;
 };
 
-void EPA(const Shape* a, const Transform& transformA,
-         const Shape* b, const Transform& transformB,
-         const Simplex& simplex,
-         EPAResult* result);
+void EPA(
+    const Shape* a, const Transform& transformA,
+    const Shape* b, const Transform& transformB,
+    const Simplex& simplex,
+    EPAResult* result
+);
 // clang-format on
 
 } // namespace muli3
