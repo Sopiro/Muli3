@@ -125,20 +125,21 @@ struct Quat
 
     constexpr Quat& operator*=(Float s)
     {
-        x += s;
-        y += s;
-        z += s;
-        w += s;
+        x *= s;
+        y *= s;
+        z *= s;
+        w *= s;
         return *this;
     }
 
     constexpr Quat& operator/=(Float s)
     {
         MuliAssert(s != 0);
-        x -= s;
-        y -= s;
-        z -= s;
-        w -= s;
+        Float invS = 1 / s;
+        x *= invS;
+        y *= invS;
+        z *= invS;
+        w *= invS;
         return *this;
     }
 
@@ -150,11 +151,11 @@ struct Quat
             return Float(0);
         }
 
-        Float inv_length = Float(1) / length;
-        x *= inv_length;
-        y *= inv_length;
-        z *= inv_length;
-        w *= inv_length;
+        Float invLength = Float(1) / length;
+        x *= invLength;
+        y *= invLength;
+        z *= invLength;
+        w *= invLength;
 
         return length;
     }

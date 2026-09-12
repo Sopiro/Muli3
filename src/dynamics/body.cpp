@@ -272,6 +272,8 @@ Collider* Body::CreateHeightFieldCollider(
     const Material& material
 )
 {
+    MuliAssert(type == static_body);
+
     HeightFieldShape* heightField = world->poolAllocator.New<HeightFieldShape>(
         sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize, tf
     );
@@ -293,6 +295,8 @@ Collider* Body::CreateMeshCollider(
     std::span<const Vec3> vertices, std::span<const int32> indices, const Transform& tf, const Material& material
 )
 {
+    MuliAssert(type == static_body);
+
     MeshShape* mesh = world->poolAllocator.New<MeshShape>(vertices, indices, tf);
 
     Collider* collider = world->poolAllocator.New<Collider>();

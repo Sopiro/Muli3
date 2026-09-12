@@ -97,14 +97,14 @@ void CapsuleShape::ComputeAABB(const Transform& transform, AABB* outAABB) const
 bool CapsuleShape::TestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    Vec3 closest = ClosestPointVsSegment(va, vb, localQ);
+    Vec3 closest = ClosestPointVsSegment(localQ, va, vb);
     return Dist2(localQ, closest) <= Sqr(radius);
 }
 
 Vec3 CapsuleShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    Vec3 closest = ClosestPointVsSegment(va, vb, localQ);
+    Vec3 closest = ClosestPointVsSegment(localQ, va, vb);
     Vec3 delta = localQ - closest;
 
     float distance = delta.Normalize();

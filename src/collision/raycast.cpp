@@ -54,7 +54,7 @@ bool RayCastCapsule(const Vec3& va, const Vec3& vb, float radius, const RayCastI
 
     float radius2 = radius * radius;
 
-    if (Dist2(p1, ClosestPointVsSegment(v1, v2, p1)) <= radius2)
+    if (Dist2(p1, ClosestPointVsSegment(p1, v1, v2)) <= radius2)
     {
         return false;
     }
