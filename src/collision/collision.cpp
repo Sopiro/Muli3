@@ -2018,6 +2018,12 @@ bool CollideComplex(
     Shape::Type shapeA = a->GetType();
     Shape::Type shapeB = b->GetType();
 
+    if (a->IsSimpleShape() == false && b->IsSimpleShape() == false)
+    {
+        MuliAssert(false);
+        return false;
+    }
+
     if (a->IsSimpleShape() && b->IsSimpleShape())
     {
         manifolds->emplace_back();

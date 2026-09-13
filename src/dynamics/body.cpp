@@ -1,4 +1,5 @@
 #include "muli3/body.h"
+#include "muli3/aabb_tree.h"
 #include "muli3/callbacks.h"
 #include "muli3/collider.h"
 #include "muli3/shape.h"
@@ -150,6 +151,12 @@ Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density,
     }
 
     MuliAssert(shape->GetRadius() >= 0.0f);
+    MuliAssert(shape->IsSimpleShape() || type == static_body);
+
+    if (type != static_body && !shape->IsSimpleShape())
+    {
+        return nullptr;
+    }
 
     Collider* collider = world->poolAllocator.New<Collider>();
     collider->Clone(this, shape, tf, density, material);
@@ -157,7 +164,10 @@ Collider* Body::CreateCollider(Shape* shape, const Transform& tf, float density,
     collider->bodyIndex = int32(colliders.size());
     colliders.push_back(collider);
 
-    world->constraintGraph.AddCollider(collider);
+    if (IsEnabled() && collider->IsEnabled())
+    {
+        world->constraintGraph.AddCollider(collider);
+    }
 
     ResetMassData();
 
@@ -273,6 +283,10 @@ Collider* Body::CreateHeightFieldCollider(
 )
 {
     MuliAssert(type == static_body);
+    if (type != static_body)
+    {
+        return nullptr;
+    }
 
     HeightFieldShape* heightField = world->poolAllocator.New<HeightFieldShape>(
         sampleCountX, sampleCountZ, heightSamples, cellSizeX, cellSizeZ, offset, blockSize, tf
@@ -284,7 +298,10 @@ Collider* Body::CreateHeightFieldCollider(
     collider->bodyIndex = int32(colliders.size());
     colliders.push_back(collider);
 
-    world->constraintGraph.AddCollider(collider);
+    if (IsEnabled() && collider->IsEnabled())
+    {
+        world->constraintGraph.AddCollider(collider);
+    }
 
     ResetMassData();
 
@@ -296,6 +313,10 @@ Collider* Body::CreateMeshCollider(
 )
 {
     MuliAssert(type == static_body);
+    if (type != static_body)
+    {
+        return nullptr;
+    }
 
     MeshShape* mesh = world->poolAllocator.New<MeshShape>(vertices, indices, tf);
 
@@ -305,7 +326,10 @@ Collider* Body::CreateMeshCollider(
     collider->bodyIndex = int32(colliders.size());
     colliders.push_back(collider);
 
-    world->constraintGraph.AddCollider(collider);
+    if (IsEnabled() && collider->IsEnabled())
+    {
+        world->constraintGraph.AddCollider(collider);
+    }
 
     ResetMassData();
 
@@ -558,7 +582,10 @@ void Body::SetType(Body::Type newType)
 
     for (Collider* collider : colliders)
     {
-        world->constraintGraph.broadPhase.Refresh(collider);
+        if (IsEnabled() && collider->IsEnabled())
+        {
+            world->constraintGraph.broadPhase.Refresh(collider);
+        }
     }
 
     islandIndex = 0;
@@ -591,6 +618,7 @@ void Body::SetEnabled(bool enabled)
         {
             if (collider->IsEnabled())
             {
+                MuliAssert(collider->node == AABBTree::nullNode);
                 world->constraintGraph.AddCollider(collider);
             }
         }

@@ -344,6 +344,7 @@ void ConstraintGraph::Destroy(Contact* c)
 
 void ConstraintGraph::AddCollider(Collider* collider)
 {
+    MuliAssert(collider->node == AABBTree::nullNode);
     broadPhase.Add(collider, collider->GetAABB());
 }
 
