@@ -6,8 +6,8 @@
 namespace muli3
 {
 
-extern CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
-extern CollideFunction2* collide_function_map2[Shape::shape_count - Shape::height_field];
+extern CollideFunctionSimple* simple_collide_function_map[Shape::shape_count][Shape::shape_count];
+extern CollideFunctionComplex* complex_collide_function_map[Shape::shape_count - Shape::height_field];
 
 Contact::Contact(Collider* colliderA, Collider* colliderB)
     : colliderA{ colliderA }
@@ -342,7 +342,7 @@ void Contact::Update()
         Manifold oldManifold = ReadBlockManifold(state, block, lane);
         Manifold manifold{};
 
-        bool touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
+        bool touching = simple_collide_function_map[colliderA->GetType()][colliderB->GetType()](
             colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
         );
 
@@ -372,16 +372,16 @@ void Contact::Update()
         state.manifolds.clear();
 
         bool touching;
-        if (colliderA->GetType() < Shape::height_field)
+        if (colliderA->shape->IsSimpleShape())
         {
             Manifold& manifold = state.manifolds.emplace_back();
-            touching = collide_function_map[colliderA->GetType()][colliderB->GetType()](
+            touching = simple_collide_function_map[colliderA->GetType()][colliderB->GetType()](
                 colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &manifold
             );
         }
         else
         {
-            touching = collide_function_map2[colliderA->GetType() - Shape::height_field](
+            touching = complex_collide_function_map[colliderA->GetType() - Shape::height_field](
                 colliderA->GetShape(), bodyA->transform, colliderB->GetShape(), bodyB->transform, &state.manifolds
             );
         }

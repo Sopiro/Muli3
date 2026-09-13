@@ -452,7 +452,7 @@ bool MeshShape::ShapeCast(
 ) const
 {
     MuliAssert(output != nullptr);
-    MuliAssert(shape->GetType() < Shape::height_field);
+    MuliAssert(shape->IsSimpleShape());
 
     // Cast the center of the shape AABB against BVH bounds enlarged by its extents.
     Transform localTransform = MulT(transform, shapeTransform);

@@ -475,7 +475,7 @@ void ConstraintGraph::AddContactToGraph(Contact* contact, ContactState&& source)
     ConstraintBatch& batch = batches[colorIndex];
     int32 index;
 
-    bool blockContact = colorIndex != constraint_overflow_index && contact->GetColliderA()->GetType() < Shape::height_field;
+    bool blockContact = colorIndex != constraint_overflow_index && contact->GetColliderA()->shape->IsSimpleShape();
     if (blockContact)
     {
         contact->flag |= Contact::flag_simple;

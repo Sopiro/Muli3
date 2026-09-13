@@ -11,8 +11,8 @@ namespace muli3
 {
 
 bool detection_function_initialized = false;
-CollideFunction* collide_function_map[Shape::shape_count][Shape::shape_count];
-CollideFunction2* collide_function_map2[Shape::shape_count - Shape::height_field];
+CollideFunctionSimple* simple_collide_function_map[Shape::shape_count][Shape::shape_count];
+CollideFunctionComplex* complex_collide_function_map[Shape::shape_count - Shape::height_field];
 
 void InitializeDetectionFunctionMap();
 
@@ -1851,7 +1851,7 @@ bool HeightFieldVsShape(const Shape* a, const Transform& tfA, const Shape* b, co
         TriangleShape triangleShape{ v0, v1, v2 };
 
         Manifold manifold{};
-        bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
+        bool touching = simple_collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
         if (touching == false)
         {
             return;
@@ -1887,7 +1887,7 @@ bool MeshVsShape(const Shape* a, const Transform& tfA, const Shape* b, const Tra
     mesh->Query(localAABB, [&](int32 triangle, const Vec3& v0, const Vec3& v1, const Vec3& v2) {
         TriangleShape triangleShape{ v0, v1, v2 };
         Manifold manifold{};
-        bool touching = collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
+        bool touching = simple_collide_function_map[Shape::triangle][b->GetType()](&triangleShape, tfA, b, tfB, &manifold);
         if (touching == false)
         {
             return;
@@ -1917,40 +1917,42 @@ void InitializeDetectionFunctionMap()
         return;
     }
 
-    collide_function_map[Shape::sphere][Shape::sphere] = SphereVsSphere;
+    simple_collide_function_map[Shape::sphere][Shape::sphere] = SphereVsSphere;
 
-    collide_function_map[Shape::capsule][Shape::sphere] = CapsuleVsSphere;
-    collide_function_map[Shape::capsule][Shape::capsule] = CapsuleVsCapsule;
+    simple_collide_function_map[Shape::capsule][Shape::sphere] = CapsuleVsSphere;
+    simple_collide_function_map[Shape::capsule][Shape::capsule] = CapsuleVsCapsule;
 
-    collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
-    collide_function_map[Shape::box][Shape::capsule] = BoxVsCapsule;
-    collide_function_map[Shape::box][Shape::box] = BoxVsBox;
+    simple_collide_function_map[Shape::box][Shape::sphere] = BoxVsSphere;
+    simple_collide_function_map[Shape::box][Shape::capsule] = BoxVsCapsule;
+    simple_collide_function_map[Shape::box][Shape::box] = BoxVsBox;
 
-    collide_function_map[Shape::convex][Shape::sphere] = ConvexVsSphere;
-    collide_function_map[Shape::convex][Shape::capsule] = ConvexVsConvex;
-    collide_function_map[Shape::convex][Shape::box] = ConvexVsConvex;
-    collide_function_map[Shape::convex][Shape::convex] = ConvexVsConvex;
+    simple_collide_function_map[Shape::convex][Shape::sphere] = ConvexVsSphere;
+    simple_collide_function_map[Shape::convex][Shape::capsule] = ConvexVsConvex;
+    simple_collide_function_map[Shape::convex][Shape::box] = ConvexVsConvex;
+    simple_collide_function_map[Shape::convex][Shape::convex] = ConvexVsConvex;
 
-    collide_function_map[Shape::triangle][Shape::sphere] = TriangleVsSphere;
-    collide_function_map[Shape::triangle][Shape::capsule] = TriangleVsCapsule;
-    collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
-    collide_function_map[Shape::triangle][Shape::convex] = ConvexVsConvex;
-    collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
-    collide_function_map[Shape::triangle][Shape::polygon] = ConvexVsConvex;
+    simple_collide_function_map[Shape::triangle][Shape::sphere] = TriangleVsSphere;
+    simple_collide_function_map[Shape::triangle][Shape::capsule] = TriangleVsCapsule;
+    simple_collide_function_map[Shape::triangle][Shape::box] = TriangleVsBox;
+    simple_collide_function_map[Shape::triangle][Shape::convex] = ConvexVsConvex;
+    simple_collide_function_map[Shape::triangle][Shape::triangle] = TriangleVsTriangle;
+    simple_collide_function_map[Shape::triangle][Shape::polygon] = ConvexVsConvex;
 
-    collide_function_map[Shape::polygon][Shape::sphere] = PolygonVsSphere;
-    collide_function_map[Shape::polygon][Shape::capsule] = ConvexVsConvex;
-    collide_function_map[Shape::polygon][Shape::box] = ConvexVsConvex;
-    collide_function_map[Shape::polygon][Shape::convex] = ConvexVsConvex;
-    collide_function_map[Shape::polygon][Shape::polygon] = ConvexVsConvex;
+    simple_collide_function_map[Shape::polygon][Shape::sphere] = PolygonVsSphere;
+    simple_collide_function_map[Shape::polygon][Shape::capsule] = ConvexVsConvex;
+    simple_collide_function_map[Shape::polygon][Shape::box] = ConvexVsConvex;
+    simple_collide_function_map[Shape::polygon][Shape::convex] = ConvexVsConvex;
+    simple_collide_function_map[Shape::polygon][Shape::polygon] = ConvexVsConvex;
 
-    collide_function_map2[Shape::height_field - Shape::height_field] = HeightFieldVsShape;
-    collide_function_map2[Shape::mesh - Shape::height_field] = MeshVsShape;
+    complex_collide_function_map[Shape::height_field - Shape::height_field] = HeightFieldVsShape;
+    complex_collide_function_map[Shape::mesh - Shape::height_field] = MeshVsShape;
 
     detection_function_initialized = true;
 }
 
-bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold, bool* featureFlipped)
+bool CollideSimple(
+    const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Manifold* manifold, bool* featureFlipped
+)
 {
     MuliAssert(a != nullptr);
     MuliAssert(b != nullptr);
@@ -1970,7 +1972,7 @@ bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transfo
     Shape::Type shapeA = a->GetType();
     Shape::Type shapeB = b->GetType();
 
-    if (shapeA > Shape::triangle || shapeB > Shape::triangle)
+    if (!a->IsSimpleShape() || !b->IsSimpleShape())
     {
         MuliAssert(false);
         return false;
@@ -1982,7 +1984,7 @@ bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transfo
         {
             *featureFlipped = true;
         }
-        return collide_function_map[shapeB][shapeA](b, tfB, a, tfA, manifold);
+        return simple_collide_function_map[shapeB][shapeA](b, tfB, a, tfA, manifold);
     }
     else
     {
@@ -1990,11 +1992,11 @@ bool Collide(const Shape* a, const Transform& tfA, const Shape* b, const Transfo
         {
             *featureFlipped = false;
         }
-        return collide_function_map[shapeA][shapeB](a, tfA, b, tfB, manifold);
+        return simple_collide_function_map[shapeA][shapeB](a, tfA, b, tfB, manifold);
     }
 }
 
-bool Collide2(
+bool CollideComplex(
     const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ManifoldArray* manifolds, bool* featureFlipped
 )
 {
@@ -2016,10 +2018,10 @@ bool Collide2(
     Shape::Type shapeA = a->GetType();
     Shape::Type shapeB = b->GetType();
 
-    if (!(shapeA > Shape::triangle || shapeB > Shape::triangle))
+    if (a->IsSimpleShape() && b->IsSimpleShape())
     {
-        MuliAssert(false);
-        return false;
+        manifolds->emplace_back();
+        return CollideSimple(a, tfA, b, tfB, &manifolds->at(0), featureFlipped);
     }
 
     if (shapeB > shapeA)
@@ -2028,7 +2030,7 @@ bool Collide2(
         {
             *featureFlipped = true;
         }
-        return collide_function_map2[shapeB - Shape::height_field](b, tfB, a, tfA, manifolds);
+        return complex_collide_function_map[shapeB - Shape::height_field](b, tfB, a, tfA, manifolds);
     }
     else
     {
@@ -2036,7 +2038,7 @@ bool Collide2(
         {
             *featureFlipped = false;
         }
-        return collide_function_map2[shapeA - Shape::height_field](a, tfA, b, tfB, manifolds);
+        return complex_collide_function_map[shapeA - Shape::height_field](a, tfA, b, tfB, manifolds);
     }
 }
 

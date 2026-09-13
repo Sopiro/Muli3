@@ -579,16 +579,16 @@ void World::Query(const AABB& aabb, WorldQueryCallback* callback) const
                 return true;
             }
 
-            if (collider->shape->GetType() > Shape::triangle)
+            if (collider->shape->IsSimpleShape())
             {
-                if (Collide2(collider->shape, collider->body->transform, &region, transform))
+                if (CollideSimple(collider->shape, collider->body->transform, &region, transform))
                 {
                     return callback->OnQuery(collider);
                 }
             }
             else
             {
-                if (Collide(collider->shape, collider->body->transform, &region, transform))
+                if (CollideComplex(collider->shape, collider->body->transform, &region, transform))
                 {
                     return callback->OnQuery(collider);
                 }
@@ -833,9 +833,19 @@ void World::Query(const AABB& aabb, std::function<bool(Collider* collider)> call
                 return true;
             }
 
-            if (Collide(collider->shape, collider->body->transform, &region, transform))
+            if (collider->shape->IsSimpleShape())
             {
-                return callbackFcn(collider);
+                if (CollideSimple(collider->shape, collider->body->transform, &region, transform))
+                {
+                    return callbackFcn(collider);
+                }
+            }
+            else
+            {
+                if (CollideComplex(collider->shape, collider->body->transform, &region, transform))
+                {
+                    return callbackFcn(collider);
+                }
             }
 
             return true;

@@ -128,7 +128,7 @@ public:
 
     void Step() override
     {
-        collide = Collide(shape1.get(), tf1, shape2.get(), tf2, &manifold);
+        collide = CollideSimple(shape1.get(), tf1, shape2.get(), tf2, &manifold);
     }
 
     void Render() override

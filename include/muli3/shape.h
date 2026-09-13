@@ -55,6 +55,7 @@ public:
     ~Shape() = default;
 
     Type GetType() const;
+    bool IsSimpleShape() const;
 
     float GetRadius() const;
     float GetVolume() const;
@@ -95,6 +96,11 @@ inline Shape::Shape(Type type, float radius)
 inline Shape::Type Shape::GetType() const
 {
     return Shape::Type(type_index);
+}
+
+inline bool Shape::IsSimpleShape() const
+{
+    return GetType() < Shape::height_field;
 }
 
 inline float Shape::GetRadius() const

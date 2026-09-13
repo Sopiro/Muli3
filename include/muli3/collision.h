@@ -33,18 +33,18 @@ struct Manifold
 };
 
 using ManifoldArray = GrowableStack<Manifold, 1>;
-using CollideFunction = bool(const Shape*, const Transform&, const Shape*, const Transform&, Manifold*);
-using CollideFunction2 = bool(const Shape*, const Transform&, const Shape*, const Transform&, ManifoldArray*);
+using CollideFunctionSimple = bool(const Shape*, const Transform&, const Shape*, const Transform&, Manifold*);
+using CollideFunctionComplex = bool(const Shape*, const Transform&, const Shape*, const Transform&, ManifoldArray*);
 
 // clang-format off
-bool Collide(
+bool CollideSimple(
     const Shape* a, const Transform& transformA,
     const Shape* b, const Transform& transformB,
     Manifold* manifold = nullptr,
     bool* featureFlipped = nullptr
 );
 
-bool Collide2(
+bool CollideComplex(
     const Shape* a, const Transform& transformA,
     const Shape* b, const Transform& transformB,
     ManifoldArray* manifolds = nullptr,

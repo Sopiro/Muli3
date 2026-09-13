@@ -25,7 +25,7 @@ public:
     void SetEnabled(bool enabled);
     int32 GetColorIndex() const;
 
-    // A simple contact is a convex contact between non-height-field and non-mesh shapes,
+    // A simple contact is a convex contact between non-height-field and non-mesh shapes (simple shapes),
     // with one manifold stored in a SIMD block constraint.
     bool IsSimpleContact() const;
 

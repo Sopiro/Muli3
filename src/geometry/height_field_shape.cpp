@@ -353,7 +353,7 @@ bool HeightFieldShape::ShapeCast(
 ) const
 {
     MuliAssert(output != nullptr);
-    MuliAssert(shape->GetType() != Shape::height_field);
+    MuliAssert(shape->IsSimpleShape());
 
     AABB worldAABB;
     shape->ComputeAABB(shapeTransform, &worldAABB);

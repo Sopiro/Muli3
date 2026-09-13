@@ -65,7 +65,7 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
     ragdoll.bones[Ragdoll::index_chest] = Bone{ Ragdoll::index_pelvis, chest };
 
     float ballSocketFrequency = 60.0f;
-    float ballSocketDampingRatio = 1.0f;
+    float ballSocketDampingRatio = 1.5f;
 
     // Chest
     {
