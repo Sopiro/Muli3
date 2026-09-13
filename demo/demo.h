@@ -58,7 +58,7 @@ protected:
     Collider* targetCollider = nullptr;
     Vec3 targetPoint = Vec3::zero;
 
-    GrabJoint* cursorJoint = nullptr;
+    FixedPositionJoint* cursorJoint = nullptr;
     float grabDepth = 0.0f;
     float throwCooldown = 0.0f;
 };

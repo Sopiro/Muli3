@@ -1931,17 +1931,19 @@ void World::Solve()
 
 // Joint factory functions
 
-GrabJoint* World::CreateGrabJoint(Body* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio)
+FixedPositionJoint* World::CreateFixedPositionJoint(
+    Body* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio
+)
 {
     if (body->world != this)
     {
         return nullptr;
     }
 
-    GrabJoint* gj = poolAllocator.New<GrabJoint>(body, anchor, target, frequency, dampingRatio);
+    FixedPositionJoint* fpj = poolAllocator.New<FixedPositionJoint>(body, anchor, target, frequency, dampingRatio);
 
-    AddJoint(gj);
-    return gj;
+    AddJoint(fpj);
+    return fpj;
 }
 
 FixedRotationJoint* World::CreateFixedRotationJoint(Body* body, float frequency, float dampingRatio)
@@ -2324,8 +2326,8 @@ void World::FreeJoint(Joint* joint)
 {
     switch (joint->GetType())
     {
-    case Joint::Type::grab_joint:
-        poolAllocator.Delete((GrabJoint*)joint);
+    case Joint::Type::fixed_position_joint:
+        poolAllocator.Delete((FixedPositionJoint*)joint);
         break;
     case Joint::Type::fixed_rotation_joint:
         poolAllocator.Delete((FixedRotationJoint*)joint);

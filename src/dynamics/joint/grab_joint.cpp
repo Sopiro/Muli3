@@ -3,8 +3,10 @@
 namespace muli3
 {
 
-GrabJoint::GrabJoint(Body* body, const Vec3& anchor, const Vec3& targetPosition, float frequency, float dampingRatio)
-    : Joint(grab_joint, body, body)
+FixedPositionJoint::FixedPositionJoint(
+    Body* body, const Vec3& anchor, const Vec3& targetPosition, float frequency, float dampingRatio
+)
+    : Joint(fixed_position_joint, body, body)
     , frequency{ Max(frequency, 0.0f) }
     , dampingRatio{ Max(dampingRatio, 0.0f) }
     , impulseSum{ 0.0f, 0.0f, 0.0f }
@@ -15,7 +17,7 @@ GrabJoint::GrabJoint(Body* body, const Vec3& anchor, const Vec3& targetPosition,
     target = targetPosition;
 }
 
-void GrabJoint::Prepare(const Timestep& step)
+void FixedPositionJoint::Prepare(const Timestep& step)
 {
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
@@ -42,7 +44,7 @@ void GrabJoint::Prepare(const Timestep& step)
     bias = error * beta * step.inv_dt;
 }
 
-void GrabJoint::SolveVelocityConstraints(const Timestep& step)
+void FixedPositionJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
@@ -57,12 +59,12 @@ void GrabJoint::SolveVelocityConstraints(const Timestep& step)
     impulseSum += lambda;
 }
 
-void GrabJoint::WarmStart()
+void FixedPositionJoint::WarmStart()
 {
     ApplyImpulse(impulseSum);
 }
 
-void GrabJoint::ApplyImpulse(const Vec3& lambda)
+void FixedPositionJoint::ApplyImpulse(const Vec3& lambda)
 {
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
@@ -74,37 +76,37 @@ void GrabJoint::ApplyImpulse(const Vec3& lambda)
     }
 }
 
-const Vec3& GrabJoint::GetLocalAnchor() const
+const Vec3& FixedPositionJoint::GetLocalAnchor() const
 {
     return localAnchor;
 }
 
-const Vec3& GrabJoint::GetTarget() const
+const Vec3& FixedPositionJoint::GetTarget() const
 {
     return target;
 }
 
-void GrabJoint::SetTarget(const Vec3& newTarget)
+void FixedPositionJoint::SetTarget(const Vec3& newTarget)
 {
     target = newTarget;
 }
 
-float GrabJoint::GetFrequency() const
+float FixedPositionJoint::GetFrequency() const
 {
     return frequency;
 }
 
-void GrabJoint::SetFrequency(float newFrequency)
+void FixedPositionJoint::SetFrequency(float newFrequency)
 {
     frequency = Max(newFrequency, 0.0f);
 }
 
-float GrabJoint::GetDampingRatio() const
+float FixedPositionJoint::GetDampingRatio() const
 {
     return dampingRatio;
 }
 
-void GrabJoint::SetDampingRatio(float newDampingRatio)
+void FixedPositionJoint::SetDampingRatio(float newDampingRatio)
 {
     dampingRatio = Max(newDampingRatio, 0.0f);
 }

@@ -373,15 +373,15 @@ void Game::Render(float alpha)
 
             switch (joint->GetType())
             {
-            case Joint::grab_joint:
+            case Joint::fixed_position_joint:
             {
                 const Body* body = joint->GetBodyA();
-                const GrabJoint* grabJoint = (const GrabJoint*)joint;
+                const FixedPositionJoint* fixedPositionJoint = (const FixedPositionJoint*)joint;
                 Transform transform = GetRenderTransform(body, alpha);
-                Vec3 anchor = Mul(transform, grabJoint->GetLocalAnchor());
+                Vec3 anchor = Mul(transform, fixedPositionJoint->GetLocalAnchor());
                 renderer.DrawPoint(anchor);
-                renderer.DrawPoint(grabJoint->GetTarget());
-                renderer.DrawLine(anchor, grabJoint->GetTarget());
+                renderer.DrawPoint(fixedPositionJoint->GetTarget());
+                renderer.DrawLine(anchor, fixedPositionJoint->GetTarget());
             }
             break;
             case Joint::fixed_rotation_joint:

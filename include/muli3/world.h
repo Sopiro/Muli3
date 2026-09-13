@@ -153,7 +153,7 @@ public:
     );
 
     // Joint factory functions
-    GrabJoint* CreateGrabJoint(
+    FixedPositionJoint* CreateFixedPositionJoint(
         Body* body,
         const Vec3& anchor,
         const Vec3& target,

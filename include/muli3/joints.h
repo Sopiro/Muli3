@@ -8,10 +8,10 @@ namespace muli3
 
 // Point-to-point constraint against a world-space target
 // 3 DOF constraint (constrains 3 translational DOFs)
-class GrabJoint : public Joint
+class FixedPositionJoint : public Joint
 {
 public:
-    GrabJoint(Body* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio);
+    FixedPositionJoint(Body* body, const Vec3& anchor, const Vec3& target, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

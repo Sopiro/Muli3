@@ -10,7 +10,7 @@ class Joint;
 class JointDestroyCallback;
 
 using Joints = TypePack<
-    class GrabJoint,
+    class FixedPositionJoint,
     class FixedRotationJoint,
     class ConeSwingJoint,
     class RevoluteJoint,
@@ -67,7 +67,7 @@ public:
     enum Type
     {
         // Order should match with Joints type pack
-        grab_joint,
+        fixed_position_joint,
         fixed_rotation_joint,
         cone_swing_joint,
         revolute_joint,
