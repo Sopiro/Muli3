@@ -11,6 +11,8 @@ TriangleShape::TriangleShape(const Vec3& a, const Vec3& b, const Vec3& c)
     , vertices{ a, b, c }
     , normal{ Normalize(Cross(b - a, c - a)) }
 {
+    center = (a + b + c) / 3.0f;
+    volume = 0.0f;
 }
 
 TriangleShape::TriangleShape(const Vec3& a, const Vec3& b, const Vec3& c, float inRadius, const Transform& transform)

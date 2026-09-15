@@ -12,6 +12,7 @@ public:
 
     void SetFramebufferSizeChangeCallback(std::function<void(int32, int32)> callback);
     Vec2 GetWindowSize() const;
+    Vec2 GetFramebufferSize() const;
     int32 GetRefreshRate() const;
 
     bool GetCursorHidden() const;
@@ -33,12 +34,13 @@ private:
     inline static std::unique_ptr<Window> window;
 
     GLFWwindow* handle = nullptr;
-    int32 width = 0;
-    int32 height = 0;
+    Vec2i windowSize{ 0, 0 };
+    Vec2i framebufferSize{ 0, 0 };
     int32 refreshRate = 60;
     std::function<void(int32, int32)> framebufferSizeChangeCallback = nullptr;
 
     static void ErrorCallback(int error, const char* description);
+    static void OnWindowSize(GLFWwindow* window, int width, int height);
     static void OnFramebufferSize(GLFWwindow* window, int width, int height);
     static void OnKey(GLFWwindow* window, int key, int scancode, int action, int mods);
     static void OnChar(GLFWwindow* window, unsigned int c);
@@ -74,7 +76,12 @@ inline bool Window::ShouldClose() const
 
 inline Vec2 Window::GetWindowSize() const
 {
-    return Vec2{ (float)width, (float)height };
+    return windowSize;
+}
+
+inline Vec2 Window::GetFramebufferSize() const
+{
+    return framebufferSize;
 }
 
 inline int32 Window::GetRefreshRate() const

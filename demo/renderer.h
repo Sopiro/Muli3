@@ -22,7 +22,6 @@ public:
     struct DrawMode
     {
         int32 colorIndex = -1;
-        bool rounded = false;
         bool outline = false;
         bool fill = true;
     };

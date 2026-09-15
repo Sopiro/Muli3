@@ -5,8 +5,7 @@ namespace muli3
 {
 
 Window::Window(int32 width, int32 height, const char* title)
-    : width{ width }
-    , height{ height }
+    : windowSize{ width, height }
 {
     glfwSetErrorCallback(ErrorCallback);
     if (!glfwInit())
@@ -40,7 +39,7 @@ Window::Window(int32 width, int32 height, const char* title)
     glfwMakeContextCurrent(handle);
     glfwSwapInterval(0);
 
-    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress)))
+    if (!gladLoadGLLoader(GLADloadproc(glfwGetProcAddress)))
     {
         std::fprintf(stderr, "Failed to initialize glad\n");
         glfwTerminate();
@@ -48,13 +47,15 @@ Window::Window(int32 width, int32 height, const char* title)
     }
 
     glfwSetWindowUserPointer(handle, this);
+    glfwSetWindowSizeCallback(handle, OnWindowSize);
     glfwSetFramebufferSizeCallback(handle, OnFramebufferSize);
     glfwSetKeyCallback(handle, OnKey);
     glfwSetCharCallback(handle, OnChar);
     glfwSetMouseButtonCallback(handle, OnMouseButton);
     glfwSetCursorPosCallback(handle, OnCursorPosition);
     glfwSetScrollCallback(handle, OnScroll);
-    glfwGetFramebufferSize(handle, &width, &height);
+    glfwGetWindowSize(handle, &windowSize.x, &windowSize.y);
+    glfwGetFramebufferSize(handle, &framebufferSize.x, &framebufferSize.y);
 
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
@@ -89,7 +90,7 @@ void Window::BeginFrame() const
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    glViewport(0, 0, width, height);
+    glViewport(0, 0, framebufferSize.x, framebufferSize.y);
 }
 
 void Window::EndFrame() const
@@ -109,7 +110,7 @@ void Window::SetCursorHidden(bool hidden)
     else
     {
         glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        glfwSetCursorPos(handle, width / 2.0f, height / 2.0f);
+        glfwSetCursorPos(handle, windowSize.x * 0.5f, windowSize.y * 0.5f);
     }
 
     if (glfwRawMouseMotionSupported())
@@ -130,11 +131,16 @@ void Window::ErrorCallback(int error, const char* description)
     std::fprintf(stderr, "GLFW Error %d: %s\n", error, description);
 }
 
+void Window::OnWindowSize(GLFWwindow* window, int width, int height)
+{
+    Window* self = (Window*)glfwGetWindowUserPointer(window);
+    self->windowSize.Set(width, height);
+}
+
 void Window::OnFramebufferSize(GLFWwindow* window, int width, int height)
 {
-    Window* self = reinterpret_cast<Window*>(glfwGetWindowUserPointer(window));
-    self->width = width;
-    self->height = height;
+    Window* self = (Window*)glfwGetWindowUserPointer(window);
+    self->framebufferSize.Set(width, height);
 
     if (self->framebufferSizeChangeCallback)
     {

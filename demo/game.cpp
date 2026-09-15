@@ -306,7 +306,8 @@ void Game::Render(float alpha)
 
             for (const Collider* collider : body->GetColliders())
             {
-                AABB bounds = collider->GetAABB();
+                AABB bounds;
+                collider->GetShape()->ComputeAABB(transform, &bounds);
                 Vec3 center = (bounds.min + bounds.max) * 0.5f;
                 Vec3 extents = (bounds.max - bounds.min) * 0.5f;
                 bool visible = true;

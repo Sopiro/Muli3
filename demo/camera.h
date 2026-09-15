@@ -28,7 +28,7 @@ public:
 
     Vec3 velocity{ 0.0f };
     float speed = 1.0f;
-    float sensitivity = 18.0f;
+    float sensitivity = 0.1f;
     float damping = 12.0f;
     float fovDegrees = 60.0f;
 };

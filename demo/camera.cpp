@@ -51,8 +51,8 @@ bool Camera::UpdateInput(float dt)
     if (captureMouse)
     {
         Vec2 mouseDelta = Input::GetMouseDelta();
-        rotation.y -= mouseDelta.x * DegToRad(sensitivity) * dt;
-        rotation.x -= mouseDelta.y * DegToRad(sensitivity) * dt;
+        rotation.y -= mouseDelta.x * DegToRad(sensitivity);
+        rotation.x -= mouseDelta.y * DegToRad(sensitivity);
         moved |= mouseDelta != Vec2::zero;
     }
 
