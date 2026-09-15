@@ -26,7 +26,7 @@ Same API as [Muli](https://github.com/Sopiro/Muli), with the dynamics expanded t
   - SIMD optimized solver backend
   - Constraint islanding and sleeping
   - Deterministic simulation
-  - Contact callbacks: begin, touching, end, pre-solve, post-solve, and destroy
+  - Contact callbacks: begin, touching, end, pre-solve, and destroy
   - Physics material: friction, restitution, and surface velocity
   - Various joints with limits and motors
 

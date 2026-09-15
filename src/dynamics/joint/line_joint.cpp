@@ -15,14 +15,19 @@ LineJoint::LineJoint(Body* bodyA, Body* bodyB, const Vec3& anchor, const Vec3& d
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
     localAnchorB = MulT(bodyB->GetTransform(), anchor);
 
-    if (Length2(dir) < epsilon)
+    Vec3 axis = NormalizeSafe(dir);
+    if (axis == Vec3::zero)
     {
-        localAxis = bodyA->GetRotation().RotateInv(Normalize(bodyB->GetPosition() - bodyA->GetPosition()));
+        axis = NormalizeSafe(bodyB->GetPosition() - bodyA->GetPosition());
     }
-    else
+
+    if (axis == Vec3::zero)
     {
-        localAxis = bodyA->GetRotation().RotateInv(Normalize(dir));
+        MuliAssert(false);
+        axis = x_axis;
     }
+
+    localAxis = bodyA->GetRotation().RotateInv(axis);
 }
 
 void LineJoint::Prepare(const Timestep& step)

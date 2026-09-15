@@ -63,13 +63,6 @@ public:
         MuliNotUsed(other);
         MuliNotUsed(contact);
     }
-
-    virtual void OnPostSolve(Collider* me, Collider* other, Contact* contact)
-    {
-        MuliNotUsed(me);
-        MuliNotUsed(other);
-        MuliNotUsed(contact);
-    }
 };
 
 class WorldQueryCallback

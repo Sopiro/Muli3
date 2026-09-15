@@ -29,14 +29,19 @@ PrismaticJoint::PrismaticJoint(
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
     localAnchorB = MulT(bodyB->GetTransform(), anchor);
 
-    if (Length2(dir) < epsilon)
+    Vec3 axis = NormalizeSafe(dir);
+    if (axis == Vec3::zero)
     {
-        localAxis = bodyA->GetRotation().RotateInv(Normalize(bodyB->GetPosition() - bodyA->GetPosition()));
+        axis = NormalizeSafe(bodyB->GetPosition() - bodyA->GetPosition());
     }
-    else
+
+    if (axis == Vec3::zero)
     {
-        localAxis = bodyA->GetRotation().RotateInv(Normalize(dir));
+        MuliAssert(false);
+        axis = x_axis;
     }
+
+    localAxis = bodyA->GetRotation().RotateInv(axis);
 
     orientationOffset = bodyA->GetRotation().GetConjugate() * bodyB->GetRotation();
 }

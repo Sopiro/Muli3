@@ -342,6 +342,11 @@ bool Body::TestPoint(const Vec3& q) const
 
     for (Collider* collider : colliders)
     {
+        if (collider->IsEnabled() == false)
+        {
+            continue;
+        }
+
         if (collider->TestPoint(q))
         {
             return true;
@@ -355,32 +360,25 @@ Vec3 Body::GetClosestPoint(const Vec3& q) const
 {
     MuliAssert(colliders.empty() == false);
 
-    Vec3 cp0 = colliders[0]->GetClosestPoint(q);
-    if (cp0 == q)
+    Vec3 closest = q;
+    float minDistance2 = max_float;
+    for (Collider* collider : colliders)
     {
-        return cp0;
-    }
-
-    float d0 = Dist2(cp0, q);
-
-    for (size_t i = 1; i < colliders.size(); ++i)
-    {
-        Collider* collider = colliders[i];
-        Vec3 cp1 = collider->GetClosestPoint(q);
-        if (cp1 == q)
+        if (collider->IsEnabled() == false)
         {
-            return cp1;
+            continue;
         }
 
-        float d1 = Dist2(cp1, q);
-        if (d1 < d0)
+        Vec3 point = collider->GetClosestPoint(q);
+        float distance2 = Dist2(point, q);
+        if (distance2 < minDistance2)
         {
-            cp0 = cp1;
-            d0 = d1;
+            closest = point;
+            minDistance2 = distance2;
         }
     }
 
-    return cp0;
+    return closest;
 }
 
 void Body::RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* callback) const
@@ -392,6 +390,11 @@ void Body::RayCastAny(const Vec3& from, const Vec3& to, RayCastAnyCallback* call
 
     for (Collider* collider : colliders)
     {
+        if (collider->IsEnabled() == false)
+        {
+            continue;
+        }
+
         RayCastOutput output;
 
         if (collider->RayCast(input, &output))
@@ -453,6 +456,11 @@ void Body::RayCastAny(
 
     for (Collider* collider : colliders)
     {
+        if (collider->IsEnabled() == false)
+        {
+            continue;
+        }
+
         RayCastOutput output;
 
         if (collider->RayCast(input, &output))

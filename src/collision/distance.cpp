@@ -6,6 +6,9 @@ namespace muli3
 
 float GetClosestFeatures(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, ClosestFeatures* features)
 {
+    MuliAssert(features != nullptr);
+    features->count = 0;
+
     GJKResult gjkResult;
 
     bool collide = GJK(a, tfA, b, tfB, &gjkResult);
@@ -29,6 +32,8 @@ float GetClosestFeatures(const Shape* a, const Transform& tfA, const Shape* b, c
 
 float ComputeDistance(const Shape* a, const Transform& tfA, const Shape* b, const Transform& tfB, Vec3* pointA, Vec3* pointB)
 {
+    MuliAssert(pointA != nullptr && pointB != nullptr);
+
     GJKResult gjkResult;
 
     bool collide = GJK(a, tfA, b, tfB, &gjkResult);

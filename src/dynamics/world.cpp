@@ -356,7 +356,7 @@ float World::Step(float dt)
     }
 
     {
-        ProfileScope profile_destroy_buffer{ &profile.post_solve };
+        ProfileScope profile_post_solve{ &profile.post_solve };
         MuliProfileZoneNC(post_solve, "Post Solve", color::post_solve, true);
 
         for (Body* body : destroyBodyBuffer)
@@ -2740,6 +2740,7 @@ void World::WakeBody(Body* body)
 
     if (body->IsSleeping() == false && body->setIndex == awake_set)
     {
+        body->GetBodyState()->resting = 0.0f;
         return;
     }
 
@@ -2802,6 +2803,7 @@ void World::WakeIsland(Body* body)
 
     if (body->IsSleeping() == false && body->setIndex == awake_set)
     {
+        body->GetBodyState()->resting = 0.0f;
         return;
     }
 
