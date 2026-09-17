@@ -54,7 +54,7 @@ if(MULI3_PROFILE)
 endif()
 
 if(MSVC)
-    target_compile_options(muli3 PRIVATE /EHs-c- /GR- /W4 /WX /wd4819)
+    target_compile_options(muli3 PRIVATE /GR- /W4 /WX /wd4819)
 else()
     target_compile_options(muli3 PRIVATE -fno-exceptions -fno-rtti -Wall -Wextra -Wpedantic)
 endif()
