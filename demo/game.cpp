@@ -31,7 +31,7 @@ Game::Game()
     workerCount = 8;
     RecreateThreadPool();
     renderItems.reserve(2048);
-    InitDemo(36);
+    InitDemo(19);
     Window::Get()->SetCursorHidden(false);
 }
 
@@ -162,7 +162,16 @@ static void DrawConeLimit(Renderer& renderer, const Vec3& origin, const Vec3& ax
     }
 
     Frame frame = Frame::FromZ(axis);
-    float radius = std::tan(angle) * length;
+    float renderAngle = Min(angle, 0.5f * pi - DegToRad(1.0f));
+    float tanAngle = std::tan(renderAngle);
+    float radius = tanAngle * length;
+    constexpr float maxRadius = 0.45f;
+    if (radius > maxRadius)
+    {
+        radius = maxRadius;
+        length = radius / tanAngle;
+    }
+
     Vec3 tip = origin + axis * length;
     constexpr int32 segmentCount = 24;
 
