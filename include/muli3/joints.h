@@ -119,10 +119,10 @@ private:
 
 // Cone limit constraint: constrains two axes to stay within a maximum swing angle
 // 1 DOF angular limit constraint (does not constrain twist around the axis)
-class ConeSwingJoint : public Joint
+class SwingAngleJoint : public Joint
 {
 public:
-    ConeSwingJoint(Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio);
+    SwingAngleJoint(Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio);
 
     void Prepare(const Timestep& step);
     void WarmStart();

@@ -1968,10 +1968,10 @@ ConeSwingJoint* World::CreateConeSwingJoint(
         return nullptr;
     }
 
-    ConeSwingJoint* csj = poolAllocator.New<ConeSwingJoint>(bodyA, bodyB, axis, maxAngle, frequency, dampingRatio);
+    SwingAngleJoint* saj = poolAllocator.New<SwingAngleJoint>(bodyA, bodyB, axis, maxAngle, frequency, dampingRatio);
 
-    AddJoint(csj);
-    return csj;
+    AddJoint(saj);
+    return saj;
 }
 
 RevoluteJoint* World::CreateRevoluteJoint(
@@ -2332,8 +2332,8 @@ void World::FreeJoint(Joint* joint)
     case Joint::Type::fixed_rotation_joint:
         poolAllocator.Delete((FixedRotationJoint*)joint);
         break;
-    case Joint::Type::cone_swing_joint:
-        poolAllocator.Delete((ConeSwingJoint*)joint);
+    case Joint::Type::swing_angle_joint:
+        poolAllocator.Delete((SwingAngleJoint*)joint);
         break;
     case Joint::Type::revolute_joint:
         poolAllocator.Delete((RevoluteJoint*)joint);

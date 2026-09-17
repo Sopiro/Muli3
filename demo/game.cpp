@@ -395,21 +395,21 @@ void Game::Render(float alpha)
                 DrawBasis(renderer, position, fixedRotationJoint->GetTargetOrientation(), 0.55f, 0.55f);
             }
             break;
-            case Joint::cone_swing_joint:
+            case Joint::swing_angle_joint:
             {
                 const Body* bodyA = joint->GetBodyA();
                 const Body* bodyB = joint->GetBodyB();
-                const ConeSwingJoint* coneSwingJoint = (const ConeSwingJoint*)joint;
+                const SwingAngleJoint* swingAngleJoint = (const SwingAngleJoint*)joint;
 
                 Transform transformA = GetRenderTransform(bodyA, alpha);
                 Transform transformB = GetRenderTransform(bodyB, alpha);
                 Vec3 positionA = transformA.p;
                 Vec3 positionB = transformB.p;
-                Vec3 axisA = transformA.q.Rotate(coneSwingJoint->GetLocalAxisA());
-                Vec3 axisB = transformB.q.Rotate(coneSwingJoint->GetLocalAxisB());
+                Vec3 axisA = transformA.q.Rotate(swingAngleJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(swingAngleJoint->GetLocalAxisB());
                 DrawAxis(renderer, positionB, axisB, 0.7f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
                 DrawConeLimit(
-                    renderer, positionA, axisA, coneSwingJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f }
+                    renderer, positionA, axisA, swingAngleJoint->GetJointMaxAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f }
                 );
             }
             break;

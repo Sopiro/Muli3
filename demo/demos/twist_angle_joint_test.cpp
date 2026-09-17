@@ -30,7 +30,7 @@ public:
 
         world->CreateLineJoint(base, arm);
         world->CreateBallSocketJoint(base, arm, base->GetPosition());
-        world->CreateConeSwingJoint(base, arm, -y_axis, DegToRad(30));
+        world->CreateSwingAngleJoint(base, arm, -y_axis, DegToRad(30));
         joint = world->CreateTwistAngleJoint(
             base, arm, y_axis, DegToRad(twistMinAngle), DegToRad(twistMaxAngle), twistFrequency, twistDampingRatio
         );

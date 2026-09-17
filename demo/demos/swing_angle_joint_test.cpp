@@ -5,14 +5,14 @@
 namespace muli3
 {
 
-static float coneSwingAngle = 35.0f;
-static float coneSwingFrequency = 20.0f;
-static float coneSwingDampingRatio = 1.0f;
+static float swingAngle = 35.0f;
+static float swingFrequency = 20.0f;
+static float swingDampingRatio = 1.0f;
 
-class ConeSwingJointDemo : public Demo
+class SwingAngleJointDemo : public Demo
 {
 public:
-    ConeSwingJointDemo(Game& game)
+    SwingAngleJointDemo(Game& game)
         : Demo(game)
     {
         Body* ground = world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
@@ -25,7 +25,7 @@ public:
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
 
         world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
-        world->CreateConeSwingJoint(base, arm, -y_axis, DegToRad(coneSwingAngle), coneSwingFrequency, coneSwingDampingRatio);
+        world->CreateSwingAngleJoint(base, arm, -y_axis, DegToRad(swingAngle), swingFrequency, swingDampingRatio);
 
         camera.SetPosition(Vec3{ 0.0f, 4.8f, 8.5f });
         camera.SetRotation(0.0f, -15.0f);
@@ -35,20 +35,20 @@ public:
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
 
-        if (ImGui::Begin("Cone swing joint", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::Begin("Swing angle joint", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            ImGui::Text("Cone swing");
-            if (ImGui::SliderFloat("Max angle", &coneSwingAngle, 0.0f, 89.0f, "%.1f deg"))
+            ImGui::Text("Swing angle");
+            if (ImGui::SliderFloat("Max angle", &swingAngle, 0.0f, 89.0f, "%.1f deg"))
             {
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Frequency", &coneSwingFrequency, -1.0f, 20.0f, "%.2f"))
+            if (ImGui::SliderFloat("Frequency", &swingFrequency, -1.0f, 20.0f, "%.2f"))
             {
                 game.RestartDemo();
             }
 
-            if (ImGui::SliderFloat("Damping ratio", &coneSwingDampingRatio, 0.0f, 1.0f, "%.2f"))
+            if (ImGui::SliderFloat("Damping ratio", &swingDampingRatio, 0.0f, 1.0f, "%.2f"))
             {
                 game.RestartDemo();
             }
@@ -57,11 +57,11 @@ public:
     }
 };
 
-static Demo* CreateConeSwingJointDemo(Game& game)
+static Demo* CreateSwingAngleJointDemo(Game& game)
 {
-    return new ConeSwingJointDemo(game);
+    return new SwingAngleJointDemo(game);
 }
 
-static int32 cone_swing_joint = register_demo("Joints", "Cone swing joint", CreateConeSwingJointDemo, 4);
+static int32 swing_angle_joint = register_demo("Joints", "Swing angle joint", CreateSwingAngleJointDemo, 4);
 
 } // namespace muli3

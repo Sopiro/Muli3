@@ -6,25 +6,25 @@ namespace muli3
 
 enum
 {
-    cone_limit_inactive,
-    cone_limit_at_upper,
+    swing_limit_inactive,
+    swing_limit_at_upper,
 };
 
 static float ClampImpulse(float impulse, int32 limitState)
 {
     switch (limitState)
     {
-    case cone_limit_at_upper:
+    case swing_limit_at_upper:
         return Min(impulse, 0.0f);
     default:
         return 0.0f;
     }
 }
 
-ConeSwingJoint::ConeSwingJoint(
+SwingAngleJoint::SwingAngleJoint(
     Body* bodyA, Body* bodyB, const Vec3& worldAxis, float jointMaxAngle, float frequency, float dampingRatio
 )
-    : Joint(cone_swing_joint, bodyA, bodyB)
+    : Joint(swing_angle_joint, bodyA, bodyB)
     , frequency{ Max(frequency, 0.0f) }
     , dampingRatio{ Max(dampingRatio, 0.0f) }
     , maxAngle{ Clamp(jointMaxAngle, 0.0f, pi) }
@@ -34,7 +34,7 @@ ConeSwingJoint::ConeSwingJoint(
     , impulseSum{ 0.0f }
     , beta{ 0.0f }
     , gamma{ 0.0f }
-    , limitState{ cone_limit_inactive }
+    , limitState{ swing_limit_inactive }
 {
     Vec3 axis = Length2(worldAxis) > epsilon ? Normalize(worldAxis) : y_axis;
 
@@ -42,7 +42,7 @@ ConeSwingJoint::ConeSwingJoint(
     localAxisB = bodyB->GetRotation().RotateInv(axis);
 }
 
-void ConeSwingJoint::Prepare(const Timestep& step)
+void SwingAngleJoint::Prepare(const Timestep& step)
 {
     JointState* s = GetJointState();
 
@@ -57,14 +57,14 @@ void ConeSwingJoint::Prepare(const Timestep& step)
 
     if (currentAngle > maxAngle + angular_slop)
     {
-        limitState = cone_limit_at_upper;
+        limitState = swing_limit_at_upper;
     }
     else
     {
-        limitState = cone_limit_inactive;
+        limitState = swing_limit_inactive;
     }
 
-    if (limitState == cone_limit_inactive)
+    if (limitState == swing_limit_inactive)
     {
         bias = 0.0f;
         impulseSum = 0.0f;
@@ -100,19 +100,19 @@ void ConeSwingJoint::Prepare(const Timestep& step)
     impulseSum = ClampImpulse(impulseSum, limitState);
 }
 
-void ConeSwingJoint::WarmStart()
+void SwingAngleJoint::WarmStart()
 {
     ApplyImpulse(impulseSum);
 }
 
-void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
+void SwingAngleJoint::SolveVelocityConstraints(const Timestep& step)
 {
     MuliNotUsed(step);
 
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    if (limitState == cone_limit_inactive)
+    if (limitState == swing_limit_inactive)
     {
         return;
     }
@@ -129,7 +129,7 @@ void ConeSwingJoint::SolveVelocityConstraints(const Timestep& step)
     ApplyImpulse(lambda);
 }
 
-void ConeSwingJoint::ApplyImpulse(float lambda)
+void SwingAngleJoint::ApplyImpulse(float lambda)
 {
     JointState* s = GetJointState();
     BodyState* sA = bodyA->GetBodyState();
@@ -147,47 +147,47 @@ void ConeSwingJoint::ApplyImpulse(float lambda)
     }
 }
 
-const Vec3& ConeSwingJoint::GetLocalAxisA() const
+const Vec3& SwingAngleJoint::GetLocalAxisA() const
 {
     return localAxisA;
 }
 
-const Vec3& ConeSwingJoint::GetLocalAxisB() const
+const Vec3& SwingAngleJoint::GetLocalAxisB() const
 {
     return localAxisB;
 }
 
-float ConeSwingJoint::GetJointAngle() const
+float SwingAngleJoint::GetJointAngle() const
 {
     return currentAngle;
 }
 
-float ConeSwingJoint::GetJointMaxAngle() const
+float SwingAngleJoint::GetJointMaxAngle() const
 {
     return maxAngle;
 }
 
-void ConeSwingJoint::SetJointMaxAngle(float newMaxAngle)
+void SwingAngleJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = std::clamp(newMaxAngle, 0.0f, pi);
 }
 
-float ConeSwingJoint::GetFrequency() const
+float SwingAngleJoint::GetFrequency() const
 {
     return frequency;
 }
 
-void ConeSwingJoint::SetFrequency(float newFrequency)
+void SwingAngleJoint::SetFrequency(float newFrequency)
 {
     frequency = Max(newFrequency, 0.0f);
 }
 
-float ConeSwingJoint::GetDampingRatio() const
+float SwingAngleJoint::GetDampingRatio() const
 {
     return dampingRatio;
 }
 
-void ConeSwingJoint::SetDampingRatio(float newDampingRatio)
+void SwingAngleJoint::SetDampingRatio(float newDampingRatio)
 {
     dampingRatio = Max(newDampingRatio, 0.0f);
 }

@@ -165,7 +165,7 @@ public:
         float frequency = 10.0f,
         float dampingRatio = 1.0f
     );
-    ConeSwingJoint* CreateConeSwingJoint(
+    SwingAngleJoint* CreateSwingAngleJoint(
         Body* bodyA,
         Body* bodyB,
         const Vec3& axis,

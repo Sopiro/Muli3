@@ -12,7 +12,7 @@ class JointDestroyCallback;
 using Joints = TypePack<
     class FixedPositionJoint,
     class FixedRotationJoint,
-    class ConeSwingJoint,
+    class SwingAngleJoint,
     class RevoluteJoint,
     class RevoluteAngleJoint,
     class UniversalAngleJoint,
@@ -69,7 +69,7 @@ public:
         // Order should match with Joints type pack
         fixed_position_joint,
         fixed_rotation_joint,
-        cone_swing_joint,
+        swing_angle_joint,
         revolute_joint,
         revolute_angle_joint,
         universal_angle_joint,
