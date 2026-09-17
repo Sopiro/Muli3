@@ -173,6 +173,21 @@ public:
         float frequency = 10.0f,
         float dampingRatio = 1.0f
     );
+    SwingTwistJoint* CreateSwingTwistJoint(
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        const Vec3& axis,
+        float maxSwingAngle,
+        float minTwistAngle,
+        float maxTwistAngle,
+        float linearFrequency = 10.0f,
+        float linearDampingRatio = 1.0f,
+        float swingFrequency = 10.0f,
+        float swingDampingRatio = 1.0f,
+        float twistFrequency = 10.0f,
+        float twistDampingRatio = 1.0f
+    );
     RevoluteJoint* CreateRevoluteJoint(
         Body* bodyA,
         Body* bodyB,

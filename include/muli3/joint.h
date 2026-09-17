@@ -23,7 +23,8 @@ using Joints = TypePack<
     class LineJoint,
     class PrismaticJoint,
     class PulleyJoint,
-    class MotorJoint>;
+    class MotorJoint,
+    class SwingTwistJoint>;
 
 class Joint : public DynamicDispatcher<Joints>
 {
@@ -81,6 +82,7 @@ public:
         prismatic_joint,
         pulley_joint,
         motor_joint,
+        swing_twist_joint,
     };
 
     ~Joint();

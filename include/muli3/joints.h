@@ -160,6 +160,111 @@ private:
     void ApplyImpulse(float lambda);
 };
 
+// Ball socket with a circular swing cone and signed twist limits.
+// The creation pose defines zero swing and twist.
+// A pi swing limit and a twist interval spanning two_pi leave rotation free.
+class SwingTwistJoint : public Joint
+{
+public:
+    SwingTwistJoint(
+        Body* bodyA,
+        Body* bodyB,
+        const Vec3& anchor,
+        const Vec3& axis,
+        float maxSwingAngle,
+        float minTwistAngle,
+        float maxTwistAngle,
+        float linearFrequency,
+        float linearDampingRatio,
+        float swingFrequency,
+        float swingDampingRatio,
+        float twistFrequency,
+        float twistDampingRatio
+    );
+
+    void Prepare(const Timestep& step);
+    void WarmStart();
+    void SolveVelocityConstraints(const Timestep& step);
+
+    float GetLinearFrequency() const;
+    void SetLinearFrequency(float newFrequency);
+    float GetLinearDampingRatio() const;
+    void SetLinearDampingRatio(float newDampingRatio);
+    float GetSwingFrequency() const;
+    void SetSwingFrequency(float newFrequency);
+    float GetSwingDampingRatio() const;
+    void SetSwingDampingRatio(float newDampingRatio);
+    float GetTwistFrequency() const;
+    void SetTwistFrequency(float newFrequency);
+    float GetTwistDampingRatio() const;
+    void SetTwistDampingRatio(float newDampingRatio);
+
+    const Vec3& GetLocalAnchorA() const;
+    const Vec3& GetLocalAnchorB() const;
+    const Vec3& GetLocalAxisA() const;
+    const Vec3& GetLocalAxisB() const;
+    const Vec3& GetLocalNormalAxisA() const;
+    const Vec3& GetLocalNormalAxisB() const;
+
+    // Current angles are updated during Prepare, like the standalone angular joints.
+    float GetSwingAngle() const;
+    float GetMaxSwingAngle() const;
+    void SetMaxSwingAngle(float newMaxAngle);
+    float GetTwistAngle() const;
+    void SetTwistAngle(float newAngle);
+    float GetMinTwistAngle() const;
+    void SetMinTwistAngle(float newMinAngle);
+    float GetMaxTwistAngle() const;
+    void SetMaxTwistAngle(float newMaxAngle);
+
+private:
+    float linearFrequency;
+    float linearDampingRatio;
+    float swingFrequency;
+    float swingDampingRatio;
+    float twistFrequency;
+    float twistDampingRatio;
+
+    Vec3 localAnchorA;
+    Vec3 localAnchorB;
+    Vec3 localAxisA;
+    Vec3 localAxisB;
+    Vec3 localNormalAxisA;
+    Vec3 localNormalAxisB;
+    float maxSwingAngle;
+    float minTwistAngle;
+    float maxTwistAngle;
+    float swingAngle;
+    float twistAngle;
+
+    Vec3 ra;
+    Vec3 rb;
+    Mat3 linearM;
+    Vec3 linearBias;
+    Vec3 linearImpulseSum;
+    float linearBeta;
+    float linearGamma;
+
+    Vec3 swingAxis;
+    float swingM;
+    float swingBias;
+    float swingImpulseSum;
+    float swingBeta;
+    float swingGamma;
+    bool swingLimitActive;
+
+    Vec3 twistAxis;
+    float twistM;
+    float twistBias;
+    float twistImpulseSum;
+    float twistBeta;
+    float twistGamma;
+    int32 twistLimitState;
+
+    void ApplyLinearImpulse(const Vec3& lambda);
+    void ApplyAngularImpulse(const Vec3& impulse);
+};
+
 // Distance constraint: constrains the separation between two anchor points
 // 1 DOF constraint (equal distance or min/max distance limit)
 class DistanceJoint : public Joint

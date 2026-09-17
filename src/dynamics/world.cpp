@@ -1959,7 +1959,7 @@ FixedRotationJoint* World::CreateFixedRotationJoint(Body* body, float frequency,
     return frj;
 }
 
-ConeSwingJoint* World::CreateConeSwingJoint(
+SwingAngleJoint* World::CreateSwingAngleJoint(
     Body* bodyA, Body* bodyB, const Vec3& axis, float maxAngle, float frequency, float dampingRatio
 )
 {
@@ -1972,6 +1972,33 @@ ConeSwingJoint* World::CreateConeSwingJoint(
 
     AddJoint(saj);
     return saj;
+}
+
+SwingTwistJoint* World::CreateSwingTwistJoint(
+    Body* bodyA,
+    Body* bodyB,
+    const Vec3& anchor,
+    const Vec3& axis,
+    float maxSwingAngle,
+    float minTwistAngle,
+    float maxTwistAngle,
+    float linearFrequency,
+    float linearDampingRatio,
+    float swingFrequency,
+    float swingDampingRatio,
+    float twistFrequency,
+    float twistDampingRatio
+)
+{
+    MuliAssert(bodyA->world == this && bodyB->world == this);
+
+    SwingTwistJoint* joint = poolAllocator.New<SwingTwistJoint>(
+        bodyA, bodyB, anchor, axis, maxSwingAngle, minTwistAngle, maxTwistAngle, linearFrequency, linearDampingRatio,
+        swingFrequency, swingDampingRatio, twistFrequency, twistDampingRatio
+    );
+
+    AddJoint(joint);
+    return joint;
 }
 
 RevoluteJoint* World::CreateRevoluteJoint(
@@ -2334,6 +2361,9 @@ void World::FreeJoint(Joint* joint)
         break;
     case Joint::Type::swing_angle_joint:
         poolAllocator.Delete((SwingAngleJoint*)joint);
+        break;
+    case Joint::Type::swing_twist_joint:
+        poolAllocator.Delete((SwingTwistJoint*)joint);
         break;
     case Joint::Type::revolute_joint:
         poolAllocator.Delete((RevoluteJoint*)joint);

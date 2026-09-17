@@ -1,5 +1,7 @@
 #pragma once
 
+#include "muli3/muli3.h"
+
 #include "options.h"
 
 namespace muli3
@@ -8,6 +10,7 @@ struct Bone
 {
     int32 parentIndex;
     Body* body;
+    Joint* joint;
 };
 
 struct Ragdoll
@@ -62,7 +65,7 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
     Body* chest = world->CreateCapsule(bodyHeight / 2.0f, bodyWidth / 2.0f, identity, Body::dynamic_body, density);
     chest->SetPosition(headX, headY - headRadius - bodyHeight / 2.0f, headZ);
 
-    ragdoll.bones[Ragdoll::index_chest] = Bone{ Ragdoll::index_pelvis, chest };
+    ragdoll.bones[Ragdoll::index_chest] = Bone{ Ragdoll::index_pelvis, chest, nullptr };
 
     float ballSocketFrequency = 60.0f;
     float ballSocketDampingRatio = 1.5f;
@@ -74,17 +77,13 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
         float headAngle = DegToRad(15);
         float headTwistAngle = DegToRad(15);
 
-        BallSocketJoint* j1 = world->CreateBallSocketJoint(
-            chest, head, chest->GetPosition() + Vec3{ 0.0f, bodyHeight / 2.0f, 0 }, ballSocketFrequency, ballSocketDampingRatio
+        SwingTwistJoint* joint = world->CreateSwingTwistJoint(
+            chest, head, chest->GetPosition() + Vec3{ 0.0f, bodyHeight / 2.0f, 0 }, y_axis, headAngle, -headTwistAngle,
+            headTwistAngle, ballSocketFrequency, ballSocketDampingRatio, headFrequency, headDamplingRatio, headFrequency,
+            headDamplingRatio
         );
-        ConeSwingJoint* j2 = world->CreateConeSwingJoint(chest, head, y_axis, headAngle, headFrequency, headDamplingRatio);
-        TwistAngleJoint* j3 =
-            world->CreateTwistAngleJoint(chest, head, y_axis, -headTwistAngle, headTwistAngle, headFrequency, headDamplingRatio);
-        UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-        UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
-        UserFlag::SetFlag(j3, UserFlag::hide_joint, hideJoint);
 
-        ragdoll.bones[Ragdoll::index_head] = Bone{ Ragdoll::index_chest, head };
+        ragdoll.bones[Ragdoll::index_head] = Bone{ Ragdoll::index_chest, head, joint };
     }
 
     // Arms
@@ -136,70 +135,44 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
 
             // chest -> upper right arm
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
-                    chest, upperRightArm, Vec3{ headX + armStartX, headY - armStartY, headZ }, ballSocketFrequency,
-                    ballSocketDampingRatio
+                SwingTwistJoint* joint = world->CreateSwingTwistJoint(
+                    chest, upperRightArm, Vec3{ headX + armStartX, headY - armStartY, headZ }, x_axis, armSwingAngle,
+                    -armTwistAngle, armTwistAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency,
+                    armAngleDampingRatio, armAngleFrequency, armDampingRatio
                 );
-                ConeSwingJoint* j2 = world->CreateConeSwingJoint(
-                    chest, upperRightArm, x_axis, armSwingAngle, armAngleFrequency, armAngleDampingRatio
-                );
-                TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
-                    chest, upperRightArm, x_axis, -armTwistAngle, armTwistAngle, armAngleFrequency, armDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j3, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_upperRightArm] = Bone{ Ragdoll::index_chest, upperRightArm };
+                ragdoll.bones[Ragdoll::index_upperRightArm] = Bone{ Ragdoll::index_chest, upperRightArm, joint };
             }
 
             // upper right arm -> lower right arm
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
+                RevoluteJoint* joint = world->CreateRevoluteJoint(
                     upperRightArm, lowerRightArm, Vec3{ headX + armStartX + armLength + armGap, headY - armStartY, headZ },
-                    ballSocketFrequency, ballSocketDampingRatio
+                    -y_axis, 0, elbowAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency, armAngleDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
-                    upperRightArm, lowerRightArm, -y_axis, 0, elbowAngle, armAngleFrequency, armAngleDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_lowerRightArm] = Bone{ Ragdoll::index_upperRightArm, lowerRightArm };
+                ragdoll.bones[Ragdoll::index_lowerRightArm] = Bone{ Ragdoll::index_upperRightArm, lowerRightArm, joint };
             }
 
             // chest -> upper left arm
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
-                    chest, upperLeftArm, Vec3{ headX - armStartX, headY - armStartY, headZ }, ballSocketFrequency,
-                    ballSocketDampingRatio
+                SwingTwistJoint* joint = world->CreateSwingTwistJoint(
+                    chest, upperLeftArm, Vec3{ headX - armStartX, headY - armStartY, headZ }, -x_axis, armSwingAngle,
+                    -armTwistAngle, armTwistAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency,
+                    armAngleDampingRatio, armAngleFrequency, armDampingRatio
                 );
-                ConeSwingJoint* j2 = world->CreateConeSwingJoint(
-                    chest, upperLeftArm, -x_axis, armSwingAngle, armAngleFrequency, armAngleDampingRatio
-                );
-                TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
-                    chest, upperLeftArm, -x_axis, -armTwistAngle, armTwistAngle, armAngleFrequency, armDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j3, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_upperLeftArm] = Bone{ Ragdoll::index_chest, upperLeftArm };
+                ragdoll.bones[Ragdoll::index_upperLeftArm] = Bone{ Ragdoll::index_chest, upperLeftArm, joint };
             }
 
             // upper left arm -> lower left arm
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
-                    upperLeftArm, lowerLeftArm, Vec3{ headX - armStartX - armLength - armGap, headY - armStartY, headZ },
-                    ballSocketFrequency, ballSocketDampingRatio
+                RevoluteJoint* joint = world->CreateRevoluteJoint(
+                    upperLeftArm, lowerLeftArm, Vec3{ headX - armStartX - armLength - armGap, headY - armStartY, headZ }, y_axis,
+                    0, elbowAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency, armAngleDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
-                    upperLeftArm, lowerLeftArm, y_axis, 0, elbowAngle, armAngleFrequency, armAngleDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_lowerLeftArm] = Bone{ Ragdoll::index_upperLeftArm, lowerLeftArm };
+                ragdoll.bones[Ragdoll::index_lowerLeftArm] = Bone{ Ragdoll::index_upperLeftArm, lowerLeftArm, joint };
             }
         }
     }
@@ -224,14 +197,12 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
         float pelvisAngleFrequency = -1.0f;
         float pelvisAngleDampingRatio = 0.8f;
 
-        BallSocketJoint* j1 = world->CreateBallSocketJoint(pelvis, chest, pelvisTop, ballSocketFrequency, ballSocketDampingRatio);
-        RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
-            pelvis, chest, x_axis, -pelvisMinAngle, pelvisMaxAngle, pelvisAngleFrequency, pelvisAngleDampingRatio
+        RevoluteJoint* joint = world->CreateRevoluteJoint(
+            pelvis, chest, pelvisTop, x_axis, -pelvisMinAngle, pelvisMaxAngle, ballSocketFrequency, ballSocketDampingRatio,
+            pelvisAngleFrequency, pelvisAngleDampingRatio
         );
-        UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-        UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
 
-        ragdoll.bones[Ragdoll::index_pelvis] = { -1, pelvis };
+        ragdoll.bones[Ragdoll::index_pelvis] = { -1, pelvis, joint };
     }
 
     // Legs
@@ -282,69 +253,44 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
 
             // pelvis -> upper right leg
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
-                    pelvis, upperRightLeg, Vec3{ headX + legStartX, headY - legStartY, headZ }, ballSocketFrequency,
-                    ballSocketDampingRatio
+                SwingTwistJoint* joint = world->CreateSwingTwistJoint(
+                    pelvis, upperRightLeg, Vec3{ headX + legStartX, headY - legStartY, headZ }, -y_axis, legAngle, -legTwistAngle,
+                    legTwistAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio,
+                    legAngleFrequency, legAngleDampingRatio
                 );
-                ConeSwingJoint* j2 = world->CreateConeSwingJoint(
-                    pelvis, upperRightLeg, -y_axis, legAngle, legAngleFrequency, legAngleDampingRatio
-                );
-                TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
-                    pelvis, upperRightLeg, -y_axis, -legTwistAngle, legTwistAngle, legAngleFrequency, legAngleDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j3, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_upperRightLeg] = Bone{ Ragdoll::index_pelvis, upperRightLeg };
+                ragdoll.bones[Ragdoll::index_upperRightLeg] = Bone{ Ragdoll::index_pelvis, upperRightLeg, joint };
             }
 
             // upper right leg -> lower right leg
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
+                RevoluteJoint* joint = world->CreateRevoluteJoint(
                     upperRightLeg, lowerRightLeg, Vec3{ headX + legStartX, headY - legStartY - legLength - legGap, headZ },
-                    ballSocketFrequency, ballSocketDampingRatio
+                    x_axis, 0, kneeAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
-                    upperRightLeg, lowerRightLeg, x_axis, 0, kneeAngle, legAngleFrequency, legAngleDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_lowerRightLeg] = Bone{ Ragdoll::index_upperRightLeg, lowerRightLeg };
+                ragdoll.bones[Ragdoll::index_lowerRightLeg] = Bone{ Ragdoll::index_upperRightLeg, lowerRightLeg, joint };
             }
 
             // pelvis -> upper left leg
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
-                    pelvis, upperLeftLeg, Vec3{ headX - legStartX, headY - legStartY, headZ }, ballSocketFrequency,
-                    ballSocketDampingRatio
+                SwingTwistJoint* joint = world->CreateSwingTwistJoint(
+                    pelvis, upperLeftLeg, Vec3{ headX - legStartX, headY - legStartY, headZ }, -y_axis, legAngle, -legTwistAngle,
+                    legTwistAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio,
+                    legAngleFrequency, legAngleDampingRatio
                 );
-                ConeSwingJoint* j2 =
-                    world->CreateConeSwingJoint(pelvis, upperLeftLeg, -y_axis, legAngle, legAngleFrequency, legAngleDampingRatio);
-                TwistAngleJoint* j3 = world->CreateTwistAngleJoint(
-                    pelvis, upperLeftLeg, y_axis, -legTwistAngle, legTwistAngle, legAngleFrequency, legAngleDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j3, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_upperLeftLeg] = Bone{ Ragdoll::index_pelvis, upperLeftLeg };
+                ragdoll.bones[Ragdoll::index_upperLeftLeg] = Bone{ Ragdoll::index_pelvis, upperLeftLeg, joint };
             }
 
             // upper left leg -> lower left leg
             {
-                BallSocketJoint* j1 = world->CreateBallSocketJoint(
-                    upperLeftLeg, lowerLeftLeg, Vec3{ headX - legStartX, headY - legStartY - legLength - legGap, headZ },
-                    ballSocketFrequency, ballSocketDampingRatio
+                RevoluteJoint* joint = world->CreateRevoluteJoint(
+                    upperLeftLeg, lowerLeftLeg, Vec3{ headX - legStartX, headY - legStartY - legLength - legGap, headZ }, x_axis,
+                    0, kneeAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio
                 );
-                RevoluteAngleJoint* j2 = world->CreateRevoluteAngleJoint(
-                    upperLeftLeg, lowerLeftLeg, x_axis, 0, kneeAngle, legAngleFrequency, legAngleDampingRatio
-                );
-                UserFlag::SetFlag(j1, UserFlag::hide_joint, hideJoint);
-                UserFlag::SetFlag(j2, UserFlag::hide_joint, hideJoint);
 
-                ragdoll.bones[Ragdoll::index_lowerLeftLeg] = Bone{ Ragdoll::index_upperLeftLeg, lowerLeftLeg };
+                ragdoll.bones[Ragdoll::index_lowerLeftLeg] = Bone{ Ragdoll::index_upperLeftLeg, lowerLeftLeg, joint };
             }
         }
     }
@@ -357,6 +303,12 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
         body->SetRotation(tf.q);
         body->SetLinearDamping(linearDamping);
         body->SetAngularDamping(angularDamping);
+
+        Joint* joint = ragdoll.bones[i].joint;
+        if (joint)
+        {
+            UserFlag::SetFlag(joint, UserFlag::hide_joint, hideJoint);
+        }
     }
 
     return ragdoll;

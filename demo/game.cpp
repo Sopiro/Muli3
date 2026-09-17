@@ -468,6 +468,38 @@ void Game::Render(float alpha)
                 );
             }
             break;
+            case Joint::swing_twist_joint:
+            {
+                const Body* bodyA = joint->GetBodyA();
+                const Body* bodyB = joint->GetBodyB();
+                const SwingTwistJoint* swingTwistJoint = (const SwingTwistJoint*)joint;
+                Transform transformA = GetRenderTransform(bodyA, alpha);
+                Transform transformB = GetRenderTransform(bodyB, alpha);
+                Vec3 anchorA = Mul(transformA, swingTwistJoint->GetLocalAnchorA());
+                Vec3 anchorB = Mul(transformB, swingTwistJoint->GetLocalAnchorB());
+                Vec3 anchor = (anchorA + anchorB) * 0.5f;
+                Vec3 axisA = transformA.q.Rotate(swingTwistJoint->GetLocalAxisA());
+                Vec3 axisB = transformB.q.Rotate(swingTwistJoint->GetLocalAxisB());
+                Vec3 refAxisA = transformA.q.Rotate(swingTwistJoint->GetLocalNormalAxisA());
+                Vec3 binormalA = Cross(axisA, refAxisA);
+                binormalA.Normalize();
+
+                renderer.DrawPoint(anchorA);
+                renderer.DrawPoint(anchorB);
+                renderer.DrawLine(anchorA, transformA.p);
+                renderer.DrawLine(anchorB, transformB.p);
+                renderer.DrawLine(anchorA, anchorB, Vec4{ 0.12f, 0.12f, 0.12f, 0.35f });
+
+                DrawConeLimit(renderer, anchor, axisA, swingTwistJoint->GetMaxSwingAngle(), 0.8f, Vec4{ 0.9f, 0.2f, 0.2f, 0.5f });
+                DrawAxis(renderer, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
+                DrawAxis(renderer, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
+                DrawTwistArc(
+                    renderer, anchor, axisA, refAxisA, binormalA, 0.45f, swingTwistJoint->GetMinTwistAngle(),
+                    swingTwistJoint->GetMaxTwistAngle(), swingTwistJoint->GetTwistAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
+                    Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
+                );
+            }
+            break;
             case Joint::universal_angle_joint:
             {
                 const Body* bodyA = joint->GetBodyA();
