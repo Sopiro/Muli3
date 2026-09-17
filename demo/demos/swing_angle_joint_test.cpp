@@ -62,6 +62,6 @@ static Demo* CreateSwingAngleJointDemo(Game& game)
     return new SwingAngleJointDemo(game);
 }
 
-static int32 swing_angle_joint = register_demo("Joints", "Swing angle joint", CreateSwingAngleJointDemo, 4);
+// static int32 swing_angle_joint = register_demo("Joints", "Swing angle joint", CreateSwingAngleJointDemo, 4);
 
 } // namespace muli3

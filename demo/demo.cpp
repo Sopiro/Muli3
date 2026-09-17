@@ -89,7 +89,10 @@ void Demo::EnableKeyboardShortcut()
     {
         options.body_draw_mode = (BodyDrawMode)((options.body_draw_mode + 1) % body_draw_mode_count);
     }
-    if (Input::IsKeyPressed(GLFW_KEY_L)) options.colorize_island = !options.colorize_island;
+    if (Input::IsKeyPressed(GLFW_KEY_L))
+    {
+        options.body_color_mode = (BodyColorMode)((options.body_color_mode + 1) % body_color_mode_count);
+    }
     if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
     if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
     if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;

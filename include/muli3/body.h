@@ -102,6 +102,7 @@ public:
     void Awake();
     void Sleep();
 
+    int32 GetWorldIndex() const;
     int32 GetIslandIndex() const;
 
     World* GetWorld();
@@ -529,6 +530,11 @@ inline void Body::SetSleeping(bool sleeping)
     {
         Awake();
     }
+}
+
+inline int32 Body::GetWorldIndex() const
+{
+    return worldIndex;
 }
 
 inline int32 Body::GetIslandIndex() const

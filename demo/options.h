@@ -13,10 +13,19 @@ enum BodyDrawMode
     body_draw_mode_count,
 };
 
+enum BodyColorMode
+{
+    body_color_none,
+    body_color_island_index,
+    body_color_world_index,
+    body_color_mode_count,
+};
+
 struct DebugOptions
 {
     bool pause = false;
     bool step = false;
+    BodyColorMode body_color_mode = body_color_island_index;
     BodyDrawMode body_draw_mode = body_draw_solid;
     bool draw_joint = true;
     bool show_bvh = false;
@@ -27,7 +36,6 @@ struct DebugOptions
     bool overlay_contact_point = false;
     bool overlay_contact_normal = false;
     bool reset_camera = false;
-    bool colorize_island = true;
 };
 
 namespace UserFlag

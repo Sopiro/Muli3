@@ -81,23 +81,20 @@ static Vec4 GetBodyColor(Renderer& renderer, const Body& body, const DebugOption
         return Renderer::default_white;
     }
 
-    if (options.colorize_island == false)
+    if (options.body_color_mode == body_color_none)
     {
-        return body.IsSleeping() ? Vec4{ 0.9f, 0.9f, 0.9f, Renderer::default_white.w } : Renderer::default_white;
+        return body.IsSleeping() ? Vec4{ 0.9f, 0.9f, 0.9f, 1.0f } : Renderer::default_white;
     }
 
     if (body.IsSleeping())
     {
         return Renderer::default_white;
     }
-
-    int32 colorIndex = body.GetIslandIndex();
-    if (colorIndex < 0)
+    else
     {
-        return Renderer::default_white;
+        int32 colorIndex = options.body_color_mode == body_color_world_index ? body.GetWorldIndex() : body.GetIslandIndex();
+        return colorIndex < 0 ? Renderer::default_white : renderer.GetColor(colorIndex);
     }
-
-    return renderer.GetColor(colorIndex);
 }
 
 static Vec4 GetContactColor(const Contact* contact)
@@ -811,13 +808,20 @@ void Game::UpdateUI()
                     ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.0f, 10.0f, "%.2f");
                     ImGui::Checkbox("Show Profiler", &options.show_profiler);
                     ImGui::Checkbox("Camera Reset", &options.reset_camera);
-                    ImGui::Checkbox("Colorize Island", &options.colorize_island);
+                    const char* bodyColorModes[] = { "None", "Island ID", "Body ID" };
+                    int32 bodyColorMode = (int32)options.body_color_mode;
+                    ImGui::Text("Color Mode (L)");
+                    ImGui::SetNextItemWidth(140.0f);
+                    if (ImGui::Combo("##Color Mode", &bodyColorMode, bodyColorModes, IM_ARRAYSIZE(bodyColorModes)))
+                    {
+                        options.body_color_mode = (BodyColorMode)bodyColorMode;
+                    }
                     ImGui::Checkbox("Draw Joint", &options.draw_joint);
                     const char* bodyDrawModes[] = { "Solid", "Solid + Wireframe", "Solid Wireframe", "Wireframe", "None" };
                     int32 bodyDrawMode = (int32)options.body_draw_mode;
-                    ImGui::Text("Draw Body");
+                    ImGui::Text("Draw Moce (O)");
                     ImGui::SetNextItemWidth(140.0f);
-                    if (ImGui::Combo("##Draw Body", &bodyDrawMode, bodyDrawModes, IM_ARRAYSIZE(bodyDrawModes)))
+                    if (ImGui::Combo("##Draw Moce (O)", &bodyDrawMode, bodyDrawModes, IM_ARRAYSIZE(bodyDrawModes)))
                     {
                         options.body_draw_mode = (BodyDrawMode)bodyDrawMode;
                     }

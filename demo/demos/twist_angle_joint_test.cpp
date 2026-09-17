@@ -85,6 +85,6 @@ static Demo* CreateTwistAngleJointDemo(Game& game)
     return new TwistAngleJointDemo(game);
 }
 
-static int32 twist_angle_joint = register_demo("Joints", "Twist angle joint", CreateTwistAngleJointDemo, 7);
+// static int32 twist_angle_joint = register_demo("Joints", "Twist angle joint", CreateTwistAngleJointDemo, 7);
 
 } // namespace muli3
