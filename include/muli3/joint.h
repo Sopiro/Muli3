@@ -12,19 +12,19 @@ class JointDestroyCallback;
 using Joints = TypePack<
     class FixedPositionJoint,
     class FixedRotationJoint,
-    class SwingAngleJoint,
-    class RevoluteJoint,
-    class RevoluteAngleJoint,
-    class UniversalAngleJoint,
-    class TwistAngleJoint,
-    class BallSocketJoint,
     class DistanceJoint,
-    class WeldJoint,
     class LineJoint,
     class PrismaticJoint,
+    class BallSocketJoint,
+    class SwingAngleJoint,
+    class TwistAngleJoint,
+    class SwingTwistJoint,
+    class RevoluteAngleJoint,
+    class RevoluteJoint,
+    class UniversalAngleJoint,
+    class WeldJoint,
     class PulleyJoint,
-    class MotorJoint,
-    class SwingTwistJoint>;
+    class MotorJoint>;
 
 class Joint : public DynamicDispatcher<Joints>
 {
@@ -70,19 +70,24 @@ public:
         // Order should match with Joints type pack
         fixed_position_joint,
         fixed_rotation_joint,
-        swing_angle_joint,
-        revolute_joint,
-        revolute_angle_joint,
-        universal_angle_joint,
-        twist_angle_joint,
-        ball_socket_joint,
+
         distance_joint,
-        weld_joint,
         line_joint,
         prismatic_joint,
+        ball_socket_joint,
+
+        swing_angle_joint,
+        twist_angle_joint,
+        swing_twist_joint,
+
+        revolute_angle_joint,
+        revolute_joint,
+
+        universal_angle_joint,
+
+        weld_joint,
         pulley_joint,
         motor_joint,
-        swing_twist_joint,
     };
 
     ~Joint();

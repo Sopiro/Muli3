@@ -84,24 +84,19 @@ void Demo::EnableKeyboardShortcut()
         return;
     }
 
-    if (Input::IsKeyPressed(GLFW_KEY_J)) options.draw_joint = !options.draw_joint;
-    if (Input::IsKeyPressed(GLFW_KEY_O))
-    {
-        options.body_draw_mode = (BodyDrawMode)((options.body_draw_mode + 1) % body_draw_mode_count);
-    }
-    if (Input::IsKeyPressed(GLFW_KEY_L))
-    {
-        options.body_color_mode = (BodyColorMode)((options.body_color_mode + 1) % body_color_mode_count);
-    }
-    if (Input::IsKeyPressed(GLFW_KEY_B)) options.show_aabb = !options.show_aabb;
-    if (Input::IsKeyPressed(GLFW_KEY_V)) options.show_bvh = !options.show_bvh;
-    if (Input::IsKeyPressed(GLFW_KEY_P)) options.show_contact_point = !options.show_contact_point;
-    if (Input::IsKeyPressed(GLFW_KEY_N)) options.show_contact_normal = !options.show_contact_normal;
-    if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
-    if (Input::IsKeyPressed(GLFW_KEY_F1)) options.show_profiler = !options.show_profiler;
     if (Input::IsKeyPressed(GLFW_KEY_Q)) options.pause = !options.pause;
     if (Input::IsKeyDown(GLFW_KEY_RIGHT) || Input::IsKeyPressed(GLFW_KEY_E)) options.step = true;
-
+    if (Input::IsKeyPressed(GLFW_KEY_F1)) options.show_profiler = !options.show_profiler;
+    if (Input::IsKeyPressed(GLFW_KEY_J)) options.draw_joint = !options.draw_joint;
+    if (Input::IsKeyPressed(GLFW_KEY_O))
+        options.body_draw_mode = (BodyDrawMode)((options.body_draw_mode + 1) % body_draw_mode_count);
+    if (Input::IsKeyPressed(GLFW_KEY_L))
+        options.body_color_mode = (BodyColorMode)((options.body_color_mode + 1) % body_color_mode_count);
+    if (Input::IsKeyPressed(GLFW_KEY_B)) options.draw_aabb = !options.draw_aabb;
+    if (Input::IsKeyPressed(GLFW_KEY_V)) options.draw_bvh = !options.draw_bvh;
+    if (Input::IsKeyPressed(GLFW_KEY_P)) options.draw_contact_point = !options.draw_contact_point;
+    if (Input::IsKeyPressed(GLFW_KEY_N)) options.draw_contact_normal = !options.draw_contact_normal;
+    if (Input::IsKeyPressed(GLFW_KEY_C)) options.reset_camera = !options.reset_camera;
     if (Input::IsKeyPressed(GLFW_KEY_G))
     {
         settings.apply_gravity = !settings.apply_gravity;

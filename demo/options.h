@@ -25,14 +25,14 @@ struct DebugOptions
 {
     bool pause = false;
     bool step = false;
+    bool show_profiler = false;
     BodyColorMode body_color_mode = body_color_island_index;
     BodyDrawMode body_draw_mode = body_draw_solid;
     bool draw_joint = true;
-    bool show_bvh = false;
-    bool show_aabb = false;
-    bool show_profiler = false;
-    bool show_contact_point = false;
-    bool show_contact_normal = false;
+    bool draw_bvh = false;
+    bool draw_aabb = false;
+    bool draw_contact_point = false;
+    bool draw_contact_normal = false;
     bool overlay_contact_point = false;
     bool overlay_contact_normal = false;
     bool reset_camera = false;

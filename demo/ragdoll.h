@@ -46,7 +46,7 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
     filter.group = -gruop;
 
     float linearDamping = 0.0f;
-    float angularDamping = 0.0f;
+    float angularDamping = 1.0f;
 
     float headX = 0.0f;
     float headY = 0.0f;

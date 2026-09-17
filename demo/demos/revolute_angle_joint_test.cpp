@@ -122,6 +122,6 @@ static Demo* CreateRevoluteAngleJointDemo(Game& game)
     return new RevoluteAngleJointDemo(game);
 }
 
-static int32 revolute_angle_joint = register_demo("Joints", "Revolute angle joint", CreateRevoluteAngleJointDemo, 6);
+// static int32 revolute_angle_joint = register_demo("Joints", "Revolute angle joint", CreateRevoluteAngleJointDemo, 6);
 
 } // namespace muli3

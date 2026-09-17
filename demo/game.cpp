@@ -31,7 +31,7 @@ Game::Game()
     workerCount = 8;
     RecreateThreadPool();
     renderItems.reserve(2048);
-    InitDemo(19);
+    InitDemo(34);
     Window::Get()->SetCursorHidden(false);
 }
 
@@ -681,11 +681,11 @@ void Game::Render(float alpha)
         }
     }
 
-    if (options.show_bvh || options.show_aabb)
+    if (options.draw_bvh || options.draw_aabb)
     {
         const AABBTree& tree = world.GetDynamicTree();
         tree.Traverse([&](const AABBTree::Node* node) -> void {
-            if (options.show_bvh == false && node->IsLeaf() == false)
+            if (options.draw_bvh == false && node->IsLeaf() == false)
             {
                 return;
             }
@@ -694,7 +694,7 @@ void Game::Render(float alpha)
         });
     }
 
-    if (options.show_contact_point || options.show_contact_normal)
+    if (options.draw_contact_point || options.draw_contact_normal)
     {
         const Vec4 normalColor{ 0.05f, 0.25f, 1.0f, 0.9f };
         for (const Contact* contact : world.GetContacts())
@@ -714,12 +714,12 @@ void Game::Render(float alpha)
                 {
                     const Vec3 p1 = (manifold.contactPoints[i].anchorA + manifold.contactPoints[i].anchorB) * 0.5f;
 
-                    if (options.show_contact_point)
+                    if (options.draw_contact_point)
                     {
                         renderer.DrawPoint(p1, pointColor);
                     }
 
-                    if (options.show_contact_normal)
+                    if (options.draw_contact_normal)
                     {
                         const Vec3 p2 = p1 + manifold.normal * 0.18f;
                         renderer.DrawLine(p1, p2, normalColor);
@@ -808,15 +808,15 @@ void Game::UpdateUI()
                 ImGui::Separator();
 
                 ImGui::SetNextItemOpen(false, ImGuiCond_Once);
-                if (ImGui::CollapsingHeader("Debug Options"))
+                if (ImGui::CollapsingHeader("Debug"))
                 {
                     ImGui::ColorEdit3("Sky Color", &skyColor.x);
                     ImGui::SliderFloat("Sky Intensity", &skyIntensity, 0.0f, 4.0f, "%.2f");
                     ImGui::ColorEdit3("Light Color", &lightColor.x);
                     ImGui::DragFloat3("Light Direction", &lightDirection.x, 0.01f, -1.0f, 1.0f, "%.2f");
                     ImGui::SliderFloat("Light Intensity", &lightIntensity, 0.0f, 10.0f, "%.2f");
-                    ImGui::Checkbox("Show Profiler", &options.show_profiler);
-                    ImGui::Checkbox("Camera Reset", &options.reset_camera);
+                    ImGui::Checkbox("Show Profiler (F1)", &options.show_profiler);
+                    ImGui::Checkbox("Camera Reset (C)", &options.reset_camera);
                     const char* bodyColorModes[] = { "None", "Island ID", "Body ID" };
                     int32 bodyColorMode = (int32)options.body_color_mode;
                     ImGui::Text("Color Mode (L)");
@@ -825,7 +825,7 @@ void Game::UpdateUI()
                     {
                         options.body_color_mode = (BodyColorMode)bodyColorMode;
                     }
-                    ImGui::Checkbox("Draw Joint", &options.draw_joint);
+                    ImGui::Checkbox("Draw Joint (J)", &options.draw_joint);
                     const char* bodyDrawModes[] = { "Solid", "Solid + Wireframe", "Solid Wireframe", "Wireframe", "None" };
                     int32 bodyDrawMode = (int32)options.body_draw_mode;
                     ImGui::Text("Draw Moce (O)");
@@ -834,18 +834,18 @@ void Game::UpdateUI()
                     {
                         options.body_draw_mode = (BodyDrawMode)bodyDrawMode;
                     }
-                    ImGui::Checkbox("Show BVH", &options.show_bvh);
-                    ImGui::Checkbox("Show AABB", &options.show_aabb);
-                    ImGui::Checkbox("Show Contact Point", &options.show_contact_point);
+                    ImGui::Checkbox("Draw BVH (V)", &options.draw_bvh);
+                    ImGui::Checkbox("Draw AABB (B)", &options.draw_aabb);
+                    ImGui::Checkbox("Draw Contact Point (P)", &options.draw_contact_point);
                     ImGui::SameLine();
                     ImGui::Checkbox("Overlay##Point", &options.overlay_contact_point);
-                    ImGui::Checkbox("Show Contact Normal", &options.show_contact_normal);
+                    ImGui::Checkbox("Draw Contact Normal (N)", &options.draw_contact_normal);
                     ImGui::SameLine();
                     ImGui::Checkbox("Overlay##Normal", &options.overlay_contact_normal);
                 }
 
                 ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-                if (ImGui::CollapsingHeader("Simulation Settings"))
+                if (ImGui::CollapsingHeader("Simulation"))
                 {
                     ImGui::Text("Solver Iterations");
                     ImGui::SetNextItemWidth(120);
