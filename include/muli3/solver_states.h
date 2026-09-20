@@ -52,7 +52,7 @@ struct ContactState
     Float friction;
     Float restitution;
     Float restitutionThreshold;
-    Vec2 surfaceSpeed;
+    Vec3 tangentVelocity;
 };
 
 enum SolverSetIndex

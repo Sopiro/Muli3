@@ -79,7 +79,7 @@ struct BlockContactState
     std::vector<FloatBlock> friction;
     std::vector<FloatBlock> restitution;
     std::vector<FloatBlock> restitutionThreshold;
-    std::vector<Vec2Block> surfaceSpeed;
+    std::vector<Vec3Block> tangentVelocity;
 
     std::vector<IntBlock> manifoldId;
     std::vector<FloatBlock> pointCount;

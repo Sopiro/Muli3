@@ -35,7 +35,7 @@ public:
     float GetFriction() const;
     float GetRestitution() const;
     float GetRestitutionThreshold() const;
-    Vec2 GetSurfaceSpeed() const;
+    Vec3 GetTangentVelocity() const;
 
 private:
     friend class World;

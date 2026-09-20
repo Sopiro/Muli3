@@ -49,7 +49,7 @@ void PrepareContactScalar(ContactState* state, ScalarContactConstraint* solver)
         constraint->frictionWB1 = Cross(rb, tangent1);
         constraint->frictionWA2 = Cross(ra, tangent2);
         constraint->frictionWB2 = Cross(rb, tangent2);
-        constraint->tangentBias = -state->surfaceSpeed;
+        constraint->tangentBias = { -Dot(state->tangentVelocity, tangent1), -Dot(state->tangentVelocity, tangent2) };
 
         for (int32 i = 0; i < manifold->contactCount; ++i)
         {

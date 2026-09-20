@@ -11,7 +11,7 @@ struct Material
     float friction = default_friction;
     float restitution = default_restitution;
     float restitutionThreshold = default_restitution_threshold;
-    Vec2 surfaceSpeed = default_surface_speed;
+    Vec3 tangentVelocity = default_tangent_velocity;
 };
 
 constexpr inline Material default_material{};

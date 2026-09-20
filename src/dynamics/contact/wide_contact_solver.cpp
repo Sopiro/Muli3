@@ -257,7 +257,9 @@ void PrepareContactBlock(BlockContactArray* contacts, SolverSet* solverSets, int
     FloatW k12 = AddW(Dot(wa1, Mul(invIA, wa2)), Dot(wb1, Mul(invIB, wb2)));
     FloatW k22 = AddW(AddW(bodyA.invMass, Dot(wa2, Mul(invIA, wa2))), AddW(bodyB.invMass, Dot(wb2, Mul(invIB, wb2))));
     StoreW(&constraint.linearMass[block], InverseW(k11, k12, k22));
-    StoreW(&constraint.tangentBias[block], -LoadW(state.surfaceSpeed[block]));
+
+    Vec3W tangentVelocity = LoadW(state.tangentVelocity[block]);
+    StoreW(&constraint.tangentBias[block], -Vec2W{ Dot(tangentVelocity, tangent1), Dot(tangentVelocity, tangent2) });
 
     FloatW zero = ZeroW();
     FloatW one = SplatW(1.0f);

@@ -32,7 +32,7 @@ inline constexpr float default_density = 1.0f;
 inline constexpr float default_friction = 0.5f;
 inline constexpr float default_restitution = 0.0f;
 inline constexpr float default_restitution_threshold = 2.0f;
-inline constexpr Vec2 default_surface_speed = Vec2{ 0.0f };
+inline constexpr Vec3 default_tangent_velocity = Vec3{ 0.0f };
 inline constexpr float default_linear_damping = 0.0f;
 inline constexpr float default_angular_damping = 0.0f;
 

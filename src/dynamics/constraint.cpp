@@ -4,20 +4,14 @@
 namespace muli3
 {
 
-static void SetLane(FloatBlock* block, int32 lane, Float value)
-{
-    block->lane[lane] = value;
-}
-
 static void SetLane(IntBlock* block, int32 lane, int32 value)
 {
     block->lane[lane] = value;
 }
 
-static void SetLane(Vec2Block* block, int32 lane, const Vec2& value)
+static void SetLane(FloatBlock* block, int32 lane, Float value)
 {
-    block->x.lane[lane] = value.x;
-    block->y.lane[lane] = value.y;
+    block->lane[lane] = value;
 }
 
 static void SetLane(Vec3Block* block, int32 lane, const Vec3& value)
@@ -35,11 +29,6 @@ static Float GetLane(const FloatBlock& block, int32 lane)
 static int32 GetLane(const IntBlock& block, int32 lane)
 {
     return block.lane[lane];
-}
-
-static Vec2 GetLane(const Vec2Block& block, int32 lane)
-{
-    return { block.x.lane[lane], block.y.lane[lane] };
 }
 
 static Vec3 GetLane(const Vec3Block& block, int32 lane)
@@ -73,7 +62,7 @@ void BlockContactState::Resize(int32 blockCount)
     ResizeBlocks(&friction, blockCount);
     ResizeBlocks(&restitution, blockCount);
     ResizeBlocks(&restitutionThreshold, blockCount);
-    ResizeBlocks(&surfaceSpeed, blockCount);
+    ResizeBlocks(&tangentVelocity, blockCount);
     ResizeBlocks(&manifoldId, blockCount);
     ResizeBlocks(&pointCount, blockCount);
     ResizeBlocks(&normal, blockCount);
@@ -214,7 +203,7 @@ int32 BlockContactArray::Add(Contact* contact, int32 setA, int32 indexA, int32 s
     SetLane(&state.friction[block], lane, inState.friction);
     SetLane(&state.restitution[block], lane, inState.restitution);
     SetLane(&state.restitutionThreshold[block], lane, inState.restitutionThreshold);
-    SetLane(&state.surfaceSpeed[block], lane, inState.surfaceSpeed);
+    SetLane(&state.tangentVelocity[block], lane, inState.tangentVelocity);
     SetLane(&state.manifoldId[block], lane, manifold.id);
     SetLane(&state.pointCount[block], lane, Float(manifold.contactCount));
     SetLane(&state.normal[block], lane, manifold.normal);
@@ -253,7 +242,7 @@ Contact* BlockContactArray::Remove(int32 index, ContactState* removed)
     removed->friction = GetLane(state.friction[block], lane);
     removed->restitution = GetLane(state.restitution[block], lane);
     removed->restitutionThreshold = GetLane(state.restitutionThreshold[block], lane);
-    removed->surfaceSpeed = GetLane(state.surfaceSpeed[block], lane);
+    removed->tangentVelocity = GetLane(state.tangentVelocity[block], lane);
 
     Manifold& manifold = removed->manifolds.emplace_back();
     manifold.id = GetLane(state.manifoldId[block], lane);
@@ -288,7 +277,7 @@ Contact* BlockContactArray::Remove(int32 index, ContactState* removed)
         CopyLane(&state.friction, index, last);
         CopyLane(&state.restitution, index, last);
         CopyLane(&state.restitutionThreshold, index, last);
-        CopyLane(&state.surfaceSpeed, index, last);
+        CopyLane(&state.tangentVelocity, index, last);
         CopyLane(&state.manifoldId, index, last);
         CopyLane(&state.pointCount, index, last);
         CopyLane(&state.normal, index, last);

@@ -6,7 +6,7 @@
 namespace muli3
 {
 
-static float surfaceSpeed = 4.0f;
+static float tangentSpeed = 4.0f;
 static bool spawn = true;
 
 class ConveyorBelt : public Demo
@@ -39,10 +39,11 @@ public:
             tf3 = rot * tf3;
         }
 
-        belt[0]->SetSurfaceSpeed({ surfaceSpeed, 0 });
-        belt[1]->SetSurfaceSpeed({ 0, -surfaceSpeed });
-        belt[2]->SetSurfaceSpeed({ -surfaceSpeed, 0 });
-        belt[3]->SetSurfaceSpeed({ 0, surfaceSpeed });
+        // Tangent velocity is in body's local space
+        for (int32 i = 0; i < 4; ++i)
+        {
+            belt[i]->SetTangentVelocity({ tangentSpeed, 0.0f, 0.0f });
+        }
 
         camera.SetPosition(Vec3{ 0.0f, 8.0f, 15.0f });
         camera.SetRotation(0.0f, -30.0f);
@@ -88,12 +89,12 @@ public:
 
         if (ImGui::Begin("ConveyorBelt", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            if (ImGui::SliderFloat("Surface speed", &surfaceSpeed, 0.0f, 10.0f, "%.1f"))
+            if (ImGui::SliderFloat("Surface speed", &tangentSpeed, 0.0f, 10.0f, "%.1f"))
             {
-                belt[0]->SetSurfaceSpeed({ surfaceSpeed, 0 });
-                belt[1]->SetSurfaceSpeed({ 0, -surfaceSpeed });
-                belt[2]->SetSurfaceSpeed({ -surfaceSpeed, 0 });
-                belt[3]->SetSurfaceSpeed({ 0, surfaceSpeed });
+                for (int32 i = 0; i < 4; ++i)
+                {
+                    belt[i]->SetTangentVelocity({ tangentSpeed, 0.0f, 0.0f });
+                }
 
                 world->Awake();
             }

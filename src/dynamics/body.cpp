@@ -711,11 +711,11 @@ void Body::SetRestitutionThreshold(float threshold) const
     }
 }
 
-void Body::SetSurfaceSpeed(const Vec2& surfaceSpeed) const
+void Body::SetTangentVelocity(const Vec3& tangentVelocity) const
 {
     for (Collider* collider : colliders)
     {
-        collider->SetSurfaceSpeed(surfaceSpeed);
+        collider->SetTangentVelocity(tangentVelocity);
     }
 }
 

@@ -194,18 +194,23 @@ float Contact::GetRestitutionThreshold() const
     }
 }
 
-Vec2 Contact::GetSurfaceSpeed() const
+Vec3 Contact::GetTangentVelocity() const
 {
     if (IsSimpleContact())
     {
         const BlockContactState& state = colliderA->body->world->constraintGraph.batches[colorIndex].blockContacts.state;
         int32 block = localIndex / simd_width;
         int32 lane = localIndex % simd_width;
-        return { state.surfaceSpeed[block].x.lane[lane], state.surfaceSpeed[block].y.lane[lane] };
+
+        return {
+            state.tangentVelocity[block].x.lane[lane],
+            state.tangentVelocity[block].y.lane[lane],
+            state.tangentVelocity[block].z.lane[lane],
+        };
     }
     else
     {
-        return GetContactState()->surfaceSpeed;
+        return GetContactState()->tangentVelocity;
     }
 }
 
@@ -317,14 +322,15 @@ void Contact::Update()
     bool wasTouching = (flag & Contact::flag_touching) == Contact::flag_touching;
     flag = wasTouching ? flag | Contact::flag_was_touching : flag & ~Contact::flag_was_touching;
 
+    Body* bodyA = colliderA->GetBody();
+    Body* bodyB = colliderB->GetBody();
+
     float friction = MixFriction(colliderA->GetFriction(), colliderB->GetFriction());
     float restitution = MixRestitution(colliderA->GetRestitution(), colliderB->GetRestitution());
     float restitutionThreshold =
         MixRestitutionThreshold(colliderA->GetRestitutionThreshold(), colliderB->GetRestitutionThreshold());
-    Vec2 surfaceSpeed = colliderB->GetSurfaceSpeed() + colliderA->GetSurfaceSpeed();
-
-    Body* bodyA = colliderA->GetBody();
-    Body* bodyB = colliderB->GetBody();
+    Vec3 tangentVelocity =
+        bodyA->transform.q.Rotate(colliderA->GetTangentVelocity()) - bodyB->transform.q.Rotate(colliderB->GetTangentVelocity());
 
     if (IsSimpleContact())
     {
@@ -336,8 +342,9 @@ void Contact::Update()
         state.friction[block].lane[lane] = friction;
         state.restitution[block].lane[lane] = restitution;
         state.restitutionThreshold[block].lane[lane] = restitutionThreshold;
-        state.surfaceSpeed[block].x.lane[lane] = surfaceSpeed.x;
-        state.surfaceSpeed[block].y.lane[lane] = surfaceSpeed.y;
+        state.tangentVelocity[block].x.lane[lane] = tangentVelocity.x;
+        state.tangentVelocity[block].y.lane[lane] = tangentVelocity.y;
+        state.tangentVelocity[block].z.lane[lane] = tangentVelocity.z;
 
         Manifold oldManifold = ReadBlockManifold(state, block, lane);
         Manifold manifold{};
@@ -360,7 +367,7 @@ void Contact::Update()
         state.friction = friction;
         state.restitution = restitution;
         state.restitutionThreshold = restitutionThreshold;
-        state.surfaceSpeed = surfaceSpeed;
+        state.tangentVelocity = tangentVelocity;
 
         GrowableStack<Manifold, 4> oldManifolds;
         int32 oldManifoldCount = state.manifolds.size();

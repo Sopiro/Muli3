@@ -39,8 +39,8 @@ public:
     void SetRestitution(float restitution);
     float GetRestitutionThreshold() const;
     void SetRestitutionThreshold(float threshold);
-    Vec2 GetSurfaceSpeed() const;
-    void SetSurfaceSpeed(const Vec2& surfaceSpeed);
+    Vec3 GetTangentVelocity() const;
+    void SetTangentVelocity(const Vec3& tangentVelocity);
 
     const CollisionFilter& GetFilter() const;
     void SetFilter(const CollisionFilter& filter);
@@ -174,14 +174,14 @@ inline void Collider::SetRestitutionThreshold(float newRestitutionThreshold)
     material.restitutionThreshold = newRestitutionThreshold;
 }
 
-inline Vec2 Collider::GetSurfaceSpeed() const
+inline Vec3 Collider::GetTangentVelocity() const
 {
-    return material.surfaceSpeed;
+    return material.tangentVelocity;
 }
 
-inline void Collider::SetSurfaceSpeed(const Vec2& newSurfaceSpeed)
+inline void Collider::SetTangentVelocity(const Vec3& newTangentVelocity)
 {
-    material.surfaceSpeed = newSurfaceSpeed;
+    material.tangentVelocity = newTangentVelocity;
 }
 
 inline const CollisionFilter& Collider::GetFilter() const
