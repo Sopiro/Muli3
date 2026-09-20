@@ -65,17 +65,21 @@ public:
                 float f = Rand() * 10;
                 Vec3 p = RandVec3({ -1, -1, -1 }, { 1, 1, 1 }) + Vec3{ -r / 2, 5, -r / 2 };
 
-                if (f < 5)
+                if (f < 4)
                 {
                     world->CreateBox(0.5f, p);
                 }
-                else if (f < 8)
+                else if (f < 7)
                 {
                     world->CreateSphere(0.5f / 2.0f, p);
                 }
-                else
+                else if (f < 9)
                 {
                     world->CreateCapsule(0.5f, 0.25f, p);
+                }
+                else
+                {
+                    world->CreateCylinder(0.5f, 0.25f, 0.25f, 8, p);
                 }
             }
 
@@ -87,7 +91,7 @@ public:
     {
         ImGui::SetNextWindowPos({ Window::Get()->GetWindowSize().x - 5.0f, 5.0f }, ImGuiCond_Always, { 1.0f, 0.0f });
 
-        if (ImGui::Begin("ConveyorBelt", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
+        if (ImGui::Begin("Conveyor Belt", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             if (ImGui::SliderFloat("Surface speed", &tangentSpeed, 0.0f, 10.0f, "%.1f"))
             {
