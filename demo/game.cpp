@@ -455,8 +455,8 @@ void Game::Render(float alpha)
                 Vec3 axisA = transformA.q.Rotate(revoluteJoint->GetLocalAxisA());
                 Vec3 axisB = transformB.q.Rotate(revoluteJoint->GetLocalAxisB());
                 Vec3 refAxisA = transformA.q.Rotate(revoluteJoint->GetLocalNormalAxisA());
-                Vec3 binormalA = Cross(axisA, refAxisA);
-                binormalA.Normalize();
+                Vec3 tangentA = Cross(axisA, refAxisA);
+                tangentA.Normalize();
 
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
@@ -468,7 +468,7 @@ void Game::Render(float alpha)
                 DrawAxis(renderer, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
                 DrawAxis(renderer, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
                 DrawTwistArc(
-                    renderer, anchor, axisA, refAxisA, binormalA, 0.45f, revoluteJoint->GetJointMinAngle(),
+                    renderer, anchor, axisA, refAxisA, tangentA, 0.45f, revoluteJoint->GetJointMinAngle(),
                     revoluteJoint->GetJointMaxAngle(), revoluteJoint->GetJointAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
                     Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
                 );
@@ -486,9 +486,9 @@ void Game::Render(float alpha)
                 Vec3 anchor = (anchorA + anchorB) * 0.5f;
                 Vec3 axisA = transformA.q.Rotate(swingTwistJoint->GetLocalAxisA());
                 Vec3 axisB = transformB.q.Rotate(swingTwistJoint->GetLocalAxisB());
-                Vec3 refAxisA = transformA.q.Rotate(swingTwistJoint->GetLocalNormalAxisA());
-                Vec3 binormalA = Cross(axisA, refAxisA);
-                binormalA.Normalize();
+                Vec3 refAxisA = transformA.q.Rotate(swingTwistJoint->GetLocalReferenceAxisA());
+                Vec3 tangentA = Cross(axisA, refAxisA);
+                tangentA.Normalize();
 
                 renderer.DrawPoint(anchorA);
                 renderer.DrawPoint(anchorB);
@@ -500,7 +500,7 @@ void Game::Render(float alpha)
                 DrawAxis(renderer, anchor, axisA, 0.55f, Vec4{ 0.95f, 0.3f, 0.2f, 0.55f });
                 DrawAxis(renderer, anchor, axisB, 0.45f, Vec4{ 0.2f, 0.85f, 0.2f, 0.8f });
                 DrawTwistArc(
-                    renderer, anchor, axisA, refAxisA, binormalA, 0.45f, swingTwistJoint->GetMinTwistAngle(),
+                    renderer, anchor, axisA, refAxisA, tangentA, 0.45f, swingTwistJoint->GetMinTwistAngle(),
                     swingTwistJoint->GetMaxTwistAngle(), swingTwistJoint->GetTwistAngle(), Vec4{ 0.95f, 0.3f, 0.2f, 0.55f },
                     Vec4{ 0.15f, 0.45f, 1.0f, 0.85f }
                 );

@@ -303,14 +303,26 @@ public:
     float GetJointMaxAngle() const;
     void SetJointMaxAngle(float newMaxAngle);
 
+    float GetMaxFrictionTorque() const;
+    void SetMaxFrictionTorque(float torque);
+
 private:
     float frequency;
     float dampingRatio;
 
     Vec3 localAxisA;
     Vec3 localAxisB;
+    Vec3 localRefAxisB;
+
     float maxAngle;
     float currentAngle;
+
+    Vec3 refAxis1;
+    Vec3 refAxis2;
+
+    Mat2 frictionM;
+    Vec2 frictionImpulseSum;
+    float maxFrictionTorque;
 
     Vec3 swingAxis;
     float m;
@@ -321,6 +333,7 @@ private:
     int32 limitState;
 
     void ApplyImpulse(float lambda);
+    void ApplyFrictionImpulse(const Vec2& lambda);
 };
 
 // Twist limit constraint: constrains the relative angle around a shared reference axis
@@ -353,19 +366,26 @@ public:
     float GetJointMaxAngle() const;
     void SetJointMaxAngle(float newMaxAngle);
 
+    float GetMaxFrictionTorque() const;
+    void SetMaxFrictionTorque(float torque);
+
 private:
     float frequency;
     float dampingRatio;
 
     Vec3 localAxisA;
     Vec3 localAxisB;
-    Vec3 localNormalAxisA;
-    Vec3 localNormalAxisB;
+    Vec3 localRefAxisA;
+    Vec3 localRefAxisB;
 
     float angleOffset;
     float minAngle;
     float maxAngle;
     float currentAngle;
+
+    float frictionM;
+    float frictionImpulseSum;
+    float maxFrictionTorque;
 
     Vec3 twistAxis;
     float angleM;
@@ -421,8 +441,8 @@ public:
     const Vec3& GetLocalAnchorB() const;
     const Vec3& GetLocalAxisA() const;
     const Vec3& GetLocalAxisB() const;
-    const Vec3& GetLocalNormalAxisA() const;
-    const Vec3& GetLocalNormalAxisB() const;
+    const Vec3& GetLocalReferenceAxisA() const;
+    const Vec3& GetLocalReferenceAxisB() const;
 
     // Current angles are updated during Prepare, like the standalone angular joints.
     float GetSwingAngle() const;
@@ -434,6 +454,11 @@ public:
     void SetMinTwistAngle(float newMinAngle);
     float GetMaxTwistAngle() const;
     void SetMaxTwistAngle(float newMaxAngle);
+
+    float GetMaxSwingFrictionTorque() const;
+    void SetMaxSwingFrictionTorque(float torque);
+    float GetMaxTwistFrictionTorque() const;
+    void SetMaxTwistFrictionTorque(float torque);
 
 private:
     float linearFrequency;
@@ -447,13 +472,25 @@ private:
     Vec3 localAnchorB;
     Vec3 localAxisA;
     Vec3 localAxisB;
-    Vec3 localNormalAxisA;
-    Vec3 localNormalAxisB;
+    Vec3 localRefAxisA;
+    Vec3 localRefAxisB;
+
     float maxSwingAngle;
     float minTwistAngle;
     float maxTwistAngle;
     float swingAngle;
     float twistAngle;
+
+    Vec3 refAxis1;
+    Vec3 refAxis2;
+
+    Mat2 swingFrictionM;
+    Vec2 swingFrictionImpulseSum;
+    float maxSwingFrictionTorque;
+
+    float twistFrictionM;
+    float twistFrictionImpulseSum;
+    float maxTwistFrictionTorque;
 
     Vec3 ra;
     Vec3 rb;

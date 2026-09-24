@@ -54,6 +54,14 @@ SwingTwistJoint::SwingTwistJoint(
     , maxTwistAngle{ Max(minTwistAngle, maxTwistAngle) }
     , swingAngle{ 0.0f }
     , twistAngle{ 0.0f }
+    , refAxis1{ 0.0f, 0.0f, 0.0f }
+    , refAxis2{ 0.0f, 0.0f, 0.0f }
+    , swingFrictionM{ 0.0f }
+    , swingFrictionImpulseSum{ 0.0f, 0.0f }
+    , maxSwingFrictionTorque{ 0.0f }
+    , twistFrictionM{ 0.0f }
+    , twistFrictionImpulseSum{ 0.0f }
+    , maxTwistFrictionTorque{ 0.0f }
     , linearImpulseSum{ 0.0f, 0.0f, 0.0f }
     , linearBeta{ 0.0f }
     , linearGamma{ 0.0f }
@@ -74,15 +82,15 @@ SwingTwistJoint::SwingTwistJoint(
 {
     Vec3 worldAxis = Length2(axis) > epsilon ? Normalize(axis) : y_axis;
 
-    Vec3 normalAxis;
-    CoordinateSystem(worldAxis, &normalAxis);
+    Vec3 refAxis;
+    CoordinateSystem(worldAxis, &refAxis);
 
     localAnchorA = MulT(bodyA->GetTransform(), anchor);
     localAnchorB = MulT(bodyB->GetTransform(), anchor);
     localAxisA = bodyA->GetRotation().RotateInv(worldAxis);
     localAxisB = bodyB->GetRotation().RotateInv(worldAxis);
-    localNormalAxisA = bodyA->GetRotation().RotateInv(normalAxis);
-    localNormalAxisB = bodyB->GetRotation().RotateInv(normalAxis);
+    localRefAxisA = bodyA->GetRotation().RotateInv(refAxis);
+    localRefAxisB = bodyB->GetRotation().RotateInv(refAxis);
 }
 
 void SwingTwistJoint::Prepare(const Timestep& step)
@@ -115,8 +123,31 @@ void SwingTwistJoint::Prepare(const Timestep& step)
 
     Vec3 axisA = bodyA->GetRotation().Rotate(localAxisA);
     Vec3 axisB = bodyB->GetRotation().Rotate(localAxisB);
-    Vec3 refAxisA = bodyA->GetRotation().Rotate(localNormalAxisA);
-    Vec3 refAxisB = bodyB->GetRotation().Rotate(localNormalAxisB);
+    Vec3 refAxisA = bodyA->GetRotation().Rotate(localRefAxisA);
+    Vec3 refAxisB = bodyB->GetRotation().Rotate(localRefAxisB);
+
+    if (maxSwingFrictionTorque > 0.0f)
+    {
+        refAxis1 = refAxisB;
+        refAxis2 = Cross(axisB, refAxisB);
+
+        float k11 = Dot(refAxis1, s->invIA * refAxis1) + Dot(refAxis1, s->invIB * refAxis1);
+        float k12 = Dot(refAxis1, s->invIA * refAxis2) + Dot(refAxis1, s->invIB * refAxis2);
+        float k22 = Dot(refAxis2, s->invIA * refAxis2) + Dot(refAxis2, s->invIB * refAxis2);
+
+        Mat2 K = Mat2{ Vec2{ k11, k12 }, Vec2{ k12, k22 } };
+        swingFrictionM = K.GetInverse();
+
+        float maxImpulse = maxSwingFrictionTorque * step.dt;
+        if (Length2(swingFrictionImpulseSum) > maxImpulse * maxImpulse)
+        {
+            swingFrictionImpulseSum = Normalize(swingFrictionImpulseSum) * maxImpulse;
+        }
+    }
+    else
+    {
+        swingFrictionImpulseSum = Vec2::zero;
+    }
 
     float axisDot = Clamp(Dot(axisA, axisB), -1.0f, 1.0f);
     swingAngle = std::acos(axisDot);
@@ -207,9 +238,20 @@ void SwingTwistJoint::Prepare(const Timestep& step)
         }
     }
 
+    float twistK = 0.0f;
+    if (maxTwistFrictionTorque > 0.0f || twistLimitState != twist_limit_inactive)
+    {
+        twistK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
+    }
+
+    if (maxTwistFrictionTorque > 0.0f)
+    {
+        twistFrictionM = twistK != 0.0f ? 1.0f / twistK : 0.0f;
+    }
+
     if (twistLimitState != twist_limit_inactive)
     {
-        float k = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
+        float k = twistK;
         ComputeBetaAndGamma(&twistBeta, &twistGamma, twistFrequency, twistDampingRatio, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
 
         k += twistGamma;
@@ -218,11 +260,29 @@ void SwingTwistJoint::Prepare(const Timestep& step)
     }
 
     twistImpulseSum = ClampTwistImpulse(twistImpulseSum, twistLimitState);
+
+    if (maxTwistFrictionTorque == 0.0f || twistLimitState == twist_limit_equal)
+    {
+        twistFrictionImpulseSum = 0.0f;
+    }
+    else
+    {
+        float maxImpulse = maxTwistFrictionTorque * step.dt;
+        twistFrictionImpulseSum = Clamp(twistFrictionImpulseSum, -maxImpulse, maxImpulse);
+    }
 }
 
 void SwingTwistJoint::WarmStart()
 {
     ApplyLinearImpulse(linearImpulseSum);
+    if (maxSwingFrictionTorque > 0.0f)
+    {
+        ApplyAngularImpulse(refAxis1 * swingFrictionImpulseSum.x + refAxis2 * swingFrictionImpulseSum.y);
+    }
+    if (maxTwistFrictionTorque > 0.0f && twistLimitState != twist_limit_equal)
+    {
+        ApplyAngularImpulse(twistAxis * twistFrictionImpulseSum);
+    }
     if (swingLimitActive || twistLimitState != twist_limit_inactive)
     {
         ApplyAngularImpulse(swingAxis * swingImpulseSum + twistAxis * twistImpulseSum);
@@ -231,7 +291,6 @@ void SwingTwistJoint::WarmStart()
 
 void SwingTwistJoint::SolveVelocityConstraints(const Timestep& step)
 {
-    MuliNotUsed(step);
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
@@ -240,6 +299,36 @@ void SwingTwistJoint::SolveVelocityConstraints(const Timestep& step)
     Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
     ApplyLinearImpulse(linearLambda);
     linearImpulseSum += linearLambda;
+
+    if (maxSwingFrictionTorque > 0.0f)
+    {
+        Vec3 relativeAngularVelocity = sB->angularVelocity - sA->angularVelocity;
+        Vec2 jv{ Dot(refAxis1, relativeAngularVelocity), Dot(refAxis2, relativeAngularVelocity) };
+        Vec2 lambda = Mul(swingFrictionM, -jv);
+        Vec2 newImpulseSum = swingFrictionImpulseSum + lambda;
+        float maxImpulse = maxSwingFrictionTorque * step.dt;
+
+        if (Length2(newImpulseSum) > maxImpulse * maxImpulse)
+        {
+            newImpulseSum = Normalize(newImpulseSum) * maxImpulse;
+        }
+
+        lambda = newImpulseSum - swingFrictionImpulseSum;
+        swingFrictionImpulseSum = newImpulseSum;
+        ApplyAngularImpulse(refAxis1 * lambda.x + refAxis2 * lambda.y);
+    }
+
+    if (maxTwistFrictionTorque > 0.0f && twistLimitState != twist_limit_equal)
+    {
+        float jv = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
+        float lambda = -twistFrictionM * jv;
+        float maxImpulse = maxTwistFrictionTorque * step.dt;
+        float newImpulseSum = Clamp(twistFrictionImpulseSum + lambda, -maxImpulse, maxImpulse);
+
+        lambda = newImpulseSum - twistFrictionImpulseSum;
+        twistFrictionImpulseSum = newImpulseSum;
+        ApplyAngularImpulse(twistAxis * lambda);
+    }
 
     if (swingLimitActive)
     {
@@ -374,14 +463,14 @@ const Vec3& SwingTwistJoint::GetLocalAxisB() const
     return localAxisB;
 }
 
-const Vec3& SwingTwistJoint::GetLocalNormalAxisA() const
+const Vec3& SwingTwistJoint::GetLocalReferenceAxisA() const
 {
-    return localNormalAxisA;
+    return localRefAxisA;
 }
 
-const Vec3& SwingTwistJoint::GetLocalNormalAxisB() const
+const Vec3& SwingTwistJoint::GetLocalReferenceAxisB() const
 {
-    return localNormalAxisB;
+    return localRefAxisB;
 }
 
 float SwingTwistJoint::GetSwingAngle() const
@@ -434,6 +523,34 @@ void SwingTwistJoint::SetMaxTwistAngle(float newMaxAngle)
     maxTwistAngle = newMaxAngle;
     minTwistAngle = Min(minTwistAngle, maxTwistAngle);
     twistImpulseSum = 0.0f;
+}
+
+float SwingTwistJoint::GetMaxSwingFrictionTorque() const
+{
+    return maxSwingFrictionTorque;
+}
+
+void SwingTwistJoint::SetMaxSwingFrictionTorque(float torque)
+{
+    maxSwingFrictionTorque = Max(torque, 0.0f);
+    if (maxSwingFrictionTorque == 0.0f)
+    {
+        swingFrictionImpulseSum = Vec2::zero;
+    }
+}
+
+float SwingTwistJoint::GetMaxTwistFrictionTorque() const
+{
+    return maxTwistFrictionTorque;
+}
+
+void SwingTwistJoint::SetMaxTwistFrictionTorque(float torque)
+{
+    maxTwistFrictionTorque = Max(torque, 0.0f);
+    if (maxTwistFrictionTorque == 0.0f)
+    {
+        twistFrictionImpulseSum = 0.0f;
+    }
 }
 
 } // namespace muli3
