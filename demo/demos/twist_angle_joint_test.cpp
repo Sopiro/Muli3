@@ -9,6 +9,7 @@ static float twistMinAngle = -35.0f;
 static float twistMaxAngle = 35.0f;
 static float twistFrequency = 20.0f;
 static float twistDampingRatio = 1.0f;
+static float twistFrictionTorque = 0.0f;
 
 class TwistAngleJointDemo : public Demo
 {
@@ -34,6 +35,7 @@ public:
         joint = world->CreateTwistAngleJoint(
             base, arm, y_axis, DegToRad(twistMinAngle), DegToRad(twistMaxAngle), twistFrequency, twistDampingRatio
         );
+        joint->SetMaxFrictionTorque(twistFrictionTorque);
 
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
         camera.SetRotation(0.0f, 0.0f);
@@ -71,6 +73,12 @@ public:
             if (ImGui::SliderFloat("Damping ratio", &twistDampingRatio, 0.0f, 1.0f, "%.2f"))
             {
                 game.RestartDemo();
+            }
+
+            if (ImGui::SliderFloat("Max friction torque", &twistFrictionTorque, 0.0f, 20.0f, "%.1f"))
+            {
+                joint->SetMaxFrictionTorque(twistFrictionTorque);
+                joint->GetBodyB()->Awake();
             }
         }
         ImGui::End();

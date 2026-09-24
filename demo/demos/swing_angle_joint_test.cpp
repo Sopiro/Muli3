@@ -8,6 +8,7 @@ namespace muli3
 static float swingAngle = 35.0f;
 static float swingFrequency = 20.0f;
 static float swingDampingRatio = 1.0f;
+static float swingFrictionTorque = 0.0f;
 
 class SwingAngleJointDemo : public Demo
 {
@@ -25,7 +26,8 @@ public:
         arm->CreateBoxCollider(0.15f, 0.15f, 0.75f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
 
         world->CreateBallSocketJoint(base, arm, base->GetPosition(), -1.0f);
-        world->CreateSwingAngleJoint(base, arm, -y_axis, DegToRad(swingAngle), swingFrequency, swingDampingRatio);
+        joint = world->CreateSwingAngleJoint(base, arm, -y_axis, DegToRad(swingAngle), swingFrequency, swingDampingRatio);
+        joint->SetMaxFrictionTorque(swingFrictionTorque);
 
         camera.SetPosition(Vec3{ 0.0f, 4.8f, 8.5f });
         camera.SetRotation(0.0f, -15.0f);
@@ -52,9 +54,18 @@ public:
             {
                 game.RestartDemo();
             }
+
+            if (ImGui::SliderFloat("Max friction torque", &swingFrictionTorque, 0.0f, 20.0f, "%.1f"))
+            {
+                joint->SetMaxFrictionTorque(swingFrictionTorque);
+                joint->GetBodyB()->Awake();
+            }
         }
         ImGui::End();
     }
+
+private:
+    SwingAngleJoint* joint;
 };
 
 static Demo* CreateSwingAngleJointDemo(Game& game)

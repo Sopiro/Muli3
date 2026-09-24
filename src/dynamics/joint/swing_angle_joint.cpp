@@ -29,6 +29,11 @@ SwingAngleJoint::SwingAngleJoint(
     , dampingRatio{ Max(dampingRatio, 0.0f) }
     , maxAngle{ Clamp(jointMaxAngle, 0.0f, pi) }
     , currentAngle{ 0.0f }
+    , frictionAxis1{ 0.0f, 0.0f, 0.0f }
+    , frictionAxis2{ 0.0f, 0.0f, 0.0f }
+    , frictionM{ 0.0f }
+    , frictionImpulseSum{ 0.0f, 0.0f }
+    , maxFrictionTorque{ 0.0f }
     , m{ 0.0f }
     , bias{ 0.0f }
     , impulseSum{ 0.0f }
@@ -37,9 +42,12 @@ SwingAngleJoint::SwingAngleJoint(
     , limitState{ swing_limit_inactive }
 {
     Vec3 axis = Length2(worldAxis) > epsilon ? Normalize(worldAxis) : y_axis;
+    Vec3 normalAxis;
+    CoordinateSystem(axis, &normalAxis);
 
     localAxisA = bodyA->GetRotation().RotateInv(axis);
     localAxisB = bodyB->GetRotation().RotateInv(axis);
+    localNormalAxisB = bodyB->GetRotation().RotateInv(normalAxis);
 }
 
 void SwingAngleJoint::Prepare(const Timestep& step)
@@ -64,6 +72,41 @@ void SwingAngleJoint::Prepare(const Timestep& step)
         limitState = swing_limit_inactive;
     }
 
+    if (limitState == swing_limit_inactive && maxFrictionTorque == 0.0f)
+    {
+        bias = 0.0f;
+        impulseSum = 0.0f;
+        frictionImpulseSum = Vec2::zero;
+        swingAxis = Vec3::zero;
+        m = 0.0f;
+        return;
+    }
+
+    s->invIA = bodyA->GetWorldInverseInertiaTensor();
+    s->invIB = bodyB->GetWorldInverseInertiaTensor();
+
+    if (maxFrictionTorque > 0.0f)
+    {
+        frictionAxis1 = bodyB->GetRotation().Rotate(localNormalAxisB);
+        frictionAxis2 = Cross(axisB, frictionAxis1);
+
+        float k11 = Dot(frictionAxis1, s->invIA * frictionAxis1) + Dot(frictionAxis1, s->invIB * frictionAxis1);
+        float k12 = Dot(frictionAxis1, s->invIA * frictionAxis2) + Dot(frictionAxis1, s->invIB * frictionAxis2);
+        float k22 = Dot(frictionAxis2, s->invIA * frictionAxis2) + Dot(frictionAxis2, s->invIB * frictionAxis2);
+        Mat2 K = Mat2{ Vec2{ k11, k12 }, Vec2{ k12, k22 } };
+        frictionM = K.GetInverse();
+
+        float maxImpulse = maxFrictionTorque * step.dt;
+        if (Length2(frictionImpulseSum) > maxImpulse * maxImpulse)
+        {
+            frictionImpulseSum = Normalize(frictionImpulseSum) * maxImpulse;
+        }
+    }
+    else
+    {
+        frictionImpulseSum = Vec2::zero;
+    }
+
     if (limitState == swing_limit_inactive)
     {
         bias = 0.0f;
@@ -85,9 +128,6 @@ void SwingAngleJoint::Prepare(const Timestep& step)
         swingAxis = axis;
     }
 
-    s->invIA = bodyA->GetWorldInverseInertiaTensor();
-    s->invIB = bodyB->GetWorldInverseInertiaTensor();
-
     // K = J * M^-1 * J^T for the one-dimensional angular constraint.
     float k = Dot(swingAxis, s->invIA * swingAxis) + Dot(swingAxis, s->invIB * swingAxis);
     ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, k > 0.0f ? 1.0f / k : 0.0f, step.dt);
@@ -102,15 +142,32 @@ void SwingAngleJoint::Prepare(const Timestep& step)
 
 void SwingAngleJoint::WarmStart()
 {
+    ApplyFrictionImpulse(frictionImpulseSum);
     ApplyImpulse(impulseSum);
 }
 
 void SwingAngleJoint::SolveVelocityConstraints(const Timestep& step)
 {
-    MuliNotUsed(step);
-
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
+
+    if (maxFrictionTorque > 0.0f)
+    {
+        Vec3 relativeAngularVelocity = sB->angularVelocity - sA->angularVelocity;
+        Vec2 jv{ Dot(frictionAxis1, relativeAngularVelocity), Dot(frictionAxis2, relativeAngularVelocity) };
+        Vec2 lambda = Mul(frictionM, -jv);
+        Vec2 newImpulseSum = frictionImpulseSum + lambda;
+        float maxImpulse = maxFrictionTorque * step.dt;
+
+        if (Length2(newImpulseSum) > maxImpulse * maxImpulse)
+        {
+            newImpulseSum = Normalize(newImpulseSum) * maxImpulse;
+        }
+
+        lambda = newImpulseSum - frictionImpulseSum;
+        frictionImpulseSum = newImpulseSum;
+        ApplyFrictionImpulse(lambda);
+    }
 
     if (limitState == swing_limit_inactive)
     {
@@ -127,6 +184,24 @@ void SwingAngleJoint::SolveVelocityConstraints(const Timestep& step)
     impulseSum = newImpulseSum;
 
     ApplyImpulse(lambda);
+}
+
+void SwingAngleJoint::ApplyFrictionImpulse(const Vec2& lambda)
+{
+    JointState* s = GetJointState();
+    BodyState* sA = bodyA->GetBodyState();
+    BodyState* sB = bodyB->GetBodyState();
+
+    Vec3 impulse = frictionAxis1 * lambda.x + frictionAxis2 * lambda.y;
+
+    if (sA->invMass > 0.0f)
+    {
+        sA->angularVelocity -= s->invIA * impulse;
+    }
+    if (sB->invMass > 0.0f)
+    {
+        sB->angularVelocity += s->invIB * impulse;
+    }
 }
 
 void SwingAngleJoint::ApplyImpulse(float lambda)
@@ -170,6 +245,20 @@ float SwingAngleJoint::GetJointMaxAngle() const
 void SwingAngleJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = std::clamp(newMaxAngle, 0.0f, pi);
+}
+
+float SwingAngleJoint::GetMaxFrictionTorque() const
+{
+    return maxFrictionTorque;
+}
+
+void SwingAngleJoint::SetMaxFrictionTorque(float torque)
+{
+    maxFrictionTorque = Max(torque, 0.0f);
+    if (maxFrictionTorque == 0.0f)
+    {
+        frictionImpulseSum = Vec2::zero;
+    }
 }
 
 float SwingAngleJoint::GetFrequency() const

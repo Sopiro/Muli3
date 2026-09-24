@@ -303,14 +303,24 @@ public:
     float GetJointMaxAngle() const;
     void SetJointMaxAngle(float newMaxAngle);
 
+    float GetMaxFrictionTorque() const;
+    void SetMaxFrictionTorque(float torque);
+
 private:
     float frequency;
     float dampingRatio;
 
     Vec3 localAxisA;
     Vec3 localAxisB;
+    Vec3 localNormalAxisB;
     float maxAngle;
     float currentAngle;
+
+    Vec3 frictionAxis1;
+    Vec3 frictionAxis2;
+    Mat2 frictionM;
+    Vec2 frictionImpulseSum;
+    float maxFrictionTorque;
 
     Vec3 swingAxis;
     float m;
@@ -320,6 +330,7 @@ private:
     float gamma;
     int32 limitState;
 
+    void ApplyFrictionImpulse(const Vec2& lambda);
     void ApplyImpulse(float lambda);
 };
 
@@ -353,6 +364,9 @@ public:
     float GetJointMaxAngle() const;
     void SetJointMaxAngle(float newMaxAngle);
 
+    float GetMaxFrictionTorque() const;
+    void SetMaxFrictionTorque(float torque);
+
 private:
     float frequency;
     float dampingRatio;
@@ -366,6 +380,10 @@ private:
     float minAngle;
     float maxAngle;
     float currentAngle;
+
+    float frictionM;
+    float frictionImpulseSum;
+    float maxFrictionTorque;
 
     Vec3 twistAxis;
     float angleM;
@@ -417,6 +435,11 @@ public:
     float GetTwistDampingRatio() const;
     void SetTwistDampingRatio(float newDampingRatio);
 
+    float GetMaxSwingFrictionTorque() const;
+    void SetMaxSwingFrictionTorque(float torque);
+    float GetMaxTwistFrictionTorque() const;
+    void SetMaxTwistFrictionTorque(float torque);
+
     const Vec3& GetLocalAnchorA() const;
     const Vec3& GetLocalAnchorB() const;
     const Vec3& GetLocalAxisA() const;
@@ -454,6 +477,16 @@ private:
     float maxTwistAngle;
     float swingAngle;
     float twistAngle;
+
+    Vec3 swingFrictionAxis1;
+    Vec3 swingFrictionAxis2;
+    Mat2 swingFrictionM;
+    Vec2 swingFrictionImpulseSum;
+    float maxSwingFrictionTorque;
+
+    float twistFrictionM;
+    float twistFrictionImpulseSum;
+    float maxTwistFrictionTorque;
 
     Vec3 ra;
     Vec3 rb;

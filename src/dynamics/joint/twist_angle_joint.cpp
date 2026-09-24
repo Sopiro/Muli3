@@ -75,6 +75,9 @@ TwistAngleJoint::TwistAngleJoint(
     , minAngle{ jointMinAngle }
     , maxAngle{ jointMaxAngle }
     , currentAngle{ 0.0f }
+    , frictionM{ 0.0f }
+    , frictionImpulseSum{ 0.0f }
+    , maxFrictionTorque{ 0.0f }
     , angleM{ 0.0f }
     , angleBias{ 0.0f }
     , angleImpulseSum{ 0.0f }
@@ -126,6 +129,7 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     // After removing the swing between axisA and axisB, Cdot is the relative angular velocity
     // projected onto twistAxis, so J = [0, -twistAxis, 0, twistAxis].
     float angleK = Dot(twistAxis, s->invIA * twistAxis) + Dot(twistAxis, s->invIB * twistAxis);
+    frictionM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
     ComputeBetaAndGamma(&beta, &gamma, frequency, dampingRatio, angleK > 0.0f ? 1.0f / angleK : 0.0f, step.dt);
 
@@ -174,10 +178,25 @@ void TwistAngleJoint::Prepare(const Timestep& step)
     }
 
     angleImpulseSum = ClampImpulse(angleImpulseSum, limitState);
+
+    if (maxFrictionTorque == 0.0f || limitState == twist_limit_equal)
+    {
+        frictionImpulseSum = 0.0f;
+    }
+    else
+    {
+        float maxImpulse = maxFrictionTorque * step.dt;
+        frictionImpulseSum = Clamp(frictionImpulseSum, -maxImpulse, maxImpulse);
+    }
 }
 
 void TwistAngleJoint::WarmStart()
 {
+    if (maxFrictionTorque > 0.0f && limitState != twist_limit_equal)
+    {
+        ApplyAngleImpulse(frictionImpulseSum);
+    }
+
     if (limitState != twist_limit_inactive)
     {
         ApplyAngleImpulse(angleImpulseSum);
@@ -186,10 +205,20 @@ void TwistAngleJoint::WarmStart()
 
 void TwistAngleJoint::SolveVelocityConstraints(const Timestep& step)
 {
-    MuliNotUsed(step);
-
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
+
+    if (maxFrictionTorque > 0.0f && limitState != twist_limit_equal)
+    {
+        float jv = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
+        float lambda = -frictionM * jv;
+        float maxImpulse = maxFrictionTorque * step.dt;
+        float newImpulseSum = Clamp(frictionImpulseSum + lambda, -maxImpulse, maxImpulse);
+
+        lambda = newImpulseSum - frictionImpulseSum;
+        frictionImpulseSum = newImpulseSum;
+        ApplyAngleImpulse(lambda);
+    }
 
     if (limitState == twist_limit_inactive)
     {
@@ -279,6 +308,20 @@ void TwistAngleJoint::SetJointMaxAngle(float newMaxAngle)
 {
     maxAngle = newMaxAngle;
     minAngle = Min(minAngle, maxAngle);
+}
+
+float TwistAngleJoint::GetMaxFrictionTorque() const
+{
+    return maxFrictionTorque;
+}
+
+void TwistAngleJoint::SetMaxFrictionTorque(float torque)
+{
+    maxFrictionTorque = Max(torque, 0.0f);
+    if (maxFrictionTorque == 0.0f)
+    {
+        frictionImpulseSum = 0.0f;
+    }
 }
 
 float TwistAngleJoint::GetFrequency() const
