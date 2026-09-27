@@ -294,12 +294,6 @@ void SwingTwistJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Sequential rows share one joint state; each row sees the preceding impulse.
-    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
-    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
-    ApplyLinearImpulse(linearLambda);
-    linearImpulseSum += linearLambda;
-
     if (maxSwingFrictionTorque > 0.0f)
     {
         Vec3 relativeAngularVelocity = sB->angularVelocity - sA->angularVelocity;
@@ -347,6 +341,12 @@ void SwingTwistJoint::SolveVelocityConstraints(const Timestep& step)
         ApplyAngularImpulse(twistAxis * (newImpulseSum - twistImpulseSum));
         twistImpulseSum = newImpulseSum;
     }
+
+    // Solve the anchor after angular constraints have updated the point velocities.
+    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
+    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
+    ApplyLinearImpulse(linearLambda);
+    linearImpulseSum += linearLambda;
 }
 
 void SwingTwistJoint::ApplyLinearImpulse(const Vec3& lambda)

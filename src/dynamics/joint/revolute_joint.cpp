@@ -271,12 +271,6 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
     BodyState* sA = bodyA->GetBodyState();
     BodyState* sB = bodyB->GetBodyState();
 
-    // Solve the anchor position and axis alignment before controlling twist.
-    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
-    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
-    ApplyLinearImpulse(linearLambda);
-    linearImpulseSum += linearLambda;
-
     Vec3 relativeAngularVelocity = sB->angularVelocity - sA->angularVelocity;
     Vec2 swingJV{ Dot(swingAxis1, relativeAngularVelocity), Dot(swingAxis2, relativeAngularVelocity) };
     Vec2 swingLambda = Mul(swingM, -(swingJV + swingBias + swingImpulseSum * swingGamma));
@@ -298,28 +292,32 @@ void RevoluteJoint::SolveVelocityConstraints(const Timestep& step)
         ApplyTwistImpulse(lambda);
     }
 
-    if (limitState == revolute_limit_inactive)
+    if (limitState != revolute_limit_inactive)
     {
-        return;
+        float angleJV = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
+        float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * angleGamma);
+
+        float newImpulseSum;
+        if (limitState == revolute_limit_equal)
+        {
+            newImpulseSum = angleImpulseSum + lambda;
+        }
+        else
+        {
+            newImpulseSum = ClampImpulse(angleImpulseSum + lambda, limitState);
+        }
+
+        lambda = newImpulseSum - angleImpulseSum;
+        angleImpulseSum = newImpulseSum;
+
+        ApplyTwistImpulse(lambda);
     }
 
-    float angleJV = Dot(twistAxis, sB->angularVelocity - sA->angularVelocity);
-    float lambda = angleM * -(angleJV + angleBias + angleImpulseSum * angleGamma);
-
-    float newImpulseSum;
-    if (limitState == revolute_limit_equal)
-    {
-        newImpulseSum = angleImpulseSum + lambda;
-    }
-    else
-    {
-        newImpulseSum = ClampImpulse(angleImpulseSum + lambda, limitState);
-    }
-
-    lambda = newImpulseSum - angleImpulseSum;
-    angleImpulseSum = newImpulseSum;
-
-    ApplyTwistImpulse(lambda);
+    // Solve the anchor after angular constraints have updated the point velocities.
+    Vec3 linearJV = (sB->linearVelocity + Cross(sB->angularVelocity, rb)) - (sA->linearVelocity + Cross(sA->angularVelocity, ra));
+    Vec3 linearLambda = linearM * -(linearJV + linearBias + linearImpulseSum * linearGamma);
+    ApplyLinearImpulse(linearLambda);
+    linearImpulseSum += linearLambda;
 }
 
 void RevoluteJoint::ApplyLinearImpulse(const Vec3& lambda)
