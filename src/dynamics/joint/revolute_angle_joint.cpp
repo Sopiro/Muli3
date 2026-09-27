@@ -103,8 +103,8 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     Vec3 refAxisA = bodyA->GetRotation().Rotate(localNormalAxisA);
     Vec3 refAxisB = bodyB->GetRotation().Rotate(localNormalAxisB);
 
-    Vec3 binormalA = Cross(axisA, refAxisA);
-    binormalA.Normalize();
+    Vec3 tangentA = Cross(axisA, refAxisA);
+    tangentA.Normalize();
 
     s->invIA = bodyA->GetWorldInverseInertiaTensor();
     s->invIB = bodyB->GetWorldInverseInertiaTensor();
@@ -170,8 +170,8 @@ void RevoluteAngleJoint::Prepare(const Timestep& step)
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
     // Project B's reference axis onto A's hinge plane. atan2 against
-    // { refAxisA, binormalA } then gives the signed twist angle.
-    currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
+    // { refAxisA, tangentA } then gives the signed twist angle.
+    currentAngle = GetAngle(refAxisA, tangentA, axisA, refAxisB) - angleOffset;
 
     if (!limitEnabled || (maxAngle - minAngle) >= two_pi)
     {

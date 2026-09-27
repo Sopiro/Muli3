@@ -7,7 +7,7 @@ namespace muli3
 
 static float universalFrequency = 20.0f;
 static float universalDampingRatio = 1.0f;
-static bool universalSteeringMotorEnabled = true;
+static bool universalSteeringMotorEnabled = false;
 static float universalTargetSteeringAngle = 25.0f;
 static float universalSteeringFrequency = 5.0f;
 static float universalSteeringDampingRatio = 1.0f;
@@ -61,8 +61,8 @@ public:
         joint->SetSpinMinAngle(DegToRad(universalMinSpinAngle));
         joint->SetSpinMaxAngle(DegToRad(universalMaxSpinAngle));
 
-        camera.SetPosition(Vec3{ 0.0f, 4.5f, 8.0f });
-        camera.SetRotation(0.0f, -10.0f);
+        camera.SetPosition(Vec3{ 3.0f, 6.0f, 6.0f });
+        camera.SetRotation(30.0f, -20.0f);
     }
 
     void UpdateUI() override

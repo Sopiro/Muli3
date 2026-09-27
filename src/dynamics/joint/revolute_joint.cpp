@@ -146,7 +146,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
     Vec3 axisB = bodyB->GetRotation().Rotate(localAxisB);
     Vec3 refAxisA = bodyA->GetRotation().Rotate(localNormalAxisA);
     Vec3 refAxisB = bodyB->GetRotation().Rotate(localNormalAxisB);
-    Vec3 binormalA = Normalize(Cross(axisA, refAxisA));
+    Vec3 tangentA = Normalize(Cross(axisA, refAxisA));
 
     float axisDot = Clamp(Dot(axisA, axisB), -1.0f, 1.0f);
     float swingAngle = std::acos(axisDot);
@@ -203,7 +203,7 @@ void RevoluteJoint::Prepare(const Timestep& step)
     angleK += angleGamma;
     angleM = angleK != 0.0f ? 1.0f / angleK : 0.0f;
 
-    currentAngle = GetAngle(refAxisA, binormalA, axisA, refAxisB) - angleOffset;
+    currentAngle = GetAngle(refAxisA, tangentA, axisA, refAxisB) - angleOffset;
 
     if (!limitEnabled || (maxAngle - minAngle) >= two_pi)
     {

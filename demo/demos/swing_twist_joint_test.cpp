@@ -8,6 +8,8 @@ namespace muli3
 static float maxSwingAngle = 30.0f;
 static float minTwistAngle = -35.0f;
 static float maxTwistAngle = 35.0f;
+static float swingFrictionTorque = 0.0f;
+static float twistFrictionTorque = 0.0f;
 
 class SwingTwistJointDemo : public Demo
 {
@@ -23,6 +25,8 @@ public:
         joint = world->CreateSwingTwistJoint(
             base, arm, base->GetPosition(), -y_axis, DegToRad(maxSwingAngle), DegToRad(minTwistAngle), DegToRad(maxTwistAngle)
         );
+        joint->SetMaxSwingFrictionTorque(swingFrictionTorque);
+        joint->SetMaxTwistFrictionTorque(twistFrictionTorque);
         camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
         camera.SetRotation(0.0f, 0.0f);
     }
@@ -49,6 +53,16 @@ public:
             {
                 minTwistAngle = Min(minTwistAngle, maxTwistAngle);
                 joint->SetMaxTwistAngle(DegToRad(maxTwistAngle));
+                joint->GetBodyB()->Awake();
+            }
+            if (ImGui::SliderFloat("Swing friction torque", &swingFrictionTorque, 0.0f, 20.0f, "%.1f"))
+            {
+                joint->SetMaxSwingFrictionTorque(swingFrictionTorque);
+                joint->GetBodyB()->Awake();
+            }
+            if (ImGui::SliderFloat("Twist friction torque", &twistFrictionTorque, 0.0f, 20.0f, "%.1f"))
+            {
+                joint->SetMaxTwistFrictionTorque(twistFrictionTorque);
                 joint->GetBodyB()->Awake();
             }
         }
