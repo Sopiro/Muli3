@@ -45,8 +45,8 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
     CollisionFilter filter;
     filter.group = -gruop;
 
-    float linearDamping = 0.0f;
-    float angularDamping = 1.0f;
+    // Angular deceleration (rad/m^2)
+    const float friction = 32.0f;
 
     float headX = 0.0f;
     float headY = 0.0f;
@@ -81,6 +81,15 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
             chest, head, chest->GetPosition() + Vec3{ 0.0f, bodyHeight / 2.0f, 0 }, x_axis, -headMinAngle, headMaxAngle,
             ballSocketFrequency, ballSocketDampingRatio, headFrequency, headDamplingRatio, headFrequency, headDamplingRatio
         );
+
+        // Max friction torque for head revolute joints
+        float effectiveMass =
+            Dot(x_axis, (chest->GetWorldInverseInertiaTensor() + head->GetWorldInverseInertiaTensor()) * x_axis);
+        float neckTorque = friction / effectiveMass;
+
+        joint->SetMotorSpeed(0.0f);
+        joint->SetMaxMotorTorque(neckTorque);
+        joint->SetMotorEnabled(true);
 
         ragdoll.bones[Ragdoll::index_head] = Bone{ Ragdoll::index_chest, head, joint };
     }
@@ -119,6 +128,16 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
             Body::dynamic_body, false, density
         );
 
+        Mat3 shoulderInvInertia = chest->GetWorldInverseInertiaTensor() + upperRightArm->GetWorldInverseInertiaTensor();
+
+        // Max friction torques for swing twist joints
+        float shoulderSwingTorque =
+            0.5f * friction * (1.0f / Dot(y_axis, shoulderInvInertia * y_axis) + 1.0f / Dot(z_axis, shoulderInvInertia * z_axis));
+        float shoulderTwistTorque = friction / Dot(x_axis, shoulderInvInertia * x_axis);
+
+        Mat3 elbowInvInertia = upperRightArm->GetWorldInverseInertiaTensor() + lowerRightArm->GetWorldInverseInertiaTensor();
+        float elbowTorque = friction / Dot(y_axis, elbowInvInertia * y_axis);
+
         // Arm joints
         {
             float armAngleFrequency = 20.0f;
@@ -136,6 +155,8 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     -armTwistAngle, armTwistAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency,
                     armAngleDampingRatio, armAngleFrequency, armAngleDampingRatio
                 );
+                joint->SetMaxSwingFrictionTorque(shoulderSwingTorque);
+                joint->SetMaxTwistFrictionTorque(shoulderTwistTorque);
 
                 ragdoll.bones[Ragdoll::index_upperRightArm] = Bone{ Ragdoll::index_chest, upperRightArm, joint };
             }
@@ -147,6 +168,9 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     -y_axis, 0, elbowAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency, armAngleDampingRatio,
                     armAngleFrequency, armAngleDampingRatio
                 );
+                joint->SetMotorSpeed(0.0f);
+                joint->SetMaxMotorTorque(elbowTorque);
+                joint->SetMotorEnabled(true);
 
                 ragdoll.bones[Ragdoll::index_lowerRightArm] = Bone{ Ragdoll::index_upperRightArm, lowerRightArm, joint };
             }
@@ -158,6 +182,8 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     -armTwistAngle, armTwistAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency,
                     armAngleDampingRatio, armAngleFrequency, armAngleDampingRatio
                 );
+                joint->SetMaxSwingFrictionTorque(shoulderSwingTorque);
+                joint->SetMaxTwistFrictionTorque(shoulderTwistTorque);
 
                 ragdoll.bones[Ragdoll::index_upperLeftArm] = Bone{ Ragdoll::index_chest, upperLeftArm, joint };
             }
@@ -169,6 +195,9 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     0, elbowAngle, ballSocketFrequency, ballSocketDampingRatio, armAngleFrequency, armAngleDampingRatio,
                     armAngleFrequency, armAngleDampingRatio
                 );
+                joint->SetMotorSpeed(0.0f);
+                joint->SetMaxMotorTorque(elbowTorque);
+                joint->SetMotorEnabled(true);
 
                 ragdoll.bones[Ragdoll::index_lowerLeftArm] = Bone{ Ragdoll::index_upperLeftArm, lowerLeftArm, joint };
             }
@@ -184,7 +213,6 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
 
     // Pelvis
     Body* pelvis = world->CreateCapsule(pelvisLeft, pelvisRight, pelvisRadius, identity, Body::dynamic_body, false, density);
-    pelvis->SetCollisionFilter(filter);
 
     // pelvis -> chest
     {
@@ -197,6 +225,14 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
             pelvis, chest, pelvisTop, x_axis, -pelvisMinAngle, pelvisMaxAngle, ballSocketFrequency, ballSocketDampingRatio,
             pelvisAngleFrequency, pelvisAngleDampingRatio, pelvisAngleFrequency, pelvisAngleDampingRatio
         );
+
+        float effectiveMass =
+            Dot(x_axis, (pelvis->GetWorldInverseInertiaTensor() + chest->GetWorldInverseInertiaTensor()) * x_axis);
+        float spineTorque = friction / effectiveMass;
+
+        joint->SetMotorSpeed(0.0f);
+        joint->SetMaxMotorTorque(spineTorque);
+        joint->SetMotorEnabled(true);
 
         ragdoll.bones[Ragdoll::index_pelvis] = { -1, pelvis, joint };
     }
@@ -234,6 +270,14 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
             Body::dynamic_body, false, density
         );
 
+        Mat3 hipInvInertia = pelvis->GetWorldInverseInertiaTensor() + upperRightLeg->GetWorldInverseInertiaTensor();
+        float hipSwingTorque =
+            0.5f * friction * (1.0f / Dot(x_axis, hipInvInertia * x_axis) + 1.0f / Dot(z_axis, hipInvInertia * z_axis));
+        float hipTwistTorque = friction / Dot(y_axis, hipInvInertia * y_axis);
+
+        Mat3 kneeInvInertia = upperRightLeg->GetWorldInverseInertiaTensor() + lowerRightLeg->GetWorldInverseInertiaTensor();
+        float kneeTorque = friction / Dot(x_axis, kneeInvInertia * x_axis);
+
         // Leg joints
         {
             float legAngleFrequency = 20.0f;
@@ -251,6 +295,8 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     legTwistAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio,
                     legAngleFrequency, legAngleDampingRatio
                 );
+                joint->SetMaxSwingFrictionTorque(hipSwingTorque);
+                joint->SetMaxTwistFrictionTorque(hipTwistTorque);
 
                 ragdoll.bones[Ragdoll::index_upperRightLeg] = Bone{ Ragdoll::index_pelvis, upperRightLeg, joint };
             }
@@ -262,6 +308,9 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     x_axis, 0, kneeAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio,
                     legAngleFrequency, legAngleDampingRatio
                 );
+                joint->SetMotorSpeed(0.0f);
+                joint->SetMaxMotorTorque(kneeTorque);
+                joint->SetMotorEnabled(true);
 
                 ragdoll.bones[Ragdoll::index_lowerRightLeg] = Bone{ Ragdoll::index_upperRightLeg, lowerRightLeg, joint };
             }
@@ -273,6 +322,8 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     legTwistAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio,
                     legAngleFrequency, legAngleDampingRatio
                 );
+                joint->SetMaxSwingFrictionTorque(hipSwingTorque);
+                joint->SetMaxTwistFrictionTorque(hipTwistTorque);
 
                 ragdoll.bones[Ragdoll::index_upperLeftLeg] = Bone{ Ragdoll::index_pelvis, upperLeftLeg, joint };
             }
@@ -284,6 +335,9 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
                     0, kneeAngle, ballSocketFrequency, ballSocketDampingRatio, legAngleFrequency, legAngleDampingRatio,
                     legAngleFrequency, legAngleDampingRatio
                 );
+                joint->SetMotorSpeed(0.0f);
+                joint->SetMaxMotorTorque(kneeTorque);
+                joint->SetMotorEnabled(true);
 
                 ragdoll.bones[Ragdoll::index_lowerLeftLeg] = Bone{ Ragdoll::index_upperLeftLeg, lowerLeftLeg, joint };
             }
@@ -296,8 +350,6 @@ inline Ragdoll CreateRagdoll(World* world, const Transform& tf, float scale, int
         body->SetCollisionFilter(filter);
         body->SetPosition(tf.p + tf.q.Rotate(body->GetPosition()));
         body->SetRotation(tf.q);
-        body->SetLinearDamping(linearDamping);
-        body->SetAngularDamping(angularDamping);
 
         Joint* joint = ragdoll.bones[i].joint;
         if (joint)
