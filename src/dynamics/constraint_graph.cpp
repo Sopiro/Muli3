@@ -391,21 +391,6 @@ void ConstraintGraph::UpdateCollider(Collider* collider, const Transform& transf
     broadPhase.Update(collider, aabb, Vec3::zero, true);
 }
 
-void ConstraintGraph::UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1)
-{
-    AABB aabb0;
-    AABB aabb1;
-    collider->GetShape()->ComputeAABB(transform0, &aabb0);
-    collider->GetShape()->ComputeAABB(transform1, &aabb1);
-
-    Vec3 prediction = aabb1.GetCenter() - aabb0.GetCenter();
-    aabb1.min += prediction;
-    aabb1.max += prediction;
-
-    bool rested = collider->body->GetBodyState()->resting > world->settings.sleeping_time;
-    broadPhase.Update(collider, AABB::Union(aabb0, aabb1), prediction, rested);
-}
-
 int32 ConstraintGraph::AssignColor(Body* bodyA, Body* bodyB)
 {
     MuliAssert(constraint_overflow_index < 32);

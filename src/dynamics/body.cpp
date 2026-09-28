@@ -854,28 +854,11 @@ void Body::SynchronizeColliders()
         return;
     }
 
-    if (IsSleeping())
+    for (Collider* collider : colliders)
     {
-        for (Collider* collider : colliders)
+        if (collider->IsEnabled())
         {
-            if (collider->IsEnabled())
-            {
-                world->constraintGraph.UpdateCollider(collider, transform);
-            }
-        }
-    }
-    else
-    {
-        BodyState* s = GetBodyState();
-        Transform transform0;
-        s->motion.GetTransform(0.0f, &transform0);
-
-        for (Collider* collider : colliders)
-        {
-            if (collider->IsEnabled())
-            {
-                world->constraintGraph.UpdateCollider(collider, transform0, transform);
-            }
+            world->constraintGraph.UpdateCollider(collider, transform);
         }
     }
 }

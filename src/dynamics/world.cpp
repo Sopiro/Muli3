@@ -1626,22 +1626,20 @@ void World::Solve()
                             continue;
                         }
 
-                        AABB aabb0;
-                        AABB aabb1;
-                        collider->GetShape()->ComputeAABB(transform0, &aabb0);
-                        collider->GetShape()->ComputeAABB(body->transform, &aabb1);
+                        AABB aabb;
+                        collider->GetShape()->ComputeAABB(body->transform, &aabb);
 
-                        Vec3 prediction = aabb1.GetCenter() - aabb0.GetCenter();
-                        aabb1.min += prediction;
-                        aabb1.max += prediction;
-
-                        AABB aabb = AABB::Union(aabb0, aabb1);
                         if (constraintGraph.broadPhase.tree.GetAABB(collider->node).Contains(aabb))
                         {
                             sync->collider = nullptr;
                         }
                         else
                         {
+                            AABB aabb0;
+                            collider->GetShape()->ComputeAABB(transform0, &aabb0);
+
+                            Vec3 prediction = aabb.GetCenter() - aabb0.GetCenter();
+
                             sync->collider = collider;
                             sync->aabb = aabb;
                             sync->displacement = prediction;

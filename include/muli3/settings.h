@@ -9,7 +9,7 @@ class ThreadPool;
 
 // Broad phase
 inline constexpr float aabb_margin = 0.05f;
-inline constexpr float aabb_multiplier = 4.0f;
+inline constexpr float aabb_multiplier = 3.0f;
 
 // Narrow phase
 inline constexpr int32 gjk_max_iteration = 20;

@@ -44,7 +44,6 @@ private:
     void AddCollider(Collider* collider);
     void RemoveCollider(Collider* collider);
     void UpdateCollider(Collider* collider, const Transform& transform);
-    void UpdateCollider(Collider* collider, const Transform& transform0, const Transform& transform1);
 
     int32 AssignColor(Body* bodyA, Body* bodyB);
     void AddColor(Body* bodyA, Body* bodyB, int32 colorIndex);
