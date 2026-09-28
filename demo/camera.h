@@ -27,7 +27,7 @@ public:
     Vec3 scale{ 1.0f, 1.0f, 1.0f };
 
     Vec3 velocity{ 0.0f };
-    float speed = 1.0f;
+    float speed = 8.0f;
     float sensitivity = 0.1f;
     float damping = 12.0f;
     float fovDegrees = 60.0f;

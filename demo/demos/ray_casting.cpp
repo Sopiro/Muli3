@@ -23,7 +23,7 @@ public:
 
         camera.SetPosition(Vec3{ 0.0f, 0.0f, 5.0f });
         camera.SetRotation(0.0f, 0.0f);
-        camera.speed = 0.35f;
+        camera.speed = 4.0f;
 
         targetBodies[0] = world->CreateSphere(0.3f, Transform{ Vec3{ -2.5f, 0.0f, 0.0f } });
         targetBodies[1] = world->CreateCapsule(0.5f, 0.2f, Transform{ Vec3{ -1.5f, 0.0f, 0.0f } });

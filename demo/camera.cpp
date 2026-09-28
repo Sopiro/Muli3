@@ -61,14 +61,22 @@ bool Camera::UpdateInput(float dt)
     float cos = std::cos(rotation.y);
     float sin = std::sin(rotation.y);
 
-    velocity.x += cameraSpeed * (accel.x * cos + accel.z * sin);
-    velocity.z += cameraSpeed * (accel.x * -sin + accel.z * cos);
-    velocity.y += cameraSpeed * accel.y;
+    Vec3 targetVelocity = {
+        cameraSpeed * (accel.x * cos + accel.z * sin),
+        cameraSpeed * accel.y,
+        cameraSpeed * (accel.x * -sin + accel.z * cos),
+    };
 
-    moved |= velocity != Vec3::zero;
+    moved |= targetVelocity != Vec3::zero || velocity != Vec3::zero;
 
-    position += velocity * dt;
-    velocity *= std::exp(-damping * dt);
+    // y = v_target - v and it decays as y * exp(-damping * t).
+    // Integrating v(t) = v_target - y * exp(-damping * t) over dt gives
+    // dp = v_target * dt - y * blend / damping.
+
+    Vec3 y = targetVelocity - velocity;
+    float blend = -std::expm1(-damping * dt); // 1 - exp(-damping * dt)
+    velocity += y * blend;
+    position += targetVelocity * dt - y * (blend / damping);
 
     return moved;
 }

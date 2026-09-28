@@ -96,7 +96,7 @@ public:
         CreateMonkeyMesh(world);
         camera.SetPosition(Vec3{ 0.0f, 0.0f, 12.0f });
         camera.SetRotation(0.0f, 0.0f);
-        camera.speed = 0.4f;
+        camera.speed = 4.0f;
     }
 
     void UpdateInput() override
@@ -230,7 +230,7 @@ public:
         CreateMonkeyMesh(world);
         camera.SetPosition(Vec3{ 0.0f, 0.0f, 12.0f });
         camera.SetRotation(0.0f, 0.0f);
-        camera.speed = 0.4f;
+        camera.speed = 4.0f;
     }
 
     void UpdateInput() override

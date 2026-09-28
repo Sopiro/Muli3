@@ -17,7 +17,7 @@ public:
         settings.apply_gravity = false;
         camera.SetPosition(Vec3{ 0.0f, 0.0f, 3.0f });
         camera.SetRotation(0.0f, 0.0f);
-        camera.speed = 0.2f;
+        camera.speed = 2.0f;
         Reset();
         Step();
     }
