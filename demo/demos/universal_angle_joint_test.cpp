@@ -61,8 +61,7 @@ public:
         joint->SetSpinMinAngle(DegToRad(universalMinSpinAngle));
         joint->SetSpinMaxAngle(DegToRad(universalMaxSpinAngle));
 
-        camera.SetPosition(Vec3{ 3.0f, 6.0f, 6.0f });
-        camera.SetRotation(30.0f, -20.0f);
+        camera.LookAt({ 3, 6, 4 }, { 0.0f, 4.5f, 0.0f });
     }
 
     void UpdateUI() override

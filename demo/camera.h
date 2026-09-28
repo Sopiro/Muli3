@@ -21,6 +21,7 @@ public:
     void SetPosition(const Vec3& position);
     void SetRotation(float yaw, float pitch);
     void SetEulerAngles(const Vec3& eulerAngles);
+    void LookAt(const Vec3& position, const Vec3& target);
 
     Vec3 position{ 0.0f, 3.0f, 8.0f };
     Vec3 rotation{ DegToRad(-18.0f), 0.0f, 0.0f };

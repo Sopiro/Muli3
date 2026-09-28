@@ -18,17 +18,21 @@ public:
         : Demo(game)
     {
         world->CreateBox(24.0f, 0.5f, 24.0f, identity, Body::static_body);
+
         Body* base = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 4.5f, 0.0f } }, Body::static_body);
         Body* arm = world->CreateEmptyBody(Transform{ Vec3{ 0.0f, 3.5f, 0.0f } });
+
         arm->CreateBoxCollider(0.25f, 2.0f, 0.25f);
         arm->CreateBoxCollider(0.75f, 0.15f, 0.15f, Transform{ Vec3{ 0.0f, -0.8f, 0.0f } });
+
         joint = world->CreateSwingTwistJoint(
             base, arm, base->GetPosition(), -y_axis, DegToRad(maxSwingAngle), DegToRad(minTwistAngle), DegToRad(maxTwistAngle)
         );
+
         joint->SetMaxSwingFrictionTorque(swingFrictionTorque);
         joint->SetMaxTwistFrictionTorque(twistFrictionTorque);
-        camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
-        camera.SetRotation(0.0f, 0.0f);
+
+        camera.LookAt({ 3, 6, 4 }, { 0.0f, 4.5f, 0.0f });
     }
 
     void UpdateUI() override

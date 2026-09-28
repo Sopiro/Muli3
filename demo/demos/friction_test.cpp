@@ -46,8 +46,8 @@ public:
             b->SetLinearVelocity(2.0f, 0.0f, 0.0f);
         }
 
-        camera.SetPosition(Vec3{ 0.0f, 4.0f, 12.0f });
-        camera.SetRotation(0.0f, -12.0f);
+        camera.SetPosition(Vec3{ 0.0f, 6.0f, 7.0f });
+        camera.SetRotation(0.0f, -20.0f);
     }
 };
 

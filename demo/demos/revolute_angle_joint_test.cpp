@@ -47,8 +47,7 @@ public:
         joint->SetMotorSpeed(DegToRad(revoluteMotorSpeed));
         joint->SetMaxMotorTorque(revoluteMaxMotorTorque);
 
-        camera.SetPosition(Vec3{ 0.0f, 4.0f, 8.0f });
-        camera.SetRotation(0.0f, 0.0f);
+        camera.LookAt({ 3, 6, 4 }, { 0.0f, 4.5f, 0.0f });
     }
 
     void UpdateUI() override

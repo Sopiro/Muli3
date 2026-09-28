@@ -29,8 +29,7 @@ public:
         joint = world->CreateSwingAngleJoint(base, arm, -y_axis, DegToRad(swingAngle), swingFrequency, swingDampingRatio);
         joint->SetMaxFrictionTorque(swingFrictionTorque);
 
-        camera.SetPosition(Vec3{ 0.0f, 4.8f, 8.5f });
-        camera.SetRotation(0.0f, -15.0f);
+        camera.LookAt({ 3, 6, 4 }, { 0.0f, 4.5f, 0.0f });
     }
 
     void UpdateUI() override

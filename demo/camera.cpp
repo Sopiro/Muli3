@@ -53,10 +53,12 @@ bool Camera::UpdateInput(float dt)
         Vec2 mouseDelta = Input::GetMouseDelta();
         rotation.y -= mouseDelta.x * DegToRad(sensitivity);
         rotation.x -= mouseDelta.y * DegToRad(sensitivity);
+        if (mouseDelta.y != 0.0f)
+        {
+            rotation.x = Clamp(rotation.x, DegToRad(-89.0f), DegToRad(89.0f));
+        }
         moved |= mouseDelta != Vec2::zero;
     }
-
-    rotation.x = Clamp(rotation.x, DegToRad(-89.0f), DegToRad(89.0f));
 
     float cos = std::cos(rotation.y);
     float sin = std::sin(rotation.y);
@@ -79,6 +81,21 @@ bool Camera::UpdateInput(float dt)
     position += targetVelocity * dt - y * (blend / damping);
 
     return moved;
+}
+
+void Camera::LookAt(const Vec3& newPosition, const Vec3& target)
+{
+    Vec3 direction = target - newPosition;
+    MuliAssert(Length2(direction) > 0.0f);
+
+    float horizontalLength = std::sqrt(direction.x * direction.x + direction.z * direction.z);
+    position = newPosition;
+    rotation.x = std::atan2(direction.y, horizontalLength);
+    if (horizontalLength > 0.0f)
+    {
+        rotation.y = std::atan2(-direction.x, -direction.z);
+    }
+    rotation.z = 0.0f;
 }
 
 Mat4 Camera::GetViewMatrix() const
