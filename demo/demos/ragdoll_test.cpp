@@ -18,6 +18,7 @@ static Vec3 SampleUniformHemisphere(Vec2 u)
 
 static bool fix = false;
 static bool projectile = true;
+extern bool hide_ragdoll_joints;
 
 class RagdollTest : public Demo
 {
@@ -60,14 +61,14 @@ public:
 
         if (ImGui::Begin("Ragdoll", NULL, ImGuiWindowFlags_AlwaysAutoResize))
         {
-            if (ImGui::Checkbox("Hide Joints", &hideJoint))
+            if (ImGui::Checkbox("Hide Joints", &hide_ragdoll_joints))
             {
                 for (int32 i = 0; i < Ragdoll::bone_count; ++i)
                 {
                     Joint* joint = ragdoll.bones[i].joint;
                     if (joint)
                     {
-                        UserFlag::SetFlag(joint, UserFlag::hide_joint, hideJoint);
+                        UserFlag::SetFlag(joint, UserFlag::hide_joint, hide_ragdoll_joints);
                     }
                 }
             }
