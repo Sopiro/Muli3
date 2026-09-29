@@ -1,7 +1,6 @@
-#include "demo.h"
 #include "game.h"
-#include "muli3/noise.h"
 #include "muli3/random.h"
+#include "noise.h"
 #include "window.h"
 
 namespace muli3

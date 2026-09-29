@@ -1,7 +1,8 @@
 #include "demo.h"
 #include "game.h"
 
-#include "muli3/noise.h"
+#include "noise.h"
+
 #include "muli3/random.h"
 #include "renderer.h"
 #include "window.h"

@@ -2,7 +2,7 @@
 #include "game.h"
 #include "window.h"
 
-#include <muli3/noise.h>
+#include "noise.h"
 
 namespace muli3
 {
