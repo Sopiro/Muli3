@@ -123,11 +123,12 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
         // There are four edges for the selected axis. For each edge:
         //
         // x0 = s, s in [-h0, h0]
-        // x1 = +/-h1 + u
-        // x2 = +/-h2 + v
+        // x1 = +/- (h1 + u)
+        // x2 = +/- (h2 + v)
         // (u, v) is inside one quarter disk: u >= 0, v >= 0, u^2 + v^2 <= r^2
         //
-        // Over all four edges the x1/x2 signs cancel the odd terms, and:
+        // The offsets point outward along each edge. The translation cross
+        // terms therefore add across all four edges rather than cancel:
         //
         // M2_0 = 4 * (pi*r^2 / 4) * \int_{-h0}^{h0} s^2 ds
         //      = 2*pi*r^2*h0^3 / 3
@@ -150,18 +151,22 @@ void BoxShape::ComputeMass(float density, MassData* outMassData) const
 
     // Corner octants.
     //
-    // The 8 octants combine into one full sphere of radius r, with each octant
-    // translated to a box corner. By symmetry:
+    // Each octant is translated outward to its matching box corner, so its
+    // X coordinate has magnitude a + |q_x|. Over all eight octants:
     //
-    // M2_x = a^2 * V_sphere + \int_sphere q_x^2 dV
-    //      = a^2 * (4*pi*r^3/3) + 4*pi*r^5/15
+    // M2_x = \int_sphere (a + |q_x|)^2 dV
+    //      = a^2 * V_sphere + 2*a * \int_sphere |q_x| dV + \int_sphere q_x^2 dV
+    //      = a^2 * (4*pi*r^3/3) + a*pi*r^4 + 4*pi*r^5/15
+    //
+    // The first moment is \int_{-r}^{r} |x| * pi*(r^2 - x^2) dx = pi*r^4/2.
+    // Its cross term survives because the corner and octant signs agree.
     //
     // The y/z components are the same expression with b/c.
     float sphereVolume = 4.0f / 3.0f * pi * r3;
     float sphereSecond = 4.0f * pi * r5 / 15.0f;
-    second.x += a * a * sphereVolume + sphereSecond;
-    second.y += b * b * sphereVolume + sphereSecond;
-    second.z += c * c * sphereVolume + sphereSecond;
+    second.x += a * a * sphereVolume + a * pi * r4 + sphereSecond;
+    second.y += b * b * sphereVolume + b * pi * r4 + sphereSecond;
+    second.z += c * c * sphereVolume + c * pi * r4 + sphereSecond;
 
     second *= density;
 

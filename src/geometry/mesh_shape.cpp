@@ -209,7 +209,9 @@ void MeshShape::Build()
         Vec3 a, b, c;
         GetTriangle(triangle, &a, &b, &c);
         normals[triangle] = Cross(b - a, c - a);
-        MuliAssert(normals[triangle].Normalize() > epsilon);
+        float length = normals[triangle].Normalize();
+        MuliAssert(length > epsilon);
+        MuliNotUsed(length);
     }
 
     // Match shared index edges and deactivate coplanar and concave internal edges.
