@@ -318,15 +318,18 @@ bool HeightFieldShape::TestPoint(const Transform& transform, const Vec3& q) cons
 Vec3 HeightFieldShape::GetClosestPoint(const Transform& transform, const Vec3& q) const
 {
     Vec3 localQ = MulT(transform, q);
-    AABB localAABB{
-        Vec3{ localQ.x - cellSizeX, offset.y + minHeight - 1.0f, localQ.z - cellSizeZ },
-        Vec3{ localQ.x + cellSizeX, offset.y + maxHeight + 1.0f, localQ.z + cellSizeZ },
-    };
+    int32 seedX = Min(int32((Clamp(localQ.x, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
+    int32 seedZ = Min(int32((Clamp(localQ.z, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
 
-    Vec3 closest = localQ;
+    Vec3 closest;
     float minDistance2 = max_float;
 
-    Query(localAABB, [&](int32, int32, int32, const Vec3& a, const Vec3& b, const Vec3& c) {
+    // Seed with an actual surface point to bound the search, including queries
+    // outside the grid. Every closer point must lie within this distance.
+    for (int32 triangle = 0; triangle < 2; ++triangle)
+    {
+        Vec3 a, b, c;
+        GetTriangle(seedX, seedZ, triangle, &a, &b, &c);
         Vec3 p = ClosestPointVsTriangle(localQ, a, b, c);
         float distance2 = Dist2(localQ, p);
         if (distance2 < minDistance2)
@@ -334,11 +337,58 @@ Vec3 HeightFieldShape::GetClosestPoint(const Transform& transform, const Vec3& q
             minDistance2 = distance2;
             closest = p;
         }
-    });
+    }
 
-    if (minDistance2 == max_float)
+    float radius = std::sqrt(minDistance2);
+    int32 minCellX =
+        Min(int32((Clamp(localQ.x - radius, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
+    int32 maxCellX =
+        Min(int32((Clamp(localQ.x + radius, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
+    int32 minCellZ =
+        Min(int32((Clamp(localQ.z - radius, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
+    int32 maxCellZ =
+        Min(int32((Clamp(localQ.z + radius, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
+
+    for (int32 bz = minCellZ / blockSize; bz <= maxCellZ / blockSize; ++bz)
     {
-        closest = Clamp(localQ, localBounds.min, localBounds.max);
+        for (int32 bx = minCellX / blockSize; bx <= maxCellX / blockSize; ++bx)
+        {
+            // The block AABB gives a lower bound on distance to its triangles.
+            AABB bounds = GetBlockAABB(bx, bz);
+            if (Dist2(localQ, Clamp(localQ, bounds.min, bounds.max)) >= minDistance2)
+            {
+                continue;
+            }
+
+            int32 x0 = Max(minCellX, bx * blockSize);
+            int32 z0 = Max(minCellZ, bz * blockSize);
+            int32 x1 = Min(maxCellX, (bx + 1) * blockSize - 1);
+            int32 z1 = Min(maxCellZ, (bz + 1) * blockSize - 1);
+
+            for (int32 z = z0; z <= z1; ++z)
+            {
+                for (int32 x = x0; x <= x1; ++x)
+                {
+                    if (x == seedX && z == seedZ)
+                    {
+                        continue;
+                    }
+
+                    for (int32 triangle = 0; triangle < 2; ++triangle)
+                    {
+                        Vec3 a, b, c;
+                        GetTriangle(x, z, triangle, &a, &b, &c);
+                        Vec3 p = ClosestPointVsTriangle(localQ, a, b, c);
+                        float distance2 = Dist2(localQ, p);
+                        if (distance2 < minDistance2)
+                        {
+                            minDistance2 = distance2;
+                            closest = p;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     return Mul(transform, closest);
