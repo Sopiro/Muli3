@@ -47,6 +47,7 @@ void ParallelFor(int32 begin, int32 end, int32 min_range, std::function<void(int
     block_count = std::max(1, std::min(block_count, max_block_count));
 
     int32 block_size = (item_count + block_count - 1) / block_count;
+    block_count = (item_count + block_size - 1) / block_size;
 
     // It's safe to allocate loop on the stack
     // Because this ParallelFor() call does not return until all work for the loop is done.

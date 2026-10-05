@@ -339,15 +339,15 @@ Vec3 HeightFieldShape::GetClosestPoint(const Transform& transform, const Vec3& q
         }
     }
 
-    float radius = std::sqrt(minDistance2);
+    float r = std::sqrt(minDistance2);
     int32 minCellX =
-        Min(int32((Clamp(localQ.x - radius, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
+        Min(int32((Clamp(localQ.x - r, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
     int32 maxCellX =
-        Min(int32((Clamp(localQ.x + radius, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
+        Min(int32((Clamp(localQ.x + r, localBounds.min.x, localBounds.max.x) - offset.x) / cellSizeX), GetCellCountX() - 1);
     int32 minCellZ =
-        Min(int32((Clamp(localQ.z - radius, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
+        Min(int32((Clamp(localQ.z - r, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
     int32 maxCellZ =
-        Min(int32((Clamp(localQ.z + radius, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
+        Min(int32((Clamp(localQ.z + r, localBounds.min.z, localBounds.max.z) - offset.z) / cellSizeZ), GetCellCountZ() - 1);
 
     for (int32 bz = minCellZ / blockSize; bz <= maxCellZ / blockSize; ++bz)
     {
