@@ -585,6 +585,13 @@ void Body::SetType(Body::Type newType)
             targetSet = awakeA || awakeB ? awake_set : sleeping_set;
         }
 
+        if (targetSet == awake_set)
+        {
+            // An awake joint must not connect to a sleeping island.
+            if (bodyA->IsSleeping()) world->WakeIsland(bodyA);
+            if (bodyB->IsSleeping()) world->WakeIsland(bodyB);
+        }
+
         world->TransferJoint(joint, targetSet);
     }
 
@@ -648,6 +655,13 @@ void Body::SetEnabled(bool enabled)
                     bool awakeA = bodyA->IsStatic() == false && bodyA->IsSleeping() == false;
                     bool awakeB = bodyB->IsStatic() == false && bodyB->IsSleeping() == false;
                     targetSet = awakeA || awakeB ? awake_set : sleeping_set;
+                }
+
+                if (targetSet == awake_set)
+                {
+                    // Re-enabling this body can reconnect a sleeping island.
+                    if (bodyA->IsSleeping()) world->WakeIsland(bodyA);
+                    if (bodyB->IsSleeping()) world->WakeIsland(bodyB);
                 }
 
                 world->TransferJoint(joint, targetSet);
@@ -719,7 +733,7 @@ void Body::SetTangentVelocity(const Vec3& tangentVelocity) const
     }
 }
 
-void Body::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, bool awake)
+void Body::ApplyLinearImpulse(const Vec3& point, const Vec3& impulse, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -735,11 +749,11 @@ void Body::ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, boo
     {
         BodyState* s = GetBodyState();
         s->linearVelocity += impulse * s->invMass;
-        s->angularVelocity += GetWorldInverseInertiaTensor() * Cross(impulsePoint - s->motion.c, impulse);
+        s->angularVelocity += GetWorldInverseInertiaTensor() * Cross(point - s->motion.c, impulse);
     }
 }
 
-void Body::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, bool awake)
+void Body::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& localImpulse, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -754,8 +768,8 @@ void Body::ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, 
     if (IsSleeping() == false)
     {
         BodyState* s = GetBodyState();
-        s->linearVelocity += impulse * s->invMass;
-        s->angularVelocity += GetWorldInverseInertiaTensor() * Cross(localPoint - s->motion.localCenter, impulse);
+        s->linearVelocity += s->motion.q.Rotate(localImpulse) * s->invMass;
+        s->angularVelocity += s->motion.q.Rotate(s->invInertia * Cross(localPoint - s->motion.localCenter, localImpulse));
     }
 }
 

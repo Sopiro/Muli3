@@ -73,12 +73,12 @@ public:
     void SetAngularVelocity(const Vec3& angularVelocity);
     void SetAngularVelocity(float vx, float vy, float vz);
 
-    void ApplyForce(const Vec3& worldPoint, const Vec3& force, bool awake);
-    void ApplyForceLocal(const Vec3& localPoint, const Vec3& force, bool awake);
+    void ApplyForce(const Vec3& point, const Vec3& force, bool awake);
+    void ApplyForceLocal(const Vec3& localPoint, const Vec3& localForce, bool awake);
     void ApplyTorque(const Vec3& torque, bool awake);
 
-    void ApplyLinearImpulse(const Vec3& impulsePoint, const Vec3& impulse, bool awake);
-    void ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& impulse, bool awake);
+    void ApplyLinearImpulse(const Vec3& point, const Vec3& impulse, bool awake);
+    void ApplyLinearImpulseLocal(const Vec3& localPoint, const Vec3& localImpulse, bool awake);
     void ApplyAngularImpulse(const Vec3& impulse, bool awake);
 
     void Translate(const Vec3& delta);
@@ -437,7 +437,7 @@ inline void Body::SetAngularVelocity(float vx, float vy, float vz)
     GetBodyState()->angularVelocity = Vec3{ vx, vy, vz };
 }
 
-inline void Body::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, bool awake)
+inline void Body::ApplyForce(const Vec3& point, const Vec3& inForce, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -453,11 +453,11 @@ inline void Body::ApplyForce(const Vec3& worldPoint, const Vec3& inForce, bool a
     {
         BodyState* s = GetBodyState();
         s->force += inForce;
-        s->torque += Cross(worldPoint - s->motion.c, inForce);
+        s->torque += Cross(point - s->motion.c, inForce);
     }
 }
 
-inline void Body::ApplyForceLocal(const Vec3& localPoint, const Vec3& inForce, bool awake)
+inline void Body::ApplyForceLocal(const Vec3& localPoint, const Vec3& localForce, bool awake)
 {
     if (type != dynamic_body)
     {
@@ -472,8 +472,8 @@ inline void Body::ApplyForceLocal(const Vec3& localPoint, const Vec3& inForce, b
     if (IsSleeping() == false)
     {
         BodyState* s = GetBodyState();
-        s->force += inForce;
-        s->torque += Cross(localPoint - s->motion.localCenter, inForce);
+        s->force += s->motion.q.Rotate(localForce);
+        s->torque += s->motion.q.Rotate(Cross(localPoint - s->motion.localCenter, localForce));
     }
 }
 
