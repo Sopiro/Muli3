@@ -24,8 +24,13 @@ ThreadPool::~ThreadPool()
         return;
     }
 
-    shutdown.store(true, std::memory_order_release);
-    current_job.fetch_add(1, std::memory_order_release);
+    {
+        std::lock_guard<SpinLock> lock(job_lock);
+
+        shutdown.store(true, std::memory_order_release);
+        current_job.fetch_add(1, std::memory_order_release);
+    }
+
     job_list_condition.notify_all();
 
     for (std::thread& thread : threads)
@@ -89,13 +94,13 @@ bool ThreadPool::TryRunJob(int32 worker_index)
         {
             RemoveJob(job);
             job->completed.store(true, std::memory_order_release);
+            current_job.fetch_add(1, std::memory_order_release);
             completed = true;
         }
     }
 
     if (completed)
     {
-        current_job.fetch_add(1, std::memory_order_release);
         job_list_condition.notify_all();
     }
 
@@ -134,15 +139,9 @@ bool ThreadPool::WorkOrReturn(int32 worker_index)
     return TryRunJob(worker_index);
 }
 
-bool ThreadPool::SetSpinMode(bool enable)
+bool ThreadPool::SetSpinMode(bool enabled)
 {
-    bool old_spin_mode = spin_mode.exchange(enable, std::memory_order_acq_rel);
-
-    // Wake sleeping workers and release spinning workers when the mode changes.
-    current_job.fetch_add(1, std::memory_order_release);
-    job_list_condition.notify_all();
-
-    return old_spin_mode;
+    return spin_mode.exchange(enabled, std::memory_order_relaxed);
 }
 
 void ThreadPool::AddJob(ParallelJob* job)
@@ -168,10 +167,10 @@ void ThreadPool::AddJob(ParallelJob* job)
         }
 
         job_list_tail = job;
+        current_job.fetch_add(1, std::memory_order_release);
     }
 
-    // Wake sleeping workers or release spinning workers waiting for the next job.
-    current_job.fetch_add(1, std::memory_order_release);
+    // Wake sleeping workers after publishing the predicate under the wait lock.
     job_list_condition.notify_all();
 }
 
