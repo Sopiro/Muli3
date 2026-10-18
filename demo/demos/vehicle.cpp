@@ -7,6 +7,8 @@
 namespace muli3
 {
 
+static const char* vehicleWheelTypes[] = { "Sphere", "Cylinder" };
+static int32 vehicleWheelType = 0;
 static float vehicleSuspensionFrequency = 3.5f;
 static float vehicleSuspensionDampingRatio = 0.7f;
 static float vehicleSuspensionRange = 0.4f;
@@ -83,11 +85,16 @@ public:
             // Cylinders are created along local Y. Rotate the wheel axis to world X to match axis B.
             Quat wheelRotation{ -0.5f * pi, z_axis };
 
-            // wheel.body = world->CreateSphere(0.4f, Transform{ wheelCenter }, Body::dynamic_body, 2.0f);
-
-            wheel.body = world->CreateCylinder(
-                0.3f, 0.4f, 0.4f, 24, Transform{ wheelCenter, wheelRotation }, Body::dynamic_body, 0.01f, 2.0f
-            );
+            if (vehicleWheelType == 0)
+            {
+                wheel.body = world->CreateSphere(0.4f, Transform{ wheelCenter }, Body::dynamic_body, 2.0f);
+            }
+            else
+            {
+                wheel.body = world->CreateCylinder(
+                    0.3f, 0.4f, 0.4f, 24, Transform{ wheelCenter, wheelRotation }, Body::dynamic_body, 0.01f, 2.0f
+                );
+            }
 
             wheel.body->SetCollisionFilter(filter);
             wheel.body->SetFriction(2.0f);
@@ -271,9 +278,9 @@ public:
         if (ImGui::Begin("Vehicle", nullptr, ImGuiWindowFlags_AlwaysAutoResize))
         {
             Vec3 forward = chassis->GetRotation().Rotate(-z_axis);
-            float speed = Dot(chassis->GetLinearVelocity(), forward);
+            float speed = Dot(chassis->GetLinearVelocity(), forward) * 3.6f;
 
-            ImGui::Text("Speed: %.2f m/s", speed);
+            ImGui::Text("Speed: %.2f km/h", speed);
             ImGui::Text("W/S: throttle");
             ImGui::Text("A/D: steering");
             ImGui::Text("RMB: orbit camera");
@@ -281,6 +288,11 @@ public:
             ImGui::Checkbox("Chase camera", &vehicleChaseCamera);
 
             ImGui::Separator();
+            if (ImGui::Combo("Wheel type", &vehicleWheelType, vehicleWheelTypes, IM_ARRAYSIZE(vehicleWheelTypes)))
+            {
+                game.RestartDemo();
+            }
+
             ImGui::SliderFloat("Suspension range", &vehicleSuspensionRange, 0.0, 1.0f, "%.2f m");
             ImGui::SliderFloat("Suspension frequency", &vehicleSuspensionFrequency, 0.5f, 15.0f, "%.2f");
             ImGui::SliderFloat("Suspension damping", &vehicleSuspensionDampingRatio, 0.0f, 2.0f, "%.2f");
