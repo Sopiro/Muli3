@@ -251,13 +251,14 @@ void Demo::EnableCameraControl()
     Window* window = Window::Get();
     bool cursorHidden = window->GetCursorHidden();
 
-    if (!cursorHidden && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
+    if (!cursorHidden && !ImGui::GetIO().WantCaptureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT) &&
+        Input::IsMouseDown(GLFW_MOUSE_BUTTON_RIGHT))
     {
         window->SetCursorHidden(true);
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
         cursorHidden = true;
     }
-    else if (cursorHidden && Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT))
+    else if (cursorHidden && !Input::IsMouseDown(GLFW_MOUSE_BUTTON_RIGHT))
     {
         window->SetCursorHidden(false);
         ImGui::GetIO().ConfigFlags &= ~ImGuiConfigFlags_NoMouse;

@@ -62,6 +62,10 @@ Window::Window(int32 width, int32 height, const char* title)
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(handle, false);
     ImGui_ImplOpenGL3_Init("#version 450");
+
+    double x = 0.0, y = 0.0;
+    glfwGetCursorPos(handle, &x, &y);
+    Input::Reset(x, y);
 }
 
 Window::~Window()
@@ -85,6 +89,7 @@ void Window::SetFramebufferSizeChangeCallback(std::function<void(int32, int32)> 
 void Window::BeginFrame() const
 {
     glfwPollEvents();
+    Input::BeginFrame();
 
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -98,11 +103,15 @@ void Window::EndFrame() const
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     glfwSwapBuffers(handle);
-    Input::Update();
 }
 
 void Window::SetCursorHidden(bool hidden)
 {
+    if (GetCursorHidden() == hidden)
+    {
+        return;
+    }
+
     if (hidden)
     {
         glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -110,7 +119,7 @@ void Window::SetCursorHidden(bool hidden)
     else
     {
         glfwSetInputMode(handle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        glfwSetCursorPos(handle, windowSize.x * 0.5f, windowSize.y * 0.5f);
+        // glfwSetCursorPos(handle, windowSize.x * 0.5f, windowSize.y * 0.5f);
     }
 
     if (glfwRawMouseMotionSupported())
@@ -121,9 +130,7 @@ void Window::SetCursorHidden(bool hidden)
     double x = 0.0;
     double y = 0.0;
     glfwGetCursorPos(handle, &x, &y);
-    Input::currentMousePosition = Vec2{ (float)x, (float)y };
-    Input::previousMousePosition = Input::currentMousePosition;
-    Input::mouseDelta.SetZero();
+    Input::ResetMousePosition(x, y);
 }
 
 void Window::ErrorCallback(int error, const char* description)
@@ -151,20 +158,7 @@ void Window::OnFramebufferSize(GLFWwindow* window, int width, int height)
 void Window::OnKey(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
-
-    if (key < 0 || key > GLFW_KEY_LAST)
-    {
-        return;
-    }
-
-    if (action == GLFW_PRESS)
-    {
-        Input::currentKeys[key] = true;
-    }
-    else if (action == GLFW_RELEASE)
-    {
-        Input::currentKeys[key] = false;
-    }
+    Input::OnKey(key, action);
 }
 
 void Window::OnChar(GLFWwindow* window, unsigned int c)
@@ -175,33 +169,19 @@ void Window::OnChar(GLFWwindow* window, unsigned int c)
 void Window::OnMouseButton(GLFWwindow* window, int button, int action, int mods)
 {
     ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
-
-    if (button < 0 || button > GLFW_MOUSE_BUTTON_LAST)
-    {
-        return;
-    }
-
-    if (action == GLFW_PRESS)
-    {
-        Input::currentButtons[button] = true;
-    }
-    else if (action == GLFW_RELEASE)
-    {
-        Input::currentButtons[button] = false;
-    }
+    Input::OnMouseButton(button, action);
 }
 
 void Window::OnCursorPosition(GLFWwindow* window, double x, double y)
 {
     ImGui_ImplGlfw_CursorPosCallback(window, x, y);
-    Input::currentMousePosition = Vec2{ (float)x, (float)y };
+    Input::OnCursorPosition(x, y);
 }
 
 void Window::OnScroll(GLFWwindow* window, double x, double y)
 {
     ImGui_ImplGlfw_ScrollCallback(window, x, y);
-    Input::mouseScroll.x += (float)x;
-    Input::mouseScroll.y += (float)y;
+    Input::OnScroll(x, y);
 }
 
 } // namespace muli3
