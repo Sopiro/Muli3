@@ -33,7 +33,7 @@ public:
         terrainNoise.frequency = 0.025f;
         terrainNoise.amplitude = 4.0f;
         terrainNoise.octaves = 4;
-        terrainNoise.lacunarity = 2.0f;
+        terrainNoise.lacunarity = 1.0f;
         terrainNoise.gain = 0.5f;
         terrainNoise.seed = 1234;
 
@@ -63,7 +63,9 @@ public:
             Vec3{ 0.95f, -0.45f, -2.0f },  Vec3{ 0.95f, -0.05f, -2.0f },  Vec3{ 0.95f, 0.6f, -0.75f },
             Vec3{ 0.95f, 0.6f, 1.3f },     Vec3{ 0.95f, 0.05f, 2.0f },    Vec3{ 0.95f, -0.45f, 2.0f },
         };
-        chassis = world->CreateConvex(chassisVertices, Transform{ chassisPosition }, Body::dynamic_body, default_radius, 0.63f);
+        chassis = world->CreateConvex(
+            chassisVertices, Transform{ chassisPosition, Quat{ pi, y_axis } }, Body::dynamic_body, default_radius, 0.63f
+        );
         chassis->SetCollisionFilter(filter);
 
         // Keep the chassis upright while leaving yaw free.
@@ -83,7 +85,7 @@ public:
             Vec3 wheelCenter = Mul(chassis->GetTransform(), wheelAnchors[i]);
 
             // Cylinders are created along local Y. Rotate the wheel axis to world X to match axis B.
-            Quat wheelRotation{ -0.5f * pi, z_axis };
+            Quat wheelRotation = chassis->GetRotation() * Quat{ -0.5f * pi, z_axis };
 
             if (vehicleWheelType == 0)
             {
@@ -114,7 +116,8 @@ public:
             );
 
             // Axis A is chassis steering and axis B is wheel spin.
-            wheel.angular = world->CreateUniversalAngleJoint(chassis, wheel.body, y_axis, x_axis, -1.0f, 1.0f);
+            wheel.angular =
+                world->CreateUniversalAngleJoint(chassis, wheel.body, y_axis, chassis->GetRotation().Rotate(x_axis), -1.0f, 1.0f);
 
             wheel.steering = i < 2;
             wheel.driven = i >= 2;
@@ -140,8 +143,8 @@ public:
             wheel.angular->SetMaxSpinTorque(vehicleDriveTorque);
         }
 
-        camera.SetPosition(chassisPosition + Vec3{ 0.0f, 4.0f, 8.0f });
-        camera.SetRotation(0.0f, -18.0f);
+        camera.SetPosition(chassisPosition + Vec3{ 0.0f, 4.0f, -8.0f });
+        camera.SetRotation(180.0f, -18.0f);
     }
 
     void UpdateInput() override
@@ -154,13 +157,14 @@ public:
         Window* window = Window::Get();
         bool captureMouse = ImGui::GetIO().WantCaptureMouse;
 
-        if (vehicleChaseCamera && !cameraOrbiting && !captureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT))
+        if (vehicleChaseCamera && !cameraOrbiting && !captureMouse && Input::IsMousePressed(GLFW_MOUSE_BUTTON_RIGHT) &&
+            Input::IsMouseDown(GLFW_MOUSE_BUTTON_RIGHT))
         {
             cameraOrbiting = true;
             window->SetCursorHidden(true);
             ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NoMouse;
         }
-        else if (cameraOrbiting && (Input::IsMouseReleased(GLFW_MOUSE_BUTTON_RIGHT) || !vehicleChaseCamera))
+        else if (cameraOrbiting && (!Input::IsMouseDown(GLFW_MOUSE_BUTTON_RIGHT) || !vehicleChaseCamera))
         {
             cameraOrbiting = false;
             window->SetCursorHidden(false);
